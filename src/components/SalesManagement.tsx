@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
+import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SaleForm } from "./SaleForm";
+import { QuoteManagement } from "./QuoteManagement";
 import { useToast } from "@/hooks/use-toast";
 
 interface Sale {
@@ -162,6 +163,7 @@ export function SalesManagement() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="new-sale">New Sale</TabsTrigger>
           <TabsTrigger value="history">Sales History</TabsTrigger>
+          <TabsTrigger value="quotes">Quotes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -334,6 +336,10 @@ export function SalesManagement() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="quotes">
+          <QuoteManagement />
         </TabsContent>
       </Tabs>
     </div>

@@ -9,17 +9,24 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package } from "lucide-react";
+import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PaymentProcessor } from "./PaymentProcessor";
+import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
-  payment_method: z.enum(["cash", "card", "digital", "bank_transfer"]),
   sale_type: z.enum(["in_store", "online"]),
   discount_amount: z.number().min(0).default(0),
   tax_amount: z.number().min(0).default(0),
+  notes: z.string().optional(),
+  valid_until: z.date().optional(),
 });
 
 interface SaleItem {
@@ -45,13 +52,15 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [selectedVariant, setSelectedVariant] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [payments, setPayments] = useState<any[]>([]);
+  const [remainingBalance, setRemainingBalance] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mode, setMode] = useState<"sale" | "quote">("sale");
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof saleSchema>>({
     resolver: zodResolver(saleSchema),
     defaultValues: {
-      payment_method: "cash",
       sale_type: "in_store",
       discount_amount: 0,
       tax_amount: 0,
@@ -157,11 +166,115 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
   };
 
+  const generateQuoteNumber = () => {
+    return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+  };
+
+  const handlePaymentsChange = (newPayments: any[], newRemainingBalance: number) => {
+    setPayments(newPayments);
+    setRemainingBalance(newRemainingBalance);
+  };
+
+  const saveAsQuote = async (values: z.infer<typeof saleSchema>) => {
+    if (saleItems.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one item to the quote",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
+      if (!tenantData) throw new Error("User not assigned to a tenant");
+
+      const quoteNumber = generateQuoteNumber();
+      const totalAmount = calculateTotal();
+
+      // Create the quote
+      const { data: quote, error: quoteError } = await supabase
+        .from("quotes")
+        .insert({
+          quote_number: quoteNumber,
+          customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
+          cashier_id: user.id,
+          tenant_id: tenantData,
+          total_amount: totalAmount,
+          discount_amount: values.discount_amount,
+          tax_amount: values.tax_amount,
+          status: "draft",
+          valid_until: values.valid_until?.toISOString(),
+          notes: values.notes,
+        })
+        .select()
+        .single();
+
+      if (quoteError) throw quoteError;
+
+      // Create quote items
+      const quoteItemsData = saleItems.map(item => ({
+        quote_id: quote.id,
+        product_id: item.product_id,
+        variant_id: item.variant_id !== "no-variant" ? item.variant_id : null,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("quote_items")
+        .insert(quoteItemsData);
+
+      if (itemsError) throw itemsError;
+
+      toast({
+        title: "Quote Created",
+        description: `Quote #${quoteNumber} created successfully`,
+      });
+
+      // Reset form
+      form.reset();
+      setSaleItems([]);
+      setSearchTerm("");
+      setSelectedProduct("");
+      setSelectedVariant("");
+      onSaleCompleted?.();
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create quote",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof saleSchema>) => {
+    if (mode === "quote") {
+      return saveAsQuote(values);
+    }
+
     if (saleItems.length === 0) {
       toast({
         title: "Error",
         description: "Please add at least one item to the sale",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (remainingBalance > 0) {
+      toast({
+        title: "Payment Required",
+        description: "Please complete payment before finalizing sale",
         variant: "destructive",
       });
       return;
@@ -187,7 +300,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         .insert({
           cashier_id: user.id,
           customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
-          payment_method: values.payment_method,
+          payment_method: payments.length > 1 ? "multiple" : payments[0]?.method || "cash",
           receipt_number: receiptNumber,
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
@@ -214,6 +327,23 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         .insert(saleItemsData);
 
       if (itemsError) throw itemsError;
+
+      // Create payment records
+      const paymentData = payments.map(payment => ({
+        sale_id: sale.id,
+        payment_method: payment.method,
+        amount: payment.amount,
+        reference_number: payment.reference || null,
+        tenant_id: tenantData,
+      }));
+
+      if (paymentData.length > 0) {
+        const { error: paymentsError } = await supabase
+          .from("payments")
+          .insert(paymentData);
+
+        if (paymentsError) throw paymentsError;
+      }
 
       // Update product stock quantities
       for (const item of saleItems) {
@@ -262,9 +392,12 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       // Reset form
       form.reset();
       setSaleItems([]);
+      setPayments([]);
+      setRemainingBalance(0);
       setSearchTerm("");
       setSelectedProduct("");
       setSelectedVariant("");
+      setMode("sale");
       onSaleCompleted?.();
 
     } catch (error: any) {
@@ -482,38 +615,68 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="payment_method"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      <CreditCard className="h-4 w-4 mr-1 inline" />
-                      Payment Method
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="cash">
-                          <Banknote className="h-4 w-4 mr-2 inline" />
-                          Cash
-                        </SelectItem>
-                        <SelectItem value="card">
-                          <CreditCard className="h-4 w-4 mr-2 inline" />
-                          Card
-                        </SelectItem>
-                        <SelectItem value="digital">Digital Wallet</SelectItem>
-                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Quote Fields */}
+              {mode === "quote" && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Add notes for this quote..."
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="valid_until"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Valid Until</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
@@ -624,13 +787,36 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={saleItems.length === 0 || isSubmitting}
-              >
-                {isSubmitting ? "Processing..." : "Complete Sale"}
-              </Button>
+              {/* Payment Processing - Only for sales */}
+              {mode === "sale" && saleItems.length > 0 && (
+                <PaymentProcessor 
+                  totalAmount={calculateTotal()}
+                  onPaymentsChange={handlePaymentsChange}
+                  isProcessing={isSubmitting}
+                />
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button 
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMode(mode === "sale" ? "quote" : "sale")}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {mode === "sale" ? "Switch to Quote" : "Switch to Sale"}
+                </Button>
+                
+                <Button 
+                  type="submit" 
+                  className="flex-1" 
+                  disabled={saleItems.length === 0 || isSubmitting || (mode === "sale" && remainingBalance > 0)}
+                >
+                  {isSubmitting ? "Processing..." : mode === "sale" ? "Complete Sale" : "Save Quote"}
+                </Button>
+              </div>
             </form>
           </Form>
         </CardContent>
