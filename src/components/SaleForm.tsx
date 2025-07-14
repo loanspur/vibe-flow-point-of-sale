@@ -90,7 +90,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     let unitPrice = product.price;
     let productName = product.name;
 
-    if (selectedVariant) {
+    if (selectedVariant && selectedVariant !== "no-variant") {
       variant = product.product_variants.find((v: any) => v.id === selectedVariant);
       if (variant) {
         unitPrice = product.price + (variant.price_adjustment || 0);
@@ -103,7 +103,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     const newItem: SaleItem = {
       product_id: selectedProduct,
       product_name: productName,
-      variant_id: selectedVariant || undefined,
+      variant_id: selectedVariant !== "no-variant" ? selectedVariant : undefined,
       variant_name: variant?.name,
       quantity,
       unit_price: unitPrice,
@@ -160,7 +160,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         .from("sales")
         .insert({
           cashier_id: user.id,
-          customer_id: values.customer_id || null,
+          customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
           payment_method: values.payment_method,
           receipt_number: receiptNumber,
           total_amount: totalAmount,
@@ -190,7 +190,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
       // Update product stock quantities
       for (const item of saleItems) {
-        if (item.variant_id) {
+        if (item.variant_id && item.variant_id !== "no-variant") {
           // Get current variant stock and update
           const { data: variant, error: fetchError } = await supabase
             .from('product_variants')
@@ -285,7 +285,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                   <SelectValue placeholder="Select variant (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No variant</SelectItem>
+                  <SelectItem value="no-variant">No variant</SelectItem>
                   {selectedProductData.product_variants.map((variant: any) => (
                     <SelectItem key={variant.id} value={variant.id}>
                       {variant.name}: {variant.value} 
@@ -368,7 +368,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Walk-in Customer</SelectItem>
+                        <SelectItem value="walk-in">Walk-in Customer</SelectItem>
                         {customers.map((customer) => (
                           <SelectItem key={customer.id} value={customer.id}>
                             {customer.name}
