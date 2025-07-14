@@ -8,7 +8,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import POSDashboard from "./pages/POSDashboard";
 import TenantManagement from "./pages/TenantManagement";
-import TenantSignup from "./components/TenantSignup";
+import TrialSignup from "./pages/TrialSignup";
+import Success from "./pages/Success";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,7 +24,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/signup" element={<TenantSignup />} />
+            <Route path="/signup" element={<TrialSignup />} />
+            <Route path="/success" element={<Success />} />
             <Route path="/dashboard" element={<POSDashboard />} />
             <Route path="/tenants" element={<TenantManagement />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
