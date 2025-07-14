@@ -4,12 +4,13 @@ import TenantAdminDashboard from "@/pages/TenantAdminDashboard";
 import ComprehensivePOS from "@/pages/ComprehensivePOS";
 
 export default function DashboardRouter() {
-  const { viewMode, userRole, loading } = useAuth();
+  const { viewMode, userRole, loading, user } = useAuth();
 
   // Debug logging to help troubleshoot
-  console.log('DashboardRouter - userRole:', userRole, 'viewMode:', viewMode);
+  console.log('DashboardRouter - userRole:', userRole, 'viewMode:', viewMode, 'user:', !!user);
 
-  if (loading) {
+  // Show loading while auth is initializing or user info is being fetched
+  if (loading || (user && userRole === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

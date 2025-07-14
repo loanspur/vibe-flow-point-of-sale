@@ -41,25 +41,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserInfo = async (userId: string) => {
     try {
       // Get user role from profiles
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id')
         .eq('user_id', userId)
         .single();
 
+      if (error) {
+        console.error('Error fetching profile:', error);
+        // Set default values if profile doesn't exist
+        setUserRole('user');
+        setTenantId(null);
+        setViewMode('tenant');
+        return;
+      }
+
       if (profile) {
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
         
-        // Auto-set view mode based on role
-        if (profile.role === 'superadmin') {
+        // Only auto-set view mode for new sessions, not when switching
+        if (profile.role === 'superadmin' && viewMode === 'tenant') {
+          // Keep current view mode when switching, don't auto-change
+        } else if (profile.role === 'superadmin') {
           setViewMode('superadmin');
         } else {
           setViewMode('tenant');
         }
+      } else {
+        // Fallback if no profile found
+        setUserRole('user');
+        setTenantId(null);
+        setViewMode('tenant');
       }
     } catch (error) {
       console.error('Error fetching user info:', error);
+      // Set default values on error
+      setUserRole('user');
+      setTenantId(null);
+      setViewMode('tenant');
     }
   };
 
