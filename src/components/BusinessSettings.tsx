@@ -517,12 +517,24 @@ export function BusinessSettings() {
 
         if (error) throw error;
       } else {
+        const insertData: any = {
+          name: data.name,
+          address_line_1: data.address_line_1,
+          address_line_2: data.address_line_2,
+          city: data.city,
+          state_province: data.state_province,
+          postal_code: data.postal_code,
+          country: data.country,
+          phone: data.phone,
+          email: data.email || null,
+          manager_name: data.manager_name,
+          is_primary: data.is_primary,
+          tenant_id: tenantData,
+        };
+
         const { error } = await supabase
           .from("store_locations")
-          .insert({
-            ...data,
-            tenant_id: tenantData,
-          });
+          .insert(insertData);
 
         if (error) throw error;
       }
