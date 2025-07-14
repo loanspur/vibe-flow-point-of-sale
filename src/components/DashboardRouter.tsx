@@ -5,6 +5,9 @@ import ComprehensivePOS from "@/pages/ComprehensivePOS";
 export default function DashboardRouter() {
   const { viewMode, userRole, loading } = useAuth();
 
+  // Debug logging to help troubleshoot
+  console.log('DashboardRouter - userRole:', userRole, 'viewMode:', viewMode);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
