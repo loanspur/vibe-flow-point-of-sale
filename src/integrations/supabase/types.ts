@@ -1098,6 +1098,151 @@ export type Database = {
           },
         ]
       }
+      promotion_usage: {
+        Row: {
+          customer_id: string | null
+          discount_amount: number
+          id: string
+          promotion_id: string
+          quantity_affected: number | null
+          sale_id: string | null
+          tenant_id: string
+          used_at: string
+        }
+        Insert: {
+          customer_id?: string | null
+          discount_amount: number
+          id?: string
+          promotion_id: string
+          quantity_affected?: number | null
+          sale_id?: string | null
+          tenant_id: string
+          used_at?: string
+        }
+        Update: {
+          customer_id?: string | null
+          discount_amount?: number
+          id?: string
+          promotion_id?: string
+          quantity_affected?: number | null
+          sale_id?: string | null
+          tenant_id?: string
+          used_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_usage_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_usage_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_usage_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotions: {
+        Row: {
+          applies_to: string
+          buy_quantity: number | null
+          category_ids: Json | null
+          created_at: string
+          created_by: string
+          current_usage_count: number | null
+          customer_type: string | null
+          days_of_week: Json | null
+          description: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          end_date: string | null
+          get_quantity: number | null
+          id: string
+          max_quantity: number | null
+          max_usage_count: number | null
+          min_purchase_amount: number | null
+          min_quantity: number | null
+          name: string
+          product_ids: Json | null
+          start_date: string
+          status: string
+          tenant_id: string
+          time_end: string | null
+          time_start: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          applies_to?: string
+          buy_quantity?: number | null
+          category_ids?: Json | null
+          created_at?: string
+          created_by: string
+          current_usage_count?: number | null
+          customer_type?: string | null
+          days_of_week?: Json | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          end_date?: string | null
+          get_quantity?: number | null
+          id?: string
+          max_quantity?: number | null
+          max_usage_count?: number | null
+          min_purchase_amount?: number | null
+          min_quantity?: number | null
+          name: string
+          product_ids?: Json | null
+          start_date: string
+          status?: string
+          tenant_id: string
+          time_end?: string | null
+          time_start?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: string
+          buy_quantity?: number | null
+          category_ids?: Json | null
+          created_at?: string
+          created_by?: string
+          current_usage_count?: number | null
+          customer_type?: string | null
+          days_of_week?: Json | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          end_date?: string | null
+          get_quantity?: number | null
+          id?: string
+          max_quantity?: number | null
+          max_usage_count?: number | null
+          min_purchase_amount?: number | null
+          min_quantity?: number | null
+          name?: string
+          product_ids?: Json | null
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          time_end?: string | null
+          time_start?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       purchase_items: {
         Row: {
           created_at: string
@@ -1746,6 +1891,18 @@ export type Database = {
           profit_loss: number
         }[]
       }
+      calculate_promotion_discount: {
+        Args: {
+          promotion_id_param: string
+          item_price_param: number
+          item_quantity_param?: number
+          total_amount_param?: number
+        }
+        Returns: {
+          discount_amount: number
+          affected_quantity: number
+        }[]
+      }
       calculate_purchase_total: {
         Args: { purchase_id_param: string }
         Returns: number
@@ -1769,6 +1926,15 @@ export type Database = {
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      is_promotion_valid: {
+        Args: {
+          promotion_id_param: string
+          current_time_param?: string
+          purchase_amount_param?: number
+          customer_type_param?: string
+        }
+        Returns: boolean
       }
       is_tenant_admin: {
         Args: Record<PropertyKey, never>
