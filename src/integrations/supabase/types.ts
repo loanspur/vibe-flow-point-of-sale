@@ -14,6 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_settings: {
+        Row: {
+          address_line_1: string | null
+          address_line_2: string | null
+          business_hours: Json | null
+          business_registration_number: string | null
+          city: string | null
+          company_logo_url: string | null
+          company_name: string | null
+          country: string | null
+          created_at: string
+          currency_code: string | null
+          currency_symbol: string | null
+          daily_reports: boolean | null
+          date_format: string | null
+          default_tax_rate: number | null
+          email: string | null
+          email_notifications: boolean | null
+          enable_gift_cards: boolean | null
+          enable_loyalty_program: boolean | null
+          enable_online_orders: boolean | null
+          id: string
+          low_stock_alerts: boolean | null
+          password_expiry_days: number | null
+          phone: string | null
+          postal_code: string | null
+          print_customer_copy: boolean | null
+          print_merchant_copy: boolean | null
+          receipt_footer: string | null
+          receipt_header: string | null
+          receipt_logo_url: string | null
+          require_password_change: boolean | null
+          session_timeout_minutes: number | null
+          state_province: string | null
+          tax_identification_number: string | null
+          tax_inclusive: boolean | null
+          tax_name: string | null
+          tenant_id: string
+          timezone: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          business_hours?: Json | null
+          business_registration_number?: string | null
+          city?: string | null
+          company_logo_url?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string
+          currency_code?: string | null
+          currency_symbol?: string | null
+          daily_reports?: boolean | null
+          date_format?: string | null
+          default_tax_rate?: number | null
+          email?: string | null
+          email_notifications?: boolean | null
+          enable_gift_cards?: boolean | null
+          enable_loyalty_program?: boolean | null
+          enable_online_orders?: boolean | null
+          id?: string
+          low_stock_alerts?: boolean | null
+          password_expiry_days?: number | null
+          phone?: string | null
+          postal_code?: string | null
+          print_customer_copy?: boolean | null
+          print_merchant_copy?: boolean | null
+          receipt_footer?: string | null
+          receipt_header?: string | null
+          receipt_logo_url?: string | null
+          require_password_change?: boolean | null
+          session_timeout_minutes?: number | null
+          state_province?: string | null
+          tax_identification_number?: string | null
+          tax_inclusive?: boolean | null
+          tax_name?: string | null
+          tenant_id: string
+          timezone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          business_hours?: Json | null
+          business_registration_number?: string | null
+          city?: string | null
+          company_logo_url?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string
+          currency_code?: string | null
+          currency_symbol?: string | null
+          daily_reports?: boolean | null
+          date_format?: string | null
+          default_tax_rate?: number | null
+          email?: string | null
+          email_notifications?: boolean | null
+          enable_gift_cards?: boolean | null
+          enable_loyalty_program?: boolean | null
+          enable_online_orders?: boolean | null
+          id?: string
+          low_stock_alerts?: boolean | null
+          password_expiry_days?: number | null
+          phone?: string | null
+          postal_code?: string | null
+          print_customer_copy?: boolean | null
+          print_merchant_copy?: boolean | null
+          receipt_footer?: string | null
+          receipt_header?: string | null
+          receipt_logo_url?: string | null
+          require_password_change?: boolean | null
+          session_timeout_minutes?: number | null
+          state_province?: string | null
+          tax_identification_number?: string | null
+          tax_inclusive?: boolean | null
+          tax_name?: string | null
+          tenant_id?: string
+          timezone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           address: string | null
@@ -93,6 +227,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_methods: {
+        Row: {
+          created_at: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          requires_reference: boolean | null
+          tenant_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          requires_reference?: boolean | null
+          tenant_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requires_reference?: boolean | null
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -617,6 +795,71 @@ export type Database = {
           },
           {
             foreignKeyName: "sales_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_locations: {
+        Row: {
+          address_line_1: string | null
+          address_line_2: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          manager_name: string | null
+          name: string
+          phone: string | null
+          postal_code: string | null
+          state_province: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          manager_name?: string | null
+          name: string
+          phone?: string | null
+          postal_code?: string | null
+          state_province?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          manager_name?: string | null
+          name?: string
+          phone?: string | null
+          postal_code?: string | null
+          state_province?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_locations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

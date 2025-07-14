@@ -4,6 +4,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 import ProductManagement from '@/components/ProductManagement';
 import ContactManagement from '@/components/ContactManagement';
 import { SalesManagement } from '@/components/SalesManagement';
+import { BusinessSettings } from '@/components/BusinessSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +29,8 @@ import {
   Trash2,
   Eye,
   AlertCircle,
-  Building2
+  Building2,
+  Settings
 } from 'lucide-react';
 
 export default function ComprehensivePOS() {
@@ -133,7 +135,7 @@ export default function ComprehensivePOS() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-7 min-w-[700px]">
+            <TabsList className="grid w-full grid-cols-8 min-w-[800px]">
               <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
               <TabsTrigger value="products" className="text-xs sm:text-sm">Products</TabsTrigger>
               <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
@@ -141,6 +143,7 @@ export default function ComprehensivePOS() {
               <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
               <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>
               <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
             </TabsList>
           </div>
 
@@ -446,6 +449,23 @@ export default function ComprehensivePOS() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-6">
+            {tenantId ? (
+              <BusinessSettings />
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
+                  <p className="text-muted-foreground text-center">
+                    Business settings require an active tenant. Please contact your administrator.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
