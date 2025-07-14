@@ -4,7 +4,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 
 
 import { SalesManagement } from '@/components/SalesManagement';
-import { BusinessSettings } from '@/components/BusinessSettings';
+
 import AccountingModule from '@/components/AccountingModule';
 
 import PurchaseManagement from '@/components/PurchaseManagement';
@@ -141,14 +141,13 @@ export default function ComprehensivePOS() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-7 min-w-[700px]">
+            <TabsList className="grid w-full grid-cols-6 min-w-[600px]">
               <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
               <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
               <TabsTrigger value="returns" className="text-xs sm:text-sm">Returns</TabsTrigger>
               <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
               <TabsTrigger value="promotions" className="text-xs sm:text-sm">Promotions</TabsTrigger>
               <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
-              <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
             </TabsList>
           </div>
 
@@ -219,6 +218,9 @@ export default function ComprehensivePOS() {
                     </ActionButton>
                     <ActionButton icon={Users} onClick={() => window.location.href = '/admin/team'}>
                       Manage Team
+                    </ActionButton>
+                    <ActionButton icon={Settings} onClick={() => window.location.href = '/admin/settings'}>
+                      Settings
                     </ActionButton>
                   </div>
                 </CardContent>
@@ -313,22 +315,6 @@ export default function ComprehensivePOS() {
             )}
           </TabsContent>
 
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="space-y-6">
-            {tenantId ? (
-              <BusinessSettings />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
-                  <p className="text-muted-foreground text-center">
-                    Business settings require an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
         </Tabs>
       </div>
     </div>
