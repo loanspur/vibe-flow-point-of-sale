@@ -18,9 +18,11 @@ export default function DashboardRouter() {
 
   // Route based on view mode for superadmins, or role for others
   if (userRole === 'superadmin' && viewMode === 'superadmin') {
-    return <SuperAdminDashboard />;
+    console.log('Rendering SuperAdminDashboard');
+    return <SuperAdminDashboard key="superadmin-dashboard" />;
   } else {
-    // All other users (including tenant admins) get the comprehensive POS system
-    return <ComprehensivePOS />;
+    console.log('Rendering ComprehensivePOS');
+    // All other users (including superadmin in tenant view) get the comprehensive POS system
+    return <ComprehensivePOS key="comprehensive-pos" />;
   }
 }
