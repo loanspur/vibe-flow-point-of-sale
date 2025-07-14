@@ -73,10 +73,17 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
   });
 
   useEffect(() => {
-    fetchCategories();
+    if (tenantId) {
+      fetchCategories();
+    }
   }, [tenantId]);
 
   const fetchCategories = async () => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const { data, error } = await supabase

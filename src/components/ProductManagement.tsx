@@ -61,10 +61,17 @@ export default function ProductManagement() {
   const [activeTab, setActiveTab] = useState('products');
 
   useEffect(() => {
-    fetchProducts();
+    if (tenantId) {
+      fetchProducts();
+    }
   }, [tenantId]);
 
   const fetchProducts = async () => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const { data, error } = await supabase

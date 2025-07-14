@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
 import ProductManagement from '@/components/ProductManagement';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   BarChart3, 
   Users, 
@@ -23,13 +24,46 @@ import {
   Filter,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  AlertCircle,
+  Building2
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 
 export default function ComprehensivePOS() {
-  const { user } = useAuth();
+  const { user, tenantId, userRole } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Show setup warning if no tenant is configured
+  if (!tenantId && userRole !== 'superadmin') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+        <DashboardHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <Card className="max-w-md">
+              <CardHeader className="text-center">
+                <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-yellow-600" />
+                </div>
+                <CardTitle>Tenant Setup Required</CardTitle>
+                <CardDescription>
+                  Your account needs to be associated with a tenant to access the POS system.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Please contact your system administrator to assign you to a tenant.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const stats = [
     { title: "Today's Sales", value: "$2,450", change: "+15%", icon: DollarSign, color: "text-green-600" },
@@ -73,13 +107,21 @@ export default function ComprehensivePOS() {
       <DashboardHeader />
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-3xl font-bold">POS Management System</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">POS Management System</h1>
             <p className="text-muted-foreground">Complete business management solution</p>
+            {tenantId && (
+              <Badge variant="outline" className="mt-2">
+                <Building2 className="h-3 w-3 mr-1" />
+                Tenant Active
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-primary">Admin</Badge>
+            <Badge variant="outline" className="text-primary capitalize">
+              {userRole || 'User'}
+            </Badge>
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Quick Sale
@@ -88,15 +130,17 @@ export default function ComprehensivePOS() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="products">Products</TabsTrigger>
-            <TabsTrigger value="sales">Sales</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
-            <TabsTrigger value="purchases">Purchases</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="accounting">Accounting</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList className="grid w-full grid-cols-7 min-w-[700px]">
+              <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
+              <TabsTrigger value="products" className="text-xs sm:text-sm">Products</TabsTrigger>
+              <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
+              <TabsTrigger value="customers" className="text-xs sm:text-sm">Customers</TabsTrigger>
+              <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
+              <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>
+              <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
@@ -174,7 +218,19 @@ export default function ComprehensivePOS() {
 
           {/* Products Tab */}
           <TabsContent value="products" className="space-y-6">
-            <ProductManagement />
+            {tenantId ? (
+              <ProductManagement />
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
+                  <p className="text-muted-foreground text-center">
+                    Product management requires an active tenant. Please contact your administrator.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Sales Tab */}
