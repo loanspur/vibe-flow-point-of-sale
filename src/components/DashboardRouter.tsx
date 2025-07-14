@@ -1,7 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
-import TenantAdminDashboard from "@/pages/TenantAdminDashboard";
-import POSDashboard from "@/pages/POSDashboard";
+import ComprehensivePOS from "@/pages/ComprehensivePOS";
 
 export default function DashboardRouter() {
   const { viewMode, userRole, loading } = useAuth();
@@ -17,12 +16,8 @@ export default function DashboardRouter() {
   // Route based on view mode for superadmins, or role for others
   if (userRole === 'superadmin' && viewMode === 'superadmin') {
     return <SuperAdminDashboard />;
-  } else if (userRole === 'superadmin' && viewMode === 'tenant') {
-    return <TenantAdminDashboard />;
-  } else if (userRole === 'admin' || userRole === 'manager') {
-    return <TenantAdminDashboard />;
   } else {
-    // Default to POS dashboard for cashiers and regular users
-    return <POSDashboard />;
+    // All other users (including tenant admins) get the comprehensive POS system
+    return <ComprehensivePOS />;
   }
 }
