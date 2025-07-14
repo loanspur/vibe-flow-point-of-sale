@@ -26,8 +26,10 @@ import {
   Calendar,
   DollarSign,
   FileText,
-  RotateCcw
+  RotateCcw,
+  CreditCard
 } from 'lucide-react';
+import { PaymentForm } from './PaymentForm';
 
 interface Purchase {
   id: string;
@@ -56,6 +58,17 @@ interface PurchaseItem {
   unit_cost: number;
   total_cost: number;
   notes?: string;
+}
+
+interface PurchasePayment {
+  id: string;
+  purchase_id: string;
+  method: string;
+  amount: number;
+  reference?: string;
+  date: string;
+  notes?: string;
+  status: 'pending' | 'completed' | 'failed';
 }
 
 interface Product {
@@ -93,9 +106,12 @@ const PurchaseManagement = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [receivingPurchase, setReceivingPurchase] = useState<Purchase | null>(null);
+  const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
+  const [purchasePayments, setPurchasePayments] = useState<PurchasePayment[]>([]);
   const [selectedItems, setSelectedItems] = useState<any[]>([{ product_id: '', quantity: 1, unit_cost: 0 }]);
 
   // Form states
@@ -376,6 +392,41 @@ const PurchaseManagement = () => {
     setReceivingPurchase(purchase);
     await fetchPurchaseItems(purchase.id);
     setIsReceiveOpen(true);
+  };
+
+  const openPaymentDialog = async (purchase: Purchase) => {
+    setPaymentPurchase(purchase);
+    await fetchPurchasePayments(purchase.id);
+    setIsPaymentOpen(true);
+  };
+
+  const fetchPurchasePayments = async (purchaseId: string) => {
+    try {
+      // This would fetch from a purchase_payments table
+      // For now, we'll use a mock array
+      setPurchasePayments([]);
+    } catch (error) {
+      console.error('Error fetching purchase payments:', error);
+    }
+  };
+
+  const addPayment = (payment: Omit<PurchasePayment, 'id' | 'purchase_id'>) => {
+    const newPayment: PurchasePayment = {
+      id: `payment-${Date.now()}`,
+      purchase_id: paymentPurchase?.id || '',
+      ...payment
+    };
+    setPurchasePayments(prev => [...prev, newPayment]);
+  };
+
+  const removePayment = (paymentId: string) => {
+    setPurchasePayments(prev => prev.filter(p => p.id !== paymentId));
+  };
+
+  const getRemainingAmount = () => {
+    if (!paymentPurchase) return 0;
+    const totalPaid = purchasePayments.reduce((sum, payment) => sum + payment.amount, 0);
+    return Math.max(0, paymentPurchase.total_amount - totalPaid);
   };
 
   const getStatusBadge = (status: string) => {
@@ -708,6 +759,16 @@ const PurchaseManagement = () => {
                               Receive
                             </Button>
                           )}
+                          {(purchase.status === 'ordered' || purchase.status === 'received') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPaymentDialog(purchase)}
+                            >
+                              <CreditCard className="h-4 w-4 mr-1" />
+                              Payment
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -871,6 +932,34 @@ const PurchaseManagement = () => {
               <Button onClick={receivePurchase}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Receive Items
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Purchase Payments</DialogTitle>
+            <DialogDescription>
+              Record payments for purchase order {paymentPurchase?.purchase_number}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {paymentPurchase && (
+              <PaymentForm
+                totalAmount={paymentPurchase.total_amount}
+                remainingAmount={getRemainingAmount()}
+                payments={purchasePayments}
+                onAddPayment={addPayment}
+                onRemovePayment={removePayment}
+              />
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsPaymentOpen(false)}>
+                Close
               </Button>
             </div>
           </div>
