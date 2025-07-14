@@ -7,6 +7,7 @@ import { SalesManagement } from '@/components/SalesManagement';
 import { BusinessSettings } from '@/components/BusinessSettings';
 import AccountingModule from '@/components/AccountingModule';
 import UserManagement from '@/components/UserManagement';
+import PurchaseManagement from '@/components/PurchaseManagement';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -276,55 +277,19 @@ export default function ComprehensivePOS() {
 
           {/* Purchases Tab */}
           <TabsContent value="purchases" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Purchase Management</h2>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Purchase Order
-              </Button>
-            </div>
-            
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b">
-                      <tr className="text-left">
-                        <th className="p-4 font-medium">Order ID</th>
-                        <th className="p-4 font-medium">Supplier</th>
-                        <th className="p-4 font-medium">Items</th>
-                        <th className="p-4 font-medium">Amount</th>
-                        <th className="p-4 font-medium">Date</th>
-                        <th className="p-4 font-medium">Status</th>
-                        <th className="p-4 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {purchases.map((purchase) => (
-                        <tr key={purchase.id} className="border-b hover:bg-muted/50">
-                          <td className="p-4 font-medium">{purchase.id}</td>
-                          <td className="p-4">{purchase.supplier}</td>
-                          <td className="p-4">{purchase.items}</td>
-                          <td className="p-4 font-medium">{purchase.amount}</td>
-                          <td className="p-4">{purchase.date}</td>
-                          <td className="p-4">
-                            <Badge variant={purchase.status === 'received' ? "secondary" : "outline"}>
-                              {purchase.status}
-                            </Badge>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="sm"><Edit className="h-4 w-4" /></Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            {tenantId ? (
+              <PurchaseManagement />
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
+                  <p className="text-muted-foreground text-center">
+                    Purchase management requires an active tenant. Please contact your administrator.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Users Tab */}

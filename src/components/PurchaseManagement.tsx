@@ -34,12 +34,12 @@ interface Purchase {
   purchase_number: string;
   supplier_id: string;
   supplier_name?: string;
-  status: 'draft' | 'ordered' | 'received' | 'cancelled';
+  status: string;
   order_date: string;
-  expected_date: string;
-  received_date?: string;
+  expected_date: string | null;
+  received_date?: string | null;
   total_amount: number;
-  notes?: string;
+  notes?: string | null;
   created_by: string;
   tenant_id: string;
   created_at: string;
@@ -120,7 +120,7 @@ const PurchaseManagement = () => {
         .from('purchases')
         .select(`
           *,
-          supplier:contacts!purchases_supplier_id_fkey(name)
+          supplier:contacts(name)
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
@@ -180,7 +180,7 @@ const PurchaseManagement = () => {
         .from('purchase_items')
         .select(`
           *,
-          product:products!purchase_items_product_id_fkey(name, sku)
+          product:products(name, sku)
         `)
         .eq('purchase_id', purchaseId);
 
@@ -291,10 +291,20 @@ const PurchaseManagement = () => {
       // Update product stock quantities based on received quantities
       for (const item of purchaseItems) {
         if (item.quantity_received > 0) {
+          // Get current stock quantity first
+          const { data: product, error: getError } = await supabase
+            .from('products')
+            .select('stock_quantity')
+            .eq('id', item.product_id)
+            .single();
+
+          if (getError) throw getError;
+
+          // Update with new stock quantity
           const { error } = await supabase
             .from('products')
             .update({
-              stock_quantity: supabase.sql`stock_quantity + ${item.quantity_received}`
+              stock_quantity: (product.stock_quantity || 0) + item.quantity_received
             })
             .eq('id', item.product_id);
 
