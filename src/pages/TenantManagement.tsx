@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Building2, Users, Settings, Trash2, AlertCircle } from 'lucide-react';
+import CreateTenantAdminDialog from '@/components/CreateTenantAdminDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -203,7 +204,9 @@ export default function TenantManagement() {
           <p className="text-muted-foreground">Manage tenants and their configurations</p>
         </div>
         
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <div className="flex gap-2">
+          <CreateTenantAdminDialog onUserCreated={fetchTenants} />
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -277,7 +280,8 @@ export default function TenantManagement() {
               <Button onClick={createTenant}>Create Tenant</Button>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
