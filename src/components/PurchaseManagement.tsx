@@ -208,6 +208,16 @@ const PurchaseManagement = () => {
       return;
     }
 
+    // Validate all items have product selected and valid quantities
+    const invalidItems = selectedItems.filter(item => 
+      !item.product_id || item.quantity <= 0 || item.unit_cost < 0
+    );
+    
+    if (invalidItems.length > 0) {
+      toast.error('Please ensure all items have a product selected with valid quantity and cost');
+      return;
+    }
+
     try {
       const purchaseNumber = generatePurchaseNumber();
       const totalAmount = selectedItems.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
