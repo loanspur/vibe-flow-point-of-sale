@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      product_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          barcode: string | null
+          category_id: string | null
+          cost: number | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          min_stock_level: number | null
+          name: string
+          price: number
+          sku: string | null
+          stock_quantity: number | null
+          updated_at: string
+        }
+        Insert: {
+          barcode?: string | null
+          category_id?: string | null
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          min_stock_level?: number | null
+          name: string
+          price: number
+          sku?: string | null
+          stock_quantity?: number | null
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string | null
+          category_id?: string | null
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          min_stock_level?: number | null
+          name?: string
+          price?: number
+          sku?: string | null
+          stock_quantity?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_products_category"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -43,6 +159,101 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      sale_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          sale_id: string
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity: number
+          sale_id: string
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          sale_id?: string
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          cashier_id: string
+          created_at: string
+          customer_id: string | null
+          discount_amount: number | null
+          id: string
+          payment_method: string
+          receipt_number: string
+          status: string
+          tax_amount: number | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          cashier_id: string
+          created_at?: string
+          customer_id?: string | null
+          discount_amount?: number | null
+          id?: string
+          payment_method?: string
+          receipt_number: string
+          status?: string
+          tax_amount?: number | null
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          cashier_id?: string
+          created_at?: string
+          customer_id?: string | null
+          discount_amount?: number | null
+          id?: string
+          payment_method?: string
+          receipt_number?: string
+          status?: string
+          tax_amount?: number | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_notes: {
         Row: {
