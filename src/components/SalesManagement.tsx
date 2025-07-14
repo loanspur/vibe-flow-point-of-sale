@@ -5,16 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText } from "lucide-react";
+import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SaleForm } from "./SaleForm";
 import { QuoteManagement } from "./QuoteManagement";
+import { ReceiptPreview } from "./ReceiptPreview";
 import { useToast } from "@/hooks/use-toast";
 
 interface Sale {
   id: string;
   receipt_number: string;
   total_amount: number;
+  discount_amount: number;
+  tax_amount: number;
   payment_method: string;
   status: string;
   created_at: string;
@@ -22,7 +25,13 @@ interface Sale {
   cashier_id: string;
   customers?: {
     name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
   };
+  profiles?: {
+    full_name: string;
+  } | null;
 }
 
 interface SalesStats {
@@ -45,6 +54,8 @@ export function SalesManagement() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,7 +69,7 @@ export function SalesManagement() {
         .from("sales")
         .select(`
           *,
-          customers (name)
+          customers (name, email, phone, address)
         `)
         .order("created_at", { ascending: false });
 
@@ -141,6 +152,20 @@ export function SalesManagement() {
     toast({
       title: "Success",
       description: "Sale completed successfully!",
+    });
+  };
+
+  const handleViewReceipt = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowReceiptPreview(true);
+  };
+
+  const handleReprintReceipt = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowReceiptPreview(true);
+    toast({
+      title: "Receipt Reprint",
+      description: `Receipt ${sale.receipt_number} ready for reprint`,
     });
   };
 
@@ -230,8 +255,11 @@ export function SalesManagement() {
                         <p className="font-bold">{formatCurrency(sale.total_amount)}</p>
                         {getPaymentMethodBadge(sale.payment_method)}
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleViewReceipt(sale)}>
                         <Eye className="h-3 w-3" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleReprintReceipt(sale)} title="Reprint Receipt">
+                        <Printer className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
@@ -321,9 +349,14 @@ export function SalesManagement() {
                       <Badge variant={sale.status === "completed" ? "default" : "secondary"}>
                         {sale.status}
                       </Badge>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-3 w-3" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => handleViewReceipt(sale)} title="View Receipt">
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleReprintReceipt(sale)} title="Reprint Receipt">
+                          <Printer className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -342,6 +375,17 @@ export function SalesManagement() {
           <QuoteManagement />
         </TabsContent>
       </Tabs>
+
+      {/* Receipt Preview Dialog */}
+      <ReceiptPreview
+        isOpen={showReceiptPreview}
+        onClose={() => {
+          setShowReceiptPreview(false);
+          setSelectedSale(null);
+        }}
+        sale={selectedSale || undefined}
+        type="receipt"
+      />
     </div>
   );
 }
