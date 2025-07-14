@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { TenantAdminLayout } from "./components/TenantAdminLayout";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
 import TrialSignup from "./pages/TrialSignup";
@@ -63,7 +64,9 @@ const App = () => (
               path="/admin" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminDashboard />
+                  <TenantAdminLayout>
+                    <TenantAdminDashboard />
+                  </TenantAdminLayout>
                 </ProtectedRoute>
               } 
             />
@@ -71,7 +74,9 @@ const App = () => (
               path="/admin/products" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <Products />
+                  <TenantAdminLayout>
+                    <Products />
+                  </TenantAdminLayout>
                 </ProtectedRoute>
               } 
             />
@@ -79,7 +84,9 @@ const App = () => (
               path="/admin/reports" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <Reports />
+                  <TenantAdminLayout>
+                    <Reports />
+                  </TenantAdminLayout>
                 </ProtectedRoute>
               } 
             />
@@ -87,7 +94,9 @@ const App = () => (
               path="/admin/team" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <Team />
+                  <TenantAdminLayout>
+                    <Team />
+                  </TenantAdminLayout>
                 </ProtectedRoute>
               } 
             />
@@ -95,7 +104,9 @@ const App = () => (
               path="/admin/customers" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <Customers />
+                  <TenantAdminLayout>
+                    <Customers />
+                  </TenantAdminLayout>
                 </ProtectedRoute>
               } 
             />
@@ -103,7 +114,9 @@ const App = () => (
               path="/admin/settings" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <Settings />
+                  <TenantAdminLayout>
+                    <Settings />
+                  </TenantAdminLayout>
                 </ProtectedRoute>
               } 
             />

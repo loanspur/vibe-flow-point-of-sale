@@ -6,29 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import { 
   BarChart3, 
   Users, 
-  Building2, 
-  Settings, 
   DollarSign, 
   ShoppingCart,
   Package,
   TrendingUp,
-  Calendar,
-  CreditCard,
   ArrowUpRight,
-  ArrowDownRight,
-  Plus,
-  RefreshCw,
   Eye,
-  AlertTriangle,
-  Bell,
-  Search
+  AlertTriangle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
 
 export default function TenantAdminDashboard() {
-  const { user, tenantId } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useAuth();
 
   const businessStats = [
     {
@@ -83,7 +72,7 @@ export default function TenantAdminDashboard() {
       title: "Add Product", 
       description: "Expand your inventory",
       icon: Package,
-      href: "/products",
+      href: "/admin/products",
       color: "bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200",
       iconColor: "text-blue-600"
     },
@@ -91,7 +80,7 @@ export default function TenantAdminDashboard() {
       title: "View Reports",
       description: "Business analytics",
       icon: BarChart3,
-      href: "/reports",
+      href: "/admin/reports",
       color: "bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200",
       iconColor: "text-purple-600"
     },
@@ -99,25 +88,9 @@ export default function TenantAdminDashboard() {
       title: "Manage Team",
       description: "Staff & permissions",
       icon: Users,
-      href: "/team",
+      href: "/admin/team",
       color: "bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200",
       iconColor: "text-orange-600"
-    },
-    {
-      title: "Settings",
-      description: "Business configuration",
-      icon: Settings,
-      href: "/settings",
-      color: "bg-gradient-to-br from-gray-50 to-slate-50 border-gray-200",
-      iconColor: "text-gray-600"
-    },
-    {
-      title: "Customers",
-      description: "Customer management",
-      icon: Users,
-      href: "/customers",
-      color: "bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200",
-      iconColor: "text-pink-600"
     }
   ];
 
@@ -176,61 +149,19 @@ export default function TenantAdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      {/* Modern Header */}
-      <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 sticky top-0 z-40">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg">
-                  <Building2 className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold">Business Dashboard</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Welcome back, {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search anything..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-
-              {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                {alerts.length > 0 && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-                )}
-              </Button>
-
-              {/* Primary Action */}
-              <Button asChild className="shadow-lg">
-                <Link to="/pos" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  New Sale
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
+    <div className="p-6 space-y-6">
+      {/* Welcome Section */}
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Welcome back, {user?.user_metadata?.full_name || user?.email?.split('@')[0]}!
+        </h1>
+        <p className="text-muted-foreground">
+          Here's what's happening with your business today.
+        </p>
       </div>
-
-      <div className="container mx-auto px-6 py-8">
         {/* Alerts Bar */}
         {alerts.length > 0 && (
-          <div className="mb-8 space-y-2">
+          <div className="mb-6 space-y-2">
             {alerts.map((alert, index) => (
               <div key={index} className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg p-3">
                 <div className="flex items-center gap-2">
@@ -247,7 +178,7 @@ export default function TenantAdminDashboard() {
         )}
 
         {/* Enhanced Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           {businessStats.map((stat, index) => {
             const Icon = stat.icon;
             const isPositive = stat.changeType === 'positive';
@@ -288,16 +219,12 @@ export default function TenantAdminDashboard() {
         </div>
 
         {/* Quick Actions Grid */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Quick Actions</h2>
-            <Button variant="ghost" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {quickActions.map((action, index) => {
               const Icon = action.icon;
               return (
@@ -325,7 +252,7 @@ export default function TenantAdminDashboard() {
         </div>
 
         {/* Activity and Performance */}
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-6">
           {/* Recent Activity */}
           <Card className="overflow-hidden">
             <CardHeader>
@@ -416,7 +343,6 @@ export default function TenantAdminDashboard() {
             </CardContent>
           </Card>
         </div>
-      </div>
     </div>
   );
 }
