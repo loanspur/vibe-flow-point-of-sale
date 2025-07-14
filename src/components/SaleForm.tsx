@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote } from "lucide-react";
+import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
@@ -38,10 +39,12 @@ interface SaleFormProps {
 export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedVariant, setSelectedVariant] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -62,6 +65,16 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     fetchCustomers();
   }, []);
 
+  useEffect(() => {
+    // Filter products based on search term
+    const filtered = products.filter(product =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredProducts(filtered);
+  }, [products, searchTerm]);
+
   const fetchProducts = async () => {
     const { data } = await supabase
       .from("products")
@@ -71,7 +84,10 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       `)
       .eq("is_active", true);
     
-    if (data) setProducts(data);
+    if (data) {
+      setProducts(data);
+      setFilteredProducts(data);
+    }
   };
 
   const fetchCustomers = async () => {
@@ -113,7 +129,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setSaleItems([...saleItems, newItem]);
     setSelectedProduct("");
     setSelectedVariant("");
-    setQuantity(1);
+    setSearchTerm("");
   };
 
   const removeItem = (index: number) => {
@@ -122,6 +138,12 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
   const calculateSubtotal = () => {
     return saleItems.reduce((sum, item) => sum + item.total_price, 0);
+  };
+
+  const handleProductSelect = (productId: string) => {
+    setSelectedProduct(productId);
+    setSelectedVariant("");
+    setSearchTerm("");
   };
 
   const calculateTotal = () => {
@@ -240,6 +262,9 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       // Reset form
       form.reset();
       setSaleItems([]);
+      setSearchTerm("");
+      setSelectedProduct("");
+      setSelectedVariant("");
       onSaleCompleted?.();
 
     } catch (error: any) {
@@ -266,21 +291,92 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Product</label>
-            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a product" />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((product) => (
-                  <SelectItem key={product.id} value={product.id}>
-                    {product.name} - ${product.price}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products by name, SKU, or barcode..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
+
+          {/* Product Grid */}
+          {searchTerm && (
+            <div className="border rounded-lg">
+              <ScrollArea className="h-64">
+                <div className="p-2 space-y-2">
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors ${
+                          selectedProduct === product.id ? 'bg-accent border-primary' : ''
+                        }`}
+                        onClick={() => handleProductSelect(product.id)}
+                      >
+                        <div className="w-12 h-12 rounded bg-muted flex items-center justify-center overflow-hidden">
+                          {product.image_url ? (
+                            <img 
+                              src={product.image_url} 
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="h-6 w-6 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{product.name}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>${product.price}</span>
+                            {product.sku && <span>SKU: {product.sku}</span>}
+                            <Badge variant="outline" className="text-xs">
+                              Stock: {product.stock_quantity || 0}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No products found
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Selected Product Details */}
+          {selectedProduct && (
+            <div className="border rounded-lg p-4 bg-accent/20">
+              <h4 className="font-medium mb-2">Selected Product</h4>
+              {(() => {
+                const product = products.find(p => p.id === selectedProduct);
+                return product ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded bg-muted flex items-center justify-center overflow-hidden">
+                      {product.image_url ? (
+                        <img 
+                          src={product.image_url} 
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Package className="h-8 w-8 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-sm text-muted-foreground">${product.price}</p>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          )}
 
           {selectedProductData?.product_variants?.length > 0 && (
             <div>
@@ -462,27 +558,47 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
               {/* Sale Items */}
               <div className="space-y-2">
                 <h4 className="font-medium">Items ({saleItems.length})</h4>
-                {saleItems.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 border rounded">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.product_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.quantity} × ${item.unit_price.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">${item.total_price.toFixed(2)}</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                <ScrollArea className="max-h-64">
+                  <div className="space-y-2">
+                    {saleItems.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center overflow-hidden">
+                            {(() => {
+                              const product = products.find(p => p.id === item.product_id);
+                              return product?.image_url ? (
+                                <img 
+                                  src={product.image_url} 
+                                  alt={item.product_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Package className="h-5 w-5 text-muted-foreground" />
+                              );
+                            })()}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{item.product_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.quantity} × ${item.unit_price.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">${item.total_price.toFixed(2)}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeItem(index)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </ScrollArea>
               </div>
 
               <Separator />
