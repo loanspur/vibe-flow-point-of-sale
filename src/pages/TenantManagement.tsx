@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DashboardHeader from '@/components/DashboardHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -197,7 +198,10 @@ export default function TenantManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <DashboardHeader />
+      <div className="container mx-auto px-4 py-8">
+        <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tenant Management</h1>
@@ -376,6 +380,8 @@ export default function TenantManagement() {
           </div>
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   );
 }
