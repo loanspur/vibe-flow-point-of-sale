@@ -593,6 +593,7 @@ export type Database = {
           tenant_id: string | null
           type: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           address?: string | null
@@ -608,6 +609,7 @@ export type Database = {
           tenant_id?: string | null
           type: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           address?: string | null
@@ -623,6 +625,7 @@ export type Database = {
           tenant_id?: string | null
           type?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1638,12 +1641,20 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      get_user_contact_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
       is_tenant_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      link_user_to_contact: {
+        Args: { contact_id: string }
         Returns: boolean
       }
       update_product_stock: {
