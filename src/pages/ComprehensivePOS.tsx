@@ -6,7 +6,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 import { SalesManagement } from '@/components/SalesManagement';
 import { BusinessSettings } from '@/components/BusinessSettings';
 import AccountingModule from '@/components/AccountingModule';
-import UserManagement from '@/components/UserManagement';
+
 import PurchaseManagement from '@/components/PurchaseManagement';
 import PromotionManagement from '@/components/PromotionManagement';
 import ReturnManagement from '@/components/ReturnManagement';
@@ -141,13 +141,12 @@ export default function ComprehensivePOS() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-8 min-w-[800px]">
+            <TabsList className="grid w-full grid-cols-7 min-w-[700px]">
               <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
               <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
               <TabsTrigger value="returns" className="text-xs sm:text-sm">Returns</TabsTrigger>
               <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
               <TabsTrigger value="promotions" className="text-xs sm:text-sm">Promotions</TabsTrigger>
-              <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>
               <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
               <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
             </TabsList>
@@ -218,8 +217,8 @@ export default function ComprehensivePOS() {
                     <ActionButton icon={UserPlus} onClick={() => window.location.href = '/admin/customers'}>
                       Manage Contacts
                     </ActionButton>
-                    <ActionButton icon={BarChart3} onClick={() => setActiveTab('accounting')}>
-                      View Reports
+                    <ActionButton icon={Users} onClick={() => window.location.href = '/admin/team'}>
+                      Manage Team
                     </ActionButton>
                   </div>
                 </CardContent>
@@ -296,22 +295,6 @@ export default function ComprehensivePOS() {
             )}
           </TabsContent>
 
-          {/* Users Tab */}
-          <TabsContent value="users" className="space-y-6">
-            {tenantId ? (
-              <UserManagement />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
-                  <p className="text-muted-foreground text-center">
-                    User management requires an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
 
           {/* Accounting Tab */}
           <TabsContent value="accounting" className="space-y-6">
