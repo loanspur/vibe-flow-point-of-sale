@@ -35,10 +35,17 @@ import {
   Store,
   CreditCard,
   Users,
-  Calendar
+  Calendar,
+  Package,
+  ShoppingCart,
+  MessageCircle,
+  Smartphone,
+  FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
+import { timezones } from "@/lib/timezones";
 
 const businessSettingsSchema = z.object({
   company_name: z.string().optional(),
@@ -75,6 +82,55 @@ const businessSettingsSchema = z.object({
   enable_online_orders: z.boolean().default(false),
   enable_loyalty_program: z.boolean().default(false),
   enable_gift_cards: z.boolean().default(false),
+  // Enhanced fields
+  stock_accounting_method: z.string().default("FIFO"),
+  enable_combo_products: z.boolean().default(false),
+  enable_retail_pricing: z.boolean().default(true),
+  enable_wholesale_pricing: z.boolean().default(false),
+  default_markup_percentage: z.number().min(0).max(1000).default(0),
+  auto_generate_sku: z.boolean().default(true),
+  enable_barcode_scanning: z.boolean().default(true),
+  enable_negative_stock: z.boolean().default(false),
+  low_stock_threshold: z.number().min(0).default(10),
+  enable_multi_location: z.boolean().default(false),
+  pos_auto_print_receipt: z.boolean().default(true),
+  pos_ask_customer_info: z.boolean().default(false),
+  pos_enable_discounts: z.boolean().default(true),
+  pos_max_discount_percent: z.number().min(0).max(100).default(100),
+  pos_enable_tips: z.boolean().default(false),
+  pos_default_payment_method: z.string().default("cash"),
+  purchase_auto_receive: z.boolean().default(false),
+  purchase_enable_partial_receive: z.boolean().default(true),
+  purchase_default_tax_rate: z.number().min(0).max(100).default(0),
+  email_smtp_host: z.string().optional(),
+  email_smtp_port: z.number().default(587),
+  email_smtp_username: z.string().optional(),
+  email_smtp_password: z.string().optional(),
+  email_from_address: z.string().email().optional().or(z.literal("")),
+  email_from_name: z.string().optional(),
+  email_enable_ssl: z.boolean().default(true),
+  whatsapp_api_url: z.string().optional(),
+  whatsapp_api_key: z.string().optional(),
+  whatsapp_phone_number: z.string().optional(),
+  whatsapp_enable_notifications: z.boolean().default(false),
+  sms_provider: z.string().optional(),
+  sms_api_key: z.string().optional(),
+  sms_sender_id: z.string().optional(),
+  sms_enable_notifications: z.boolean().default(false),
+  invoice_template: z.string().default("standard"),
+  invoice_auto_number: z.boolean().default(true),
+  invoice_number_prefix: z.string().default("INV-"),
+  invoice_terms_conditions: z.string().optional(),
+  quote_template: z.string().default("standard"),
+  quote_auto_number: z.boolean().default(true),
+  quote_number_prefix: z.string().default("QT-"),
+  quote_validity_days: z.number().min(1).default(30),
+  delivery_note_template: z.string().default("standard"),
+  delivery_note_auto_number: z.boolean().default(true),
+  delivery_note_prefix: z.string().default("DN-"),
+  enable_user_roles: z.boolean().default(true),
+  max_login_attempts: z.number().min(1).default(3),
+  account_lockout_duration: z.number().min(1).default(15),
 });
 
 const paymentMethodSchema = z.object({
@@ -100,41 +156,7 @@ const storeLocationSchema = z.object({
 interface BusinessSettings {
   id?: string;
   tenant_id?: string;
-  company_name?: string;
-  company_logo_url?: string;
-  business_registration_number?: string;
-  tax_identification_number?: string;
-  email?: string;
-  phone?: string;
-  website?: string;
-  address_line_1?: string;
-  address_line_2?: string;
-  city?: string;
-  state_province?: string;
-  postal_code?: string;
-  country?: string;
-  currency_code: string;
-  currency_symbol: string;
-  timezone: string;
-  date_format: string;
-  default_tax_rate: number;
-  tax_name: string;
-  tax_inclusive: boolean;
-  receipt_header?: string;
-  receipt_footer?: string;
-  receipt_logo_url?: string;
-  print_customer_copy: boolean;
-  print_merchant_copy: boolean;
-  business_hours?: any;
-  email_notifications: boolean;
-  low_stock_alerts: boolean;
-  daily_reports: boolean;
-  session_timeout_minutes: number;
-  require_password_change: boolean;
-  password_expiry_days: number;
-  enable_online_orders: boolean;
-  enable_loyalty_program: boolean;
-  enable_gift_cards: boolean;
+  [key: string]: any;
 }
 
 interface PaymentMethod {
@@ -190,6 +212,7 @@ export function BusinessSettings() {
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [editingPayment, setEditingPayment] = useState<PaymentMethod | null>(null);
   const [editingLocation, setEditingLocation] = useState<StoreLocation | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof businessSettingsSchema>>({
@@ -213,6 +236,42 @@ export function BusinessSettings() {
       enable_online_orders: false,
       enable_loyalty_program: false,
       enable_gift_cards: false,
+      stock_accounting_method: "FIFO",
+      enable_combo_products: false,
+      enable_retail_pricing: true,
+      enable_wholesale_pricing: false,
+      default_markup_percentage: 0,
+      auto_generate_sku: true,
+      enable_barcode_scanning: true,
+      enable_negative_stock: false,
+      low_stock_threshold: 10,
+      enable_multi_location: false,
+      pos_auto_print_receipt: true,
+      pos_ask_customer_info: false,
+      pos_enable_discounts: true,
+      pos_max_discount_percent: 100,
+      pos_enable_tips: false,
+      pos_default_payment_method: "cash",
+      purchase_auto_receive: false,
+      purchase_enable_partial_receive: true,
+      purchase_default_tax_rate: 0,
+      email_smtp_port: 587,
+      email_enable_ssl: true,
+      whatsapp_enable_notifications: false,
+      sms_enable_notifications: false,
+      invoice_template: "standard",
+      invoice_auto_number: true,
+      invoice_number_prefix: "INV-",
+      quote_template: "standard",
+      quote_auto_number: true,
+      quote_number_prefix: "QT-",
+      quote_validity_days: 30,
+      delivery_note_template: "standard",
+      delivery_note_auto_number: true,
+      delivery_note_prefix: "DN-",
+      enable_user_roles: true,
+      max_login_attempts: 3,
+      account_lockout_duration: 15,
     },
   });
 
@@ -227,6 +286,13 @@ export function BusinessSettings() {
       is_primary: false,
     },
   });
+
+  const dateFormats = [
+    "MM/DD/YYYY",
+    "DD/MM/YYYY",
+    "YYYY-MM-DD",
+    "DD-MM-YYYY",
+  ];
 
   useEffect(() => {
     fetchBusinessSettings();
@@ -296,6 +362,42 @@ export function BusinessSettings() {
         description: "Failed to fetch store locations",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setLogoUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      form.setValue('company_logo_url', urlData.publicUrl);
+      
+      toast({
+        title: "Success",
+        description: "Logo uploaded successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLogoUploading(false);
     }
   };
 
@@ -400,7 +502,6 @@ export function BusinessSettings() {
       const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
       if (!tenantData) throw new Error("User not assigned to a tenant");
 
-      // If setting as primary, remove primary from others
       if (data.is_primary) {
         await supabase
           .from("store_locations")
@@ -419,17 +520,7 @@ export function BusinessSettings() {
         const { error } = await supabase
           .from("store_locations")
           .insert({
-            name: data.name,
-            address_line_1: data.address_line_1,
-            address_line_2: data.address_line_2,
-            city: data.city,
-            state_province: data.state_province,
-            postal_code: data.postal_code,
-            country: data.country,
-            phone: data.phone,
-            email: data.email,
-            manager_name: data.manager_name,
-            is_primary: data.is_primary,
+            ...data,
             tenant_id: tenantData,
           });
 
@@ -510,34 +601,6 @@ export function BusinessSettings() {
     }));
   };
 
-  const currencies = [
-    { code: "USD", symbol: "$", name: "US Dollar" },
-    { code: "EUR", symbol: "€", name: "Euro" },
-    { code: "GBP", symbol: "£", name: "British Pound" },
-    { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
-    { code: "AUD", symbol: "A$", name: "Australian Dollar" },
-    { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  ];
-
-  const timezones = [
-    "America/New_York",
-    "America/Chicago", 
-    "America/Denver",
-    "America/Los_Angeles",
-    "America/Toronto",
-    "Europe/London",
-    "Europe/Paris",
-    "Asia/Tokyo",
-    "Australia/Sydney",
-  ];
-
-  const dateFormats = [
-    "MM/DD/YYYY",
-    "DD/MM/YYYY",
-    "YYYY-MM-DD",
-    "DD-MM-YYYY",
-  ];
-
   if (isLoading) {
     return <div className="p-6">Loading business settings...</div>;
   }
@@ -553,15 +616,19 @@ export function BusinessSettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="locations">Locations</TabsTrigger>
-          <TabsTrigger value="hours">Hours</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="receipts">Receipts</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-12 h-auto">
+          <TabsTrigger value="company" className="text-xs">Company</TabsTrigger>
+          <TabsTrigger value="locations" className="text-xs">Locations</TabsTrigger>
+          <TabsTrigger value="hours" className="text-xs">Hours</TabsTrigger>
+          <TabsTrigger value="financial" className="text-xs">Financial</TabsTrigger>
+          <TabsTrigger value="payments" className="text-xs">Payments</TabsTrigger>
+          <TabsTrigger value="receipts" className="text-xs">Receipts</TabsTrigger>
+          <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
+          <TabsTrigger value="pos" className="text-xs">POS</TabsTrigger>
+          <TabsTrigger value="purchase" className="text-xs">Purchase</TabsTrigger>
+          <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
+          <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
+          <TabsTrigger value="sms" className="text-xs">SMS</TabsTrigger>
         </TabsList>
 
         <Form {...form}>
@@ -577,185 +644,219 @@ export function BusinessSettings() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Company Logo</Label>
+                      <div className="flex items-center gap-4 mt-2">
+                        {form.watch('company_logo_url') && (
+                          <img 
+                            src={form.watch('company_logo_url')} 
+                            alt="Company logo" 
+                            className="h-16 w-16 object-contain border rounded"
+                          />
+                        )}
+                        <div>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            disabled={logoUploading}
+                            className="hidden"
+                            id="logo-upload"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={logoUploading}
+                            onClick={() => document.getElementById('logo-upload')?.click()}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {logoUploading ? "Uploading..." : "Upload Logo"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="company_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter company name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="business_registration_number"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Business Registration Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter registration number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="tax_identification_number"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tax Identification Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter tax ID" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="website"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Website</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://yourwebsite.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Business Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="business@example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Business Phone</FormLabel>
+                            <FormControl>
+                              <Input placeholder="(555) 123-4567" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <Separator />
+
                     <FormField
                       control={form.control}
-                      name="company_name"
+                      name="address_line_1"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Company Name</FormLabel>
+                          <FormLabel>Address Line 1</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter company name" {...field} />
+                            <Input placeholder="Street address" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={form.control}
-                      name="business_registration_number"
+                      name="address_line_2"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Business Registration Number</FormLabel>
+                          <FormLabel>Address Line 2</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter registration number" {...field} />
+                            <Input placeholder="Apartment, suite, etc. (optional)" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input placeholder="City" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="state_province"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State/Province</FormLabel>
+                            <FormControl>
+                              <Input placeholder="State/Province" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="postal_code"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postal Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Postal Code" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="country"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Country" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="tax_identification_number"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax Identification Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter tax ID" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="website"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Website</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://yourwebsite.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="business@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Phone</FormLabel>
-                          <FormControl>
-                            <Input placeholder="(555) 123-4567" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <FormField
-                    control={form.control}
-                    name="address_line_1"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address Line 1</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Street address" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="address_line_2"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address Line 2</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Apartment, suite, etc. (optional)" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input placeholder="City" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="state_province"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State/Province</FormLabel>
-                          <FormControl>
-                            <Input placeholder="State/Province" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="postal_code"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Postal Code</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Postal Code" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="country"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Country" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -931,7 +1032,7 @@ export function BusinessSettings() {
                             <SelectContent>
                               {currencies.map((currency) => (
                                 <SelectItem key={currency.code} value={currency.code}>
-                                  {currency.symbol} {currency.name} ({currency.code})
+                                  {currency.code} - {currency.name} ({currency.symbol})
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -955,8 +1056,8 @@ export function BusinessSettings() {
                             </FormControl>
                             <SelectContent>
                               {timezones.map((tz) => (
-                                <SelectItem key={tz} value={tz}>
-                                  {tz}
+                                <SelectItem key={tz.value} value={tz.value}>
+                                  {tz.label}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -967,34 +1068,61 @@ export function BusinessSettings() {
                     />
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="date_format"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date Format</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select date format" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {dateFormats.map((format) => (
-                              <SelectItem key={format} value={format}>
-                                {format}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="date_format"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Date Format</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {dateFormats.map((format) => (
+                                <SelectItem key={format} value={format}>
+                                  {format}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="stock_accounting_method"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Stock Accounting Method</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {stockAccountingMethods.map((method) => (
+                                <SelectItem key={method.value} value={method.value}>
+                                  {method.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <Separator />
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="default_tax_rate"
@@ -1007,7 +1135,6 @@ export function BusinessSettings() {
                               step="0.01"
                               min="0"
                               max="100"
-                              placeholder="8.25"
                               {...field}
                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                             />
@@ -1024,34 +1151,34 @@ export function BusinessSettings() {
                         <FormItem>
                           <FormLabel>Tax Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Tax, VAT, GST" {...field} />
+                            <Input placeholder="Tax" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="tax_inclusive"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Tax Inclusive Pricing</FormLabel>
-                          <FormDescription>
-                            Show prices with tax included
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="tax_inclusive"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Tax Inclusive</FormLabel>
+                            <FormDescription>
+                              Prices include tax
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1077,27 +1204,18 @@ export function BusinessSettings() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {paymentMethods.map((method) => (
-                      <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <CreditCard className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <h4 className="font-medium">{method.name}</h4>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {method.type.toUpperCase()}
-                              </Badge>
-                              {method.requires_reference && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Requires Reference
-                                </Badge>
-                              )}
-                              {!method.is_active && (
-                                <Badge variant="destructive" className="text-xs">
-                                  Inactive
-                                </Badge>
-                              )}
-                            </div>
+                    {paymentMethods.map((payment) => (
+                      <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium">{payment.name}</h4>
+                            <Badge variant="outline">{payment.type}</Badge>
+                            {!payment.is_active && (
+                              <Badge variant="secondary">Inactive</Badge>
+                            )}
+                            {payment.requires_reference && (
+                              <Badge variant="secondary">Requires Reference</Badge>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -1105,12 +1223,8 @@ export function BusinessSettings() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setEditingPayment(method);
-                              paymentForm.reset({
-                                name: method.name,
-                                type: method.type,
-                                requires_reference: method.requires_reference,
-                              });
+                              setEditingPayment(payment);
+                              paymentForm.reset(payment);
                               setShowPaymentDialog(true);
                             }}
                           >
@@ -1131,7 +1245,7 @@ export function BusinessSettings() {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => method.id && deletePaymentMethod(method.id)}>
+                                <AlertDialogAction onClick={() => payment.id && deletePaymentMethod(payment.id)}>
                                   Delete
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -1143,7 +1257,7 @@ export function BusinessSettings() {
 
                     {paymentMethods.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
-                        No payment methods configured yet.
+                        No payment methods added yet.
                       </div>
                     )}
                   </div>
@@ -1168,15 +1282,12 @@ export function BusinessSettings() {
                       <FormItem>
                         <FormLabel>Receipt Header</FormLabel>
                         <FormControl>
-                          <Textarea
-                            placeholder="Enter text to appear at the top of receipts"
-                            className="resize-none"
-                            {...field}
+                          <Textarea 
+                            placeholder="Enter receipt header text" 
+                            className="min-h-[100px]"
+                            {...field} 
                           />
                         </FormControl>
-                        <FormDescription>
-                          This text will appear at the top of all receipts
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1189,21 +1300,16 @@ export function BusinessSettings() {
                       <FormItem>
                         <FormLabel>Receipt Footer</FormLabel>
                         <FormControl>
-                          <Textarea
-                            placeholder="Enter text to appear at the bottom of receipts"
-                            className="resize-none"
-                            {...field}
+                          <Textarea 
+                            placeholder="Enter receipt footer text" 
+                            className="min-h-[100px]"
+                            {...field} 
                           />
                         </FormControl>
-                        <FormDescription>
-                          This text will appear at the bottom of all receipts
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  <Separator />
 
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
@@ -1248,178 +1354,710 @@ export function BusinessSettings() {
                       )}
                     />
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Notifications Tab */}
-            <TabsContent value="notifications" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="h-5 w-5" />
-                    Notification Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="email_notifications"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Email Notifications</FormLabel>
-                          <FormDescription>
-                            Receive email notifications for important events
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="low_stock_alerts"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Low Stock Alerts</FormLabel>
-                          <FormDescription>
-                            Get notified when inventory is running low
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="daily_reports"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Daily Reports</FormLabel>
-                          <FormDescription>
-                            Receive daily sales and activity reports
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Security Settings Tab */}
-            <TabsContent value="security" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    Security Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="session_timeout_minutes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Session Timeout (minutes)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="5"
-                            max="480"
-                            placeholder="60"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 60)}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Users will be automatically logged out after this period of inactivity
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="password_expiry_days"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password Expiry (days)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="30"
-                            max="365"
-                            placeholder="90"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 90)}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Users will be required to change their password after this period
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="require_password_change"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Require Regular Password Changes</FormLabel>
-                          <FormDescription>
-                            Force users to change passwords periodically
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
 
                   <Separator />
 
-                  <h4 className="font-medium">Feature Toggles</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="invoice_template"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Invoice Template</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templateOptions.map((template) => (
+                                <SelectItem key={template.value} value={template.value}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="quote_template"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quote Template</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templateOptions.map((template) => (
+                                <SelectItem key={template.value} value={template.value}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="delivery_note_template"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Delivery Note Template</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templateOptions.map((template) => (
+                                <SelectItem key={template.value} value={template.value}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="invoice_number_prefix"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Invoice Number Prefix</FormLabel>
+                          <FormControl>
+                            <Input placeholder="INV-" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="quote_number_prefix"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quote Number Prefix</FormLabel>
+                          <FormControl>
+                            <Input placeholder="QT-" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="delivery_note_prefix"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Delivery Note Prefix</FormLabel>
+                          <FormControl>
+                            <Input placeholder="DN-" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <FormField
                     control={form.control}
-                    name="enable_online_orders"
+                    name="invoice_terms_conditions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invoice Terms & Conditions</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Enter terms and conditions for invoices" 
+                            className="min-h-[100px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Product Settings Tab */}
+            <TabsContent value="products" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Product Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="enable_combo_products"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Combo Products</FormLabel>
+                            <FormDescription>
+                              Allow bundling of multiple products
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="enable_retail_pricing"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Retail Pricing</FormLabel>
+                            <FormDescription>
+                              Enable retail price tiers
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="enable_wholesale_pricing"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Wholesale Pricing</FormLabel>
+                            <FormDescription>
+                              Enable wholesale price tiers
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="auto_generate_sku"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Auto Generate SKU</FormLabel>
+                            <FormDescription>
+                              Automatically generate SKU codes
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="enable_barcode_scanning"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Barcode Scanning</FormLabel>
+                            <FormDescription>
+                              Allow barcode scanning for products
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="enable_negative_stock"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Allow Negative Stock</FormLabel>
+                            <FormDescription>
+                              Allow selling when stock is zero
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="default_markup_percentage"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Markup Percentage (%)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="low_stock_threshold"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Low Stock Threshold</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* POS Settings Tab */}
+            <TabsContent value="pos" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    POS Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="pos_auto_print_receipt"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Auto Print Receipt</FormLabel>
+                            <FormDescription>
+                              Automatically print receipt after sale
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="pos_ask_customer_info"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Ask Customer Info</FormLabel>
+                            <FormDescription>
+                              Prompt for customer information
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="pos_enable_discounts"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Discounts</FormLabel>
+                            <FormDescription>
+                              Allow discounts on POS
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="pos_enable_tips"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Tips</FormLabel>
+                            <FormDescription>
+                              Allow tip collection
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="pos_max_discount_percent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Maximum Discount Percentage (%)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="pos_default_payment_method"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Payment Method</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="cash">Cash</SelectItem>
+                              <SelectItem value="card">Card</SelectItem>
+                              <SelectItem value="digital">Digital</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Purchase Settings Tab */}
+            <TabsContent value="purchase" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    Purchase Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="purchase_auto_receive"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Auto Receive Orders</FormLabel>
+                            <FormDescription>
+                              Automatically receive purchase orders
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="purchase_enable_partial_receive"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Partial Receiving</FormLabel>
+                            <FormDescription>
+                              Allow partial order receiving
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="purchase_default_tax_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Default Purchase Tax Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Email Settings Tab */}
+            <TabsContent value="email" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5" />
+                    Email Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="email_smtp_host"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Host</FormLabel>
+                          <FormControl>
+                            <Input placeholder="smtp.gmail.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email_smtp_port"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Port</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="587"
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 587)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="email_smtp_username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Username</FormLabel>
+                          <FormControl>
+                            <Input placeholder="your-email@example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email_smtp_password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMTP Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="Your app password" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="email_from_address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>From Email Address</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="noreply@yourcompany.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email_from_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>From Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Your Company Name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="email_enable_ssl"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">Online Orders</FormLabel>
+                          <FormLabel className="text-base">Enable SSL</FormLabel>
                           <FormDescription>
-                            Enable online ordering functionality
+                            Use SSL/TLS encryption for email
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* WhatsApp Settings Tab */}
+            <TabsContent value="whatsapp" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5" />
+                    WhatsApp Integration
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="whatsapp_enable_notifications"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Enable WhatsApp Notifications</FormLabel>
+                          <FormDescription>
+                            Send notifications via WhatsApp
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -1434,13 +2072,68 @@ export function BusinessSettings() {
 
                   <FormField
                     control={form.control}
-                    name="enable_loyalty_program"
+                    name="whatsapp_api_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>WhatsApp API URL</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://api.whatsapp.com/..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="whatsapp_api_key"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>WhatsApp API Key</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Your WhatsApp API key" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="whatsapp_phone_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>WhatsApp Business Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1234567890" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* SMS Settings Tab */}
+            <TabsContent value="sms" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Smartphone className="h-5 w-5" />
+                    Bulk SMS Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="sms_enable_notifications"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">Loyalty Program</FormLabel>
+                          <FormLabel className="text-base">Enable SMS Notifications</FormLabel>
                           <FormDescription>
-                            Enable customer loyalty and rewards program
+                            Send notifications via SMS
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -1455,21 +2148,53 @@ export function BusinessSettings() {
 
                   <FormField
                     control={form.control}
-                    name="enable_gift_cards"
+                    name="sms_provider"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Gift Cards</FormLabel>
-                          <FormDescription>
-                            Enable gift card sales and redemption
-                          </FormDescription>
-                        </div>
+                      <FormItem>
+                        <FormLabel>SMS Provider</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select SMS provider" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {smsProviders.map((provider) => (
+                              <SelectItem key={provider.value} value={provider.value}>
+                                {provider.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sms_api_key"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMS API Key</FormLabel>
                         <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Input type="password" placeholder="Your SMS API key" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sms_sender_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMS Sender ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your sender ID" {...field} />
+                        </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -1496,9 +2221,9 @@ export function BusinessSettings() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Payment Method Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Payment method name" {...field} />
+                      <Input placeholder="Credit Card" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1514,7 +2239,7 @@ export function BusinessSettings() {
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select payment type" />
+                          <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -1538,7 +2263,7 @@ export function BusinessSettings() {
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Requires Reference Number</FormLabel>
                       <FormDescription>
-                        Ask for reference number when using this payment method
+                        Does this payment method require a reference number?
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -1551,7 +2276,7 @@ export function BusinessSettings() {
                 )}
               />
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setShowPaymentDialog(false)}>
                   Cancel
                 </Button>
@@ -1581,7 +2306,7 @@ export function BusinessSettings() {
                   <FormItem>
                     <FormLabel>Location Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Store name or location identifier" {...field} />
+                      <Input placeholder="Main Store" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1591,12 +2316,12 @@ export function BusinessSettings() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={locationForm.control}
-                  name="manager_name"
+                  name="address_line_1"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Manager Name</FormLabel>
+                      <FormLabel>Address Line 1</FormLabel>
                       <FormControl>
-                        <Input placeholder="Store manager" {...field} />
+                        <Input placeholder="Street address" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1605,60 +2330,18 @@ export function BusinessSettings() {
 
                 <FormField
                   control={locationForm.control}
-                  name="phone"
+                  name="address_line_2"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone</FormLabel>
+                      <FormLabel>Address Line 2</FormLabel>
                       <FormControl>
-                        <Input placeholder="(555) 123-4567" {...field} />
+                        <Input placeholder="Apartment, suite, etc." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-
-              <FormField
-                control={locationForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="store@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={locationForm.control}
-                name="address_line_1"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address Line 1</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Street address" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={locationForm.control}
-                name="address_line_2"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address Line 2</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Apartment, suite, etc. (optional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <div className="grid grid-cols-3 gap-4">
                 <FormField
@@ -1704,14 +2387,44 @@ export function BusinessSettings() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={locationForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(555) 123-4567" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={locationForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="store@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={locationForm.control}
-                name="country"
+                name="manager_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Country</FormLabel>
+                    <FormLabel>Manager Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Country" {...field} />
+                      <Input placeholder="John Doe" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1726,7 +2439,7 @@ export function BusinessSettings() {
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Primary Location</FormLabel>
                       <FormDescription>
-                        Set as the main business location
+                        Set this as the primary store location
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -1739,7 +2452,7 @@ export function BusinessSettings() {
                 )}
               />
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setShowLocationDialog(false)}>
                   Cancel
                 </Button>

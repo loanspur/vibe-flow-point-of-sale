@@ -16,8 +16,10 @@ export type Database = {
     Tables: {
       business_settings: {
         Row: {
+          account_lockout_duration: number | null
           address_line_1: string | null
           address_line_2: string | null
+          auto_generate_sku: boolean | null
           business_hours: Json | null
           business_registration_number: string | null
           city: string | null
@@ -29,25 +31,67 @@ export type Database = {
           currency_symbol: string | null
           daily_reports: boolean | null
           date_format: string | null
+          default_markup_percentage: number | null
           default_tax_rate: number | null
+          delivery_note_auto_number: boolean | null
+          delivery_note_prefix: string | null
+          delivery_note_template: string | null
           email: string | null
+          email_enable_ssl: boolean | null
+          email_from_address: string | null
+          email_from_name: string | null
           email_notifications: boolean | null
+          email_smtp_host: string | null
+          email_smtp_password: string | null
+          email_smtp_port: number | null
+          email_smtp_username: string | null
+          enable_barcode_scanning: boolean | null
+          enable_combo_products: boolean | null
           enable_gift_cards: boolean | null
           enable_loyalty_program: boolean | null
+          enable_multi_location: boolean | null
+          enable_negative_stock: boolean | null
           enable_online_orders: boolean | null
+          enable_retail_pricing: boolean | null
+          enable_user_roles: boolean | null
+          enable_wholesale_pricing: boolean | null
           id: string
+          invoice_auto_number: boolean | null
+          invoice_number_prefix: string | null
+          invoice_template: string | null
+          invoice_terms_conditions: string | null
           low_stock_alerts: boolean | null
+          low_stock_threshold: number | null
+          max_login_attempts: number | null
           password_expiry_days: number | null
           phone: string | null
+          pos_ask_customer_info: boolean | null
+          pos_auto_print_receipt: boolean | null
+          pos_default_payment_method: string | null
+          pos_enable_discounts: boolean | null
+          pos_enable_tips: boolean | null
+          pos_max_discount_percent: number | null
           postal_code: string | null
           print_customer_copy: boolean | null
           print_merchant_copy: boolean | null
+          purchase_auto_receive: boolean | null
+          purchase_default_tax_rate: number | null
+          purchase_enable_partial_receive: boolean | null
+          quote_auto_number: boolean | null
+          quote_number_prefix: string | null
+          quote_template: string | null
+          quote_validity_days: number | null
           receipt_footer: string | null
           receipt_header: string | null
           receipt_logo_url: string | null
           require_password_change: boolean | null
           session_timeout_minutes: number | null
+          sms_api_key: string | null
+          sms_enable_notifications: boolean | null
+          sms_provider: string | null
+          sms_sender_id: string | null
           state_province: string | null
+          stock_accounting_method: string | null
           tax_identification_number: string | null
           tax_inclusive: boolean | null
           tax_name: string | null
@@ -55,10 +99,16 @@ export type Database = {
           timezone: string | null
           updated_at: string
           website: string | null
+          whatsapp_api_key: string | null
+          whatsapp_api_url: string | null
+          whatsapp_enable_notifications: boolean | null
+          whatsapp_phone_number: string | null
         }
         Insert: {
+          account_lockout_duration?: number | null
           address_line_1?: string | null
           address_line_2?: string | null
+          auto_generate_sku?: boolean | null
           business_hours?: Json | null
           business_registration_number?: string | null
           city?: string | null
@@ -70,25 +120,67 @@ export type Database = {
           currency_symbol?: string | null
           daily_reports?: boolean | null
           date_format?: string | null
+          default_markup_percentage?: number | null
           default_tax_rate?: number | null
+          delivery_note_auto_number?: boolean | null
+          delivery_note_prefix?: string | null
+          delivery_note_template?: string | null
           email?: string | null
+          email_enable_ssl?: boolean | null
+          email_from_address?: string | null
+          email_from_name?: string | null
           email_notifications?: boolean | null
+          email_smtp_host?: string | null
+          email_smtp_password?: string | null
+          email_smtp_port?: number | null
+          email_smtp_username?: string | null
+          enable_barcode_scanning?: boolean | null
+          enable_combo_products?: boolean | null
           enable_gift_cards?: boolean | null
           enable_loyalty_program?: boolean | null
+          enable_multi_location?: boolean | null
+          enable_negative_stock?: boolean | null
           enable_online_orders?: boolean | null
+          enable_retail_pricing?: boolean | null
+          enable_user_roles?: boolean | null
+          enable_wholesale_pricing?: boolean | null
           id?: string
+          invoice_auto_number?: boolean | null
+          invoice_number_prefix?: string | null
+          invoice_template?: string | null
+          invoice_terms_conditions?: string | null
           low_stock_alerts?: boolean | null
+          low_stock_threshold?: number | null
+          max_login_attempts?: number | null
           password_expiry_days?: number | null
           phone?: string | null
+          pos_ask_customer_info?: boolean | null
+          pos_auto_print_receipt?: boolean | null
+          pos_default_payment_method?: string | null
+          pos_enable_discounts?: boolean | null
+          pos_enable_tips?: boolean | null
+          pos_max_discount_percent?: number | null
           postal_code?: string | null
           print_customer_copy?: boolean | null
           print_merchant_copy?: boolean | null
+          purchase_auto_receive?: boolean | null
+          purchase_default_tax_rate?: number | null
+          purchase_enable_partial_receive?: boolean | null
+          quote_auto_number?: boolean | null
+          quote_number_prefix?: string | null
+          quote_template?: string | null
+          quote_validity_days?: number | null
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
           require_password_change?: boolean | null
           session_timeout_minutes?: number | null
+          sms_api_key?: string | null
+          sms_enable_notifications?: boolean | null
+          sms_provider?: string | null
+          sms_sender_id?: string | null
           state_province?: string | null
+          stock_accounting_method?: string | null
           tax_identification_number?: string | null
           tax_inclusive?: boolean | null
           tax_name?: string | null
@@ -96,10 +188,16 @@ export type Database = {
           timezone?: string | null
           updated_at?: string
           website?: string | null
+          whatsapp_api_key?: string | null
+          whatsapp_api_url?: string | null
+          whatsapp_enable_notifications?: boolean | null
+          whatsapp_phone_number?: string | null
         }
         Update: {
+          account_lockout_duration?: number | null
           address_line_1?: string | null
           address_line_2?: string | null
+          auto_generate_sku?: boolean | null
           business_hours?: Json | null
           business_registration_number?: string | null
           city?: string | null
@@ -111,25 +209,67 @@ export type Database = {
           currency_symbol?: string | null
           daily_reports?: boolean | null
           date_format?: string | null
+          default_markup_percentage?: number | null
           default_tax_rate?: number | null
+          delivery_note_auto_number?: boolean | null
+          delivery_note_prefix?: string | null
+          delivery_note_template?: string | null
           email?: string | null
+          email_enable_ssl?: boolean | null
+          email_from_address?: string | null
+          email_from_name?: string | null
           email_notifications?: boolean | null
+          email_smtp_host?: string | null
+          email_smtp_password?: string | null
+          email_smtp_port?: number | null
+          email_smtp_username?: string | null
+          enable_barcode_scanning?: boolean | null
+          enable_combo_products?: boolean | null
           enable_gift_cards?: boolean | null
           enable_loyalty_program?: boolean | null
+          enable_multi_location?: boolean | null
+          enable_negative_stock?: boolean | null
           enable_online_orders?: boolean | null
+          enable_retail_pricing?: boolean | null
+          enable_user_roles?: boolean | null
+          enable_wholesale_pricing?: boolean | null
           id?: string
+          invoice_auto_number?: boolean | null
+          invoice_number_prefix?: string | null
+          invoice_template?: string | null
+          invoice_terms_conditions?: string | null
           low_stock_alerts?: boolean | null
+          low_stock_threshold?: number | null
+          max_login_attempts?: number | null
           password_expiry_days?: number | null
           phone?: string | null
+          pos_ask_customer_info?: boolean | null
+          pos_auto_print_receipt?: boolean | null
+          pos_default_payment_method?: string | null
+          pos_enable_discounts?: boolean | null
+          pos_enable_tips?: boolean | null
+          pos_max_discount_percent?: number | null
           postal_code?: string | null
           print_customer_copy?: boolean | null
           print_merchant_copy?: boolean | null
+          purchase_auto_receive?: boolean | null
+          purchase_default_tax_rate?: number | null
+          purchase_enable_partial_receive?: boolean | null
+          quote_auto_number?: boolean | null
+          quote_number_prefix?: string | null
+          quote_template?: string | null
+          quote_validity_days?: number | null
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
           require_password_change?: boolean | null
           session_timeout_minutes?: number | null
+          sms_api_key?: string | null
+          sms_enable_notifications?: boolean | null
+          sms_provider?: string | null
+          sms_sender_id?: string | null
           state_province?: string | null
+          stock_accounting_method?: string | null
           tax_identification_number?: string | null
           tax_inclusive?: boolean | null
           tax_name?: string | null
@@ -137,12 +277,64 @@ export type Database = {
           timezone?: string | null
           updated_at?: string
           website?: string | null
+          whatsapp_api_key?: string | null
+          whatsapp_api_url?: string | null
+          whatsapp_enable_notifications?: boolean | null
+          whatsapp_phone_number?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "business_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commission_agents: {
+        Row: {
+          commission_rate: number
+          commission_type: string
+          contact_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          commission_rate?: number
+          commission_type?: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          commission_rate?: number
+          commission_type?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_agents_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_agents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -156,6 +348,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          is_commission_agent: boolean | null
           name: string
           notes: string | null
           phone: string | null
@@ -170,6 +363,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          is_commission_agent?: boolean | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -184,6 +378,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          is_commission_agent?: boolean | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -363,6 +558,50 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_pricing: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          max_quantity: number | null
+          min_quantity: number | null
+          price: number
+          pricing_type: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          max_quantity?: number | null
+          min_quantity?: number | null
+          price: number
+          pricing_type: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          max_quantity?: number | null
+          min_quantity?: number | null
+          price?: number
+          pricing_type?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pricing_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -1003,6 +1242,95 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_role_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          is_active: boolean | null
+          role_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          role_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          role_id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_role_assignments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_role_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_system_role: boolean | null
+          name: string
+          permissions: Json | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system_role?: boolean | null
+          name: string
+          permissions?: Json | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system_role?: boolean | null
+          name?: string
+          permissions?: Json | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
