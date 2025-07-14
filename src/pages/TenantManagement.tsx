@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Building2, Users, Settings, Trash2 } from 'lucide-react';
+import { Plus, Building2, Users, Settings, Trash2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 
 type Tenant = Tables<'tenants'>;
@@ -23,7 +24,9 @@ export default function TenantManagement() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [newTenant, setNewTenant] = useState({
     name: '',
@@ -41,14 +44,21 @@ export default function TenantManagement() {
 
   const fetchTenants = async () => {
     try {
+      setError(null);
       const { data, error } = await supabase
         .from('tenants')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Fetch tenants error:', error);
+        setError(error.message);
+        return;
+      }
       setTenants(data || []);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Unexpected error:', error);
+      setError(error.message || 'An unexpected error occurred');
       toast({
         title: "Error",
         description: "Failed to fetch tenants",
@@ -145,7 +155,44 @@ export default function TenantManagement() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-lg font-semibold mb-2">Authentication Required</h2>
+          <p className="text-muted-foreground">Please log in to access tenant management.</p>
+          <Button className="mt-4" onClick={() => window.location.href = '/auth'}>
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-lg font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">
+            You don't have permission to view tenant management.
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">Error: {error}</p>
+          <Button variant="outline" onClick={() => window.location.href = '/'}>
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
