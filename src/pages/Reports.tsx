@@ -89,7 +89,7 @@ const Reports = () => {
 
         {/* Report Categories */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer">
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => alert('Sales Reports - View Details')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-green-600" />
@@ -105,11 +105,11 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground">This Week: <span className="font-semibold">$8,456</span></p>
                 <p className="text-sm text-muted-foreground">This Month: <span className="font-semibold">$32,145</span></p>
               </div>
-              <Button variant="outline" className="w-full mt-4">View Details</Button>
+              <Button variant="outline" className="w-full mt-4" onClick={(e) => { e.stopPropagation(); alert('View Sales Details'); }}>View Details</Button>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer">
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => alert('Product Performance - View Details')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-blue-600" />
@@ -125,11 +125,11 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground">Low Stock: <span className="font-semibold">3 items</span></p>
                 <p className="text-sm text-muted-foreground">Categories: <span className="font-semibold">8 active</span></p>
               </div>
-              <Button variant="outline" className="w-full mt-4">View Details</Button>
+              <Button variant="outline" className="w-full mt-4" onClick={(e) => { e.stopPropagation(); alert('View Product Performance Details'); }}>View Details</Button>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer">
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => alert('Customer Analytics - View Details')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-purple-600" />
@@ -145,11 +145,11 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground">Returning: <span className="font-semibold">78%</span></p>
                 <p className="text-sm text-muted-foreground">Avg. Visits: <span className="font-semibold">2.3/month</span></p>
               </div>
-              <Button variant="outline" className="w-full mt-4">View Details</Button>
+              <Button variant="outline" className="w-full mt-4" onClick={(e) => { e.stopPropagation(); alert('View Customer Analytics Details'); }}>View Details</Button>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer">
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => alert('Financial Reports - View Details')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-orange-600" />
@@ -165,11 +165,11 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground">Expenses: <span className="font-semibold">$12,330</span></p>
                 <p className="text-sm text-muted-foreground">Net Profit: <span className="font-semibold">$16,120</span></p>
               </div>
-              <Button variant="outline" className="w-full mt-4">View Details</Button>
+              <Button variant="outline" className="w-full mt-4" onClick={(e) => { e.stopPropagation(); alert('View Financial Reports Details'); }}>View Details</Button>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer">
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => alert('Inventory Reports - View Details')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 text-indigo-600" />
@@ -185,11 +185,11 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground">Low Stock: <span className="font-semibold text-red-600">8 items</span></p>
                 <p className="text-sm text-muted-foreground">Value: <span className="font-semibold">$15,420</span></p>
               </div>
-              <Button variant="outline" className="w-full mt-4">View Details</Button>
+              <Button variant="outline" className="w-full mt-4" onClick={(e) => { e.stopPropagation(); alert('View Inventory Reports Details'); }}>View Details</Button>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer">
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => alert('Custom Reports - Create New Report')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-teal-600" />
@@ -205,7 +205,7 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground">Scheduled: <span className="font-semibold">3</span></p>
                 <p className="text-sm text-muted-foreground">Last Run: <span className="font-semibold">Today</span></p>
               </div>
-              <Button variant="outline" className="w-full mt-4">Create Report</Button>
+              <Button variant="outline" className="w-full mt-4" onClick={(e) => { e.stopPropagation(); alert('Create New Custom Report'); }}>Create Report</Button>
             </CardContent>
           </Card>
         </div>
