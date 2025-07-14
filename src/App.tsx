@@ -14,6 +14,11 @@ import TenantManagement from "./pages/TenantManagement";
 import TrialSignup from "./pages/TrialSignup";
 import Success from "./pages/Success";
 import NotFound from "./pages/NotFound";
+import Settings from "./pages/Settings";
+import Products from "./pages/Products";
+import Reports from "./pages/Reports";
+import Team from "./pages/Team";
+import Customers from "./pages/Customers";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +39,11 @@ const App = () => (
             <Route path="/tenant-admin" element={<TenantAdminDashboard />} />
             <Route path="/pos" element={<POSDashboard />} />
             <Route path="/tenants" element={<TenantManagement />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/team" element={<Team />} />
+            <Route path="/customers" element={<Customers />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
