@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -12,6 +13,7 @@ import { Crown, Building2, ChevronDown, Eye } from 'lucide-react';
 
 export default function RoleSwitcher() {
   const { userRole, viewMode, canSwitchViews, switchViewMode } = useAuth();
+  const navigate = useNavigate();
 
   if (!canSwitchViews) {
     return (
@@ -48,7 +50,10 @@ export default function RoleSwitcher() {
         <DropdownMenuSeparator />
         
         <DropdownMenuItem 
-          onClick={() => switchViewMode('superadmin')}
+          onClick={() => {
+            switchViewMode('superadmin');
+            navigate('/superadmin');
+          }}
           className={viewMode === 'superadmin' ? 'bg-muted' : ''}
         >
           <Crown className="h-4 w-4 mr-2 text-yellow-500" />
@@ -64,7 +69,10 @@ export default function RoleSwitcher() {
         </DropdownMenuItem>
         
         <DropdownMenuItem 
-          onClick={() => switchViewMode('tenant')}
+          onClick={() => {
+            switchViewMode('tenant');
+            navigate('/admin');
+          }}
           className={viewMode === 'tenant' ? 'bg-muted' : ''}
         >
           <Building2 className="h-4 w-4 mr-2 text-primary" />
