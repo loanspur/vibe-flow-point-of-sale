@@ -237,6 +237,12 @@ const Index = () => {
                 <Building2 className="h-4 w-4 mr-2" />
                 Enterprise ready
               </div>
+              <div className="flex items-center">
+                <span className="font-medium text-blue-600">PayPal</span>
+                <span className="mx-1">&</span>
+                <span className="font-medium text-green-600">Card</span>
+                <span className="ml-1">accepted</span>
+              </div>
             </div>
           </div>
         </div>
@@ -263,7 +269,7 @@ const Index = () => {
                 </Link>
               </Button>
               <p className="text-sm text-muted-foreground">
-                14-day free trial • No credit card required • Setup in minutes
+                14-day free trial • No credit card required • PayPal & Card accepted
               </p>
             </div>
           </div>

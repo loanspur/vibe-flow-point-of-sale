@@ -66,9 +66,10 @@ serve(async (req) => {
 
     logStep("Creating checkout session", { plan: selectedPlan });
 
-    // Create checkout session with trial
+    // Create checkout session with trial and PayPal support
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
+      payment_method_types: ['card', 'paypal'], // Enable both card and PayPal
       line_items: [
         {
           price_data: {
@@ -94,6 +95,7 @@ serve(async (req) => {
       success_url: `${req.headers.get("origin")}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/signup`,
       allow_promotion_codes: true,
+      billing_address_collection: 'auto', // Required for PayPal
     });
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });

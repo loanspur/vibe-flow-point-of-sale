@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Check, Building2, Users, Zap, ArrowLeft, Shield, Clock } from 'lucide-react';
+import { Check, Building2, Users, Zap, ArrowLeft, Shield, Clock, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -212,6 +212,10 @@ export default function TrialSignup() {
             <div className="flex items-center">
               <Users className="h-4 w-4 mr-2 text-purple-500" />
               Cancel anytime
+            </div>
+            <div className="flex items-center">
+              <CreditCard className="h-4 w-4 mr-2 text-orange-500" />
+              Card or PayPal
             </div>
           </div>
         </div>
@@ -424,7 +428,8 @@ export default function TrialSignup() {
                   
                   <p className="text-xs text-muted-foreground text-center">
                     You won't be charged until your 14-day trial ends. 
-                    Cancel anytime during the trial period.
+                    Cancel anytime during the trial period. 
+                    Pay with credit card or PayPal.
                   </p>
                 </CardContent>
               </Card>
