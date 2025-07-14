@@ -187,23 +187,46 @@ export function QuoteManagement() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, validUntil?: string | null) => {
+    // Check if quote is expired regardless of status
+    const expired = validUntil && isExpired(validUntil);
+    
+    if (expired && status !== 'converted') {
+      return (
+        <div className="flex items-center gap-1">
+          <Badge variant="destructive" className="text-xs">
+            <Clock className="h-3 w-3 mr-1" />
+            EXPIRED
+          </Badge>
+          {status !== 'draft' && (
+            <Badge variant="outline" className="text-xs">
+              {status.toUpperCase()}
+            </Badge>
+          )}
+        </div>
+      );
+    }
+
     const statusConfig = {
       draft: { variant: "outline" as const, icon: Edit, color: "text-gray-600" },
       sent: { variant: "secondary" as const, icon: Send, color: "text-blue-600" },
       accepted: { variant: "default" as const, icon: CheckCircle, color: "text-green-600" },
       rejected: { variant: "destructive" as const, icon: XCircle, color: "text-red-600" },
-      expired: { variant: "destructive" as const, icon: Clock, color: "text-orange-600" },
       converted: { variant: "default" as const, icon: ShoppingCart, color: "text-purple-600" },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
+    const config = statusConfig[status as keyof typeof statusConfig] || {
+      variant: "outline" as const,
+      icon: AlertCircle,
+      color: "text-gray-600"
+    };
+
     const Icon = config.icon;
 
     return (
-      <Badge variant={config.variant} className={config.color}>
+      <Badge variant={config.variant} className="text-xs">
         <Icon className="h-3 w-3 mr-1" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status.toUpperCase()}
       </Badge>
     );
   };
@@ -765,7 +788,7 @@ export function QuoteManagement() {
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="font-bold">{formatCurrency(quote.total_amount)}</p>
-                        {getStatusBadge(quote.status)}
+                        {getStatusBadge(quote.status, quote.valid_until)}
                       </div>
                       <div className="flex gap-1">
                         <Button 
@@ -824,23 +847,27 @@ export function QuoteManagement() {
                             </Button>
                           </div>
                         )}
-                        {quote.status === "accepted" && (
+                        {(quote.status === "accepted" || quote.status === "sent") && (
                           <div className="flex gap-1">
                             <Button 
                               variant="default" 
                               size="sm"
                               onClick={() => convertToSale(quote)}
-                              title="Convert to Sale"
+                              title="Convert to Completed Sale"
+                              className="bg-green-600 hover:bg-green-700"
                             >
-                              <ShoppingCart className="h-3 w-3" />
+                              <ShoppingCart className="h-3 w-3 mr-1" />
+                              Sale
                             </Button>
                             <Button 
-                              variant="outline" 
+                              variant="secondary" 
                               size="sm"
                               onClick={() => convertToInvoice(quote)}
-                              title="Convert to Invoice"
+                              title="Convert to Pending Invoice"
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
-                              <FileText className="h-3 w-3" />
+                              <FileText className="h-3 w-3 mr-1" />
+                              Invoice
                             </Button>
                           </div>
                         )}
@@ -946,7 +973,7 @@ export function QuoteManagement() {
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Status</Label>
-                      <div className="mt-1">{getStatusBadge(selectedQuote.status)}</div>
+                      <div className="mt-1">{getStatusBadge(selectedQuote.status, selectedQuote.valid_until)}</div>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Created Date</Label>
@@ -955,9 +982,13 @@ export function QuoteManagement() {
                     {selectedQuote.valid_until && (
                       <div>
                         <Label className="text-sm font-medium">Valid Until</Label>
-                        <p className={`text-sm ${isExpired(selectedQuote.valid_until) ? 'text-red-500' : ''}`}>
+                        <p className={`text-sm font-medium ${isExpired(selectedQuote.valid_until) ? 'text-red-500' : 'text-green-600'}`}>
                           {formatDate(selectedQuote.valid_until)}
-                          {isExpired(selectedQuote.valid_until) && " (Expired)"}
+                          {isExpired(selectedQuote.valid_until) && (
+                            <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                              EXPIRED
+                            </span>
+                          )}
                         </p>
                       </div>
                     )}
