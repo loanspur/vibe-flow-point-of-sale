@@ -95,6 +95,8 @@ const AccountsReceivablePayable: React.FC = () => {
   const [payableAging, setPayableAging] = useState<AgingAnalysis | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -114,6 +116,7 @@ const AccountsReceivablePayable: React.FC = () => {
     due_date: '',
     original_amount: 0,
     reference_type: 'sale',
+    reference_id: '',
     notes: ''
   });
 
@@ -124,8 +127,12 @@ const AccountsReceivablePayable: React.FC = () => {
     due_date: '',
     original_amount: 0,
     reference_type: 'purchase',
+    reference_id: '',
     notes: ''
   });
+
+  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [selectedPurchase, setSelectedPurchase] = useState<any>(null);
 
   const [newPayment, setNewPayment] = useState({
     payment_date: new Date().toISOString().split('T')[0],
@@ -230,6 +237,45 @@ const AccountsReceivablePayable: React.FC = () => {
     }
   };
 
+  const fetchSalesAndPurchases = async () => {
+    try {
+      const [salesResult, purchasesResult] = await Promise.all([
+        supabase.from('sales').select(`
+          id, 
+          receipt_number, 
+          total_amount, 
+          created_at, 
+          customer_id,
+          customers(name)
+        `).eq('tenant_id', tenantId).eq('status', 'completed'),
+        supabase.from('purchases').select(`
+          id, 
+          purchase_number, 
+          total_amount, 
+          created_at, 
+          supplier_id,
+          contacts(name)
+        `).eq('tenant_id', tenantId).eq('status', 'received')
+      ]);
+
+      if (salesResult.data) {
+        setSales(salesResult.data.map(sale => ({
+          ...sale,
+          customer_name: sale.customers?.name || 'Walk-in Customer'
+        })));
+      }
+
+      if (purchasesResult.data) {
+        setPurchases(purchasesResult.data.map(purchase => ({
+          ...purchase,
+          supplier_name: purchase.contacts?.name || 'Unknown Supplier'
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching sales/purchases:', error);
+    }
+  };
+
   // CRUD operations
   const createReceivable = async () => {
     try {
@@ -313,8 +359,10 @@ const AccountsReceivablePayable: React.FC = () => {
       due_date: '',
       original_amount: 0,
       reference_type: 'sale',
+      reference_id: '',
       notes: ''
     });
+    setSelectedSale(null);
   };
 
   const resetPayableForm = () => {
@@ -325,8 +373,44 @@ const AccountsReceivablePayable: React.FC = () => {
       due_date: '',
       original_amount: 0,
       reference_type: 'purchase',
+      reference_id: '',
       notes: ''
     });
+    setSelectedPurchase(null);
+  };
+
+  const handleSaleSelection = (saleId: string) => {
+    const sale = sales.find(s => s.id === saleId);
+    if (sale) {
+      setSelectedSale(sale);
+      setNewReceivable(prev => ({
+        ...prev,
+        customer_id: sale.customer_id || '',
+        invoice_number: sale.receipt_number,
+        invoice_date: sale.created_at.split('T')[0],
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+        original_amount: sale.total_amount,
+        reference_type: 'sale',
+        reference_id: saleId
+      }));
+    }
+  };
+
+  const handlePurchaseSelection = (purchaseId: string) => {
+    const purchase = purchases.find(p => p.id === purchaseId);
+    if (purchase) {
+      setSelectedPurchase(purchase);
+      setNewPayable(prev => ({
+        ...prev,
+        supplier_id: purchase.supplier_id || '',
+        invoice_number: purchase.purchase_number,
+        invoice_date: purchase.created_at.split('T')[0],
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+        original_amount: purchase.total_amount,
+        reference_type: 'purchase',
+        reference_id: purchaseId
+      }));
+    }
   };
 
   const resetPaymentForm = () => {
@@ -365,6 +449,20 @@ const AccountsReceivablePayable: React.FC = () => {
     }).format(amount);
   };
 
+  const getTransactionReference = (referenceType: string, referenceId: string) => {
+    if (!referenceId) return '-';
+    
+    if (referenceType === 'sale') {
+      const sale = sales.find(s => s.id === referenceId);
+      return sale ? sale.receipt_number : '-';
+    } else if (referenceType === 'purchase') {
+      const purchase = purchases.find(p => p.id === referenceId);
+      return purchase ? purchase.purchase_number : '-';
+    }
+    
+    return '-';
+  };
+
   const filteredReceivables = receivables.filter(receivable => {
     const matchesSearch = receivable.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          receivable.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
@@ -387,7 +485,8 @@ const AccountsReceivablePayable: React.FC = () => {
         fetchReceivables(),
         fetchPayables(),
         fetchAgingAnalysis(),
-        fetchCustomersAndSuppliers()
+        fetchCustomersAndSuppliers(),
+        fetchSalesAndPurchases()
       ]).finally(() => setLoading(false));
     }
   }, [tenantId]);
@@ -538,6 +637,7 @@ const AccountsReceivablePayable: React.FC = () => {
                   <TableRow>
                     <TableHead>Customer</TableHead>
                     <TableHead>Invoice #</TableHead>
+                    <TableHead>Reference</TableHead>
                     <TableHead>Invoice Date</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Original Amount</TableHead>
@@ -551,6 +651,7 @@ const AccountsReceivablePayable: React.FC = () => {
                     <TableRow key={receivable.id}>
                       <TableCell>{receivable.customer_name}</TableCell>
                       <TableCell>{receivable.invoice_number}</TableCell>
+                      <TableCell>{getTransactionReference(receivable.reference_type, receivable.reference_id)}</TableCell>
                       <TableCell>{format(new Date(receivable.invoice_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>{format(new Date(receivable.due_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>{formatCurrency(receivable.original_amount)}</TableCell>
@@ -586,6 +687,7 @@ const AccountsReceivablePayable: React.FC = () => {
                   <TableRow>
                     <TableHead>Supplier</TableHead>
                     <TableHead>Invoice #</TableHead>
+                    <TableHead>Reference</TableHead>
                     <TableHead>Invoice Date</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Original Amount</TableHead>
@@ -599,6 +701,7 @@ const AccountsReceivablePayable: React.FC = () => {
                     <TableRow key={payable.id}>
                       <TableCell>{payable.supplier_name}</TableCell>
                       <TableCell>{payable.invoice_number}</TableCell>
+                      <TableCell>{getTransactionReference(payable.reference_type, payable.reference_id)}</TableCell>
                       <TableCell>{format(new Date(payable.invoice_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>{format(new Date(payable.due_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>{formatCurrency(payable.original_amount)}</TableCell>
@@ -631,6 +734,24 @@ const AccountsReceivablePayable: React.FC = () => {
             <DialogDescription>Create a new accounts receivable record</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Quick Link Section */}
+            <div className="p-4 bg-muted rounded-lg">
+              <Label className="text-sm font-medium">Link to Existing Sale</Label>
+              <p className="text-sm text-muted-foreground mb-2">Select a completed sale to auto-populate the form</p>
+              <Select value={selectedSale?.id || ''} onValueChange={handleSaleSelection}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a sale to link" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sales.map(sale => (
+                    <SelectItem key={sale.id} value={sale.id}>
+                      {sale.receipt_number} - {sale.customer_name} - {formatCurrency(sale.total_amount)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="customer">Customer</Label>
@@ -732,6 +853,24 @@ const AccountsReceivablePayable: React.FC = () => {
             <DialogDescription>Create a new accounts payable record</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Quick Link Section */}
+            <div className="p-4 bg-muted rounded-lg">
+              <Label className="text-sm font-medium">Link to Existing Purchase</Label>
+              <p className="text-sm text-muted-foreground mb-2">Select a received purchase to auto-populate the form</p>
+              <Select value={selectedPurchase?.id || ''} onValueChange={handlePurchaseSelection}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a purchase to link" />
+                </SelectTrigger>
+                <SelectContent>
+                  {purchases.map(purchase => (
+                    <SelectItem key={purchase.id} value={purchase.id}>
+                      {purchase.purchase_number} - {purchase.supplier_name} - {formatCurrency(purchase.total_amount)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="supplier">Supplier</Label>
