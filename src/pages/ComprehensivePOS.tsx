@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
-import ProductManagement from '@/components/ProductManagement';
+
 import ContactManagement from '@/components/ContactManagement';
 import { SalesManagement } from '@/components/SalesManagement';
 import { BusinessSettings } from '@/components/BusinessSettings';
@@ -141,9 +141,8 @@ export default function ComprehensivePOS() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-10 min-w-[1000px]">
+            <TabsList className="grid w-full grid-cols-9 min-w-[900px]">
               <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
-              <TabsTrigger value="products" className="text-xs sm:text-sm">Products</TabsTrigger>
               <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
               <TabsTrigger value="returns" className="text-xs sm:text-sm">Returns</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs sm:text-sm">Contacts</TabsTrigger>
@@ -214,8 +213,8 @@ export default function ComprehensivePOS() {
                     <ActionButton icon={ShoppingCart} onClick={() => setActiveTab('sales')}>
                       New Sale
                     </ActionButton>
-                    <ActionButton icon={Package} onClick={() => setActiveTab('products')}>
-                      Add Product
+                    <ActionButton icon={Package} onClick={() => window.location.href = '/admin/products'}>
+                      Manage Products
                     </ActionButton>
                     <ActionButton icon={UserPlus} onClick={() => setActiveTab('contacts')}>
                       Add Contact
@@ -229,22 +228,6 @@ export default function ComprehensivePOS() {
             </div>
           </TabsContent>
 
-          {/* Products Tab */}
-          <TabsContent value="products" className="space-y-6">
-            {tenantId ? (
-              <ProductManagement />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
-                  <p className="text-muted-foreground text-center">
-                    Product management requires an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
 
           {/* Sales Tab */}
           <TabsContent value="sales" className="space-y-6">
