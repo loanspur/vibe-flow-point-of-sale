@@ -2,10 +2,18 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+type UserRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
+type ViewMode = 'superadmin' | 'tenant';
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  userRole: UserRole | null;
+  viewMode: ViewMode;
+  tenantId: string | null;
+  canSwitchViews: boolean;
+  switchViewMode: (mode: ViewMode) => void;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -25,6 +33,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('tenant');
+
+  // Fetch user role and tenant info
+  const fetchUserInfo = async (userId: string) => {
+    try {
+      // Get user role from profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profile) {
+        setUserRole(profile.role);
+        setTenantId(profile.tenant_id);
+        
+        // Auto-set view mode based on role
+        if (profile.role === 'superadmin') {
+          setViewMode('superadmin');
+        } else {
+          setViewMode('tenant');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener
@@ -32,6 +69,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          fetchUserInfo(session.user.id);
+        } else {
+          setUserRole(null);
+          setTenantId(null);
+          setViewMode('tenant');
+        }
+        
         setLoading(false);
       }
     );
@@ -40,6 +86,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchUserInfo(session.user.id);
+      }
+      
       setLoading(false);
     });
 
@@ -76,10 +127,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut();
   };
 
+  const switchViewMode = (mode: ViewMode) => {
+    if (canSwitchViews) {
+      setViewMode(mode);
+    }
+  };
+
+  // Determine if user can switch views (only superadmins can switch)
+  const canSwitchViews = userRole === 'superadmin';
+
   const value = {
     user,
     session,
     loading,
+    userRole,
+    viewMode,
+    tenantId,
+    canSwitchViews,
+    switchViewMode,
     signUp,
     signIn,
     signOut
