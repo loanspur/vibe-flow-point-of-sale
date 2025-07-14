@@ -191,17 +191,39 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       // Update product stock quantities
       for (const item of saleItems) {
         if (item.variant_id) {
-          // Update variant stock
-          await supabase.rpc('update_variant_stock', {
-            variant_id: item.variant_id,
-            quantity_sold: item.quantity
-          });
+          // Get current variant stock and update
+          const { data: variant, error: fetchError } = await supabase
+            .from('product_variants')
+            .select('stock_quantity')
+            .eq('id', item.variant_id)
+            .single();
+          
+          if (fetchError) throw fetchError;
+          
+          const newStock = (variant.stock_quantity || 0) - item.quantity;
+          const { error: variantError } = await supabase
+            .from('product_variants')
+            .update({ stock_quantity: Math.max(0, newStock) })
+            .eq('id', item.variant_id);
+          
+          if (variantError) throw variantError;
         } else {
-          // Update product stock
-          await supabase.rpc('update_product_stock', {
-            product_id: item.product_id,
-            quantity_sold: item.quantity
-          });
+          // Get current product stock and update
+          const { data: product, error: fetchError } = await supabase
+            .from('products')
+            .select('stock_quantity')
+            .eq('id', item.product_id)
+            .single();
+          
+          if (fetchError) throw fetchError;
+          
+          const newStock = (product.stock_quantity || 0) - item.quantity;
+          const { error: productError } = await supabase
+            .from('products')
+            .update({ stock_quantity: Math.max(0, newStock) })
+            .eq('id', item.product_id);
+          
+          if (productError) throw productError;
         }
       }
 
