@@ -189,6 +189,172 @@ export type Database = {
           },
         ]
       }
+      accounts_payable: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          invoice_date: string
+          invoice_number: string
+          notes: string | null
+          original_amount: number
+          outstanding_amount: number
+          paid_amount: number
+          reference_id: string | null
+          reference_type: string | null
+          status: string
+          supplier_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          notes?: string | null
+          original_amount: number
+          outstanding_amount: number
+          paid_amount?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          supplier_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          original_amount?: number
+          outstanding_amount?: number
+          paid_amount?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          supplier_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_receivable: {
+        Row: {
+          created_at: string
+          customer_id: string
+          due_date: string
+          id: string
+          invoice_date: string
+          invoice_number: string
+          notes: string | null
+          original_amount: number
+          outstanding_amount: number
+          paid_amount: number
+          reference_id: string | null
+          reference_type: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          due_date: string
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          notes?: string | null
+          original_amount: number
+          outstanding_amount: number
+          paid_amount?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          due_date?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          original_amount?: number
+          outstanding_amount?: number
+          paid_amount?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ar_ap_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          payment_type: string
+          reference_id: string
+          reference_number: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date: string
+          payment_method: string
+          payment_type: string
+          reference_id: string
+          reference_number?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          payment_type?: string
+          reference_id?: string
+          reference_number?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       business_settings: {
         Row: {
           account_lockout_duration: number | null
@@ -2144,6 +2310,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_aging_analysis: {
+        Args: {
+          tenant_id_param: string
+          analysis_type: string
+          as_of_date?: string
+        }
+        Returns: {
+          current_amount: number
+          days_30_amount: number
+          days_60_amount: number
+          days_90_amount: number
+          days_over_90_amount: number
+          total_amount: number
+        }[]
+      }
       calculate_profit_loss: {
         Args: {
           tenant_id_param: string

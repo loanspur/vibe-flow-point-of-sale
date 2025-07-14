@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import AccountsReceivablePayable from './AccountsReceivablePayable';
 import {
   BarChart3,
   TrendingUp,
@@ -544,8 +545,8 @@ export default function AccountingModule() {
           <TabsTrigger value="sales">Sales</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
-          <TabsTrigger value="commissions">Commissions</TabsTrigger>
-          <TabsTrigger value="locations">Locations</TabsTrigger>
+          <TabsTrigger value="commission">Commission</TabsTrigger>
+          <TabsTrigger value="ar_ap">AR/AP</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -766,8 +767,8 @@ export default function AccountingModule() {
           </Card>
         </TabsContent>
 
-        {/* Commissions Tab */}
-        <TabsContent value="commissions" className="space-y-6">
+        {/* Commission Tab */}
+        <TabsContent value="commission" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Commission Report</CardTitle>
@@ -804,20 +805,9 @@ export default function AccountingModule() {
           </Card>
         </TabsContent>
 
-        {/* Locations Tab */}
-        <TabsContent value="locations" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Location Performance Report</CardTitle>
-              <CardDescription>Sales performance by store location</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                <Building2 className="h-12 w-12 mx-auto mb-4" />
-                <p>Location reports will be available when location tracking is implemented</p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* AR/AP Tab */}
+        <TabsContent value="ar_ap" className="space-y-6">
+          <AccountsReceivablePayable />
         </TabsContent>
       </Tabs>
     </div>
