@@ -34,7 +34,7 @@ export default function ComprehensivePOS() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   // Show setup warning if no tenant is configured
-  if (!tenantId && userRole !== 'superadmin') {
+  if (!tenantId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
         <DashboardHeader />
