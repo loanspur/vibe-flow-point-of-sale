@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
+import TenantAdminDashboard from "@/pages/TenantAdminDashboard";
 import ComprehensivePOS from "@/pages/ComprehensivePOS";
 
 export default function DashboardRouter() {
@@ -20,9 +21,13 @@ export default function DashboardRouter() {
   if (userRole === 'superadmin' && viewMode === 'superadmin') {
     console.log('Rendering SuperAdminDashboard');
     return <SuperAdminDashboard key="superadmin-dashboard" />;
+  } else if (userRole === 'admin' || userRole === 'manager' || (userRole === 'superadmin' && viewMode === 'tenant')) {
+    console.log('Rendering TenantAdminDashboard');
+    // Tenant admins and managers get the redesigned dashboard
+    return <TenantAdminDashboard key="tenant-admin-dashboard" />;
   } else {
     console.log('Rendering ComprehensivePOS');
-    // All other users (including superadmin in tenant view) get the comprehensive POS system
+    // Regular users get the comprehensive POS system
     return <ComprehensivePOS key="comprehensive-pos" />;
   }
 }
