@@ -5,6 +5,7 @@ import ProductManagement from '@/components/ProductManagement';
 import ContactManagement from '@/components/ContactManagement';
 import { SalesManagement } from '@/components/SalesManagement';
 import { BusinessSettings } from '@/components/BusinessSettings';
+import AccountingModule from '@/components/AccountingModule';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -386,69 +387,19 @@ export default function ComprehensivePOS() {
 
           {/* Accounting Tab */}
           <TabsContent value="accounting" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Accounting & Reports</h2>
-              <Button>
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Report
-              </Button>
-            </div>
-            
-            <div className="grid lg:grid-cols-2 gap-6">
+            {tenantId ? (
+              <AccountingModule />
+            ) : (
               <Card>
-                <CardHeader>
-                  <CardTitle>Financial Summary</CardTitle>
-                  <CardDescription>This month's overview</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span>Revenue</span>
-                      <span className="font-bold text-green-600">$45,230</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Expenses</span>
-                      <span className="font-bold text-red-600">$12,450</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Net Profit</span>
-                      <span className="font-bold">$32,780</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Profit Margin</span>
-                      <span className="font-bold">72.5%</span>
-                    </div>
-                  </div>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
+                  <p className="text-muted-foreground text-center">
+                    Accounting module requires an active tenant. Please contact your administrator.
+                  </p>
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Reports</CardTitle>
-                  <CardDescription>Generate common reports</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <Button variant="outline" className="w-full justify-start">
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      Sales Report
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Package className="h-4 w-4 mr-2" />
-                      Inventory Report
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Calculator className="h-4 w-4 mr-2" />
-                      Tax Report
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <TrendingUp className="h-4 w-4 mr-2" />
-                      Profit & Loss
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            )}
           </TabsContent>
 
           {/* Settings Tab */}

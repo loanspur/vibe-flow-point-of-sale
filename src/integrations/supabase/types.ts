@@ -14,6 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_types: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          parent_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parent_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parent_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_types_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "account_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounting_entries: {
+        Row: {
+          account_id: string
+          created_at: string
+          credit_amount: number | null
+          debit_amount: number | null
+          description: string | null
+          id: string
+          transaction_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          credit_amount?: number | null
+          debit_amount?: number | null
+          description?: string | null
+          id?: string
+          transaction_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          credit_amount?: number | null
+          debit_amount?: number | null
+          description?: string | null
+          id?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_entries_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_entries_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounting_transactions: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          is_posted: boolean | null
+          reference_id: string | null
+          reference_type: string | null
+          tenant_id: string
+          total_amount: number
+          transaction_date: string
+          transaction_number: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          is_posted?: boolean | null
+          reference_id?: string | null
+          reference_type?: string | null
+          tenant_id: string
+          total_amount?: number
+          transaction_date?: string
+          transaction_number: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          is_posted?: boolean | null
+          reference_id?: string | null
+          reference_type?: string | null
+          tenant_id?: string
+          total_amount?: number
+          transaction_date?: string
+          transaction_number?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      accounts: {
+        Row: {
+          account_type_id: string
+          balance: number | null
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_type_id: string
+          balance?: number | null
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_type_id?: string
+          balance?: number | null
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_account_type_id_fkey"
+            columns: ["account_type_id"]
+            isOneToOne: false
+            referencedRelation: "account_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_settings: {
         Row: {
           account_lockout_duration: number | null
@@ -340,6 +515,69 @@ export type Database = {
           },
         ]
       }
+      commission_transactions: {
+        Row: {
+          base_amount: number
+          commission_agent_id: string
+          commission_amount: number
+          commission_date: string
+          commission_rate: number
+          created_at: string
+          id: string
+          notes: string | null
+          payment_date: string | null
+          sale_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_amount: number
+          commission_agent_id: string
+          commission_amount: number
+          commission_date?: string
+          commission_rate: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          sale_id?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_amount?: number
+          commission_agent_id?: string
+          commission_amount?: number
+          commission_date?: string
+          commission_rate?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          sale_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_transactions_commission_agent_id_fkey"
+            columns: ["commission_agent_id"]
+            isOneToOne: false
+            referencedRelation: "commission_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           address: string | null
@@ -428,6 +666,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      financial_periods: {
+        Row: {
+          created_at: string
+          end_date: string
+          fiscal_year: number
+          id: string
+          is_closed: boolean | null
+          name: string
+          period_type: string
+          start_date: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          fiscal_year: number
+          id?: string
+          is_closed?: boolean | null
+          name: string
+          period_type: string
+          start_date: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          fiscal_year?: number
+          id?: string
+          is_closed?: boolean | null
+          name?: string
+          period_type?: string
+          start_date?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       payment_methods: {
         Row: {
@@ -1337,9 +1614,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_profit_loss: {
+        Args: {
+          tenant_id_param: string
+          start_date_param: string
+          end_date_param: string
+        }
+        Returns: {
+          income: number
+          expenses: number
+          profit_loss: number
+        }[]
+      }
       create_superadmin_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_account_balance: {
+        Args: { account_id_param: string; as_of_date?: string }
+        Returns: number
       }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
