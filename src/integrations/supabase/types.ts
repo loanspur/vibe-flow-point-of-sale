@@ -670,6 +670,61 @@ export type Database = {
           },
         ]
       }
+      exchange_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          return_id: string
+          total_price: number
+          unit_price: number
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity: number
+          return_id: string
+          total_price: number
+          unit_price: number
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          return_id?: string
+          total_price?: number
+          unit_price?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_items_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_periods: {
         Row: {
           created_at: string
@@ -1478,6 +1533,216 @@ export type Database = {
           },
         ]
       }
+      return_items: {
+        Row: {
+          condition_notes: string | null
+          created_at: string
+          id: string
+          original_sale_item_id: string | null
+          product_id: string
+          quantity_returned: number
+          restock: boolean | null
+          return_id: string
+          total_price: number
+          unit_price: number
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          condition_notes?: string | null
+          created_at?: string
+          id?: string
+          original_sale_item_id?: string | null
+          product_id: string
+          quantity_returned: number
+          restock?: boolean | null
+          return_id: string
+          total_price: number
+          unit_price: number
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          condition_notes?: string | null
+          created_at?: string
+          id?: string
+          original_sale_item_id?: string | null
+          product_id?: string
+          quantity_returned?: number
+          restock?: boolean | null
+          return_id?: string
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_items_original_sale_item_id_fkey"
+            columns: ["original_sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_reason_codes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          requires_approval: boolean | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          requires_approval?: boolean | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          requires_approval?: boolean | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      returns: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          completed_at: string | null
+          created_at: string
+          custom_reason: string | null
+          customer_id: string | null
+          exchange_difference: number
+          id: string
+          notes: string | null
+          original_sale_id: string | null
+          processed_by: string
+          reason_code_id: string | null
+          refund_amount: number
+          refund_method: string | null
+          return_number: string
+          return_type: string
+          status: string
+          store_credit_amount: number
+          subtotal_amount: number
+          tax_amount: number
+          tenant_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          custom_reason?: string | null
+          customer_id?: string | null
+          exchange_difference?: number
+          id?: string
+          notes?: string | null
+          original_sale_id?: string | null
+          processed_by: string
+          reason_code_id?: string | null
+          refund_amount?: number
+          refund_method?: string | null
+          return_number: string
+          return_type?: string
+          status?: string
+          store_credit_amount?: number
+          subtotal_amount?: number
+          tax_amount?: number
+          tenant_id: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          custom_reason?: string | null
+          customer_id?: string | null
+          exchange_difference?: number
+          id?: string
+          notes?: string | null
+          original_sale_id?: string | null
+          processed_by?: string
+          reason_code_id?: string | null
+          refund_amount?: number
+          refund_method?: string | null
+          return_number?: string
+          return_type?: string
+          status?: string
+          store_credit_amount?: number
+          subtotal_amount?: number
+          tax_amount?: number
+          tenant_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_original_sale_id_fkey"
+            columns: ["original_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_reason_code_id_fkey"
+            columns: ["reason_code_id"]
+            isOneToOne: false
+            referencedRelation: "return_reason_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_items: {
         Row: {
           created_at: string
@@ -1911,6 +2176,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      generate_return_number: {
+        Args: { tenant_id_param: string }
+        Returns: string
+      }
       get_account_balance: {
         Args: { account_id_param: string; as_of_date?: string }
         Returns: number
@@ -1942,6 +2211,10 @@ export type Database = {
       }
       link_user_to_contact: {
         Args: { contact_id: string }
+        Returns: boolean
+      }
+      process_return: {
+        Args: { return_id_param: string }
         Returns: boolean
       }
       update_product_stock: {
