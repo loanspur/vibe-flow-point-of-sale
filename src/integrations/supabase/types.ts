@@ -613,6 +613,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      update_product_stock: {
+        Args: { product_id: string; quantity_sold: number }
+        Returns: undefined
+      }
+      update_variant_stock: {
+        Args: { variant_id: string; quantity_sold: number }
+        Returns: undefined
+      }
     }
     Enums: {
       user_role: "superadmin" | "admin" | "manager" | "cashier" | "user"

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
 import ProductManagement from '@/components/ProductManagement';
 import ContactManagement from '@/components/ContactManagement';
+import { SalesManagement } from '@/components/SalesManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -236,59 +237,17 @@ export default function ComprehensivePOS() {
 
           {/* Sales Tab */}
           <TabsContent value="sales" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Sales Management</h2>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Sale
-              </Button>
-            </div>
-            
-            <div className="grid lg:grid-cols-3 gap-6">
+            {tenantId ? (
+              <SalesManagement />
+            ) : (
               <Card>
-                <CardHeader>
-                  <CardTitle>Daily Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span>Total Sales</span>
-                      <span className="font-bold">$2,450</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Transactions</span>
-                      <span className="font-bold">89</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Average Sale</span>
-                      <span className="font-bold">$27.53</span>
-                    </div>
-                  </div>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <p className="text-muted-foreground mb-4">
+                    Sales management requires an active tenant. Please contact your administrator.
+                  </p>
                 </CardContent>
               </Card>
-
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Recent Transactions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {recentSales.map((sale, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{sale.id} - {sale.customer}</p>
-                          <p className="text-sm text-muted-foreground">{sale.time}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold">{sale.amount}</p>
-                          <Badge variant="secondary">{sale.status}</Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            )}
           </TabsContent>
 
           {/* Contacts Tab */}
