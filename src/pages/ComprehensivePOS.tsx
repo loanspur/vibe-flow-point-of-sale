@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
+import ProductManagement from '@/components/ProductManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -173,64 +174,7 @@ export default function ComprehensivePOS() {
 
           {/* Products Tab */}
           <TabsContent value="products" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Product Management</h2>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search products..." className="w-64" />
-                </div>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Product
-                </Button>
-              </div>
-            </div>
-            
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b">
-                      <tr className="text-left">
-                        <th className="p-4 font-medium">Product</th>
-                        <th className="p-4 font-medium">SKU</th>
-                        <th className="p-4 font-medium">Price</th>
-                        <th className="p-4 font-medium">Stock</th>
-                        <th className="p-4 font-medium">Category</th>
-                        <th className="p-4 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((product) => (
-                        <tr key={product.id} className="border-b hover:bg-muted/50">
-                          <td className="p-4 font-medium">{product.name}</td>
-                          <td className="p-4 text-muted-foreground">{product.sku}</td>
-                          <td className="p-4">{product.price}</td>
-                          <td className="p-4">
-                            <Badge variant={product.stock < 20 ? "destructive" : "secondary"}>
-                              {product.stock}
-                            </Badge>
-                          </td>
-                          <td className="p-4">{product.category}</td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="sm"><Edit className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="sm"><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <ProductManagement />
           </TabsContent>
 
           {/* Sales Tab */}
