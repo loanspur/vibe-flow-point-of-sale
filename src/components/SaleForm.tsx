@@ -148,9 +148,13 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Get current user profile to get cashier_id
+      // Get current user profile to get cashier_id and tenant_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
+
+      // Get user's tenant ID
+      const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
+      if (!tenantData) throw new Error("User not assigned to a tenant");
 
       const receiptNumber = generateReceiptNumber();
       const totalAmount = calculateTotal();
@@ -167,6 +171,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           discount_amount: values.discount_amount,
           tax_amount: values.tax_amount,
           status: "completed",
+          tenant_id: tenantData,
         })
         .select()
         .single();
