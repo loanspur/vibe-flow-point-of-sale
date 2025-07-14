@@ -70,11 +70,11 @@ export default function TrialSignup() {
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
-    businessName: '',
-    ownerName: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
+    businessName: 'Sunrise Coffee Co',
+    ownerName: 'John Smith',
+    email: 'john.smith@sunrisecoffee.com',
+    password: 'TestPassword123!',
+    confirmPassword: 'TestPassword123!'
   });
 
   useEffect(() => {
