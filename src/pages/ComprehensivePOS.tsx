@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
 import ProductManagement from '@/components/ProductManagement';
+import ContactManagement from '@/components/ContactManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -135,7 +136,7 @@ export default function ComprehensivePOS() {
               <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
               <TabsTrigger value="products" className="text-xs sm:text-sm">Products</TabsTrigger>
               <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
-              <TabsTrigger value="customers" className="text-xs sm:text-sm">Customers</TabsTrigger>
+              <TabsTrigger value="contacts" className="text-xs sm:text-sm">Contacts</TabsTrigger>
               <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
               <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>
               <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
@@ -204,8 +205,8 @@ export default function ComprehensivePOS() {
                     <ActionButton icon={Package} onClick={() => setActiveTab('products')}>
                       Add Product
                     </ActionButton>
-                    <ActionButton icon={UserPlus} onClick={() => setActiveTab('customers')}>
-                      Add Customer
+                    <ActionButton icon={UserPlus} onClick={() => setActiveTab('contacts')}>
+                      Add Contact
                     </ActionButton>
                     <ActionButton icon={BarChart3} onClick={() => setActiveTab('accounting')}>
                       View Reports
@@ -290,54 +291,21 @@ export default function ComprehensivePOS() {
             </div>
           </TabsContent>
 
-          {/* Customers Tab */}
-          <TabsContent value="customers" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Customer Management</h2>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Customer
-              </Button>
-            </div>
-            
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b">
-                      <tr className="text-left">
-                        <th className="p-4 font-medium">Name</th>
-                        <th className="p-4 font-medium">Contact</th>
-                        <th className="p-4 font-medium">Orders</th>
-                        <th className="p-4 font-medium">Total Spent</th>
-                        <th className="p-4 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customers.map((customer) => (
-                        <tr key={customer.id} className="border-b hover:bg-muted/50">
-                          <td className="p-4 font-medium">{customer.name}</td>
-                          <td className="p-4">
-                            <div>
-                              <p className="text-sm">{customer.email}</p>
-                              <p className="text-sm text-muted-foreground">{customer.phone}</p>
-                            </div>
-                          </td>
-                          <td className="p-4">{customer.orders}</td>
-                          <td className="p-4 font-medium">{customer.totalSpent}</td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="sm"><Edit className="h-4 w-4" /></Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Contacts Tab */}
+          <TabsContent value="contacts" className="space-y-6">
+            {tenantId ? (
+              <ContactManagement />
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
+                  <p className="text-muted-foreground text-center">
+                    Contact management requires an active tenant. Please contact your administrator.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Purchases Tab */}

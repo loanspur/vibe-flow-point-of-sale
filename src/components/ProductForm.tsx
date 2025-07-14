@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, X, Package } from 'lucide-react';
+import { Upload, X, Package, Plus, Trash2 } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -21,6 +21,16 @@ interface Subcategory {
   id: string;
   name: string;
   category_id: string;
+}
+
+interface ProductVariant {
+  id?: string;
+  name: string;
+  value: string;
+  sku: string;
+  price_adjustment: string;
+  stock_quantity: string;
+  is_active: boolean;
 }
 
 interface ProductFormProps {
@@ -39,6 +49,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -73,6 +84,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       if (product.image_url) {
         setImagePreview(product.image_url);
       }
+      fetchProductVariants(product.id);
     }
   }, [product]);
 
@@ -118,6 +130,36 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     } catch (error: any) {
       toast({
         title: "Error fetching subcategories",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchProductVariants = async (productId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select('*')
+        .eq('product_id', productId)
+        .order('created_at');
+
+      if (error) throw error;
+      
+      const formattedVariants = (data || []).map(variant => ({
+        id: variant.id,
+        name: variant.name,
+        value: variant.value,
+        sku: variant.sku || '',
+        price_adjustment: variant.price_adjustment?.toString() || '0',
+        stock_quantity: variant.stock_quantity?.toString() || '0',
+        is_active: variant.is_active ?? true,
+      }));
+      
+      setVariants(formattedVariants);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching variants",
         description: error.message,
         variant: "destructive",
       });
@@ -205,18 +247,30 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       };
 
       let error;
+      let productId = product?.id;
+      
       if (product) {
         ({ error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', product.id));
       } else {
-        ({ error } = await supabase
+        const { data, error: insertError } = await supabase
           .from('products')
-          .insert([productData]));
+          .insert([productData])
+          .select('id')
+          .single();
+        
+        error = insertError;
+        if (data) productId = data.id;
       }
 
       if (error) throw error;
+
+      // Save variants if product was created/updated successfully
+      if (productId) {
+        await saveVariants(productId);
+      }
 
       toast({
         title: product ? "Product updated" : "Product created",
@@ -237,6 +291,62 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Variant management functions
+  const addVariant = () => {
+    const newVariant: ProductVariant = {
+      name: '',
+      value: '',
+      sku: '',
+      price_adjustment: '0',
+      stock_quantity: '0',
+      is_active: true,
+    };
+    setVariants(prev => [...prev, newVariant]);
+  };
+
+  const removeVariant = (index: number) => {
+    setVariants(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateVariant = (index: number, field: keyof ProductVariant, value: string | boolean) => {
+    setVariants(prev => prev.map((variant, i) => 
+      i === index ? { ...variant, [field]: value } : variant
+    ));
+  };
+
+  const saveVariants = async (productId: string) => {
+    try {
+      // Delete existing variants if editing
+      if (product) {
+        await supabase
+          .from('product_variants')
+          .delete()
+          .eq('product_id', productId);
+      }
+
+      // Insert new variants
+      if (variants.length > 0) {
+        const variantData = variants.map(variant => ({
+          product_id: productId,
+          name: variant.name,
+          value: variant.value,
+          sku: variant.sku || null,
+          price_adjustment: parseFloat(variant.price_adjustment) || 0,
+          stock_quantity: parseInt(variant.stock_quantity) || 0,
+          is_active: variant.is_active,
+        }));
+
+        const { error } = await supabase
+          .from('product_variants')
+          .insert(variantData);
+
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      throw new Error(`Error saving variants: ${error.message}`);
+    }
   };
 
   return (
@@ -456,6 +566,107 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Product Variants */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Product Variants
+            <Button type="button" variant="outline" size="sm" onClick={addVariant}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Variant
+            </Button>
+          </CardTitle>
+          <CardDescription>Create different versions of this product (e.g., sizes, colors)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {variants.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>No variants added yet</p>
+              <p className="text-sm">Add variants to offer different options for this product</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {variants.map((variant, index) => (
+                <div key={index} className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Variant {index + 1}</h4>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeVariant(index)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Variant Name *</Label>
+                      <Input
+                        value={variant.name}
+                        onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                        placeholder="e.g., Size, Color"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Variant Value *</Label>
+                      <Input
+                        value={variant.value}
+                        onChange={(e) => updateVariant(index, 'value', e.target.value)}
+                        placeholder="e.g., Large, Red"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>SKU</Label>
+                      <Input
+                        value={variant.sku}
+                        onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                        placeholder="Variant SKU"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Price Adjustment</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={variant.price_adjustment}
+                        onChange={(e) => updateVariant(index, 'price_adjustment', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Stock</Label>
+                      <Input
+                        type="number"
+                        value={variant.stock_quantity}
+                        onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={variant.is_active}
+                      onCheckedChange={(checked) => updateVariant(index, 'is_active', checked)}
+                    />
+                    <Label>Active variant</Label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
