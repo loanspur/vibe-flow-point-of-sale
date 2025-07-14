@@ -328,6 +328,78 @@ export function QuoteManagement() {
         .insert({
           cashier_id: user.id,
           customer_id: quote.customer_id,
+          payment_method: "cash",
+          receipt_number: receiptNumber,
+          total_amount: quote.total_amount,
+          discount_amount: quote.discount_amount || 0,
+          tax_amount: quote.tax_amount || 0,
+          status: "completed",
+          tenant_id: tenantData,
+        })
+        .select()
+        .single();
+
+      if (saleError) throw saleError;
+
+      // Create sale items
+      const saleItemsData = quoteItems?.map(item => ({
+        sale_id: sale.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+      })) || [];
+
+      const { error: itemsInsertError } = await supabase
+        .from("sale_items")
+        .insert(saleItemsData);
+
+      if (itemsInsertError) throw itemsInsertError;
+
+      // Update quote status to converted
+      await updateQuoteStatus(quote.id, "converted");
+
+      toast({
+        title: "Quote Converted",
+        description: `Quote converted to sale ${receiptNumber}`,
+      });
+
+      fetchQuotes();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const convertToInvoice = async (quote: Quote) => {
+    try {
+      // Get quote items
+      const { data: quoteItems, error: itemsError } = await supabase
+        .from("quote_items")
+        .select("*")
+        .eq("quote_id", quote.id);
+
+      if (itemsError) throw itemsError;
+
+      // Get current user and tenant
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
+      if (!tenantData) throw new Error("User not assigned to a tenant");
+
+      // Generate receipt number for invoice
+      const receiptNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+      // Create sale record as invoice (pending payment)
+      const { data: sale, error: saleError } = await supabase
+        .from("sales")
+        .insert({
+          cashier_id: user.id,
+          customer_id: quote.customer_id,
           payment_method: "pending",
           receipt_number: receiptNumber,
           total_amount: quote.total_amount,
@@ -356,13 +428,15 @@ export function QuoteManagement() {
 
       if (itemsInsertError) throw itemsInsertError;
 
-      // Update quote status
+      // Update quote status to converted
       await updateQuoteStatus(quote.id, "converted");
 
       toast({
-        title: "Quote Converted",
-        description: `Quote converted to sale ${receiptNumber}`,
+        title: "Quote Converted to Invoice",
+        description: `Quote converted to invoice ${receiptNumber} - awaiting payment`,
       });
+
+      fetchQuotes();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -751,13 +825,24 @@ export function QuoteManagement() {
                           </div>
                         )}
                         {quote.status === "accepted" && (
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            onClick={() => convertToSale(quote)}
-                          >
-                            <ShoppingCart className="h-3 w-3" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="default" 
+                              size="sm"
+                              onClick={() => convertToSale(quote)}
+                              title="Convert to Sale"
+                            >
+                              <ShoppingCart className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => convertToInvoice(quote)}
+                              title="Convert to Invoice"
+                            >
+                              <FileText className="h-3 w-3" />
+                            </Button>
+                          </div>
                         )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
