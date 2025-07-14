@@ -221,7 +221,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       const quoteItemsData = saleItems.map(item => ({
         quote_id: quote.id,
         product_id: item.product_id,
-        variant_id: item.variant_id !== "no-variant" ? item.variant_id : null,
+        variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
