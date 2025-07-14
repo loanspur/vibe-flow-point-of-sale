@@ -6,6 +6,7 @@ import ContactManagement from '@/components/ContactManagement';
 import { SalesManagement } from '@/components/SalesManagement';
 import { BusinessSettings } from '@/components/BusinessSettings';
 import AccountingModule from '@/components/AccountingModule';
+import UserManagement from '@/components/UserManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -326,63 +327,19 @@ export default function ComprehensivePOS() {
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">User Management</h2>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add User
-              </Button>
-            </div>
-            
-            <div className="grid lg:grid-cols-3 gap-6">
+            {tenantId ? (
+              <UserManagement />
+            ) : (
               <Card>
-                <CardHeader>
-                  <CardTitle>User Roles</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span>Admin</span>
-                      <Badge>2</Badge>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Manager</span>
-                      <Badge>3</Badge>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Cashier</span>
-                      <Badge>8</Badge>
-                    </div>
-                  </div>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
+                  <p className="text-muted-foreground text-center">
+                    User management requires an active tenant. Please contact your administrator.
+                  </p>
                 </CardContent>
               </Card>
-
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Active Users</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[
-                      { name: "John Admin", role: "Admin", status: "online", lastSeen: "Now" },
-                      { name: "Sarah Manager", role: "Manager", status: "online", lastSeen: "5 min ago" },
-                      { name: "Mike Cashier", role: "Cashier", status: "offline", lastSeen: "2 hours ago" }
-                    ].map((user, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-2 h-2 rounded-full ${user.status === 'online' ? 'bg-green-500' : 'bg-gray-300'}`} />
-                          <div>
-                            <p className="font-medium">{user.name}</p>
-                            <p className="text-sm text-muted-foreground">{user.role}</p>
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{user.lastSeen}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            )}
           </TabsContent>
 
           {/* Accounting Tab */}
