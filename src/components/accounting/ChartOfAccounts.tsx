@@ -120,7 +120,7 @@ export default function ChartOfAccounts() {
         .order('category, name');
 
       if (error) throw error;
-      setAccountTypes(data || []);
+      setAccountTypes((data as AccountType[]) || []);
     } catch (error) {
       console.error('Error fetching account types:', error);
       toast({ title: "Error", description: "Failed to fetch account types", variant: "destructive" });
