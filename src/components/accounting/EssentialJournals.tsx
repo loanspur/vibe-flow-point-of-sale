@@ -348,7 +348,7 @@ export default function EssentialJournals() {
           <Plus className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
           <p className="text-muted-foreground text-center">
-            Essential journals require an active tenant.
+            Please log in to access essential journals.
           </p>
         </CardContent>
       </Card>
@@ -357,111 +357,137 @@ export default function EssentialJournals() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold">Essential Journal Templates</h3>
-        <p className="text-sm text-muted-foreground">
-          Quick access to common business transaction templates
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">Essential Journals</h2>
+          <p className="text-muted-foreground">
+            Create common journal entries for your business transactions.
+            <br />
+            <strong>Note:</strong> Sales and purchases from your POS automatically create journal entries. 
+            Use these templates for other manual adjustments.
+          </p>
+        </div>
       </div>
 
-      {Object.entries(groupedTemplates).map(([category, templates]) => (
-        <Card key={category}>
-          <CardHeader>
-            <CardTitle className="capitalize">{categoryNames[category as keyof typeof categoryNames] || category}</CardTitle>
-            <CardDescription>
-              Journal templates for {category} related transactions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {templates.map((template) => {
-                const Icon = template.icon;
-                return (
-                  <Card 
-                    key={template.id} 
-                    className="cursor-pointer hover:shadow-md transition-shadow border-2 border-transparent hover:border-primary/20"
-                    onClick={() => handleTemplateSelect(template)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <Icon className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm">{template.name}</h4>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {template.description}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+      {accounts.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Plus className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Chart of Accounts</h3>
+            <p className="text-muted-foreground text-center">
+              Your chart of accounts is being set up. Please refresh the page or create some sales/purchase transactions first.
+            </p>
           </CardContent>
         </Card>
-      ))}
+      ) : (
+        <>
+          <div>
+            <h3 className="text-lg font-semibold">Essential Journal Templates</h3>
+            <p className="text-sm text-muted-foreground">
+              Quick access to common business transaction templates
+            </p>
+          </div>
 
-      {/* Template Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedTemplate && (
-                <div className="flex items-center space-x-2">
-                  {React.createElement(selectedTemplate.icon, { className: "w-5 h-5" })}
-                  <span>{selectedTemplate.name}</span>
-                </div>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedTemplate?.description}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {renderFormFields()}
-
-            {selectedTemplate && (
-              <div className="space-y-2">
-                <Label>Preview Journal Entries:</Label>
-                <div className="border rounded-lg p-4 bg-muted/50">
-                  <div className="space-y-2 text-sm">
-                    {selectedTemplate.entries.map((entry, index) => {
-                      const amount = parseFloat(formData[entry.amount_field] || 0);
-                      if (amount <= 0) return null;
-
-                      return (
-                        <div key={index} className="flex justify-between items-center">
-                          <span className="text-muted-foreground">{entry.description}</span>
-                          <div className="flex space-x-4">
-                            <span className="w-20 text-right">
-                              {entry.debit_credit === 'debit' ? `$${amount.toFixed(2)}` : '-'}
-                            </span>
-                            <span className="w-20 text-right">
-                              {entry.debit_credit === 'credit' ? `$${amount.toFixed(2)}` : '-'}
-                            </span>
+          {Object.entries(groupedTemplates).map(([category, templates]) => (
+            <Card key={category}>
+              <CardHeader>
+                <CardTitle className="capitalize">{categoryNames[category as keyof typeof categoryNames] || category}</CardTitle>
+                <CardDescription>
+                  Journal templates for {category} related transactions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {templates.map((template) => {
+                    const Icon = template.icon;
+                    return (
+                      <Card 
+                        key={template.id} 
+                        className="cursor-pointer hover:shadow-md transition-shadow border-2 border-transparent hover:border-primary/20"
+                        onClick={() => handleTemplateSelect(template)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start space-x-3">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                              <Icon className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm">{template.name}</h4>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {template.description}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Template Dialog */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedTemplate && (
+                    <div className="flex items-center space-x-2">
+                      {React.createElement(selectedTemplate.icon, { className: "w-5 h-5" })}
+                      <span>{selectedTemplate.name}</span>
+                    </div>
+                  )}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedTemplate?.description}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {renderFormFields()}
+
+                {selectedTemplate && (
+                  <div className="space-y-2">
+                    <Label>Preview Journal Entries:</Label>
+                    <div className="border rounded-lg p-4 bg-muted/50">
+                      <div className="space-y-2 text-sm">
+                        {selectedTemplate.entries.map((entry, index) => {
+                          const amount = parseFloat(formData[entry.amount_field] || 0);
+                          if (amount <= 0) return null;
+
+                          return (
+                            <div key={index} className="flex justify-between items-center">
+                              <span className="text-muted-foreground">{entry.description}</span>
+                              <div className="flex space-x-4">
+                                <span className="w-20 text-right">
+                                  {entry.debit_credit === 'debit' ? `$${amount.toFixed(2)}` : '-'}
+                                </span>
+                                <span className="w-20 text-right">
+                                  {entry.debit_credit === 'credit' ? `$${amount.toFixed(2)}` : '-'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={createJournalFromTemplate} disabled={loading}>
+                    {loading ? 'Creating...' : 'Create Journal Entry'}
+                  </Button>
                 </div>
               </div>
-            )}
-
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={createJournalFromTemplate} disabled={loading}>
-                {loading ? 'Creating...' : 'Create Journal Entry'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 }
