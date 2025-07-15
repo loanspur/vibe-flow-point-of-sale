@@ -24,6 +24,9 @@ import Products from "./pages/Products";
 import Reports from "./pages/Reports";
 import Team from "./pages/Team";
 import Customers from "./pages/Customers";
+import Sales from "./pages/Sales";
+import Purchases from "./pages/Purchases";
+import Accounting from "./pages/Accounting";
 
 const queryClient = new QueryClient();
 
@@ -116,6 +119,36 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
                   <TenantAdminLayout>
                     <Settings />
+                  </TenantAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/sales" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier']}>
+                  <TenantAdminLayout>
+                    <Sales />
+                  </TenantAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/purchases" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                  <TenantAdminLayout>
+                    <Purchases />
+                  </TenantAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/accounting" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                  <TenantAdminLayout>
+                    <Accounting />
                   </TenantAdminLayout>
                 </ProtectedRoute>
               } 

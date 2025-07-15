@@ -6,7 +6,9 @@ import {
   ShoppingCart,
   Package,
   Home,
-  CreditCard
+  CreditCard,
+  TrendingUp,
+  Calculator
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,7 +33,10 @@ const mainItems = [
 
 const businessItems = [
   { title: "Products", url: "/admin/products", icon: Package },
+  { title: "Sales", url: "/admin/sales", icon: TrendingUp },
+  { title: "Purchases", url: "/admin/purchases", icon: ShoppingCart },
   { title: "Customers", url: "/admin/customers", icon: Users },
+  { title: "Accounting", url: "/admin/accounting", icon: Calculator },
   { title: "Reports", url: "/admin/reports", icon: BarChart3 },
   { title: "Team", url: "/admin/team", icon: Users },
 ];

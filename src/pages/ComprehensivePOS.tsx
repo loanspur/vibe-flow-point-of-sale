@@ -3,11 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
 
 
-import { SalesManagement } from '@/components/SalesManagement';
-
-import AccountingModule from '@/components/AccountingModule';
-
-import PurchaseManagement from '@/components/PurchaseManagement';
 import PromotionManagement from '@/components/PromotionManagement';
 import ReturnManagement from '@/components/ReturnManagement';
 
@@ -141,13 +136,10 @@ export default function ComprehensivePOS() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-6 min-w-[600px]">
+            <TabsList className="grid w-full grid-cols-3 min-w-[300px]">
               <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
-              <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
               <TabsTrigger value="returns" className="text-xs sm:text-sm">Returns</TabsTrigger>
-              <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
               <TabsTrigger value="promotions" className="text-xs sm:text-sm">Promotions</TabsTrigger>
-              <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
             </TabsList>
           </div>
 
@@ -206,9 +198,9 @@ export default function ComprehensivePOS() {
                   <CardDescription>Frequently used features</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ActionButton icon={ShoppingCart} onClick={() => setActiveTab('sales')}>
-                      New Sale
+                  <div className="grid grid-cols-3 gap-4">
+                    <ActionButton icon={ShoppingCart} onClick={() => window.location.href = '/admin/sales'}>
+                      Manage Sales
                     </ActionButton>
                     <ActionButton icon={Package} onClick={() => window.location.href = '/admin/products'}>
                       Manage Products
@@ -222,6 +214,12 @@ export default function ComprehensivePOS() {
                     <ActionButton icon={Settings} onClick={() => window.location.href = '/admin/settings'}>
                       Settings
                     </ActionButton>
+                    <ActionButton icon={Calculator} onClick={() => window.location.href = '/admin/purchases'}>
+                      Purchases
+                    </ActionButton>
+                    <ActionButton icon={Calculator} onClick={() => window.location.href = '/admin/accounting'}>
+                      Accounting
+                    </ActionButton>
                   </div>
                 </CardContent>
               </Card>
@@ -229,20 +227,6 @@ export default function ComprehensivePOS() {
           </TabsContent>
 
 
-          {/* Sales Tab */}
-          <TabsContent value="sales" className="space-y-6">
-            {tenantId ? (
-              <SalesManagement />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <p className="text-muted-foreground mb-4">
-                    Sales management requires an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
 
           {/* Returns Tab */}
           <TabsContent value="returns" className="space-y-6">
@@ -263,22 +247,6 @@ export default function ComprehensivePOS() {
 
 
 
-          {/* Purchases Tab */}
-          <TabsContent value="purchases" className="space-y-6">
-            {tenantId ? (
-              <PurchaseManagement />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
-                  <p className="text-muted-foreground text-center">
-                    Purchase management requires an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
 
           {/* Promotions Tab */}
           <TabsContent value="promotions" className="space-y-6">
@@ -298,22 +266,6 @@ export default function ComprehensivePOS() {
           </TabsContent>
 
 
-          {/* Accounting Tab */}
-          <TabsContent value="accounting" className="space-y-6">
-            {tenantId ? (
-              <AccountingModule />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
-                  <p className="text-muted-foreground text-center">
-                    Accounting module requires an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
 
         </Tabs>
       </div>
