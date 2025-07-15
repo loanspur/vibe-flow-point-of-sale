@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -64,6 +64,17 @@ export default function ProductManagement() {
     if (tenantId) {
       fetchProducts();
     }
+  }, [tenantId]);
+
+  // Add a refresh mechanism to sync with sales/purchases
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (tenantId) {
+        fetchProducts();
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
   }, [tenantId]);
 
   const fetchProducts = async () => {
@@ -275,15 +286,25 @@ export default function ProductManagement() {
           </p>
         </div>
         
-        <Button 
-          onClick={() => {
-            setSelectedProduct(null);
-            setShowProductForm(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={fetchProducts}
+            title="Refresh product data"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button 
+            onClick={() => {
+              setSelectedProduct(null);
+              setShowProductForm(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Low Stock Alert */}
