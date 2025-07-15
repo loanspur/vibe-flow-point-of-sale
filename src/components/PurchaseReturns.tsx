@@ -117,9 +117,24 @@ export default function PurchaseReturns() {
 
   const fetchReturns = async () => {
     try {
-      // Note: For demo purposes, using an empty array since purchase returns table doesn't exist yet
-      // In a real implementation, you would query a purchase_returns table
-      setReturns([]);
+      // Note: Purchase returns would be fetched from a dedicated table when implemented
+      // For now, returns are managed through the general returns table
+      const { data, error } = await supabase
+        .from('returns')
+        .select(`
+          *,
+          return_reason_codes(id, code, description, requires_approval),
+          contacts!returns_customer_id_fkey(name, email),
+          return_items(
+            *,
+            products(name, sku)
+          )
+        `)
+        .eq('return_type', 'refund')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setReturns(data as any || []);
     } catch (error) {
       toast({
         title: "Error",

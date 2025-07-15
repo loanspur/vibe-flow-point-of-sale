@@ -403,9 +403,29 @@ const PurchaseManagement = () => {
 
   const fetchPurchasePayments = async (purchaseId: string) => {
     try {
-      // This would fetch from a purchase_payments table
-      // For now, we'll use a mock array
-      setPurchasePayments([]);
+      // Fetch payments from accounts payable payments table
+      const { data, error } = await supabase
+        .from('ar_ap_payments')
+        .select('*')
+        .eq('reference_id', purchaseId)
+        .eq('payment_type', 'payable')
+        .order('payment_date', { ascending: false });
+
+      if (error) throw error;
+      
+      // Transform to match PurchasePayment interface
+      const payments = (data || []).map(payment => ({
+        id: payment.id,
+        purchase_id: purchaseId,
+        method: payment.payment_method,
+        amount: payment.amount,
+        reference: payment.reference_number,
+        date: payment.payment_date,
+        notes: payment.notes,
+        status: 'completed' as const
+      }));
+      
+      setPurchasePayments(payments);
     } catch (error) {
       console.error('Error fetching purchase payments:', error);
     }

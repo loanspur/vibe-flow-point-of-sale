@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -8,39 +9,118 @@ import {
   ArrowUpRight,
   Activity
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import dashboardImage from "@/assets/dashboard-preview.jpg";
 
 const Dashboard = () => {
-  const metrics = [
+  const { tenantId } = useAuth();
+  const [metrics, setMetrics] = useState([
     {
       title: "Today's Sales",
-      value: "$2,847.52",
-      change: "+12.5%",
+      value: "$0.00",
+      change: "0%",
       icon: DollarSign,
       trend: "up"
     },
     {
       title: "Transactions",
-      value: "127",
-      change: "+8.2%",
+      value: "0",
+      change: "0%",
       icon: Activity,
       trend: "up"
     },
     {
       title: "Products Sold",
-      value: "342",
-      change: "+15.3%",
+      value: "0",
+      change: "0%",
       icon: ShoppingBag,
       trend: "up"
     },
     {
       title: "Customers",
-      value: "89",
-      change: "+5.7%",
+      value: "0",
+      change: "0%",
       icon: Users,
       trend: "up"
     }
-  ];
+  ]);
+
+  useEffect(() => {
+    if (tenantId) {
+      fetchDashboardMetrics();
+    }
+  }, [tenantId]);
+
+  const fetchDashboardMetrics = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Fetch today's sales
+      const { data: todaySales } = await supabase
+        .from('sales')
+        .select('total_amount, created_at')
+        .eq('tenant_id', tenantId)
+        .gte('created_at', today);
+
+      // Fetch all sales for comparison
+      const { data: allSales } = await supabase
+        .from('sales')
+        .select('total_amount, created_at')
+        .eq('tenant_id', tenantId);
+
+      // Fetch customers count
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('tenant_id', tenantId);
+
+      // Fetch products sold today
+      const { data: saleItems } = await supabase
+        .from('sale_items')
+        .select('quantity, sales!inner(created_at, tenant_id)')
+        .eq('sales.tenant_id', tenantId)
+        .gte('sales.created_at', today);
+
+      const todayRevenue = todaySales?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+      const todayTransactions = todaySales?.length || 0;
+      const totalProductsSold = saleItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      const totalCustomers = customers?.length || 0;
+
+      setMetrics([
+        {
+          title: "Today's Sales",
+          value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(todayRevenue),
+          change: "0%", // Calculate based on yesterday's data if needed
+          icon: DollarSign,
+          trend: "up"
+        },
+        {
+          title: "Transactions",
+          value: todayTransactions.toString(),
+          change: "0%",
+          icon: Activity,
+          trend: "up"
+        },
+        {
+          title: "Products Sold",
+          value: totalProductsSold.toString(),
+          change: "0%",
+          icon: ShoppingBag,
+          trend: "up"
+        },
+        {
+          title: "Customers",
+          value: totalCustomers.toString(),
+          change: "0%",
+          icon: Users,
+          trend: "up"
+        }
+      ]);
+    } catch (error) {
+      console.error('Error fetching dashboard metrics:', error);
+    }
+  };
 
   return (
     <section className="py-20 bg-muted/30">
