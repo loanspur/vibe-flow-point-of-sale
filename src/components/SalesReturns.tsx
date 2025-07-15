@@ -110,7 +110,7 @@ interface ReturnFormData {
   notes?: string;
 }
 
-export default function ReturnManagement() {
+export default function SalesReturns() {
   const [activeTab, setActiveTab] = useState('overview');
   const [returns, setReturns] = useState<Return[]>([]);
   const [reasonCodes, setReasonCodes] = useState<ReturnReasonCode[]>([]);

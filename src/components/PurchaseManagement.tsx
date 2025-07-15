@@ -30,6 +30,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { PaymentForm } from './PaymentForm';
+import PurchaseReturns from './PurchaseReturns';
 
 interface Purchase {
   id: string;
@@ -476,6 +477,7 @@ const PurchaseManagement = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="purchases">Purchase Orders</TabsTrigger>
           <TabsTrigger value="receiving">Receiving</TabsTrigger>
+          <TabsTrigger value="returns">Returns</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -829,6 +831,10 @@ const PurchaseManagement = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="returns">
+          <PurchaseReturns />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">

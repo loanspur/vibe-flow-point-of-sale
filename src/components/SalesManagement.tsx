@@ -9,6 +9,7 @@ import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingU
 import { supabase } from "@/integrations/supabase/client";
 import { SaleForm } from "./SaleForm";
 import { QuoteManagement } from "./QuoteManagement";
+import SalesReturns from "./SalesReturns";
 import { ReceiptPreview } from "./ReceiptPreview";
 import { useToast } from "@/hooks/use-toast";
 
@@ -189,6 +190,7 @@ export function SalesManagement() {
           <TabsTrigger value="new-sale">New Sale</TabsTrigger>
           <TabsTrigger value="history">Sales History</TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
+          <TabsTrigger value="returns">Returns</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -373,6 +375,10 @@ export function SalesManagement() {
 
         <TabsContent value="quotes">
           <QuoteManagement />
+        </TabsContent>
+
+        <TabsContent value="returns">
+          <SalesReturns />
         </TabsContent>
       </Tabs>
 

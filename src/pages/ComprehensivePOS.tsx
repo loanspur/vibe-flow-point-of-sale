@@ -4,7 +4,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 
 
 import PromotionManagement from '@/components/PromotionManagement';
-import ReturnManagement from '@/components/ReturnManagement';
+
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -136,9 +136,8 @@ export default function ComprehensivePOS() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full grid-cols-3 min-w-[300px]">
+            <TabsList className="grid w-full grid-cols-2 min-w-[300px]">
               <TabsTrigger value="dashboard" className="text-xs sm:text-sm">Dashboard</TabsTrigger>
-              <TabsTrigger value="returns" className="text-xs sm:text-sm">Returns</TabsTrigger>
               <TabsTrigger value="promotions" className="text-xs sm:text-sm">Promotions</TabsTrigger>
             </TabsList>
           </div>
@@ -228,22 +227,6 @@ export default function ComprehensivePOS() {
 
 
 
-          {/* Returns Tab */}
-          <TabsContent value="returns" className="space-y-6">
-            {tenantId ? (
-              <ReturnManagement />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
-                  <p className="text-muted-foreground text-center">
-                    Return management requires an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
 
 
 
