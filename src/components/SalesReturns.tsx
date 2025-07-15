@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { createReturnJournalEntry } from '@/lib/accounting-integration';
 import { Search, RotateCcw, Receipt, CheckCircle, XCircle, Clock, ShoppingCart, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
 
@@ -420,10 +421,43 @@ export default function SalesReturns() {
 
   const completeReturn = async (returnId: string) => {
     try {
+      // Get the return details before completing
+      const returnToComplete = returns.find(r => r.id === returnId);
+      if (!returnToComplete) throw new Error('Return not found');
+
+      // Get tenant ID and user
+      const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
+      const { data: { user } } = await supabase.auth.getUser();
+      const tenantId = profile?.tenant_id;
+
+      // Process the return (updates inventory and status)
       const { data, error } = await supabase
         .rpc('process_return', { return_id_param: returnId });
 
       if (error) throw error;
+
+      // Create accounting journal entry for the return
+      try {
+        const restockAmount = returnToComplete.return_items
+          .filter(item => item.restock)
+          .reduce((sum, item) => sum + (item.total_price), 0);
+
+        await createReturnJournalEntry(tenantId, {
+          returnId: returnId,
+          originalSaleId: returnToComplete.original_sale_id,
+          refundAmount: returnToComplete.refund_amount,
+          restockAmount: restockAmount,
+          processedBy: user?.id || ''
+        });
+      } catch (accountingError) {
+        console.error('Return accounting entry error:', accountingError);
+        // Don't fail the return if accounting fails
+        toast({
+          title: "Warning",
+          description: "Return completed but accounting entry failed",
+          variant: "destructive",
+        });
+      }
 
       toast({
         title: "Success",

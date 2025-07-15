@@ -385,6 +385,16 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         }
       }
 
+      // Prepare COGS data for accounting
+      const itemsWithCost = saleItems.map(item => {
+        const product = products.find(p => p.id === item.product_id);
+        return {
+          productId: item.product_id,
+          quantity: item.quantity,
+          unitCost: product?.cost || 0
+        };
+      });
+
       // Create accounting journal entry
       try {
         await createSalesJournalEntry(tenantData, {
@@ -394,7 +404,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           discountAmount: values.discount_amount,
           taxAmount: values.tax_amount,
           paymentMethod: payments.length > 1 ? "multiple" : payments[0]?.method || "cash",
-          cashierId: user.id
+          cashierId: user.id,
+          items: itemsWithCost
         });
       } catch (accountingError) {
         console.error('Accounting entry error:', accountingError);

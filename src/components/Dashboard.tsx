@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { initializeDefaultChartOfAccounts } from "@/lib/default-accounts";
+import { verifyAccountingIntegration, syncExistingTransactions } from "@/lib/accounting-verification";
 import { Button } from "@/components/ui/button";
 import { 
   TrendingUp, 

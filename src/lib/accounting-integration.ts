@@ -30,26 +30,50 @@ export const getDefaultAccounts = async (tenantId: string) => {
 
   if (error) throw error;
 
-  const accountMap = (accounts || []).reduce((map, account) => {
+  if (!accounts || accounts.length === 0) {
+    throw new Error('No accounts found. Please set up your chart of accounts first.');
+  }
+
+  // Create a mapping based on account names and codes for flexibility
+  const accountMap = accounts.reduce((map, account) => {
+    // Map by name (lowercase, replace spaces/special chars with underscores)
+    const nameKey = account.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    map[nameKey] = account.id;
+    
+    // Map by code for direct lookup
+    map[`code_${account.code}`] = account.id;
+    
+    // Category-based mapping
     const category = account.account_types.category;
-    const key = `${category}_${account.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-    map[key] = account.id;
+    if (account.name.toLowerCase().includes('cash')) {
+      map.cash = account.id;
+    }
+    if (account.name.toLowerCase().includes('receivable')) {
+      map.accounts_receivable = account.id;
+    }
+    if (account.name.toLowerCase().includes('payable')) {
+      map.accounts_payable = account.id;
+    }
+    if (account.name.toLowerCase().includes('inventory')) {
+      map.inventory = account.id;
+    }
+    if (account.name.toLowerCase().includes('sales') && category === 'income') {
+      map.sales_revenue = account.id;
+    }
+    if (account.name.toLowerCase().includes('cost') || account.name.toLowerCase().includes('cogs')) {
+      map.cost_of_goods_sold = account.id;
+    }
+    if (account.name.toLowerCase().includes('tax') && account.name.toLowerCase().includes('payable')) {
+      map.sales_tax_payable = account.id;
+    }
+    if (account.name.toLowerCase().includes('discount')) {
+      map.discount_given = account.id;
+    }
+    
     return map;
   }, {} as Record<string, string>);
 
-  return {
-    // Common account mappings
-    cash: accountMap.assets_cash || accountMap.assets_petty_cash,
-    sales_revenue: accountMap.income_sales_revenue || accountMap.income_revenue,
-    cost_of_goods_sold: accountMap.expenses_cost_of_goods_sold || accountMap.expenses_cogs,
-    inventory: accountMap.assets_inventory || accountMap.assets_merchandise_inventory,
-    accounts_receivable: accountMap.assets_accounts_receivable,
-    accounts_payable: accountMap.liabilities_accounts_payable,
-    sales_tax_payable: accountMap.liabilities_sales_tax_payable,
-    discount_given: accountMap.expenses_discounts_given || accountMap.expenses_sales_discounts,
-    sales_returns: accountMap.income_sales_returns || accountMap.expenses_returns,
-    ...accountMap
-  };
+  return accountMap;
 };
 
 // Create a journal entry
@@ -122,6 +146,7 @@ export const createSalesJournalEntry = async (
     taxAmount: number;
     paymentMethod: string;
     cashierId: string;
+    items?: Array<{ productId: string; quantity: number; unitCost?: number }>;
   }
 ) => {
   try {
@@ -132,7 +157,7 @@ export const createSalesJournalEntry = async (
     const entries: AccountingEntry[] = [];
 
     // Debit: Cash/Accounts Receivable
-    if (paymentMethod === 'cash' || paymentMethod === 'card') {
+    if (paymentMethod === 'cash' || paymentMethod === 'card' || paymentMethod === 'multiple') {
       if (!accounts.cash) throw new Error('Cash account not found');
       entries.push({
         account_id: accounts.cash,
@@ -172,6 +197,29 @@ export const createSalesJournalEntry = async (
         debit_amount: discountAmount,
         description: 'Discount given to customer'
       });
+    }
+
+    // Cost of Goods Sold and Inventory adjustment
+    if (saleData.items && saleData.items.length > 0 && accounts.cost_of_goods_sold && accounts.inventory) {
+      const totalCOGS = saleData.items.reduce((sum, item) => {
+        return sum + ((item.unitCost || 0) * item.quantity);
+      }, 0);
+
+      if (totalCOGS > 0) {
+        // Debit: Cost of Goods Sold
+        entries.push({
+          account_id: accounts.cost_of_goods_sold,
+          debit_amount: totalCOGS,
+          description: 'Cost of goods sold'
+        });
+
+        // Credit: Inventory
+        entries.push({
+          account_id: accounts.inventory,
+          credit_amount: totalCOGS,
+          description: 'Inventory reduction from sale'
+        });
+      }
     }
 
     const transaction: AccountingTransaction = {
