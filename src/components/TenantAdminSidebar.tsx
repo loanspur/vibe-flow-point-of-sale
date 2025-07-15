@@ -28,7 +28,6 @@ import RoleSwitcher from './RoleSwitcher';
 
 const mainItems = [
   { title: "Dashboard", url: "/admin", icon: Home },
-  { title: "POS System", url: "/pos", icon: ShoppingCart },
 ];
 
 const businessItems = [
