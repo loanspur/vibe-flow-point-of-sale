@@ -2408,6 +2408,10 @@ export type Database = {
         Args: { return_id_param: string }
         Returns: boolean
       }
+      setup_default_accounts: {
+        Args: { tenant_id_param: string }
+        Returns: undefined
+      }
       update_product_stock: {
         Args: { product_id: string; quantity_sold: number }
         Returns: undefined

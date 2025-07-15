@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AccountingDashboard from './accounting/AccountingDashboard';
 import ChartOfAccounts from './accounting/ChartOfAccounts';
@@ -6,6 +6,8 @@ import TransactionManagement from './accounting/TransactionManagement';
 import FinancialStatements from './accounting/FinancialStatements';
 import AccountsReceivablePayable from './AccountsReceivablePayable';
 import EssentialJournals from './accounting/EssentialJournals';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   BarChart3,
   Building,
@@ -16,6 +18,25 @@ import {
 } from 'lucide-react';
 
 export default function AccountingModule() {
+  const { user, tenantId } = useAuth();
+
+  // Setup default accounts when the accounting module is accessed
+  useEffect(() => {
+    const setupDefaultAccounts = async () => {
+      if (!tenantId) return;
+      
+      try {
+        await supabase.rpc('setup_default_accounts', {
+          tenant_id_param: tenantId
+        });
+      } catch (error) {
+        console.error('Error setting up default accounts:', error);
+      }
+    };
+
+    setupDefaultAccounts();
+  }, [tenantId]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
