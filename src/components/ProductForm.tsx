@@ -46,6 +46,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [revenueAccounts, setRevenueAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -60,6 +61,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     barcode: '',
     category_id: '',
     subcategory_id: '',
+    revenue_account_id: '',
     stock_quantity: '',
     min_stock_level: '',
     is_active: true,
@@ -67,6 +69,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
   useEffect(() => {
     fetchCategories();
+    fetchRevenueAccounts();
     if (product) {
       setFormData({
         name: product.name || '',
@@ -77,6 +80,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         barcode: product.barcode || '',
         category_id: product.category_id || '',
         subcategory_id: product.subcategory_id || '',
+        revenue_account_id: product.revenue_account_id || '',
         stock_quantity: product.stock_quantity?.toString() || '',
         min_stock_level: product.min_stock_level?.toString() || '',
         is_active: product.is_active ?? true,
@@ -130,6 +134,33 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     } catch (error: any) {
       toast({
         title: "Error fetching subcategories",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchRevenueAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select(`
+          *,
+          account_types!inner(
+            name,
+            category
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('account_types.category', 'income')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setRevenueAccounts(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching revenue accounts",
         description: error.message,
         variant: "destructive",
       });
@@ -239,6 +270,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         barcode: formData.barcode || null,
         category_id: formData.category_id || null,
         subcategory_id: formData.subcategory_id || null,
+        revenue_account_id: formData.revenue_account_id || null,
         stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity) : 0,
         min_stock_level: formData.min_stock_level ? parseInt(formData.min_stock_level) : 0,
         is_active: formData.is_active,
@@ -499,14 +531,35 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="barcode">Barcode</Label>
-            <Input
-              id="barcode"
-              value={formData.barcode}
-              onChange={(e) => handleInputChange('barcode', e.target.value)}
-              placeholder="Product barcode"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="barcode">Barcode</Label>
+              <Input
+                id="barcode"
+                value={formData.barcode}
+                onChange={(e) => handleInputChange('barcode', e.target.value)}
+                placeholder="Product barcode"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="revenue_account">Revenue Account</Label>
+              <Select
+                value={formData.revenue_account_id}
+                onValueChange={(value) => handleInputChange('revenue_account_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select revenue account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {revenueAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} ({account.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>

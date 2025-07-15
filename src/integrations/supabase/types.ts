@@ -1212,6 +1212,7 @@ export type Database = {
           min_stock_level: number | null
           name: string
           price: number
+          revenue_account_id: string | null
           sku: string | null
           stock_quantity: number | null
           subcategory_id: string | null
@@ -1230,6 +1231,7 @@ export type Database = {
           min_stock_level?: number | null
           name: string
           price: number
+          revenue_account_id?: string | null
           sku?: string | null
           stock_quantity?: number | null
           subcategory_id?: string | null
@@ -1248,6 +1250,7 @@ export type Database = {
           min_stock_level?: number | null
           name?: string
           price?: number
+          revenue_account_id?: string | null
           sku?: string | null
           stock_quantity?: number | null
           subcategory_id?: string | null
@@ -1260,6 +1263,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_revenue_account_id_fkey"
+            columns: ["revenue_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
           {
