@@ -86,7 +86,6 @@ export default function FinancialStatements() {
           id,
           code,
           name,
-          balance,
           account_types (
             name,
             category
@@ -99,14 +98,29 @@ export default function FinancialStatements() {
 
       if (error) throw error;
 
-      const formattedData = data?.map(account => ({
-        account_id: account.id,
-        account_code: account.code,
-        account_name: account.name,
-        account_type_name: account.account_types?.name || 'Unknown',
-        account_type_category: account.account_types?.category || 'assets',
-        balance: account.balance || 0
-      })) || [];
+      // Calculate actual balances using the get_account_balance function
+      const formattedData = await Promise.all(
+        (data || []).map(async (account) => {
+          const { data: balanceData, error: balanceError } = await supabase
+            .rpc('get_account_balance', {
+              account_id_param: account.id,
+              as_of_date: format(dateRange.end, 'yyyy-MM-dd')
+            });
+
+          if (balanceError) {
+            console.error('Error fetching account balance:', balanceError);
+          }
+
+          return {
+            account_id: account.id,
+            account_code: account.code,
+            account_name: account.name,
+            account_type_name: account.account_types?.name || 'Unknown',
+            account_type_category: account.account_types?.category || 'assets',
+            balance: balanceData || 0
+          };
+        })
+      );
 
       setBalanceSheetData(formattedData);
     } catch (error) {
