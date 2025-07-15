@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { initializeDefaultChartOfAccounts } from "@/lib/default-accounts";
 import { Button } from "@/components/ui/button";
 import { 
   TrendingUp, 
@@ -49,8 +50,17 @@ const Dashboard = () => {
   useEffect(() => {
     if (tenantId) {
       fetchDashboardMetrics();
+      initializeAccountingSystem();
     }
   }, [tenantId]);
+
+  const initializeAccountingSystem = async () => {
+    try {
+      await initializeDefaultChartOfAccounts(tenantId);
+    } catch (error) {
+      console.error('Error initializing accounting system:', error);
+    }
+  };
 
   const fetchDashboardMetrics = async () => {
     try {

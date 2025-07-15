@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -323,7 +324,7 @@ const AccountsReceivablePayable: React.FC = () => {
 
   const recordPayment = async () => {
     try {
-      const { error } = await supabase
+      const { data: payment, error } = await supabase
         .from('ar_ap_payments')
         .insert({
           tenant_id: tenantId,
@@ -334,9 +335,27 @@ const AccountsReceivablePayable: React.FC = () => {
           payment_method: newPayment.payment_method,
           reference_number: newPayment.reference_number,
           notes: newPayment.notes
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Create accounting journal entry for the payment
+      try {
+        await createPaymentJournalEntry(tenantId, {
+          paymentId: payment.id,
+          amount: newPayment.amount,
+          paymentType: recordType,
+          paymentMethod: newPayment.payment_method,
+          referenceId: selectedRecord.id,
+          createdBy: user?.id || ''
+        });
+      } catch (accountingError) {
+        console.error('Accounting entry error:', accountingError);
+        // Don't fail the payment if accounting fails
+        toast({ title: "Warning", description: "Payment recorded but accounting entry failed", variant: "destructive" });
+      }
 
       toast({ title: "Success", description: "Payment recorded successfully" });
       setIsPaymentOpen(false);

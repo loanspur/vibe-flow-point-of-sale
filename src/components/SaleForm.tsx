@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { createSalesJournalEntry } from "@/lib/accounting-integration";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -382,6 +383,27 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           
           if (productError) throw productError;
         }
+      }
+
+      // Create accounting journal entry
+      try {
+        await createSalesJournalEntry(tenantData, {
+          saleId: sale.id,
+          customerId: values.customer_id === "walk-in" ? undefined : values.customer_id,
+          totalAmount: totalAmount,
+          discountAmount: values.discount_amount,
+          taxAmount: values.tax_amount,
+          paymentMethod: payments.length > 1 ? "multiple" : payments[0]?.method || "cash",
+          cashierId: user.id
+        });
+      } catch (accountingError) {
+        console.error('Accounting entry error:', accountingError);
+        // Don't fail the sale if accounting fails
+        toast({
+          title: "Warning",
+          description: "Sale completed but accounting entry failed",
+          variant: "destructive",
+        });
       }
 
       toast({

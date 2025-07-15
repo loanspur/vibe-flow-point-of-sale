@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { createPurchaseJournalEntry, createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -272,6 +273,21 @@ const PurchaseManagement = () => {
         .insert(items);
 
       if (itemsError) throw itemsError;
+
+      // Create accounting journal entry for the purchase
+      try {
+        await createPurchaseJournalEntry(tenantId, {
+          purchaseId: purchase.id,
+          supplierId: formData.supplier_id,
+          totalAmount: totalAmount,
+          isReceived: false,
+          createdBy: user?.id || ''
+        });
+      } catch (accountingError) {
+        console.error('Accounting entry error:', accountingError);
+        // Don't fail the purchase if accounting fails
+        toast.error('Purchase created but accounting entry failed');
+      }
 
       toast.success('Purchase order created successfully');
       setIsCreateOpen(false);
