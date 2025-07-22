@@ -54,7 +54,9 @@ interface PurchaseItem {
   id: string;
   purchase_id: string;
   product_id: string;
+  variant_id?: string;
   product_name?: string;
+  variant_name?: string;
   quantity_ordered: number;
   quantity_received: number;
   unit_cost: number;
@@ -79,6 +81,17 @@ interface Product {
   sku: string;
   cost: number;
   price: number;
+  stock_quantity: number;
+  product_variants?: ProductVariant[];
+}
+
+interface ProductVariant {
+  id: string;
+  name: string;
+  value: string;
+  sku: string;
+  purchase_price: number;
+  sale_price: number;
   stock_quantity: number;
 }
 
@@ -114,7 +127,7 @@ const PurchaseManagement = () => {
   const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [purchasePayments, setPurchasePayments] = useState<PurchasePayment[]>([]);
-  const [selectedItems, setSelectedItems] = useState<any[]>([{ product_id: '', quantity: 1, unit_cost: 0 }]);
+  const [selectedItems, setSelectedItems] = useState<any[]>([{ product_id: '', variant_id: '', quantity: 1, unit_cost: 0 }]);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -161,7 +174,23 @@ const PurchaseManagement = () => {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, cost, price, stock_quantity')
+        .select(`
+          id, 
+          name, 
+          sku, 
+          cost, 
+          price, 
+          stock_quantity,
+          product_variants (
+            id,
+            name,
+            value,
+            sku,
+            purchase_price,
+            sale_price,
+            stock_quantity
+          )
+        `)
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('name');
@@ -204,9 +233,27 @@ const PurchaseManagement = () => {
 
       if (error) throw error;
       
-      const itemsWithProduct = (data || []).map(item => ({
-        ...item,
-        product_name: item.product?.name || 'Unknown Product'
+      // Fetch variant information separately if variant_id exists
+      const itemsWithProduct = await Promise.all((data || []).map(async (item) => {
+        let variantName = null;
+        
+        if (item.variant_id) {
+          const { data: variant } = await supabase
+            .from('product_variants')
+            .select('name, value')
+            .eq('id', item.variant_id)
+            .single();
+          
+          if (variant) {
+            variantName = `${variant.name}: ${variant.value}`;
+          }
+        }
+        
+        return {
+          ...item,
+          product_name: item.product?.name || 'Unknown Product',
+          variant_name: variantName
+        };
       }));
       
       setPurchaseItems(itemsWithProduct);
@@ -262,6 +309,7 @@ const PurchaseManagement = () => {
       const items = selectedItems.map(item => ({
         purchase_id: purchase.id,
         product_id: item.product_id,
+        variant_id: item.variant_id || null,
         quantity_ordered: item.quantity,
         quantity_received: 0,
         unit_cost: item.unit_cost,
@@ -366,7 +414,7 @@ const PurchaseManagement = () => {
   };
 
   const addItem = () => {
-    setSelectedItems([...selectedItems, { product_id: '', quantity: 1, unit_cost: 0 }]);
+    setSelectedItems([...selectedItems, { product_id: '', variant_id: '', quantity: 1, unit_cost: 0 }]);
   };
 
   const removeItem = (index: number) => {
@@ -378,11 +426,21 @@ const PurchaseManagement = () => {
     const newItems = [...selectedItems];
     newItems[index] = { ...newItems[index], [field]: value };
     
-    // Auto-fill unit cost when product is selected
+    // Auto-fill unit cost when product or variant is selected
     if (field === 'product_id' && value) {
       const product = products.find(p => p.id === value);
       if (product) {
         newItems[index].unit_cost = product.cost || 0;
+        // Clear variant when product changes
+        newItems[index].variant_id = '';
+      }
+    }
+    
+    if (field === 'variant_id' && value) {
+      const product = products.find(p => p.id === newItems[index].product_id);
+      const variant = product?.product_variants?.find(v => v.id === value);
+      if (variant) {
+        newItems[index].unit_cost = variant.purchase_price || 0;
       }
     }
     
@@ -402,7 +460,7 @@ const PurchaseManagement = () => {
       notes: '',
       items: []
     });
-    setSelectedItems([{ product_id: '', quantity: 1, unit_cost: 0 }]);
+    setSelectedItems([{ product_id: '', variant_id: '', quantity: 1, unit_cost: 0 }]);
   };
 
   const openReceiveDialog = async (purchase: Purchase) => {
@@ -643,7 +701,7 @@ const PurchaseManagement = () => {
                         <Label>Items *</Label>
                         <div className="space-y-3 border rounded-lg p-4">
                           {selectedItems.map((item, index) => (
-                            <div key={index} className="grid grid-cols-5 gap-2 items-end">
+                            <div key={index} className="grid grid-cols-6 gap-2 items-end">
                               <div>
                                 <Select 
                                   value={item.product_id} 
@@ -658,6 +716,27 @@ const PurchaseManagement = () => {
                                         {product.name} ({product.sku})
                                       </SelectItem>
                                     ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Select 
+                                  value={item.variant_id || ''} 
+                                  onValueChange={(value) => updateItem(index, 'variant_id', value)}
+                                  disabled={!item.product_id}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Variant (optional)" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">No variant</SelectItem>
+                                    {products
+                                      .find(p => p.id === item.product_id)
+                                      ?.product_variants?.map((variant) => (
+                                        <SelectItem key={variant.id} value={variant.id}>
+                                          {variant.name}: {variant.value}
+                                        </SelectItem>
+                                      ))}
                                   </SelectContent>
                                 </Select>
                               </div>
