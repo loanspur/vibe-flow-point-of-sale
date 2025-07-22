@@ -89,7 +89,7 @@ const AccountsReceivablePayable: React.FC = () => {
   const { toast } = useToast();
 
   // State management
-  const [activeTab, setActiveTab] = useState('receivables');
+  const [activeTab, setActiveTab] = useState('make-payments');
   const [receivables, setReceivables] = useState<AccountsReceivable[]>([]);
   const [payables, setPayables] = useState<AccountsPayable[]>([]);
   const [receivableAging, setReceivableAging] = useState<AgingAnalysis | null>(null);
@@ -639,10 +639,99 @@ const AccountsReceivablePayable: React.FC = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="make-payments">Make Payments</TabsTrigger>
           <TabsTrigger value="receivables">Accounts Receivable</TabsTrigger>
           <TabsTrigger value="payables">Accounts Payable</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="make-payments">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-blue-500" />
+                Make Payments on Credit Sales
+              </CardTitle>
+              <CardDescription>
+                Process payments for outstanding credit sales
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filteredReceivables.filter(r => r.status !== 'paid').length === 0 ? (
+                  <div className="text-center py-8">
+                    <CreditCard className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium">No Outstanding Credit Sales</p>
+                    <p className="text-muted-foreground">All credit sales have been paid in full.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice #</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Original Amount</TableHead>
+                          <TableHead>Paid Amount</TableHead>
+                          <TableHead>Outstanding</TableHead>
+                          <TableHead>Days Overdue</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredReceivables
+                          .filter(receivable => receivable.status !== 'paid')
+                          .sort((a, b) => {
+                            // Sort by overdue first, then by due date
+                            if (a.days_overdue !== b.days_overdue) {
+                              return b.days_overdue - a.days_overdue;
+                            }
+                            return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+                          })
+                          .map((receivable) => (
+                            <TableRow key={receivable.id} className={receivable.days_overdue > 0 ? "bg-red-50" : ""}>
+                              <TableCell className="font-medium">{receivable.invoice_number}</TableCell>
+                              <TableCell>{receivable.customer_name}</TableCell>
+                              <TableCell>{format(new Date(receivable.invoice_date), 'MMM d, yyyy')}</TableCell>
+                              <TableCell>{format(new Date(receivable.due_date), 'MMM d, yyyy')}</TableCell>
+                              <TableCell>{formatCurrency(receivable.original_amount)}</TableCell>
+                              <TableCell>{formatCurrency(receivable.paid_amount)}</TableCell>
+                              <TableCell className="font-semibold text-orange-600">
+                                {formatCurrency(receivable.outstanding_amount)}
+                              </TableCell>
+                              <TableCell>
+                                {receivable.days_overdue > 0 ? (
+                                  <Badge variant="destructive">{receivable.days_overdue} days</Badge>
+                                ) : (
+                                  <Badge variant="secondary">Current</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(receivable.status, receivable.days_overdue)}
+                              </TableCell>
+                              <TableCell>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => openPaymentDialog(receivable, 'receivable')}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  <DollarSign className="h-4 w-4 mr-1" />
+                                  Pay Now
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="receivables">
           <Card>
