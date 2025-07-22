@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
+import { getInventoryLevels } from "@/lib/inventory-integration";
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
@@ -95,37 +96,26 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     if (!tenantId) return;
     
     setIsLoadingProducts(true);
-    console.log('Fetching products for tenant:', tenantId);
+    console.log('Fetching products with inventory levels for tenant:', tenantId);
     
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select(`
-          *,
-          product_variants (*)
-        `)
-        .eq("tenant_id", tenantId)
-        .eq("is_active", true)
-        .order("name");
+      // Use the proper inventory integration function to get accurate stock levels
+      const inventoryData = await getInventoryLevels(tenantId);
       
-      if (error) {
-        console.error('Error fetching products:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch products",
-          variant: "destructive",
-        });
-        return;
-      }
+      console.log(`Loaded ${inventoryData?.length || 0} products with correct stock:`, 
+        inventoryData?.map(p => ({ name: p.name, stock: p.stock_quantity })));
       
-      console.log(`Loaded ${data?.length || 0} products with stock:`, data?.map(p => ({ name: p.name, stock: p.stock_quantity })));
-      
-      if (data) {
-        setProducts(data);
-        setFilteredProducts(data);
+      if (inventoryData) {
+        setProducts(inventoryData);
+        setFilteredProducts(inventoryData);
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('Error fetching products with inventory:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch products with inventory data",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingProducts(false);
     }
