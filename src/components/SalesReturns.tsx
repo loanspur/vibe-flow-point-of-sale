@@ -103,8 +103,9 @@ interface ReturnFormData {
 }
 
 export default function SalesReturns() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('historical-sales');
   const [returns, setReturns] = useState<Return[]>([]);
+  const [historicalSales, setHistoricalSales] = useState<Sale[]>([]);
   const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
   const [newReturnDialogOpen, setNewReturnDialogOpen] = useState(false);
   const [editReturnDialogOpen, setEditReturnDialogOpen] = useState<string | null>(null);
@@ -124,6 +125,7 @@ export default function SalesReturns() {
 
   useEffect(() => {
     fetchReturns();
+    fetchHistoricalSales();
   }, []);
 
   const fetchReturns = async () => {
@@ -150,6 +152,42 @@ export default function SalesReturns() {
       toast({
         title: "Error",
         description: "Failed to fetch returns",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchHistoricalSales = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`
+          *,
+          customers(name, email),
+          sale_items(
+            *,
+            products(name, sku)
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Transform the data to match our interface
+      const transformedData = (data || []).map((sale: any) => ({
+        ...sale,
+        sale_items: sale.sale_items.map((item: any) => ({
+          ...item,
+          product: item.products
+        }))
+      }));
+
+      setHistoricalSales(transformedData);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch historical sales",
         variant: "destructive"
       });
     }
@@ -215,6 +253,17 @@ export default function SalesReturns() {
     }
   };
 
+  const createReturnFromSale = (sale: Sale) => {
+    setSelectedSale(sale);
+    // Initialize selected items
+    const initialSelection: {[key: string]: { quantity: number; condition: string }} = {};
+    sale.sale_items.forEach((item: SaleItem) => {
+      initialSelection[item.id] = { quantity: 0, condition: 'new' };
+    });
+    setSelectedItems(initialSelection);
+    setNewReturnDialogOpen(true);
+  };
+
   const processReturn = async () => {
     if (!selectedSale) return;
 
@@ -230,7 +279,18 @@ export default function SalesReturns() {
           total_price: saleItem!.unit_price * data.quantity,
           condition_notes: data.condition,
           restock: data.condition === 'new' || data.condition === 'opened'
-        };
+  };
+
+  const createReturnFromSale = (sale: Sale) => {
+    setSelectedSale(sale);
+    // Initialize selected items
+    const initialSelection: {[key: string]: { quantity: number; condition: string }} = {};
+    sale.sale_items.forEach((item: SaleItem) => {
+      initialSelection[item.id] = { quantity: 0, condition: 'new' };
+    });
+    setSelectedItems(initialSelection);
+    setNewReturnDialogOpen(true);
+  };
       });
 
     if (returnItems.length === 0) {
@@ -905,9 +965,84 @@ export default function SalesReturns() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="historical-sales">Historical Sales</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="returns">Returns</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="historical-sales" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Historical Sales</CardTitle>
+              <CardDescription>View past sales and create returns</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Search by receipt number, customer..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <Button variant="outline" onClick={fetchHistoricalSales}>
+                    <Search className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Receipt #</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historicalSales
+                      .filter(sale => 
+                        searchTerm === '' || 
+                        sale.receipt_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        sale.customers?.name.toLowerCase().includes(searchTerm.toLowerCase())
+                      )
+                      .map((sale) => (
+                      <TableRow key={sale.id}>
+                        <TableCell className="font-medium">{sale.receipt_number}</TableCell>
+                        <TableCell>{format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}</TableCell>
+                        <TableCell>{sale.customers?.name || 'Walk-in Customer'}</TableCell>
+                        <TableCell>{sale.sale_items?.length || 0} items</TableCell>
+                        <TableCell>{formatCurrency(sale.total_amount)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => createReturnFromSale(sale)}
+                            >
+                              <RotateCcw className="w-4 h-4 mr-1" />
+                              Create Return
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {historicalSales.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No sales found
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           {/* Stats Cards */}
