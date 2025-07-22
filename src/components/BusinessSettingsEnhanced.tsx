@@ -847,66 +847,30 @@ export function BusinessSettingsEnhanced() {
                                            onChange={(e) => setCurrencySearch(e.target.value)}
                                            className="h-8 text-sm"
                                          />
-                                       </div>
+                                        </div>
 
-                                       {/* Popular currencies */}
-                                       <div className="p-2 border-b bg-muted/30">
-                                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Popular</p>
-                                       </div>
-                                       {currencies
-                                         .filter(currency => ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'INR', 'BRL'].includes(currency.code))
-                                         .filter(currency => !currencySearch || 
-                                           currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
-                                           currency.name.toLowerCase().includes(currencySearch.toLowerCase())
-                                         )
-                                         .map(currency => (
-                                           <SelectItem 
-                                             key={currency.code} 
-                                             value={currency.code}
-                                             className="py-2 hover:bg-accent/50"
-                                           >
-                                             <div className="flex items-center gap-2">
-                                               <span className="font-mono text-sm w-6">{currency.symbol}</span>
-                                               <span className="font-medium">{currency.code}</span>
-                                               <span className="text-muted-foreground">—</span>
-                                               <span className="text-sm">{currency.name}</span>
-                                             </div>
-                                           </SelectItem>
-                                         ))}
-                                       
-                                       {/* All currencies by region */}
-                                       {['North America', 'Europe', 'Asia', 'Middle East', 'Africa', 'South America', 'Central America', 'Caribbean', 'Oceania', 'Pacific', 'Commodities', 'Cryptocurrency'].map(region => {
-                                         const regionCurrencies = currencies
-                                           .filter(currency => currency.region === region)
-                                           .filter(currency => !currencySearch || 
-                                             currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
-                                             currency.name.toLowerCase().includes(currencySearch.toLowerCase())
-                                           );
-                                         if (regionCurrencies.length === 0) return null;
-                                         
-                                         return (
-                                           <div key={region}>
-                                             <div className="p-2 border-b bg-muted/30">
-                                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{region}</p>
-                                             </div>
-                                             {regionCurrencies.map(currency => (
-                                               <SelectItem 
-                                                 key={currency.code} 
-                                                 value={currency.code}
-                                                 className="py-2 hover:bg-accent/50"
-                                               >
-                                                 <div className="flex items-center gap-2">
-                                                   <span className="font-mono text-sm w-6">{currency.symbol}</span>
-                                                   <span className="font-medium">{currency.code}</span>
-                                                   <span className="text-muted-foreground">—</span>
-                                                   <span className="text-sm">{currency.name}</span>
-                                                 </div>
-                                               </SelectItem>
-                                             ))}
-                                           </div>
-                                         );
-                                       })}
-                                     </SelectContent>
+                                        {/* All currencies in alphabetical order */}
+                                        {currencies
+                                          .filter(currency => !currencySearch || 
+                                            currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
+                                            currency.name.toLowerCase().includes(currencySearch.toLowerCase())
+                                          )
+                                          .sort((a, b) => a.name.localeCompare(b.name))
+                                          .map(currency => (
+                                            <SelectItem 
+                                              key={currency.code} 
+                                              value={currency.code}
+                                              className="py-2 hover:bg-accent/50"
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-mono text-sm w-6">{currency.symbol}</span>
+                                                <span className="font-medium">{currency.code}</span>
+                                                <span className="text-muted-foreground">—</span>
+                                                <span className="text-sm">{currency.name}</span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                       </SelectContent>
                                    </Select>
                                    <FormMessage />
                                    {field.value && (
