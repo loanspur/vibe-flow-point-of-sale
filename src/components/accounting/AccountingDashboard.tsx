@@ -128,6 +128,57 @@ export default function AccountingDashboard() {
     }
   }, [tenantId]);
 
+  // Set up real-time subscriptions for accounting tables
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const channel = supabase
+      .channel('accounting-realtime-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounting_transactions',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        (payload) => {
+          console.log('Accounting transaction change detected:', payload);
+          fetchMetrics(); // Refresh metrics when transactions change
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounting_entries'
+        },
+        (payload) => {
+          console.log('Accounting entry change detected:', payload);
+          fetchMetrics(); // Refresh metrics when entries change
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        (payload) => {
+          console.log('Account change detected:', payload);
+          fetchMetrics(); // Refresh metrics when accounts change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
