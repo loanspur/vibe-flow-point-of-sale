@@ -129,12 +129,31 @@ const UserManagement = () => {
 
   useEffect(() => {
     if (tenantId) {
-      fetchUsers();
-      fetchRoles();
-      fetchSystemPermissions();
-      fetchActivityLogs();
-      fetchInvitations();
-      fetchUserSessions();
+      // Load data in batches to improve performance
+      const loadInitialData = async () => {
+        setLoading(true);
+        try {
+          // First batch: Essential data
+          await Promise.all([
+            fetchUsers(),
+            fetchRoles(),
+            fetchSystemPermissions()
+          ]);
+          
+          // Second batch: Secondary data (load after initial render)
+          setTimeout(async () => {
+            await Promise.all([
+              fetchActivityLogs(),
+              fetchInvitations(),
+              fetchUserSessions()
+            ]);
+          }, 100);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadInitialData();
     }
   }, [tenantId]);
 
