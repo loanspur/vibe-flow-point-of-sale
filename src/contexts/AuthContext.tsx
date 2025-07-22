@@ -48,7 +48,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
         // Set default values if profile doesn't exist
         setUserRole('user');
         setTenantId(null);
@@ -75,7 +74,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setViewMode('tenant');
       }
     } catch (error) {
-      console.error('Error fetching user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);

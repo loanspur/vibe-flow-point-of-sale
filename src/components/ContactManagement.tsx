@@ -91,7 +91,6 @@ const ContactManagement = () => {
       if (error) throw error;
       setContacts(data || []);
     } catch (error) {
-      console.error('Error fetching contacts:', error);
       toast.error('Failed to load contacts');
     }
   };
@@ -126,7 +125,7 @@ const ContactManagement = () => {
       if (error) throw error;
       setUserContact(data);
     } catch (error) {
-      console.error('Error fetching user contact:', error);
+      // Error handled silently
     }
   };
 

@@ -150,7 +150,6 @@ const UserManagement = () => {
       if (error) throw error;
       setSystemPermissions(data || []);
     } catch (error) {
-      console.error('Error fetching system permissions:', error);
       toast.error('Failed to load system permissions');
     }
   };
@@ -174,7 +173,6 @@ const UserManagement = () => {
       );
       setSelectedPermissions(granted);
     } catch (error) {
-      console.error('Error fetching role permissions:', error);
       toast.error('Failed to load role permissions');
     }
   };
@@ -197,7 +195,6 @@ const UserManagement = () => {
       if (error) throw error;
       setUsers(data || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
       toast.error('Failed to load users');
     }
   };
@@ -214,7 +211,6 @@ const UserManagement = () => {
       if (error) throw error;
       setRoles(data || []);
     } catch (error) {
-      console.error('Error fetching roles:', error);
       toast.error('Failed to load roles');
     } finally {
       setLoading(false);
@@ -265,7 +261,6 @@ const UserManagement = () => {
       setIsCreateRoleOpen(false);
       fetchRoles();
     } catch (error) {
-      console.error('Error creating role:', error);
       toast.error('Failed to create role');
     }
   };
@@ -310,7 +305,6 @@ const UserManagement = () => {
       setIsEditRoleOpen(false);
       fetchRoles();
     } catch (error) {
-      console.error('Error updating role:', error);
       toast.error('Failed to update role');
     }
   };
@@ -327,7 +321,6 @@ const UserManagement = () => {
       toast.success('Role deleted successfully');
       fetchRoles();
     } catch (error) {
-      console.error('Error deleting role:', error);
       toast.error('Failed to delete role');
     }
   };
@@ -356,7 +349,6 @@ const UserManagement = () => {
       toast.success('User role updated successfully');
       fetchUsers();
     } catch (error) {
-      console.error('Error updating user role:', error);
       toast.error('Failed to update user role');
     }
   };
@@ -406,7 +398,7 @@ const UserManagement = () => {
       
       setActivityLogs(logsWithUserNames);
     } catch (error) {
-      console.error('Error fetching activity logs:', error);
+      // Error handled silently
     }
   };
 
@@ -439,7 +431,7 @@ const UserManagement = () => {
       
       setInvitations(invitationsWithNames);
     } catch (error) {
-      console.error('Error fetching invitations:', error);
+      // Error handled silently
     }
   };
 
@@ -470,7 +462,7 @@ const UserManagement = () => {
       
       setUserSessions(sessionsWithUserNames);
     } catch (error) {
-      console.error('Error fetching user sessions:', error);
+      // Error handled silently
     }
   };
 
@@ -497,7 +489,6 @@ const UserManagement = () => {
       setIsInviteUserOpen(false);
       fetchInvitations();
     } catch (error) {
-      console.error('Error sending invitation:', error);
       toast.error('Failed to send invitation');
     }
   };
@@ -514,7 +505,6 @@ const UserManagement = () => {
       toast.success('Invitation cancelled');
       fetchInvitations();
     } catch (error) {
-      console.error('Error cancelling invitation:', error);
       toast.error('Failed to cancel invitation');
     }
   };
@@ -534,7 +524,6 @@ const UserManagement = () => {
       toast.success('Invitation resent');
       fetchInvitations();
     } catch (error) {
-      console.error('Error resending invitation:', error);
       toast.error('Failed to resend invitation');
     }
   };
@@ -551,7 +540,6 @@ const UserManagement = () => {
       toast.success('User session deactivated');
       fetchUserSessions();
     } catch (error) {
-      console.error('Error deactivating session:', error);
       toast.error('Failed to deactivate session');
     }
   };

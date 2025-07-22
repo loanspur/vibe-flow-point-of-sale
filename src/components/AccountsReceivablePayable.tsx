@@ -167,7 +167,6 @@ const AccountsReceivablePayable: React.FC = () => {
 
       setReceivables(formattedData);
     } catch (error) {
-      console.error('Error fetching receivables:', error);
       toast({ title: "Error", description: "Failed to fetch receivables", variant: "destructive" });
     }
   };
@@ -195,7 +194,6 @@ const AccountsReceivablePayable: React.FC = () => {
 
       setPayables(formattedData);
     } catch (error) {
-      console.error('Error fetching payables:', error);
       toast({ title: "Error", description: "Failed to fetch payables", variant: "destructive" });
     }
   };
@@ -219,7 +217,6 @@ const AccountsReceivablePayable: React.FC = () => {
       setReceivableAging(receivableResult.data?.[0] || null);
       setPayableAging(payableResult.data?.[0] || null);
     } catch (error) {
-      console.error('Error fetching aging analysis:', error);
       toast({ title: "Error", description: "Failed to fetch aging analysis", variant: "destructive" });
     }
   };
@@ -234,7 +231,7 @@ const AccountsReceivablePayable: React.FC = () => {
       if (customersResult.data) setCustomers(customersResult.data);
       if (suppliersResult.data) setSuppliers(suppliersResult.data);
     } catch (error) {
-      console.error('Error fetching customers/suppliers:', error);
+      // Error handled silently
     }
   };
 
@@ -273,7 +270,7 @@ const AccountsReceivablePayable: React.FC = () => {
         })));
       }
     } catch (error) {
-      console.error('Error fetching sales/purchases:', error);
+      // Error handled silently
     }
   };
 
@@ -295,7 +292,6 @@ const AccountsReceivablePayable: React.FC = () => {
       resetReceivableForm();
       fetchReceivables();
     } catch (error) {
-      console.error('Error creating receivable:', error);
       toast({ title: "Error", description: "Failed to create receivable", variant: "destructive" });
     }
   };
@@ -317,18 +313,13 @@ const AccountsReceivablePayable: React.FC = () => {
       resetPayableForm();
       fetchPayables();
     } catch (error) {
-      console.error('Error creating payable:', error);
       toast({ title: "Error", description: "Failed to create payable", variant: "destructive" });
     }
   };
 
   const recordPayment = async () => {
     try {
-      console.log('Recording payment:', {
-        recordType,
-        selectedRecord: selectedRecord?.id,
-        paymentData: newPayment
-      });
+      // Recording payment
 
       const { data: payment, error } = await supabase
         .from('ar_ap_payments')
@@ -346,11 +337,8 @@ const AccountsReceivablePayable: React.FC = () => {
         .single();
 
       if (error) {
-        console.error('Payment insertion error:', error);
         throw error;
       }
-
-      console.log('Payment recorded successfully:', payment);
 
       // Create accounting journal entry for the payment
       try {
@@ -363,7 +351,6 @@ const AccountsReceivablePayable: React.FC = () => {
           createdBy: user?.id || ''
         });
       } catch (accountingError) {
-        console.error('Accounting entry error:', accountingError);
         // Don't fail the payment if accounting fails
         toast({ title: "Warning", description: "Payment recorded but accounting entry failed", variant: "destructive" });
       }
@@ -386,13 +373,10 @@ const AccountsReceivablePayable: React.FC = () => {
               .eq('id', updatedAR.reference_id);
 
             if (saleUpdateError) {
-              console.error('Error updating sale status:', saleUpdateError);
-            } else {
-              console.log('Sale status updated to paid for sale:', updatedAR.reference_id);
+              // Sale status update failed
             }
           }
         } catch (statusUpdateError) {
-          console.error('Error updating credit sale status:', statusUpdateError);
           // Don't fail the payment if status update fails
         }
       }
@@ -415,45 +399,11 @@ const AccountsReceivablePayable: React.FC = () => {
               .eq('id', updatedAP.reference_id);
 
             if (purchaseUpdateError) {
-              console.error('Error updating purchase status:', purchaseUpdateError);
-            } else {
-              console.log('Purchase status updated to paid for purchase:', updatedAP.reference_id);
+              // Purchase status update failed
             }
           }
         } catch (statusUpdateError) {
-          console.error('Error updating credit purchase status:', statusUpdateError);
           // Don't fail the payment if status update fails
-        }
-      }
-
-      // Verify the AP/AR record was updated by the trigger
-      if (recordType === 'payable') {
-        try {
-          console.log('Checking if AP record was updated...');
-          const { data: updatedAP, error: apError } = await supabase
-            .from('accounts_payable')
-            .select('status, paid_amount, outstanding_amount')
-            .eq('id', selectedRecord.id)
-            .single();
-          
-          console.log('AP record after payment:', updatedAP);
-          if (apError) console.error('Error checking AP update:', apError);
-        } catch (checkError) {
-          console.error('Error verifying AP update:', checkError);
-        }
-      } else if (recordType === 'receivable') {
-        try {
-          console.log('Checking if AR record was updated...');
-          const { data: updatedAR, error: arError } = await supabase
-            .from('accounts_receivable')
-            .select('status, paid_amount, outstanding_amount')
-            .eq('id', selectedRecord.id)
-            .single();
-          
-          console.log('AR record after payment:', updatedAR);
-          if (arError) console.error('Error checking AR update:', arError);
-        } catch (checkError) {
-          console.error('Error verifying AR update:', checkError);
         }
       }
 
@@ -463,14 +413,12 @@ const AccountsReceivablePayable: React.FC = () => {
       
       // Add delay to ensure trigger has processed
       setTimeout(() => {
-        console.log('Refreshing data after payment...');
         fetchReceivables();
         fetchPayables();
         fetchAgingAnalysis();
       }, 500);
 
     } catch (error) {
-      console.error('Error recording payment:', error);
       toast({ title: "Error", description: "Failed to record payment", variant: "destructive" });
     }
   };
