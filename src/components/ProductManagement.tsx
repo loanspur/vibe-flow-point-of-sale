@@ -213,7 +213,26 @@ export default function ProductManagement() {
                   {product.is_active ? "Active" : "Inactive"}
                 </Badge>
               </TableCell>
-              <TableCell>{product.variants?.length || 0}</TableCell>
+              <TableCell>
+                {product.variants && product.variants.length > 0 ? (
+                  <div className="space-y-1">
+                    {product.variants.slice(0, 2).map((variant: any, index: number) => (
+                      <div key={index} className="text-xs">
+                        <Badge variant="outline" className="text-xs">
+                          {variant.name}: {variant.value}
+                        </Badge>
+                      </div>
+                    ))}
+                    {product.variants.length > 2 && (
+                      <div className="text-xs text-muted-foreground">
+                        +{product.variants.length - 2} more
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground text-sm">No variants</span>
+                )}
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <Button 

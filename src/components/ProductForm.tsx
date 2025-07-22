@@ -30,6 +30,9 @@ interface ProductVariant {
   sku: string;
   price_adjustment: string;
   stock_quantity: string;
+  purchase_price: string;
+  sale_price: string;
+  image_url?: string;
   is_active: boolean;
 }
 
@@ -51,6 +54,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [variantImages, setVariantImages] = useState<{[key: number]: { file: File | null, preview: string }}>({});
   
   const [formData, setFormData] = useState({
     name: '',
@@ -83,8 +87,13 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   };
 
   useEffect(() => {
-    fetchCategories();
-    fetchRevenueAccounts();
+    if (tenantId) {
+      fetchCategories();
+      fetchRevenueAccounts();
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
     if (product) {
       setFormData({
         name: product.name || '',
@@ -105,7 +114,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       }
       fetchProductVariants(product.id);
     }
-  }, [product]);
+  }, [product?.id]); // Only depend on product ID to prevent unnecessary refreshes
 
   useEffect(() => {
     if (formData.category_id) {
@@ -199,6 +208,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         sku: variant.sku || '',
         price_adjustment: variant.price_adjustment?.toString() || '0',
         stock_quantity: variant.stock_quantity?.toString() || '0',
+        purchase_price: variant.purchase_price?.toString() || '0',
+        sale_price: variant.sale_price?.toString() || '0',
+        image_url: variant.image_url || '',
         is_active: variant.is_active ?? true,
       }));
       
@@ -357,6 +369,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       sku: '',
       price_adjustment: '0',
       stock_quantity: '0',
+      purchase_price: '0',
+      sale_price: '0',
+      image_url: '',
       is_active: true,
     };
     setVariants(prev => [...prev, newVariant]);
@@ -391,6 +406,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           sku: variant.sku || null,
           price_adjustment: parseFloat(variant.price_adjustment) || 0,
           stock_quantity: parseInt(variant.stock_quantity) || 0,
+          purchase_price: parseFloat(variant.purchase_price) || 0,
+          sale_price: parseFloat(variant.sale_price) || 0,
+          image_url: variant.image_url || null,
           is_active: variant.is_active,
         }));
 
