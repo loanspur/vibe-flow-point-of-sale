@@ -29,22 +29,50 @@ import Purchases from "./pages/Purchases";
 import Accounting from "./pages/Accounting";
 import Profile from "./pages/Profile";
 
-// Error boundary to catch and suppress external errors
+// Comprehensive error suppression for external Firebase errors
 window.addEventListener('error', (event) => {
-  if (event.message.includes('firebase') || event.message.includes('firestore') || event.message.includes('googleapis')) {
+  const message = event.message?.toLowerCase() || '';
+  const filename = event.filename?.toLowerCase() || '';
+  
+  if (message.includes('firebase') || 
+      message.includes('firestore') || 
+      message.includes('googleapis') ||
+      filename.includes('firebase') ||
+      filename.includes('firestore') ||
+      message.includes('webchannelconnection') ||
+      message.includes('quic_protocol_error')) {
     event.preventDefault();
+    event.stopPropagation();
     return false;
   }
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  if (event.reason?.message?.includes('firebase') || 
-      event.reason?.message?.includes('firestore') || 
-      event.reason?.message?.includes('googleapis')) {
+  const reason = event.reason?.message?.toLowerCase() || 
+                event.reason?.toString?.()?.toLowerCase() || '';
+  
+  if (reason.includes('firebase') || 
+      reason.includes('firestore') || 
+      reason.includes('googleapis') ||
+      reason.includes('webchannelconnection') ||
+      reason.includes('quic_protocol_error')) {
     event.preventDefault();
     return false;
   }
 });
+
+// Block Firebase network requests at the console level
+const originalLog = console.error;
+console.error = function(...args) {
+  const message = args.join(' ').toLowerCase();
+  if (message.includes('firebase') || 
+      message.includes('firestore') || 
+      message.includes('googleapis') ||
+      message.includes('webchannelconnection')) {
+    return; // Suppress Firebase error logs
+  }
+  originalLog.apply(console, args);
+};
 
 const queryClient = new QueryClient();
 
