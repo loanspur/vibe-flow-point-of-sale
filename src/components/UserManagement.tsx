@@ -377,7 +377,7 @@ const UserManagement = () => {
         .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
       
@@ -1051,7 +1051,7 @@ const UserManagement = () => {
                 <Activity className="h-5 w-5" />
                 User Activity Logs
               </CardTitle>
-              <CardDescription>Track user actions and system events</CardDescription>
+              <CardDescription>Track user actions and system events with detailed information</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -1060,6 +1060,8 @@ const UserManagement = () => {
                     <TableHead>User</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Resource</TableHead>
+                    <TableHead>IP Address</TableHead>
+                    <TableHead>Device/Browser</TableHead>
                     <TableHead>Details</TableHead>
                     <TableHead>Time</TableHead>
                   </TableRow>
@@ -1069,23 +1071,81 @@ const UserManagement = () => {
                     <TableRow key={log.id}>
                       <TableCell className="font-medium">{log.user_name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{log.action_type}</Badge>
+                        <Badge variant={
+                          log.action_type === 'login' ? 'default' :
+                          log.action_type === 'logout' ? 'secondary' :
+                          log.action_type === 'create' ? 'default' :
+                          log.action_type === 'update' ? 'secondary' :
+                          log.action_type === 'delete' ? 'destructive' :
+                          'outline'
+                        }>
+                          {log.action_type}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{log.resource_type || 'N/A'}</TableCell>
+                      <TableCell>
+                        {log.resource_type ? (
+                          <Badge variant="outline" className="text-xs">
+                            {log.resource_type}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm font-mono">
+                          {log.ip_address || 'Unknown'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-muted-foreground max-w-[200px] truncate">
+                          {log.user_agent ? (
+                            <span title={log.user_agent}>
+                              {log.user_agent.includes('Chrome') ? '🌐 Chrome' :
+                               log.user_agent.includes('Firefox') ? '🦊 Firefox' :
+                               log.user_agent.includes('Safari') ? '🧭 Safari' :
+                               log.user_agent.includes('Edge') ? '🔷 Edge' :
+                               log.user_agent.includes('Mobile') ? '📱 Mobile' : '💻 Desktop'}
+                            </span>
+                          ) : (
+                            'Unknown'
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {log.details ? (
-                          <span className="text-sm text-muted-foreground">
-                            {JSON.stringify(log.details).slice(0, 50)}...
-                          </span>
-                        ) : 'N/A'}
+                          <div className="text-sm text-muted-foreground max-w-[150px]">
+                            <details>
+                              <summary className="cursor-pointer hover:text-foreground">
+                                View details
+                              </summary>
+                              <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-h-20">
+                                {JSON.stringify(log.details, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
                       </TableCell>
                       <TableCell>
-                        {new Date(log.created_at).toLocaleString()}
+                        <div className="text-sm">
+                          <div>{new Date(log.created_at).toLocaleDateString()}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {new Date(log.created_at).toLocaleTimeString()}
+                          </div>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              {activityLogs.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No activity logs found</p>
+                  <p className="text-sm">User activities will appear here once users start using the system</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -81,16 +81,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Activity logging function
+  const logUserActivity = async (actionType: string, userId: string) => {
+    try {
+      // Get user's IP address
+      const response = await fetch('https://api.ipify.org?format=json');
+      const ipData = await response.json();
+      const ipAddress = ipData.ip;
+
+      // Get user agent
+      const userAgent = navigator.userAgent;
+
+      // Get tenant ID for the user
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profile?.tenant_id) {
+        await supabase.rpc('log_user_activity', {
+          tenant_id_param: profile.tenant_id,
+          user_id_param: userId,
+          action_type_param: actionType,
+          resource_type_param: null,
+          resource_id_param: null,
+          details_param: { timestamp: new Date().toISOString() },
+          ip_address_param: ipAddress,
+          user_agent_param: userAgent
+        });
+      }
+    } catch (error) {
+      // Silently fail - don't disrupt user experience
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          fetchUserInfo(session.user.id);
+          await fetchUserInfo(session.user.id);
+          
+          // Log login activity
+          if (event === 'SIGNED_IN') {
+            logUserActivity('login', session.user.id);
+          }
         } else {
+          // Log logout activity for previous user if we had one
+          if (event === 'SIGNED_OUT' && user) {
+            logUserActivity('logout', user.id);
+          }
+          
           setUserRole(null);
           setTenantId(null);
           setViewMode('tenant');
@@ -113,7 +158,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [user?.id]);
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const redirectUrl = `${window.location.origin}/`;
