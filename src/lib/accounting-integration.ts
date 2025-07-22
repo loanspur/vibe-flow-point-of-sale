@@ -56,6 +56,7 @@ export const getDefaultAccounts = async (tenantId: string) => {
         throw new Error('Failed to initialize default chart of accounts');
       }
       
+      console.log(`Successfully initialized ${newAccounts.length} accounts for tenant`);
       // Use the newly created accounts
       accounts = newAccounts;
     } catch (initError) {
@@ -63,6 +64,8 @@ export const getDefaultAccounts = async (tenantId: string) => {
       throw new Error('No accounts found and failed to initialize default chart of accounts. Please set up your chart of accounts manually.');
     }
   }
+
+  console.log('Available accounts:', accounts.map(a => ({ name: a.name, code: a.code })));
 
   // Create a mapping based on account names and codes for flexibility
   const accountMap = accounts.reduce((map, account) => {
@@ -103,6 +106,7 @@ export const getDefaultAccounts = async (tenantId: string) => {
     return map;
   }, {} as Record<string, string>);
 
+  console.log('Account mapping created:', accountMap);
   return accountMap;
 };
 
