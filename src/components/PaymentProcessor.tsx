@@ -40,6 +40,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
     { value: "bank_transfer", label: "Bank Transfer", icon: Building2 },
     { value: "check", label: "Check", icon: CreditCard },
     { value: "gift_card", label: "Gift Card", icon: CreditCard },
+    { value: "credit", label: "Credit Sale (Pay Later)", icon: Building2 },
   ];
 
   const addPayment = () => {
@@ -52,7 +53,8 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
       return;
     }
 
-    if (newPayment.amount > remainingBalance) {
+    // For credit sales, allow the full amount to be "paid" (but as credit)
+    if (newPayment.method !== "credit" && newPayment.amount > remainingBalance) {
       toast({
         title: "Amount Too High",
         description: "Payment amount cannot exceed remaining balance",
@@ -61,10 +63,13 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
       return;
     }
 
+    // For credit sales, set amount to remaining balance
+    const paymentAmount = newPayment.method === "credit" ? remainingBalance : newPayment.amount;
+
     const payment: Payment = {
       id: Date.now().toString(),
       method: newPayment.method,
-      amount: newPayment.amount,
+      amount: paymentAmount,
       reference: newPayment.reference || undefined,
     };
 
@@ -75,13 +80,14 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
     // Reset form
     setNewPayment({
       method: "cash",
-      amount: Math.min(remainingBalance - newPayment.amount, 0) === 0 ? 0 : remainingBalance - newPayment.amount,
+      amount: Math.min(remainingBalance - paymentAmount, 0) === 0 ? 0 : remainingBalance - paymentAmount,
       reference: "",
     });
 
+    const paymentTypeText = newPayment.method === "credit" ? "Credit sale" : payment.method.toUpperCase();
     toast({
       title: "Payment Added",
-      description: `${payment.method.toUpperCase()} payment of $${payment.amount.toFixed(2)} added`,
+      description: `${paymentTypeText} payment of $${payment.amount.toFixed(2)} added`,
     });
   };
 
@@ -180,45 +186,57 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
                     type="number"
                     step="0.01"
                     min="0"
-                    max={remainingBalance}
-                    value={newPayment.amount || ""}
-                    onChange={(e) => setNewPayment(prev => ({ 
-                      ...prev, 
-                      amount: parseFloat(e.target.value) || 0 
-                    }))}
+                    max={newPayment.method === "credit" ? remainingBalance : remainingBalance}
+                    value={newPayment.method === "credit" ? remainingBalance : (newPayment.amount || "")}
+                    onChange={(e) => {
+                      if (newPayment.method !== "credit") {
+                        setNewPayment(prev => ({ 
+                          ...prev, 
+                          amount: parseFloat(e.target.value) || 0 
+                        }));
+                      }
+                    }}
                     placeholder="0.00"
+                    disabled={newPayment.method === "credit"}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={setFullAmount}
-                    disabled={remainingBalance <= 0}
+                    disabled={remainingBalance <= 0 || newPayment.method === "credit"}
                   >
                     Full
                   </Button>
                 </div>
+                {newPayment.method === "credit" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Credit sales will create an accounts receivable record
+                  </p>
+                )}
               </div>
             </div>
 
-            {(newPayment.method === "card" || newPayment.method === "bank_transfer" || newPayment.method === "check") && (
+            {(newPayment.method === "card" || newPayment.method === "bank_transfer" || newPayment.method === "check" || newPayment.method === "credit") && (
               <div>
-                <label className="text-sm font-medium">Reference/Authorization</label>
+                <label className="text-sm font-medium">
+                  {newPayment.method === "credit" ? "Customer Reference" : "Reference/Authorization"}
+                </label>
                 <Input
                   value={newPayment.reference}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, reference: e.target.value }))}
-                  placeholder="Enter reference number..."
+                  placeholder={newPayment.method === "credit" ? "Customer PO or reference..." : "Enter reference number..."}
                 />
               </div>
             )}
 
             <Button 
               onClick={addPayment}
-              disabled={newPayment.amount <= 0 || isProcessing}
+              disabled={(newPayment.method !== "credit" && newPayment.amount <= 0) || isProcessing}
               className="w-full"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Payment
+              {newPayment.method === "credit" ? "Create Credit Sale" : "Add Payment"}
             </Button>
           </div>
         )}

@@ -201,31 +201,40 @@ export const createSalesJournalEntry = async (
     
     const subtotal = totalAmount - taxAmount + discountAmount;
     const entries: AccountingEntry[] = [];
+    
+    const isCreditSale = paymentMethod === 'credit' || paymentMethod === 'account' || 
+                        (saleData.customerId && paymentMethod !== 'cash' && paymentMethod !== 'card' && paymentMethod !== 'multiple');
 
     // Debit: Cash/Accounts Receivable based on payment status
-    if (paymentMethod === 'cash' || paymentMethod === 'card' || paymentMethod === 'multiple') {
-      // Paid sale - debit cash
-      if (!accounts.cash) throw new Error('Cash account not found');
-      entries.push({
-        account_id: accounts.cash,
-        debit_amount: totalAmount,
-        description: 'Cash received from sale'
-      });
-    } else if (paymentMethod === 'credit' || paymentMethod === 'account' || !saleData.customerId) {
-      // Credit sale or walk-in customer not paid - debit accounts receivable
+    if (isCreditSale) {
+      // Credit sale - debit accounts receivable
       if (!accounts.accounts_receivable) throw new Error('Accounts Receivable account not found');
       entries.push({
         account_id: accounts.accounts_receivable,
         debit_amount: totalAmount,
         description: 'Sale on account - customer owes'
       });
+
+      // Create AR record for credit sales
+      if (saleData.customerId) {
+        try {
+          await supabase.rpc('create_accounts_receivable_record', {
+            tenant_id_param: tenantId,
+            sale_id_param: saleData.saleId,
+            customer_id_param: saleData.customerId,
+            total_amount_param: totalAmount
+          });
+        } catch (arError) {
+          console.error('Error creating AR record:', arError);
+        }
+      }
     } else {
-      // Default to cash for other payment methods
+      // Paid sale - debit cash
       if (!accounts.cash) throw new Error('Cash account not found');
       entries.push({
         account_id: accounts.cash,
         debit_amount: totalAmount,
-        description: 'Payment received from sale'
+        description: 'Cash received from sale'
       });
     }
 
@@ -279,7 +288,7 @@ export const createSalesJournalEntry = async (
     }
 
     const transaction: AccountingTransaction = {
-      description: `Sale transaction`,
+      description: `Sale transaction${isCreditSale ? ' (Credit Sale)' : ''}`,
       reference_id: saleData.saleId,
       reference_type: 'sale',
       entries
@@ -342,6 +351,18 @@ export const createPurchaseJournalEntry = async (
 
     if (!accounts.inventory) throw new Error('Inventory account not found');
     if (!accounts.accounts_payable) throw new Error('Accounts Payable account not found');
+
+    // Create AP record for all purchases (they are unpaid until explicitly paid)
+    try {
+      await supabase.rpc('create_accounts_payable_record', {
+        tenant_id_param: tenantId,
+        purchase_id_param: purchaseData.purchaseId,
+        supplier_id_param: purchaseData.supplierId,
+        total_amount_param: purchaseData.totalAmount
+      });
+    } catch (apError) {
+      console.error('Error creating AP record:', apError);
+    }
 
     return await createJournalEntry(tenantId, transaction, purchaseData.createdBy);
   } catch (error) {

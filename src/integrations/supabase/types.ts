@@ -2382,6 +2382,26 @@ export type Database = {
         Args: { purchase_id_param: string }
         Returns: number
       }
+      create_accounts_payable_record: {
+        Args: {
+          tenant_id_param: string
+          purchase_id_param: string
+          supplier_id_param: string
+          total_amount_param: number
+          due_date_param?: string
+        }
+        Returns: string
+      }
+      create_accounts_receivable_record: {
+        Args: {
+          tenant_id_param: string
+          sale_id_param: string
+          customer_id_param: string
+          total_amount_param: number
+          due_date_param?: string
+        }
+        Returns: string
+      }
       create_superadmin_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
