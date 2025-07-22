@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { processSaleInventory } from './inventory-integration';
+import { initializeDefaultChartOfAccounts } from './default-accounts';
 
 export interface AccountingEntry {
   account_id: string;
@@ -18,7 +19,7 @@ export interface AccountingTransaction {
 
 // Get default accounts for common transaction types
 export const getDefaultAccounts = async (tenantId: string) => {
-  const { data: accounts, error } = await supabase
+  let { data: accounts, error } = await supabase
     .from('accounts')
     .select(`
       id,
@@ -31,8 +32,36 @@ export const getDefaultAccounts = async (tenantId: string) => {
 
   if (error) throw error;
 
+  // If no accounts exist, automatically initialize the default chart of accounts
   if (!accounts || accounts.length === 0) {
-    throw new Error('No accounts found. Please set up your chart of accounts first.');
+    console.log('No accounts found for tenant, initializing default chart of accounts...');
+    try {
+      await initializeDefaultChartOfAccounts(tenantId);
+      
+      // Retry fetching accounts after initialization
+      const { data: newAccounts, error: retryError } = await supabase
+        .from('accounts')
+        .select(`
+          id,
+          code,
+          name,
+          account_types!inner(category)
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+
+      if (retryError) throw retryError;
+      
+      if (!newAccounts || newAccounts.length === 0) {
+        throw new Error('Failed to initialize default chart of accounts');
+      }
+      
+      // Use the newly created accounts
+      accounts = newAccounts;
+    } catch (initError) {
+      console.error('Error initializing chart of accounts:', initError);
+      throw new Error('No accounts found and failed to initialize default chart of accounts. Please set up your chart of accounts manually.');
+    }
   }
 
   // Create a mapping based on account names and codes for flexibility
