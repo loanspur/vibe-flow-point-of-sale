@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { useAuth } from "@/contexts/AuthContext";
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
@@ -46,10 +47,13 @@ interface SaleFormProps {
 }
 
 export function SaleForm({ onSaleCompleted }: SaleFormProps) {
+  const { tenantId } = useAuth();
+  const { toast } = useToast();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedVariant, setSelectedVariant] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -58,7 +62,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [remainingBalance, setRemainingBalance] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mode, setMode] = useState<"sale" | "quote">("sale");
-  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof saleSchema>>({
     resolver: zodResolver(saleSchema),
@@ -72,9 +75,11 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const saleType = form.watch("sale_type");
 
   useEffect(() => {
-    fetchProducts();
-    fetchCustomers();
-  }, []);
+    if (tenantId) {
+      fetchProducts();
+      fetchCustomers();
+    }
+  }, [tenantId]);
 
   useEffect(() => {
     // Filter products based on search term
@@ -87,26 +92,63 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   }, [products, searchTerm]);
 
   const fetchProducts = async () => {
-    const { data } = await supabase
-      .from("products")
-      .select(`
-        *,
-        product_variants (*)
-      `)
-      .eq("is_active", true);
+    if (!tenantId) return;
     
-    if (data) {
-      setProducts(data);
-      setFilteredProducts(data);
+    setIsLoadingProducts(true);
+    console.log('Fetching products for tenant:', tenantId);
+    
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          *,
+          product_variants (*)
+        `)
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("name");
+      
+      if (error) {
+        console.error('Error fetching products:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch products",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log(`Loaded ${data?.length || 0} products with stock:`, data?.map(p => ({ name: p.name, stock: p.stock_quantity })));
+      
+      if (data) {
+        setProducts(data);
+        setFilteredProducts(data);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setIsLoadingProducts(false);
     }
   };
 
   const fetchCustomers = async () => {
-    const { data } = await supabase
-      .from("customers")
-      .select("*");
+    if (!tenantId) return;
     
-    if (data) setCustomers(data);
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("tenant_id", tenantId);
+      
+      if (error) {
+        console.error('Error fetching customers:', error);
+        return;
+      }
+      
+      if (data) setCustomers(data);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
   };
 
   const addItemToSale = () => {
