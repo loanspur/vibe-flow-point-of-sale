@@ -52,6 +52,8 @@ const DEFAULT_ACCOUNTS = [
 
 export const initializeDefaultChartOfAccounts = async (tenantId: string) => {
   try {
+    console.log('Starting chart of accounts initialization for tenant:', tenantId);
+    
     // Check if account types already exist
     const { data: existingTypes, error: typesError } = await supabase
       .from('account_types')
@@ -59,12 +61,17 @@ export const initializeDefaultChartOfAccounts = async (tenantId: string) => {
       .eq('tenant_id', tenantId)
       .limit(1);
 
-    if (typesError) throw typesError;
+    if (typesError) {
+      console.error('Error checking existing account types:', typesError);
+      throw typesError;
+    }
 
     if (existingTypes && existingTypes.length > 0) {
       console.log('Chart of accounts already exists for tenant');
       return;
     }
+
+    console.log('No existing account types found, creating default chart...');
 
     // Create account types first
     const accountTypesData = DEFAULT_ACCOUNT_TYPES.map(type => ({
@@ -72,18 +79,27 @@ export const initializeDefaultChartOfAccounts = async (tenantId: string) => {
       tenant_id: tenantId
     }));
 
+    console.log('Creating account types:', accountTypesData);
+
     const { data: createdTypes, error: createTypesError } = await supabase
       .from('account_types')
       .insert(accountTypesData)
       .select();
 
-    if (createTypesError) throw createTypesError;
+    if (createTypesError) {
+      console.error('Error creating account types:', createTypesError);
+      throw createTypesError;
+    }
+
+    console.log('Account types created successfully:', createdTypes);
 
     // Create a mapping of account type names to IDs
     const typeNameToId = createdTypes.reduce((map, type) => {
       map[type.name] = type.id;
       return map;
     }, {} as Record<string, string>);
+
+    console.log('Account type name to ID mapping:', typeNameToId);
 
     // Create accounts
     const accountsData = DEFAULT_ACCOUNTS.map(account => ({
@@ -94,16 +110,21 @@ export const initializeDefaultChartOfAccounts = async (tenantId: string) => {
       tenant_id: tenantId
     }));
 
+    console.log('Creating accounts:', accountsData);
+
     const { error: createAccountsError } = await supabase
       .from('accounts')
       .insert(accountsData);
 
-    if (createAccountsError) throw createAccountsError;
+    if (createAccountsError) {
+      console.error('Error creating accounts:', createAccountsError);
+      throw createAccountsError;
+    }
 
     console.log('Default chart of accounts created successfully');
     return true;
   } catch (error) {
     console.error('Error initializing default chart of accounts:', error);
-    throw error;
+    throw new Error(`Failed to initialize default chart of accounts: ${error.message}`);
   }
 };
