@@ -5,7 +5,7 @@ import ChartOfAccounts from './accounting/ChartOfAccounts';
 import TransactionManagement from './accounting/TransactionManagement';
 import FinancialStatements from './accounting/FinancialStatements';
 import AccountsReceivablePayable from './AccountsReceivablePayable';
-import EssentialJournals from './accounting/EssentialJournals';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -14,7 +14,7 @@ import {
   FileText,
   TrendingUp,
   Receipt,
-  Plus
+  
 } from 'lucide-react';
 
 export default function AccountingModule() {
@@ -47,14 +47,10 @@ export default function AccountingModule() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <BarChart3 className="w-4 h-4" />
             <span>Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="journals" className="flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>Essential Journals</span>
           </TabsTrigger>
           <TabsTrigger value="accounts" className="flex items-center space-x-2">
             <Building className="w-4 h-4" />
@@ -76,10 +72,6 @@ export default function AccountingModule() {
 
         <TabsContent value="overview">
           <AccountingDashboard />
-        </TabsContent>
-
-        <TabsContent value="journals">
-          <EssentialJournals />
         </TabsContent>
 
         <TabsContent value="accounts">
