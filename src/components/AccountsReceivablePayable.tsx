@@ -387,10 +387,41 @@ const AccountsReceivablePayable: React.FC = () => {
 
             if (saleUpdateError) {
               console.error('Error updating sale status:', saleUpdateError);
+            } else {
+              console.log('Sale status updated to paid for sale:', updatedAR.reference_id);
             }
           }
         } catch (statusUpdateError) {
           console.error('Error updating credit sale status:', statusUpdateError);
+          // Don't fail the payment if status update fails
+        }
+      }
+
+      // Update credit purchase status if this is a payable payment
+      if (recordType === 'payable' && selectedRecord.reference_type === 'purchase') {
+        try {
+          // Get updated AP record to check if fully paid
+          const { data: updatedAP, error: apError } = await supabase
+            .from('accounts_payable')
+            .select('status, reference_id')
+            .eq('id', selectedRecord.id)
+            .single();
+
+          if (!apError && updatedAP && updatedAP.status === 'paid') {
+            // Update purchase status to paid
+            const { error: purchaseUpdateError } = await supabase
+              .from('purchases')
+              .update({ status: 'paid' })
+              .eq('id', updatedAP.reference_id);
+
+            if (purchaseUpdateError) {
+              console.error('Error updating purchase status:', purchaseUpdateError);
+            } else {
+              console.log('Purchase status updated to paid for purchase:', updatedAP.reference_id);
+            }
+          }
+        } catch (statusUpdateError) {
+          console.error('Error updating credit purchase status:', statusUpdateError);
           // Don't fail the payment if status update fails
         }
       }
