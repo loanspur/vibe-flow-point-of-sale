@@ -152,7 +152,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           )
         `)
         .eq('tenant_id', tenantId)
-        .eq('account_types.category', 'income')
+        .eq('account_types.category', 'assets')
         .eq('is_active', true)
         .order('name');
 
@@ -160,7 +160,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       setRevenueAccounts(data || []);
     } catch (error: any) {
       toast({
-        title: "Error fetching revenue accounts",
+        title: "Error fetching asset accounts",
         description: error.message,
         variant: "destructive",
       });
