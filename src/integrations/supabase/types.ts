@@ -2431,6 +2431,10 @@ export type Database = {
         Args: { tenant_id_param: string }
         Returns: undefined
       }
+      update_account_balances_from_entries: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       update_product_stock: {
         Args: { product_id: string; quantity_sold: number }
         Returns: undefined

@@ -4,6 +4,7 @@ import AccountingDashboard from './accounting/AccountingDashboard';
 import ChartOfAccounts from './accounting/ChartOfAccounts';
 import TransactionManagement from './accounting/TransactionManagement';
 import FinancialStatements from './accounting/FinancialStatements';
+import AccountingBalanceCheck from './accounting/AccountingBalanceCheck';
 import AccountsReceivablePayable from './AccountsReceivablePayable';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +15,7 @@ import {
   FileText,
   TrendingUp,
   Receipt,
-  
+  DollarSign,
 } from 'lucide-react';
 
 export default function AccountingModule() {
@@ -47,7 +48,7 @@ export default function AccountingModule() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <BarChart3 className="w-4 h-4" />
             <span>Overview</span>
@@ -63,6 +64,10 @@ export default function AccountingModule() {
           <TabsTrigger value="statements" className="flex items-center space-x-2">
             <TrendingUp className="w-4 h-4" />
             <span>Financial Statements</span>
+          </TabsTrigger>
+          <TabsTrigger value="balance-check" className="flex items-center space-x-2">
+            <DollarSign className="w-4 h-4" />
+            <span>Balance Check</span>
           </TabsTrigger>
           <TabsTrigger value="ar_ap" className="flex items-center space-x-2">
             <Receipt className="w-4 h-4" />
@@ -84,6 +89,10 @@ export default function AccountingModule() {
 
         <TabsContent value="statements">
           <FinancialStatements />
+        </TabsContent>
+
+        <TabsContent value="balance-check">
+          <AccountingBalanceCheck />
         </TabsContent>
 
         <TabsContent value="ar_ap">
