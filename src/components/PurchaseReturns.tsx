@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Search, RotateCcw, Receipt, CheckCircle, XCircle, Clock, ShoppingCart, ArrowLeftRight } from "lucide-react";
+import { Search, RotateCcw, Receipt, CheckCircle, XCircle, Clock, ShoppingCart, ArrowLeftRight, Edit, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { updateProductInventory } from "@/lib/inventory-integration";
 import { createPurchaseReturnJournalEntry } from "@/lib/accounting-integration";
@@ -112,6 +113,8 @@ export default function PurchaseReturns() {
   const [selectedReturn, setSelectedReturn] = useState<PurchaseReturn | null>(null);
   const [newReturnDialogOpen, setNewReturnDialogOpen] = useState(false);
   const [viewReturnDialogOpen, setViewReturnDialogOpen] = useState<string | null>(null);
+  const [editReturnDialogOpen, setEditReturnDialogOpen] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<string | null>(null);
   const [purchaseSearch, setPurchaseSearch] = useState('');
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
   const [returnFormData, setReturnFormData] = useState<ReturnFormData>({
@@ -445,6 +448,84 @@ export default function PurchaseReturns() {
       toast({
         title: "Error",
         description: error.message || "Failed to process return",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteReturn = async (returnId: string) => {
+    if (!tenantId) return;
+    
+    try {
+      setLoading(true);
+      
+      // Delete return items first (cascade should handle this, but being explicit)
+      await supabase
+        .from('return_items')
+        .delete()
+        .eq('return_id', returnId);
+      
+      // Delete the return record
+      const { error } = await supabase
+        .from('returns')
+        .delete()
+        .eq('id', returnId)
+        .eq('tenant_id', tenantId);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Return Deleted",
+        description: "The return record has been successfully deleted.",
+      });
+      
+      // Refresh the returns list
+      fetchReturns();
+      setDeleteConfirmOpen(null);
+      
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete return",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateReturnStatus = async (returnId: string, newStatus: string) => {
+    if (!tenantId) return;
+    
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('returns')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', returnId)
+        .eq('tenant_id', tenantId);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Return Updated",
+        description: `Return status has been updated to ${newStatus}.`,
+      });
+      
+      // Refresh the returns list
+      fetchReturns();
+      setEditReturnDialogOpen(null);
+      
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update return",
         variant: "destructive"
       });
     } finally {
@@ -819,6 +900,67 @@ export default function PurchaseReturns() {
             })()}
           </DialogContent>
         </Dialog>
+
+        {/* Edit Return Dialog */}
+        <Dialog open={editReturnDialogOpen !== null} onOpenChange={(open) => !open && setEditReturnDialogOpen(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Return</DialogTitle>
+              <DialogDescription>
+                Update return status and details
+              </DialogDescription>
+            </DialogHeader>
+            
+            {editReturnDialogOpen && (() => {
+              const returnItem = returns.find(r => r.id === editReturnDialogOpen);
+              if (!returnItem) return <div>Return not found</div>;
+              
+              return (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium">Return Number</Label>
+                    <div className="text-sm text-muted-foreground">{returnItem.return_number}</div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Current Status</Label>
+                    <div className="mt-1">{getStatusBadge(returnItem.status)}</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Update Status</Label>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateReturnStatus(returnItem.id, 'pending')}
+                        disabled={loading || returnItem.status === 'pending'}
+                      >
+                        Mark as Pending
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateReturnStatus(returnItem.id, 'completed')}
+                        disabled={loading || returnItem.status === 'completed'}
+                      >
+                        Mark as Completed
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateReturnStatus(returnItem.id, 'cancelled')}
+                        disabled={loading || returnItem.status === 'cancelled'}
+                      >
+                        Mark as Cancelled
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1060,13 +1202,52 @@ export default function PurchaseReturns() {
                         <TableCell>{getStatusBadge(returnItem.status)}</TableCell>
                         <TableCell>{format(new Date(returnItem.created_at), 'MMM dd, yyyy HH:mm')}</TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setViewReturnDialogOpen(returnItem.id)}
-                          >
-                            View
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setViewReturnDialogOpen(returnItem.id)}
+                            >
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditReturnDialogOpen(returnItem.id)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                            <AlertDialog open={deleteConfirmOpen === returnItem.id} onOpenChange={(open) => !open && setDeleteConfirmOpen(null)}>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => setDeleteConfirmOpen(returnItem.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Delete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Return</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete return {returnItem.return_number}? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => deleteReturn(returnItem.id)}
+                                    disabled={loading}
+                                  >
+                                    {loading ? "Deleting..." : "Delete"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
