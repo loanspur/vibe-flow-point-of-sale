@@ -990,14 +990,52 @@ const PurchaseManagement = () => {
                             </>
                           )}
                           {(purchase.status === 'ordered' || purchase.status === 'received') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openPaymentDialog(purchase)}
-                            >
-                              <CreditCard className="h-4 w-4 mr-1" />
-                              Payment
-                            </Button>
+                            <>
+                              {(() => {
+                                const totalPaid = purchasePayments
+                                  .filter(p => p.purchase_id === purchase.id)
+                                  .reduce((sum, payment) => sum + payment.amount, 0);
+                                const isPaid = totalPaid >= purchase.total_amount;
+                                const isPartiallyPaid = totalPaid > 0 && totalPaid < purchase.total_amount;
+                                
+                                if (isPaid) {
+                                  return (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled
+                                      className="bg-green-50 text-green-700 border-green-200"
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Fully Paid
+                                    </Button>
+                                  );
+                                } else if (isPartiallyPaid) {
+                                  return (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openPaymentDialog(purchase)}
+                                      className="bg-yellow-50 text-yellow-700 border-yellow-200"
+                                    >
+                                      <CreditCard className="h-4 w-4 mr-1" />
+                                      Partially Paid
+                                    </Button>
+                                  );
+                                } else {
+                                  return (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openPaymentDialog(purchase)}
+                                    >
+                                      <CreditCard className="h-4 w-4 mr-1" />
+                                      Pay
+                                    </Button>
+                                  );
+                                }
+                              })()}
+                            </>
                           )}
                           <Button
                             variant="outline"
