@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText, Printer, CreditCard, RotateCcw } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { SaleForm } from "./SaleForm";
 import { QuoteManagement } from "./QuoteManagement";
@@ -99,16 +100,19 @@ export function SalesManagement() {
             email,
             phone,
             address
+          ),
+          profiles!sales_cashier_id_fkey (
+            full_name
           )
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSales(data || []);
+      setSales((data as any[]) || []);
 
       // Fetch AR status for credit sales
-      await fetchCreditSalesStatus(data?.filter(sale => sale.payment_method === 'credit') || []);
+      await fetchCreditSalesStatus((data as any[])?.filter(sale => sale.payment_method === 'credit') || []);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -634,51 +638,122 @@ export function SalesManagement() {
                 </Button>
               </div>
 
-              {/* Sales List */}
-              <div className="space-y-3">
-                {filteredSales.map((sale) => (
-                  <div key={sale.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <p className="font-medium">{sale.receipt_number}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(sale.created_at)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {sale.customers?.name || "Walk-in Customer"}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Customer</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-bold">{formatCurrency(sale.total_amount)}</p>
-                        {getPaymentMethodBadge(sale.payment_method)}
-                      </div>
-                      <Badge variant={sale.status === "completed" ? "default" : "secondary"}>
-                        {sale.status}
-                      </Badge>
-                       <div className="flex gap-1">
-                        <Button variant="outline" size="sm" onClick={() => handleViewReceipt(sale)} title="View Receipt">
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleReprintReceipt(sale)} title="Reprint Receipt">
-                          <Printer className="h-3 w-3" />
-                        </Button>
-                        {sale.status === "completed" && (
-                          <Button variant="outline" size="sm" onClick={() => handleCreateReturn(sale)} title="Create Return">
-                            <RotateCcw className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {getPaymentStatusButton(sale)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              {/* Sales Data Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Receipt #</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Cashier</TableHead>
+                      <TableHead>Items Total</TableHead>
+                      <TableHead>Discount</TableHead>
+                      <TableHead>Tax</TableHead>
+                      <TableHead>Final Total</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSales.map((sale) => (
+                      <TableRow key={sale.id} className="hover:bg-accent/50">
+                        <TableCell className="font-medium">{sale.receipt_number}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>{new Date(sale.created_at).toLocaleDateString()}</div>
+                            <div className="text-muted-foreground">
+                              {new Date(sale.created_at).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {sale.customers?.name || "Walk-in Customer"}
+                            </div>
+                            {sale.customers?.email && (
+                              <div className="text-sm text-muted-foreground">
+                                {sale.customers.email}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {sale.profiles?.full_name || "Unknown"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(sale.total_amount - (sale.discount_amount || 0) - (sale.tax_amount || 0))}
+                        </TableCell>
+                        <TableCell>
+                          {sale.discount_amount > 0 ? (
+                            <span className="text-red-600">-{formatCurrency(sale.discount_amount)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">$0.00</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {sale.tax_amount > 0 ? (
+                            formatCurrency(sale.tax_amount)
+                          ) : (
+                            <span className="text-muted-foreground">$0.00</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-bold">
+                          {formatCurrency(sale.total_amount)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {getPaymentMethodBadge(sale.payment_method)}
+                            {getPaymentStatusButton(sale) && (
+                              <div className="mt-1">
+                                {getPaymentStatusButton(sale)}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={sale.status === "completed" ? "default" : "secondary"}>
+                            {sale.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleViewReceipt(sale)} 
+                              title="View Receipt"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleReprintReceipt(sale)} 
+                              title="Reprint Receipt"
+                            >
+                              <Printer className="h-3 w-3" />
+                            </Button>
+                            {sale.status === "completed" && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleCreateReturn(sale)} 
+                                title="Create Return"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
 
               {filteredSales.length === 0 && (
