@@ -324,6 +324,12 @@ const AccountsReceivablePayable: React.FC = () => {
 
   const recordPayment = async () => {
     try {
+      console.log('Recording payment:', {
+        recordType,
+        selectedRecord: selectedRecord?.id,
+        paymentData: newPayment
+      });
+
       const { data: payment, error } = await supabase
         .from('ar_ap_payments')
         .insert({
@@ -339,7 +345,12 @@ const AccountsReceivablePayable: React.FC = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Payment insertion error:', error);
+        throw error;
+      }
+
+      console.log('Payment recorded successfully:', payment);
 
       // Create accounting journal entry for the payment
       try {
@@ -384,12 +395,49 @@ const AccountsReceivablePayable: React.FC = () => {
         }
       }
 
+      // Verify the AP/AR record was updated by the trigger
+      if (recordType === 'payable') {
+        try {
+          console.log('Checking if AP record was updated...');
+          const { data: updatedAP, error: apError } = await supabase
+            .from('accounts_payable')
+            .select('status, paid_amount, outstanding_amount')
+            .eq('id', selectedRecord.id)
+            .single();
+          
+          console.log('AP record after payment:', updatedAP);
+          if (apError) console.error('Error checking AP update:', apError);
+        } catch (checkError) {
+          console.error('Error verifying AP update:', checkError);
+        }
+      } else if (recordType === 'receivable') {
+        try {
+          console.log('Checking if AR record was updated...');
+          const { data: updatedAR, error: arError } = await supabase
+            .from('accounts_receivable')
+            .select('status, paid_amount, outstanding_amount')
+            .eq('id', selectedRecord.id)
+            .single();
+          
+          console.log('AR record after payment:', updatedAR);
+          if (arError) console.error('Error checking AR update:', arError);
+        } catch (checkError) {
+          console.error('Error verifying AR update:', checkError);
+        }
+      }
+
       toast({ title: "Success", description: "Payment recorded successfully" });
       setIsPaymentOpen(false);
       resetPaymentForm();
-      fetchReceivables();
-      fetchPayables();
-      fetchAgingAnalysis();
+      
+      // Add delay to ensure trigger has processed
+      setTimeout(() => {
+        console.log('Refreshing data after payment...');
+        fetchReceivables();
+        fetchPayables();
+        fetchAgingAnalysis();
+      }, 500);
+
     } catch (error) {
       console.error('Error recording payment:', error);
       toast({ title: "Error", description: "Failed to record payment", variant: "destructive" });
