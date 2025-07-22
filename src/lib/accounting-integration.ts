@@ -65,7 +65,7 @@ export const getDefaultAccounts = async (tenantId: string) => {
     }
   }
 
-  console.log('Available accounts:', accounts.map(a => ({ name: a.name, code: a.code })));
+  console.log('Available accounts for tenant:', accounts.map(a => ({ name: a.name, code: a.code, id: a.id })));
 
   // Create a mapping based on account names and codes for flexibility
   const accountMap = accounts.reduce((map, account) => {
@@ -76,29 +76,37 @@ export const getDefaultAccounts = async (tenantId: string) => {
     // Map by code for direct lookup
     map[`code_${account.code}`] = account.id;
     
-    // Category-based mapping
+    // Category-based mapping with debug logging
     const category = account.account_types.category;
-    if (account.name.toLowerCase().includes('cash')) {
+    const name = account.name.toLowerCase();
+    
+    if (name.includes('cash')) {
       map.cash = account.id;
+      console.log('✓ Mapped cash account:', account.name, account.id);
     }
-    if (account.name.toLowerCase().includes('receivable')) {
+    if (name.includes('receivable')) {
       map.accounts_receivable = account.id;
+      console.log('✓ Mapped A/R account:', account.name, account.id);
     }
-    if (account.name.toLowerCase().includes('payable')) {
+    if (name.includes('payable')) {
       map.accounts_payable = account.id;
+      console.log('✓ Mapped A/P account:', account.name, account.id);
     }
-    if (account.name.toLowerCase().includes('inventory')) {
+    
+    // Enhanced inventory mapping with debug logging
+    if (name.includes('inventory') || name === 'inventory' || name.includes('stock') || 
+        account.code === '1200' || account.code === '1020') {
       map.inventory = account.id;
+      console.log('✓ Mapped inventory account:', account.name, account.code, account.id);
     }
-    // Also check for common inventory account patterns
-    if (account.code === '1200' || account.name.toLowerCase() === 'inventory' || account.name.toLowerCase().includes('stock')) {
-      map.inventory = account.id;
-    }
-    if (account.name.toLowerCase().includes('sales') && category === 'income') {
+    
+    if (name.includes('sales') && category === 'income') {
       map.sales_revenue = account.id;
+      console.log('✓ Mapped sales revenue:', account.name, account.id);
     }
-    if (account.name.toLowerCase().includes('cost') || account.name.toLowerCase().includes('cogs')) {
+    if (name.includes('cost') || name.includes('cogs') || (name.includes('goods') && name.includes('sold'))) {
       map.cost_of_goods_sold = account.id;
+      console.log('✓ Mapped COGS:', account.name, account.id);
     }
     if (account.name.toLowerCase().includes('tax') && account.name.toLowerCase().includes('payable')) {
       map.sales_tax_payable = account.id;
