@@ -339,10 +339,17 @@ const PurchaseManagement = () => {
           isReceived: false,
           createdBy: user?.id || ''
         });
-      } catch (accountingError) {
+      } catch (accountingError: any) {
         console.error('Accounting entry error:', accountingError);
-        // Don't fail the purchase if accounting fails
-        toast.error('Purchase created but accounting entry failed');
+        
+        // Check if it's a missing accounts error
+        if (accountingError.message?.includes('account not found')) {
+          toast.error(`Purchase created successfully, but accounting integration failed: ${accountingError.message}. Please set up your chart of accounts.`);
+        } else {
+          toast.error('Purchase created but accounting entry failed. Please check your accounting setup.');
+        }
+        
+        // Don't fail the purchase creation - just warn the user
       }
 
       toast.success('Purchase order created successfully');
