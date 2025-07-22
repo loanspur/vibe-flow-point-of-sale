@@ -118,19 +118,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    let mounted = true;
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          await fetchUserInfo(session.user.id);
-          
-          // Log login activity
-          if (event === 'SIGNED_IN') {
-            logUserActivity('login', session.user.id);
-          }
+          // Use setTimeout to prevent deadlock
+          setTimeout(() => {
+            if (mounted) {
+              fetchUserInfo(session.user.id);
+              
+              // Log login activity
+              if (event === 'SIGNED_IN') {
+                logUserActivity('login', session.user.id);
+              }
+            }
+          }, 0);
         } else {
           // Log logout activity for previous user if we had one
           if (event === 'SIGNED_OUT' && user) {
@@ -147,28 +156,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     // Get initial session with better error handling
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.warn('Session fetch error:', error);
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (error) {
+          console.warn('Session fetch error:', error);
+          setLoading(false);
+          return;
+        }
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserInfo(session.user.id);
+        }
+        
         setLoading(false);
-        return;
+      } catch (error) {
+        if (mounted) {
+          console.warn('Auth initialization failed:', error);
+          setLoading(false);
+        }
       }
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserInfo(session.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
-    }).catch((error) => {
-      console.warn('Auth initialization failed:', error);
-      setLoading(false);
-    });
+    };
 
-    return () => subscription.unsubscribe();
-  }, [user?.id]);
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []); // Remove user.id dependency to prevent infinite loops
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const redirectUrl = `${window.location.origin}/`;
