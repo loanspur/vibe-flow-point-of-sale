@@ -285,6 +285,11 @@ export function BusinessSettingsEnhanced() {
         tenant_id: profile.tenant_id
       };
       
+      // Remove id if it exists to let upsert handle it properly
+      if ('id' in settingsData) {
+        delete (settingsData as any).id;
+      }
+      
       console.log('Saving settings data:', settingsData);
 
       const { error } = await supabase
