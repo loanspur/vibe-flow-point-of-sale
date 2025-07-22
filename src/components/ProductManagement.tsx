@@ -74,16 +74,16 @@ export default function ProductManagement() {
     }
   }, [tenantId]);
 
-  // Add a refresh mechanism to sync with sales/purchases
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (tenantId) {
-        fetchProducts();
-      }
-    }, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [tenantId]);
+  // Removed auto-refresh mechanism to prevent interruption during development
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (tenantId) {
+  //       fetchProducts();
+  //     }
+  //   }, 30000); // Refresh every 30 seconds
+  //
+  //   return () => clearInterval(interval);
+  // }, [tenantId]);
 
   const fetchProducts = async () => {
     if (!tenantId) {
