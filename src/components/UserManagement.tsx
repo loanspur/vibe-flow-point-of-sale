@@ -629,6 +629,14 @@ const UserManagement = () => {
       if (invitationError) throw invitationError;
       if (!invitation) throw new Error('Invitation not found');
 
+      // Cancel the old invitation FIRST to avoid unique constraint issues
+      const { error: cancelError } = await supabase
+        .from('user_invitations')
+        .update({ status: 'cancelled' })
+        .eq('id', invitationId);
+
+      if (cancelError) throw cancelError;
+
       // Get role and inviter details separately with better error handling
       const [roleData, inviterData, businessSettings] = await Promise.allSettled([
         supabase
@@ -659,8 +667,8 @@ const UserManagement = () => {
         ? businessSettings.value.data.company_name 
         : 'Your Company';
 
-      // Generate new token and update invitation
-      const { data: updatedInvitationId, error: updateError } = await supabase
+      // Generate new invitation (now that old one is cancelled)
+      const { data: newInvitationId, error: createError } = await supabase
         .rpc('create_user_invitation', {
           tenant_id_param: invitation.tenant_id,
           email_param: invitation.email,
@@ -669,19 +677,13 @@ const UserManagement = () => {
           expires_in_hours: 72
         });
 
-      if (updateError) throw updateError;
-
-      // Cancel the old invitation
-      await supabase
-        .from('user_invitations')
-        .update({ status: 'cancelled' })
-        .eq('id', invitationId);
+      if (createError) throw createError;
 
       // Get the new invitation token
       const { data: newInvitation, error: newInvitationError } = await supabase
         .from('user_invitations')
         .select('invitation_token')
-        .eq('id', updatedInvitationId)
+        .eq('id', newInvitationId)
         .maybeSingle();
 
       if (newInvitationError) throw newInvitationError;
