@@ -571,7 +571,6 @@ const UserManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground">Manage users, roles, permissions, and security</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setIsInviteUserOpen(true)}>
@@ -612,7 +611,6 @@ const UserManagement = () => {
                 <Users className="h-5 w-5" />
                 Users
               </CardTitle>
-              <CardDescription>Manage user accounts and role assignments</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4 mb-6">
