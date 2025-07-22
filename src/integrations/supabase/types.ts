@@ -1156,10 +1156,13 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          image_url: string | null
           is_active: boolean | null
           name: string
           price_adjustment: number | null
           product_id: string
+          purchase_price: number | null
+          sale_price: number | null
           sku: string | null
           stock_quantity: number | null
           updated_at: string
@@ -1168,10 +1171,13 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           name: string
           price_adjustment?: number | null
           product_id: string
+          purchase_price?: number | null
+          sale_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
           updated_at?: string
@@ -1180,10 +1186,13 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           name?: string
           price_adjustment?: number | null
           product_id?: string
+          purchase_price?: number | null
+          sale_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
           updated_at?: string

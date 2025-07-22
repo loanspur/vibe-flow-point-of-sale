@@ -195,7 +195,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     try {
       const { data, error } = await supabase
         .from('product_variants')
-        .select('*')
+        .select('*, purchase_price, sale_price, image_url')
         .eq('product_id', productId)
         .order('created_at');
 
@@ -379,12 +379,78 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
   const removeVariant = (index: number) => {
     setVariants(prev => prev.filter((_, i) => i !== index));
+    // Remove associated image
+    setVariantImages(prev => {
+      const newImages = { ...prev };
+      delete newImages[index];
+      return newImages;
+    });
   };
 
   const updateVariant = (index: number, field: keyof ProductVariant, value: string | boolean) => {
     setVariants(prev => prev.map((variant, i) => 
       i === index ? { ...variant, [field]: value } : variant
     ));
+  };
+
+  const handleVariantImageSelect = (variantIndex: number, file: File | null) => {
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "Image too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setVariantImages(prev => ({
+          ...prev,
+          [variantIndex]: {
+            file: file,
+            preview: e.target?.result as string
+          }
+        }));
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setVariantImages(prev => {
+        const newImages = { ...prev };
+        delete newImages[variantIndex];
+        return newImages;
+      });
+    }
+  };
+
+  const uploadVariantImage = async (file: File): Promise<string | null> => {
+    if (!tenantId) return null;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `variant_${Date.now()}.${fileExt}`;
+      const filePath = `${tenantId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error: any) {
+      toast({
+        title: "Error uploading variant image",
+        description: error.message,
+        variant: "destructive",
+      });
+      return null;
+    }
   };
 
   const saveVariants = async (productId: string) => {
@@ -397,20 +463,34 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           .eq('product_id', productId);
       }
 
-      // Insert new variants
+      // Insert new variants with uploaded images
       if (variants.length > 0) {
-        const variantData = variants.map(variant => ({
-          product_id: productId,
-          name: variant.name,
-          value: variant.value,
-          sku: variant.sku || null,
-          price_adjustment: parseFloat(variant.price_adjustment) || 0,
-          stock_quantity: parseInt(variant.stock_quantity) || 0,
-          purchase_price: parseFloat(variant.purchase_price) || 0,
-          sale_price: parseFloat(variant.sale_price) || 0,
-          image_url: variant.image_url || null,
-          is_active: variant.is_active,
-        }));
+        const variantDataPromises = variants.map(async (variant, index) => {
+          let imageUrl = variant.image_url;
+          
+          // Upload variant image if a new one was selected
+          if (variantImages[index]?.file) {
+            const uploadedUrl = await uploadVariantImage(variantImages[index].file);
+            if (uploadedUrl) {
+              imageUrl = uploadedUrl;
+            }
+          }
+
+          return {
+            product_id: productId,
+            name: variant.name,
+            value: variant.value,
+            sku: variant.sku || null,
+            price_adjustment: parseFloat(variant.price_adjustment) || 0,
+            stock_quantity: parseInt(variant.stock_quantity) || 0,
+            purchase_price: parseFloat(variant.purchase_price) || 0,
+            sale_price: parseFloat(variant.sale_price) || 0,
+            image_url: imageUrl || null,
+            is_active: variant.is_active,
+          };
+        });
+
+        const variantData = await Promise.all(variantDataPromises);
 
         const { error } = await supabase
           .from('product_variants')
@@ -751,13 +831,87 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={variant.is_active}
-                      onCheckedChange={(checked) => updateVariant(index, 'is_active', checked)}
-                    />
-                    <Label>Active variant</Label>
-                  </div>
+                   <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <Label>Purchase Price</Label>
+                       <Input
+                         type="number"
+                         step="0.01"
+                         value={variant.purchase_price}
+                         onChange={(e) => updateVariant(index, 'purchase_price', e.target.value)}
+                         placeholder="0.00"
+                       />
+                     </div>
+                     <div className="space-y-2">
+                       <Label>Sale Price</Label>
+                       <Input
+                         type="number"
+                         step="0.01"
+                         value={variant.sale_price}
+                         onChange={(e) => updateVariant(index, 'sale_price', e.target.value)}
+                         placeholder="0.00"
+                       />
+                     </div>
+                   </div>
+
+                   {/* Variant Image */}
+                   <div className="space-y-2">
+                     <Label>Variant Image</Label>
+                     <div className="flex items-center gap-4">
+                       {variantImages[index]?.preview || variant.image_url ? (
+                         <div className="relative">
+                           <img
+                             src={variantImages[index]?.preview || variant.image_url}
+                             alt={`${variant.name} ${variant.value}`}
+                             className="w-16 h-16 object-cover rounded-lg border"
+                           />
+                           <Button
+                             type="button"
+                             variant="destructive"
+                             size="sm"
+                             className="absolute -top-2 -right-2 w-5 h-5 rounded-full p-0"
+                             onClick={() => {
+                               handleVariantImageSelect(index, null);
+                               updateVariant(index, 'image_url', '');
+                             }}
+                           >
+                             <X className="w-3 h-3" />
+                           </Button>
+                         </div>
+                       ) : (
+                         <div className="w-16 h-16 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center">
+                           <Package className="w-6 h-6 text-muted-foreground" />
+                         </div>
+                       )}
+                       
+                       <div className="flex-1">
+                         <input
+                           type="file"
+                           accept="image/*"
+                           onChange={(e) => handleVariantImageSelect(index, e.target.files?.[0] || null)}
+                           className="hidden"
+                           id={`variant-image-${index}`}
+                         />
+                         <Button
+                           type="button"
+                           variant="outline"
+                           size="sm"
+                           onClick={() => document.getElementById(`variant-image-${index}`)?.click()}
+                         >
+                           <Upload className="w-4 h-4 mr-2" />
+                           {variantImages[index]?.preview || variant.image_url ? 'Change' : 'Upload'}
+                         </Button>
+                       </div>
+                     </div>
+                   </div>
+                   
+                   <div className="flex items-center space-x-2">
+                     <Switch
+                       checked={variant.is_active}
+                       onCheckedChange={(checked) => updateVariant(index, 'is_active', checked)}
+                     />
+                     <Label>Active variant</Label>
+                   </div>
                 </div>
               ))}
             </div>
