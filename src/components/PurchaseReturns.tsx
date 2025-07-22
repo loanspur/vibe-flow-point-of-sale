@@ -111,6 +111,7 @@ export default function PurchaseReturns() {
   const [reasonCodes, setReasonCodes] = useState<ReturnReasonCode[]>([]);
   const [selectedReturn, setSelectedReturn] = useState<PurchaseReturn | null>(null);
   const [newReturnDialogOpen, setNewReturnDialogOpen] = useState(false);
+  const [viewReturnDialogOpen, setViewReturnDialogOpen] = useState<string | null>(null);
   const [purchaseSearch, setPurchaseSearch] = useState('');
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
   const [returnFormData, setReturnFormData] = useState<ReturnFormData>({
@@ -686,6 +687,138 @@ export default function PurchaseReturns() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* View Return Dialog */}
+        <Dialog open={viewReturnDialogOpen !== null} onOpenChange={(open) => !open && setViewReturnDialogOpen(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Return Details</DialogTitle>
+              <DialogDescription>
+                View detailed information about this purchase return
+              </DialogDescription>
+            </DialogHeader>
+            
+            {viewReturnDialogOpen && (() => {
+              const returnItem = returns.find(r => r.id === viewReturnDialogOpen);
+              if (!returnItem) return <div>Return not found</div>;
+              
+              return (
+                <div className="space-y-6">
+                  {/* Return Summary */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Receipt className="h-4 w-4" />
+                        Return {returnItem.return_number}
+                      </CardTitle>
+                      <CardDescription>
+                        Supplier: {returnItem.contacts?.name || 'Unknown Supplier'} • 
+                        Date: {format(new Date(returnItem.created_at), 'PPp')} • 
+                        Status: {returnItem.status.toUpperCase()}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Return Type</Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            {getReturnTypeIcon(returnItem.return_type)}
+                            <span className="capitalize">{returnItem.return_type}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Total Amount</Label>
+                          <div className="text-lg font-semibold mt-1">{formatCurrency(returnItem.total_amount)}</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Refund Amount</Label>
+                          <div className="text-lg font-semibold mt-1 text-green-600">
+                            {formatCurrency(returnItem.refund_amount)}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                          <div className="mt-1">{getStatusBadge(returnItem.status)}</div>
+                        </div>
+                      </div>
+                      
+                      {returnItem.refund_method && (
+                        <div className="mt-4">
+                          <Label className="text-sm font-medium text-muted-foreground">Refund Method</Label>
+                          <div className="mt-1 capitalize">{returnItem.refund_method.replace('_', ' ')}</div>
+                        </div>
+                      )}
+                      
+                      {returnItem.notes && (
+                        <div className="mt-4">
+                          <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
+                          <div className="mt-1 p-3 bg-muted rounded-md text-sm">{returnItem.notes}</div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Returned Items */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Returned Items</CardTitle>
+                      <CardDescription>List of items included in this return</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {returnItem.return_items && returnItem.return_items.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Product</TableHead>
+                              <TableHead>Quantity Returned</TableHead>
+                              <TableHead>Unit Price</TableHead>
+                              <TableHead>Total</TableHead>
+                              <TableHead>Restocked</TableHead>
+                              <TableHead>Condition</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {returnItem.return_items.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">{item.products.name}</div>
+                                    {item.products.sku && (
+                                      <div className="text-sm text-muted-foreground">SKU: {item.products.sku}</div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>{item.quantity_returned}</TableCell>
+                                <TableCell>{formatCurrency(item.unit_cost)}</TableCell>
+                                <TableCell className="font-semibold">
+                                  {formatCurrency(item.total_cost)}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={item.restock ? "default" : "secondary"}>
+                                    {item.restock ? "Yes" : "No"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    {item.condition_notes || 'No condition notes'}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-muted-foreground">No returned items found</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -930,7 +1063,7 @@ export default function PurchaseReturns() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setSelectedReturn(returnItem)}
+                            onClick={() => setViewReturnDialogOpen(returnItem.id)}
                           >
                             View
                           </Button>
