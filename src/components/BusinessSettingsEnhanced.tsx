@@ -324,7 +324,7 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
-  const addLocation = async (locationData: Omit<StoreLocation, 'id'>) => {
+  const addLocation = async (locationData: Omit<StoreLocation, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => {
     try {
       // Get the current user's tenant ID
       const { data: user } = await supabase.auth.getUser();
@@ -345,7 +345,18 @@ export function BusinessSettingsEnhanced() {
       const { data, error } = await supabase
         .from('store_locations')
         .insert({
-          ...locationData,
+          name: locationData.name,
+          address_line_1: locationData.address_line_1,
+          address_line_2: locationData.address_line_2,
+          city: locationData.city,
+          state_province: locationData.state_province,
+          postal_code: locationData.postal_code,
+          country: locationData.country,
+          phone: locationData.phone,
+          email: locationData.email,
+          manager_name: locationData.manager_name,
+          is_primary: locationData.is_primary,
+          is_active: locationData.is_active,
           tenant_id: profile.tenant_id
         })
         .select()
@@ -383,12 +394,7 @@ export function BusinessSettingsEnhanced() {
       return;
     }
 
-    await addLocation({
-      ...locationForm,
-      tenant_id: '',
-      created_at: '',
-      updated_at: ''
-    });
+    await addLocation(locationForm);
   };
 
   const resetLocationForm = () => {
