@@ -1948,6 +1948,48 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          created_at: string | null
+          granted: boolean | null
+          id: string
+          permission_id: string
+          role_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          granted?: boolean | null
+          id?: string
+          permission_id: string
+          role_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          granted?: boolean | null
+          id?: string
+          permission_id?: string
+          role_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "system_permissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_items: {
         Row: {
           created_at: string
@@ -2185,6 +2227,42 @@ export type Database = {
           created_at?: string | null
           id?: number
           note?: string | null
+        }
+        Relationships: []
+      }
+      system_permissions: {
+        Row: {
+          action: Database["public"]["Enums"]["permission_action"]
+          category: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_critical: boolean | null
+          name: string
+          resource: Database["public"]["Enums"]["permission_resource"]
+          updated_at: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["permission_action"]
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_critical?: boolean | null
+          name: string
+          resource: Database["public"]["Enums"]["permission_resource"]
+          updated_at?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["permission_action"]
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_critical?: boolean | null
+          name?: string
+          resource?: Database["public"]["Enums"]["permission_resource"]
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -2603,6 +2681,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_permissions: {
+        Args: { user_id_param: string }
+        Returns: {
+          resource: Database["public"]["Enums"]["permission_resource"]
+          action: Database["public"]["Enums"]["permission_action"]
+          permission_name: string
+          category: string
+        }[]
+      }
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -2657,8 +2744,76 @@ export type Database = {
         Args: { variant_id: string; quantity_sold: number }
         Returns: undefined
       }
+      user_has_permission: {
+        Args: {
+          user_id_param: string
+          resource_param: Database["public"]["Enums"]["permission_resource"]
+          action_param: Database["public"]["Enums"]["permission_action"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      permission_action:
+        | "create"
+        | "read"
+        | "update"
+        | "delete"
+        | "approve"
+        | "void"
+        | "export"
+        | "import"
+        | "print"
+        | "email"
+        | "manage"
+      permission_resource:
+        | "dashboard"
+        | "products"
+        | "product_categories"
+        | "product_variants"
+        | "inventory_management"
+        | "stock_adjustments"
+        | "sales"
+        | "sale_returns"
+        | "quotes"
+        | "purchases"
+        | "purchase_returns"
+        | "customers"
+        | "suppliers"
+        | "contacts"
+        | "accounting"
+        | "chart_of_accounts"
+        | "financial_statements"
+        | "accounts_receivable"
+        | "accounts_payable"
+        | "journal_entries"
+        | "reports"
+        | "sales_reports"
+        | "inventory_reports"
+        | "financial_reports"
+        | "user_management"
+        | "role_management"
+        | "permission_management"
+        | "business_settings"
+        | "payment_methods"
+        | "tax_settings"
+        | "location_management"
+        | "promotion_management"
+        | "loyalty_program"
+        | "gift_cards"
+        | "barcode_management"
+        | "data_import_export"
+        | "system_backup"
+        | "audit_logs"
+        | "email_notifications"
+        | "sms_notifications"
+        | "whatsapp_notifications"
+        | "api_access"
+        | "pos_system"
+        | "cashier_operations"
+        | "discount_management"
+        | "receipt_printing"
+        | "session_management"
       user_role: "superadmin" | "admin" | "manager" | "cashier" | "user"
     }
     CompositeTypes: {
@@ -2787,6 +2942,68 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      permission_action: [
+        "create",
+        "read",
+        "update",
+        "delete",
+        "approve",
+        "void",
+        "export",
+        "import",
+        "print",
+        "email",
+        "manage",
+      ],
+      permission_resource: [
+        "dashboard",
+        "products",
+        "product_categories",
+        "product_variants",
+        "inventory_management",
+        "stock_adjustments",
+        "sales",
+        "sale_returns",
+        "quotes",
+        "purchases",
+        "purchase_returns",
+        "customers",
+        "suppliers",
+        "contacts",
+        "accounting",
+        "chart_of_accounts",
+        "financial_statements",
+        "accounts_receivable",
+        "accounts_payable",
+        "journal_entries",
+        "reports",
+        "sales_reports",
+        "inventory_reports",
+        "financial_reports",
+        "user_management",
+        "role_management",
+        "permission_management",
+        "business_settings",
+        "payment_methods",
+        "tax_settings",
+        "location_management",
+        "promotion_management",
+        "loyalty_program",
+        "gift_cards",
+        "barcode_management",
+        "data_import_export",
+        "system_backup",
+        "audit_logs",
+        "email_notifications",
+        "sms_notifications",
+        "whatsapp_notifications",
+        "api_access",
+        "pos_system",
+        "cashier_operations",
+        "discount_management",
+        "receipt_printing",
+        "session_management",
+      ],
       user_role: ["superadmin", "admin", "manager", "cashier", "user"],
     },
   },

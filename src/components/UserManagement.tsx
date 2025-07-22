@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { Users, UserPlus, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Mail, Clock, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -33,6 +34,24 @@ interface UserRole {
   tenant_id: string;
   created_at: string;
   updated_at: string;
+}
+
+interface SystemPermission {
+  id: string;
+  resource: string;
+  action: string;
+  name: string;
+  description: string;
+  category: string;
+  is_critical: boolean;
+}
+
+interface RolePermission {
+  id: string;
+  role_id: string;
+  permission_id: string;
+  granted: boolean;
+  permission?: SystemPermission;
 }
 
 interface UserActivityLog {
@@ -71,33 +90,27 @@ interface UserSession {
   user_name?: string;
 }
 
-interface Permission {
-  resource: string;
-  actions: {
-    create: boolean;
-    read: boolean;
-    update: boolean;
-    delete: boolean;
-  };
-}
-
-const DEFAULT_RESOURCES = [
-  'products',
-  'sales',
-  'customers',
-  'quotes',
-  'reports',
-  'business_settings',
-  'user_management',
-  'accounting',
+const PERMISSION_CATEGORIES = [
+  'dashboard',
   'inventory',
-  'contacts'
+  'sales',
+  'purchasing',
+  'crm',
+  'financial',
+  'reports',
+  'administration',
+  'settings',
+  'marketing',
+  'pos',
+  'communication'
 ];
 
 const UserManagement = () => {
   const { tenantId, userRole } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
+  const [systemPermissions, setSystemPermissions] = useState<SystemPermission[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [activityLogs, setActivityLogs] = useState<UserActivityLog[]>([]);
   const [invitations, setInvitations] = useState<UserInvitation[]>([]);
   const [userSessions, setUserSessions] = useState<UserSession[]>([]);
@@ -107,7 +120,7 @@ const UserManagement = () => {
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
   const [editingRole, setEditingRole] = useState<UserRole | null>(null);
-  const [rolePermissions, setRolePermissions] = useState<Permission[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
   const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
   const [isInviteUserOpen, setIsInviteUserOpen] = useState(false);
@@ -118,27 +131,52 @@ const UserManagement = () => {
     if (tenantId) {
       fetchUsers();
       fetchRoles();
+      fetchSystemPermissions();
       fetchActivityLogs();
       fetchInvitations();
       fetchUserSessions();
     }
   }, [tenantId]);
 
-  useEffect(() => {
-    initializePermissions();
-  }, []);
+  const fetchSystemPermissions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_permissions')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('resource', { ascending: true })
+        .order('action', { ascending: true });
 
-  const initializePermissions = () => {
-    const permissions: Permission[] = DEFAULT_RESOURCES.map(resource => ({
-      resource,
-      actions: {
-        create: false,
-        read: false,
-        update: false,
-        delete: false
-      }
-    }));
-    setRolePermissions(permissions);
+      if (error) throw error;
+      setSystemPermissions(data || []);
+    } catch (error) {
+      console.error('Error fetching system permissions:', error);
+      toast.error('Failed to load system permissions');
+    }
+  };
+
+  const fetchRolePermissions = async (roleId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select(`
+          *,
+          permission:system_permissions(*)
+        `)
+        .eq('role_id', roleId);
+
+      if (error) throw error;
+      setRolePermissions(data || []);
+      
+      // Update selected permissions
+      const granted = new Set(
+        data?.filter(rp => rp.granted).map(rp => rp.permission_id) || []
+      );
+      setSelectedPermissions(granted);
+    } catch (error) {
+      console.error('Error fetching role permissions:', error);
+      toast.error('Failed to load role permissions');
+    }
   };
 
   const fetchUsers = async () => {
@@ -190,29 +228,41 @@ const UserManagement = () => {
     }
 
     try {
-      const permissions = rolePermissions.reduce((acc, perm) => {
-        acc[perm.resource] = perm.actions;
-        return acc;
-      }, {} as Record<string, any>);
-
-      const { error } = await supabase
+      // Create the role first
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .insert({
           name: newRoleName,
           description: newRoleDescription,
-          permissions,
           tenant_id: tenantId,
           is_system_role: false,
           is_active: true
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (roleError) throw roleError;
+
+      // Create role permissions
+      if (selectedPermissions.size > 0) {
+        const permissionsToInsert = Array.from(selectedPermissions).map(permissionId => ({
+          role_id: roleData.id,
+          permission_id: permissionId,
+          granted: true
+        }));
+
+        const { error: permError } = await supabase
+          .from('role_permissions')
+          .insert(permissionsToInsert);
+
+        if (permError) throw permError;
+      }
 
       toast.success('Role created successfully');
       setNewRoleName('');
       setNewRoleDescription('');
+      setSelectedPermissions(new Set());
       setIsCreateRoleOpen(false);
-      initializePermissions();
       fetchRoles();
     } catch (error) {
       console.error('Error creating role:', error);
@@ -220,123 +270,40 @@ const UserManagement = () => {
     }
   };
 
-  const fetchActivityLogs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_activity_logs')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      
-      // Get user names separately to avoid relation issues
-      const userIds = [...new Set(data?.map(log => log.user_id) || [])];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', userIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
-      
-      const logsWithUserNames = data?.map(log => ({
-        ...log,
-        user_name: profileMap.get(log.user_id) || 'Unknown User',
-        ip_address: log.ip_address as string || undefined,
-        user_agent: log.user_agent as string || undefined
-      })) || [];
-      
-      setActivityLogs(logsWithUserNames);
-    } catch (error) {
-      console.error('Error fetching activity logs:', error);
-    }
-  };
-
-  const fetchInvitations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_invitations')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Get role names and invited by names separately
-      const roleIds = [...new Set(data?.map(inv => inv.role_id).filter(Boolean) || [])];
-      const userIds = [...new Set(data?.map(inv => inv.invited_by) || [])];
-      
-      const [rolesData, profilesData] = await Promise.all([
-        supabase.from('user_roles').select('id, name').in('id', roleIds),
-        supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
-      ]);
-
-      const roleMap = new Map(rolesData.data?.map(r => [r.id, r.name]) || []);
-      const profileMap = new Map(profilesData.data?.map(p => [p.user_id, p.full_name]) || []);
-      
-      const invitationsWithNames = data?.map(invitation => ({
-        ...invitation,
-        role_name: roleMap.get(invitation.role_id) || 'Unknown Role',
-        invited_by_name: profileMap.get(invitation.invited_by) || 'Unknown User'
-      })) || [];
-      
-      setInvitations(invitationsWithNames);
-    } catch (error) {
-      console.error('Error fetching invitations:', error);
-    }
-  };
-
-  const fetchUserSessions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_sessions')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('last_activity', { ascending: false });
-
-      if (error) throw error;
-      
-      // Get user names separately
-      const userIds = [...new Set(data?.map(session => session.user_id) || [])];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', userIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
-      
-      const sessionsWithUserNames = data?.map(session => ({
-        ...session,
-        user_name: profileMap.get(session.user_id) || 'Unknown User',
-        ip_address: session.ip_address as string || undefined
-      })) || [];
-      
-      setUserSessions(sessionsWithUserNames);
-    } catch (error) {
-      console.error('Error fetching user sessions:', error);
-    }
-  };
-
   const updateRole = async () => {
     if (!editingRole) return;
 
     try {
-      const permissions = rolePermissions.reduce((acc, perm) => {
-        acc[perm.resource] = perm.actions;
-        return acc;
-      }, {} as Record<string, any>);
-
-      const { error } = await supabase
+      // Update role description
+      const { error: roleError } = await supabase
         .from('user_roles')
         .update({
-          description: newRoleDescription,
-          permissions
+          description: newRoleDescription
         })
         .eq('id', editingRole.id);
 
-      if (error) throw error;
+      if (roleError) throw roleError;
+
+      // Delete existing role permissions
+      await supabase
+        .from('role_permissions')
+        .delete()
+        .eq('role_id', editingRole.id);
+
+      // Insert new permissions
+      if (selectedPermissions.size > 0) {
+        const permissionsToInsert = Array.from(selectedPermissions).map(permissionId => ({
+          role_id: editingRole.id,
+          permission_id: permissionId,
+          granted: true
+        }));
+
+        const { error: permError } = await supabase
+          .from('role_permissions')
+          .insert(permissionsToInsert);
+
+        if (permError) throw permError;
+      }
 
       toast.success('Role updated successfully');
       setEditingRole(null);
@@ -394,28 +361,117 @@ const UserManagement = () => {
     }
   };
 
-  const updatePermission = (resourceIndex: number, action: keyof Permission['actions'], value: boolean) => {
-    const updatedPermissions = [...rolePermissions];
-    updatedPermissions[resourceIndex].actions[action] = value;
-    setRolePermissions(updatedPermissions);
-  };
-
   const openEditRole = (role: UserRole) => {
     setEditingRole(role);
     setNewRoleDescription(role.description || '');
-    
-    // Load existing permissions
-    const permissions: Permission[] = DEFAULT_RESOURCES.map(resource => ({
-      resource,
-      actions: role.permissions?.[resource] || {
-        create: false,
-        read: false,
-        update: false,
-        delete: false
-      }
-    }));
-    setRolePermissions(permissions);
+    fetchRolePermissions(role.id);
     setIsEditRoleOpen(true);
+  };
+
+  const togglePermission = (permissionId: string) => {
+    const newSelected = new Set(selectedPermissions);
+    if (newSelected.has(permissionId)) {
+      newSelected.delete(permissionId);
+    } else {
+      newSelected.add(permissionId);
+    }
+    setSelectedPermissions(newSelected);
+  };
+
+  const fetchActivityLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_activity_logs')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      
+      const userIds = [...new Set(data?.map(log => log.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+      
+      const logsWithUserNames = data?.map(log => ({
+        ...log,
+        user_name: profileMap.get(log.user_id) || 'Unknown User',
+        ip_address: log.ip_address as string || undefined,
+        user_agent: log.user_agent as string || undefined
+      })) || [];
+      
+      setActivityLogs(logsWithUserNames);
+    } catch (error) {
+      console.error('Error fetching activity logs:', error);
+    }
+  };
+
+  const fetchInvitations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      const roleIds = [...new Set(data?.map(inv => inv.role_id).filter(Boolean) || [])];
+      const userIds = [...new Set(data?.map(inv => inv.invited_by) || [])];
+      
+      const [rolesData, profilesData] = await Promise.all([
+        supabase.from('user_roles').select('id, name').in('id', roleIds),
+        supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
+      ]);
+
+      const roleMap = new Map(rolesData.data?.map(r => [r.id, r.name]) || []);
+      const profileMap = new Map(profilesData.data?.map(p => [p.user_id, p.full_name]) || []);
+      
+      const invitationsWithNames = data?.map(invitation => ({
+        ...invitation,
+        role_name: roleMap.get(invitation.role_id) || 'Unknown Role',
+        invited_by_name: profileMap.get(invitation.invited_by) || 'Unknown User'
+      })) || [];
+      
+      setInvitations(invitationsWithNames);
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+    }
+  };
+
+  const fetchUserSessions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('last_activity', { ascending: false });
+
+      if (error) throw error;
+      
+      const userIds = [...new Set(data?.map(session => session.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+      
+      const sessionsWithUserNames = data?.map(session => ({
+        ...session,
+        user_name: profileMap.get(session.user_id) || 'Unknown User',
+        ip_address: session.ip_address as string || undefined
+      })) || [];
+      
+      setUserSessions(sessionsWithUserNames);
+    } catch (error) {
+      console.error('Error fetching user sessions:', error);
+    }
   };
 
   const sendUserInvitation = async () => {
@@ -429,7 +485,7 @@ const UserManagement = () => {
         tenant_id_param: tenantId,
         email_param: inviteEmail,
         role_id_param: inviteRoleId,
-        invited_by_param: 'current-user-id', // You'd get this from auth context
+        invited_by_param: 'current-user-id',
         expires_in_hours: 72
       });
 
@@ -505,6 +561,14 @@ const UserManagement = () => {
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
     return matchesSearch && matchesRole;
   });
+
+  const groupedPermissions = systemPermissions.reduce((acc, permission) => {
+    if (!acc[permission.category]) {
+      acc[permission.category] = [];
+    }
+    acc[permission.category].push(permission);
+    return acc;
+  }, {} as Record<string, SystemPermission[]>);
 
   if (loading) {
     return (
@@ -649,19 +713,19 @@ const UserManagement = () => {
                 </div>
                 <Dialog open={isCreateRoleOpen} onOpenChange={setIsCreateRoleOpen}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => initializePermissions()}>
+                    <Button onClick={() => setSelectedPermissions(new Set())}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create Role
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Create New Role</DialogTitle>
                       <DialogDescription>
                         Define a new role with specific permissions for your team
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="roleName">Role Name</Label>
@@ -685,43 +749,47 @@ const UserManagement = () => {
 
                       <div>
                         <Label className="text-base font-medium">Permissions</Label>
-                        <div className="mt-3 space-y-4 border rounded-lg p-4">
-                          <div className="grid grid-cols-5 gap-4 items-center font-medium text-sm border-b pb-2">
-                            <div>Resource</div>
-                            <div className="text-center">Create</div>
-                            <div className="text-center">Read</div>
-                            <div className="text-center">Update</div>
-                            <div className="text-center">Delete</div>
-                          </div>
-                          {rolePermissions.map((permission, index) => (
-                            <div key={permission.resource} className="grid grid-cols-5 gap-4 items-center">
-                              <div className="font-medium capitalize">{permission.resource.replace('_', ' ')}</div>
-                              <div className="flex justify-center">
-                                <Checkbox
-                                  checked={permission.actions.create}
-                                  onCheckedChange={(checked) => updatePermission(index, 'create', !!checked)}
-                                />
+                        <div className="mt-3 space-y-6 border rounded-lg p-4 max-h-96 overflow-y-auto">
+                          {PERMISSION_CATEGORIES.map(category => {
+                            const categoryPermissions = groupedPermissions[category] || [];
+                            if (categoryPermissions.length === 0) return null;
+
+                            return (
+                              <div key={category} className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium text-sm uppercase tracking-wide text-primary">
+                                    {category.replace('_', ' ')}
+                                  </h4>
+                                  <Separator className="flex-1" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {categoryPermissions.map((permission) => (
+                                    <div key={permission.id} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={permission.id}
+                                        checked={selectedPermissions.has(permission.id)}
+                                        onCheckedChange={() => togglePermission(permission.id)}
+                                      />
+                                      <Label
+                                        htmlFor={permission.id}
+                                        className="text-sm cursor-pointer flex-1"
+                                      >
+                                        <span className="font-medium">{permission.name}</span>
+                                        {permission.is_critical && (
+                                          <Badge variant="destructive" className="ml-2 text-xs">
+                                            Critical
+                                          </Badge>
+                                        )}
+                                        <p className="text-xs text-muted-foreground">
+                                          {permission.description}
+                                        </p>
+                                      </Label>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="flex justify-center">
-                                <Checkbox
-                                  checked={permission.actions.read}
-                                  onCheckedChange={(checked) => updatePermission(index, 'read', !!checked)}
-                                />
-                              </div>
-                              <div className="flex justify-center">
-                                <Checkbox
-                                  checked={permission.actions.update}
-                                  onCheckedChange={(checked) => updatePermission(index, 'update', !!checked)}
-                                />
-                              </div>
-                              <div className="flex justify-center">
-                                <Checkbox
-                                  checked={permission.actions.delete}
-                                  onCheckedChange={(checked) => updatePermission(index, 'delete', !!checked)}
-                                />
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -786,14 +854,14 @@ const UserManagement = () => {
 
           {/* Edit Role Dialog */}
           <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit Role: {editingRole?.name}</DialogTitle>
                 <DialogDescription>
                   Modify permissions for this role
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <Label htmlFor="editRoleDescription">Description</Label>
                   <Input
@@ -807,47 +875,48 @@ const UserManagement = () => {
 
                 <div>
                   <Label className="text-base font-medium">Permissions</Label>
-                  <div className="mt-3 space-y-4 border rounded-lg p-4">
-                    <div className="grid grid-cols-5 gap-4 items-center font-medium text-sm border-b pb-2">
-                      <div>Resource</div>
-                      <div className="text-center">Create</div>
-                      <div className="text-center">Read</div>
-                      <div className="text-center">Update</div>
-                      <div className="text-center">Delete</div>
-                    </div>
-                    {rolePermissions.map((permission, index) => (
-                      <div key={permission.resource} className="grid grid-cols-5 gap-4 items-center">
-                        <div className="font-medium capitalize">{permission.resource.replace('_', ' ')}</div>
-                        <div className="flex justify-center">
-                          <Checkbox
-                            checked={permission.actions.create}
-                            onCheckedChange={(checked) => updatePermission(index, 'create', !!checked)}
-                            disabled={editingRole?.is_system_role}
-                          />
+                  <div className="mt-3 space-y-6 border rounded-lg p-4 max-h-96 overflow-y-auto">
+                    {PERMISSION_CATEGORIES.map(category => {
+                      const categoryPermissions = groupedPermissions[category] || [];
+                      if (categoryPermissions.length === 0) return null;
+
+                      return (
+                        <div key={category} className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-sm uppercase tracking-wide text-primary">
+                              {category.replace('_', ' ')}
+                            </h4>
+                            <Separator className="flex-1" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {categoryPermissions.map((permission) => (
+                              <div key={permission.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`edit-${permission.id}`}
+                                  checked={selectedPermissions.has(permission.id)}
+                                  onCheckedChange={() => togglePermission(permission.id)}
+                                  disabled={editingRole?.is_system_role}
+                                />
+                                <Label
+                                  htmlFor={`edit-${permission.id}`}
+                                  className="text-sm cursor-pointer flex-1"
+                                >
+                                  <span className="font-medium">{permission.name}</span>
+                                  {permission.is_critical && (
+                                    <Badge variant="destructive" className="ml-2 text-xs">
+                                      Critical
+                                    </Badge>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    {permission.description}
+                                  </p>
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex justify-center">
-                          <Checkbox
-                            checked={permission.actions.read}
-                            onCheckedChange={(checked) => updatePermission(index, 'read', !!checked)}
-                            disabled={editingRole?.is_system_role}
-                          />
-                        </div>
-                        <div className="flex justify-center">
-                          <Checkbox
-                            checked={permission.actions.update}
-                            onCheckedChange={(checked) => updatePermission(index, 'update', !!checked)}
-                            disabled={editingRole?.is_system_role}
-                          />
-                        </div>
-                        <div className="flex justify-center">
-                          <Checkbox
-                            checked={permission.actions.delete}
-                            onCheckedChange={(checked) => updatePermission(index, 'delete', !!checked)}
-                            disabled={editingRole?.is_system_role}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -937,7 +1006,6 @@ const UserManagement = () => {
           </Card>
         </TabsContent>
 
-        {/* Activity Logs Tab */}
         <TabsContent value="activity" className="space-y-4">
           <Card>
             <CardHeader>
@@ -984,7 +1052,6 @@ const UserManagement = () => {
           </Card>
         </TabsContent>
 
-        {/* User Sessions Tab */}
         <TabsContent value="sessions" className="space-y-4">
           <Card>
             <CardHeader>
