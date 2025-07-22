@@ -18,7 +18,9 @@ import {
   ShoppingCart, 
   TrendingUp, 
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  Clock, 
+  CheckCircle
 } from "lucide-react";
 
 interface DashboardStats {
@@ -51,6 +53,7 @@ const POSDashboard = () => {
     notes: ''
   });
   const [arRecord, setArRecord] = useState<any>(null);
+  const [salesPaymentStatus, setSalesPaymentStatus] = useState<Record<string, { status: string; outstanding: number }>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -105,6 +108,7 @@ const POSDashboard = () => {
           customer_id,
           customers(name)
         `)
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -116,10 +120,42 @@ const POSDashboard = () => {
         totalCustomers,
         recentSales: recentSalesData || []
       });
+
+      // Fetch AR status for credit sales
+      await fetchCreditSalesStatus(recentSalesData?.filter(sale => sale.payment_method === 'credit') || []);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCreditSalesStatus = async (creditSales: any[]) => {
+    if (creditSales.length === 0) return;
+
+    const saleIds = creditSales.map(sale => sale.id);
+    
+    try {
+      const { data: arData, error } = await supabase
+        .from('accounts_receivable')
+        .select('reference_id, status, outstanding_amount')
+        .eq('tenant_id', tenantId)
+        .eq('reference_type', 'sale')
+        .in('reference_id', saleIds);
+
+      if (error) throw error;
+
+      const statusMap: Record<string, { status: string; outstanding: number }> = {};
+      arData?.forEach(ar => {
+        statusMap[ar.reference_id] = {
+          status: ar.status,
+          outstanding: ar.outstanding_amount
+        };
+      });
+      
+      setSalesPaymentStatus(statusMap);
+    } catch (error) {
+      console.error('Error fetching AR status:', error);
     }
   };
 
@@ -247,6 +283,78 @@ const POSDashboard = () => {
     return sale.payment_method === 'credit' && sale.customer_id;
   };
 
+  const getPaymentStatusButton = (sale: any) => {
+    if (!isCreditSale(sale)) return null;
+
+    const paymentStatus = salesPaymentStatus[sale.id];
+    
+    if (!paymentStatus) {
+      // Default unpaid state
+      return (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => handleCreditPayment(sale)} 
+          title="Record Payment"
+          className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+        >
+          <CreditCard className="h-3 w-3" />
+        </Button>
+      );
+    }
+
+    switch (paymentStatus.status) {
+      case 'paid':
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled
+            title="Fully Paid"
+            className="bg-green-50 border-green-200 text-green-700 cursor-not-allowed"
+          >
+            <CheckCircle className="h-3 w-3" />
+          </Button>
+        );
+      case 'partial':
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleCreditPayment(sale)} 
+            title={`Partial Payment - $${paymentStatus.outstanding.toFixed(2)} remaining`}
+            className="bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700"
+          >
+            <Clock className="h-3 w-3" />
+          </Button>
+        );
+      case 'overdue':
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleCreditPayment(sale)} 
+            title={`Overdue Payment - $${paymentStatus.outstanding.toFixed(2)} remaining`}
+            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 animate-pulse"
+          >
+            <AlertTriangle className="h-3 w-3" />
+          </Button>
+        );
+      default:
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleCreditPayment(sale)} 
+            title={`Outstanding Payment - $${paymentStatus.outstanding.toFixed(2)} remaining`}
+            className="bg-orange-50 hover:bg-orange-100 border-orange-200 text-orange-700"
+          >
+            <CreditCard className="h-3 w-3" />
+          </Button>
+        );
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -342,17 +450,7 @@ const POSDashboard = () => {
                         </Badge>
                       )}
                     </div>
-                    {isCreditSale(sale) && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleCreditPayment(sale)} 
-                        title="Record Payment"
-                        className="bg-green-50 hover:bg-green-100 border-green-200"
-                      >
-                        <CreditCard className="h-3 w-3" />
-                      </Button>
-                    )}
+                    {getPaymentStatusButton(sale)}
                   </div>
                 </div>
               ))}

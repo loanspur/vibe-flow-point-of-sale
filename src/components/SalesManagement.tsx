@@ -15,6 +15,7 @@ import { QuoteManagement } from "./QuoteManagement";
 import SalesReturns from "./SalesReturns";
 import { ReceiptPreview } from "./ReceiptPreview";
 import { createPaymentJournalEntry } from "@/lib/accounting-integration";
+import { Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -73,6 +74,7 @@ export function SalesManagement() {
     notes: ''
   });
   const [arRecord, setArRecord] = useState<any>(null);
+  const [salesPaymentStatus, setSalesPaymentStatus] = useState<Record<string, { status: string; outstanding: number }>>({});
   
   const { toast } = useToast();
 
@@ -82,17 +84,29 @@ export function SalesManagement() {
   }, []);
 
   const fetchSales = async () => {
+    if (!tenantId) return;
+
     try {
       const { data, error } = await supabase
-        .from("sales")
+        .from('sales')
         .select(`
           *,
-          customers (name, email, phone, address)
+          customers (
+            id,
+            name,
+            email,
+            phone,
+            address
+          )
         `)
-        .order("created_at", { ascending: false });
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setSales(data || []);
+
+      // Fetch AR status for credit sales
+      await fetchCreditSalesStatus(data?.filter(sale => sale.payment_method === 'credit') || []);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -101,6 +115,35 @@ export function SalesManagement() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchCreditSalesStatus = async (creditSales: Sale[]) => {
+    if (creditSales.length === 0) return;
+
+    const saleIds = creditSales.map(sale => sale.id);
+    
+    try {
+      const { data: arData, error } = await supabase
+        .from('accounts_receivable')
+        .select('reference_id, status, outstanding_amount')
+        .eq('tenant_id', tenantId)
+        .eq('reference_type', 'sale')
+        .in('reference_id', saleIds);
+
+      if (error) throw error;
+
+      const statusMap: Record<string, { status: string; outstanding: number }> = {};
+      arData?.forEach(ar => {
+        statusMap[ar.reference_id] = {
+          status: ar.status,
+          outstanding: ar.outstanding_amount
+        };
+      });
+      
+      setSalesPaymentStatus(statusMap);
+    } catch (error) {
+      console.error('Error fetching AR status:', error);
     }
   };
 
@@ -311,6 +354,78 @@ export function SalesManagement() {
     return sale.payment_method === 'credit' && sale.customer_id;
   };
 
+  const getPaymentStatusButton = (sale: Sale) => {
+    if (!isCreditSale(sale)) return null;
+
+    const paymentStatus = salesPaymentStatus[sale.id];
+    
+    if (!paymentStatus) {
+      // Default unpaid state
+      return (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => handleCreditPayment(sale)} 
+          title="Record Payment"
+          className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+        >
+          <CreditCard className="h-3 w-3" />
+        </Button>
+      );
+    }
+
+    switch (paymentStatus.status) {
+      case 'paid':
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled
+            title="Fully Paid"
+            className="bg-green-50 border-green-200 text-green-700 cursor-not-allowed"
+          >
+            <CheckCircle className="h-3 w-3" />
+          </Button>
+        );
+      case 'partial':
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleCreditPayment(sale)} 
+            title={`Partial Payment - $${paymentStatus.outstanding.toFixed(2)} remaining`}
+            className="bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700"
+          >
+            <Clock className="h-3 w-3" />
+          </Button>
+        );
+      case 'overdue':
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleCreditPayment(sale)} 
+            title={`Overdue Payment - $${paymentStatus.outstanding.toFixed(2)} remaining`}
+            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 animate-pulse"
+          >
+            <AlertTriangle className="h-3 w-3" />
+          </Button>
+        );
+      default:
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleCreditPayment(sale)} 
+            title={`Outstanding Payment - $${paymentStatus.outstanding.toFixed(2)} remaining`}
+            className="bg-orange-50 hover:bg-orange-100 border-orange-200 text-orange-700"
+          >
+            <CreditCard className="h-3 w-3" />
+          </Button>
+        );
+    }
+  };
+
   if (isLoading) {
     return <div className="p-6">Loading sales data...</div>;
   }
@@ -404,17 +519,7 @@ export function SalesManagement() {
                       <Button variant="outline" size="sm" onClick={() => handleReprintReceipt(sale)} title="Reprint Receipt">
                         <Printer className="h-3 w-3" />
                       </Button>
-                      {isCreditSale(sale) && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleCreditPayment(sale)} 
-                          title="Record Payment"
-                          className="bg-green-50 hover:bg-green-100 border-green-200"
-                        >
-                          <CreditCard className="h-3 w-3" />
-                        </Button>
-                      )}
+                      {getPaymentStatusButton(sale)}
                     </div>
                   </div>
                 ))}
@@ -510,17 +615,7 @@ export function SalesManagement() {
                         <Button variant="outline" size="sm" onClick={() => handleReprintReceipt(sale)} title="Reprint Receipt">
                           <Printer className="h-3 w-3" />
                         </Button>
-                        {isCreditSale(sale) && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleCreditPayment(sale)} 
-                            title="Record Payment"
-                            className="bg-green-50 hover:bg-green-100 border-green-200"
-                          >
-                            <CreditCard className="h-3 w-3" />
-                          </Button>
-                        )}
+                        {getPaymentStatusButton(sale)}
                       </div>
                     </div>
                   </div>
