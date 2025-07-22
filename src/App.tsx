@@ -3,31 +3,44 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { TenantAdminLayout } from "./components/TenantAdminLayout";
-import LandingPage from "./pages/LandingPage";
-import Auth from "./pages/Auth";
-import TrialSignup from "./pages/TrialSignup";
-import Success from "./pages/Success";
-import NotFound from "./pages/NotFound";
+import PerformanceMonitor from "./components/PerformanceMonitor";
+// Lazy load components for better performance
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const Auth = lazy(() => import("./pages/Auth"));
+const TrialSignup = lazy(() => import("./pages/TrialSignup"));
+const Success = lazy(() => import("./pages/Success"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Dashboards
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import TenantAdminDashboard from "./pages/TenantAdminDashboard";
-import ComprehensivePOS from "./pages/ComprehensivePOS";
+const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
+const TenantAdminDashboard = lazy(() => import("./pages/TenantAdminDashboard"));
+const ComprehensivePOS = lazy(() => import("./pages/ComprehensivePOS"));
 
 // Admin Pages
-import TenantManagement from "./pages/TenantManagement";
-import Settings from "./pages/Settings";
-import Products from "./pages/Products";
-import Reports from "./pages/Reports";
-import Team from "./pages/Team";
-import Customers from "./pages/Customers";
-import Sales from "./pages/Sales";
-import Purchases from "./pages/Purchases";
-import Accounting from "./pages/Accounting";
-import Profile from "./pages/Profile";
+const TenantManagement = lazy(() => import("./pages/TenantManagement"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Products = lazy(() => import("./pages/Products"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Team = lazy(() => import("./pages/Team"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Sales = lazy(() => import("./pages/Sales"));
+const Purchases = lazy(() => import("./pages/Purchases"));
+const Accounting = lazy(() => import("./pages/Accounting"));
+const Profile = lazy(() => import("./pages/Profile"));
+
+// Loading component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="text-center space-y-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+      <p className="text-muted-foreground">Loading...</p>
+    </div>
+  </div>
+);
 
 // Comprehensive error suppression for external Firebase errors
 window.addEventListener('error', (event) => {
@@ -74,7 +87,15 @@ console.error = function(...args) {
   originalLog.apply(console, args);
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -82,8 +103,10 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <PerformanceMonitor />
         <BrowserRouter>
-          <Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
@@ -224,7 +247,8 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedRoute><div /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

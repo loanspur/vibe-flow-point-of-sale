@@ -40,15 +40,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Fetch user role and tenant info
   const fetchUserInfo = async (userId: string) => {
     try {
-      // Get user role from profiles
+      // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid errors
 
-      if (error) {
-        // Set default values if profile doesn't exist
+      if (error && error.code !== 'PGRST116') {
+        console.warn('Error fetching user profile:', error);
         setUserRole('user');
         setTenantId(null);
         setViewMode('tenant');
@@ -74,6 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setViewMode('tenant');
       }
     } catch (error) {
+      console.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
@@ -81,39 +82,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Activity logging function
+  // Optimized activity logging function
   const logUserActivity = async (actionType: string, userId: string) => {
-    try {
-      // Get user's IP address
-      const response = await fetch('https://api.ipify.org?format=json');
-      const ipData = await response.json();
-      const ipAddress = ipData.ip;
+    // Run activity logging asynchronously without blocking UI
+    setTimeout(async () => {
+      try {
+        // Get user agent immediately (no network call)
+        const userAgent = navigator.userAgent;
+        
+        // Get tenant ID for the user with optimized query
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      // Get user agent
-      const userAgent = navigator.userAgent;
-
-      // Get tenant ID for the user
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (profile?.tenant_id) {
-        await supabase.rpc('log_user_activity', {
-          tenant_id_param: profile.tenant_id,
-          user_id_param: userId,
-          action_type_param: actionType,
-          resource_type_param: null,
-          resource_id_param: null,
-          details_param: { timestamp: new Date().toISOString() },
-          ip_address_param: ipAddress,
-          user_agent_param: userAgent
-        });
+        if (profile?.tenant_id) {
+          // Log activity without waiting for IP address to avoid delays
+          await supabase.rpc('log_user_activity', {
+            tenant_id_param: profile.tenant_id,
+            user_id_param: userId,
+            action_type_param: actionType,
+            resource_type_param: null,
+            resource_id_param: null,
+            details_param: { timestamp: new Date().toISOString() },
+            ip_address_param: null, // Skip IP lookup for better performance
+            user_agent_param: userAgent
+          });
+        }
+      } catch (error) {
+        // Silently fail - don't disrupt user experience
+        console.warn('Activity logging failed:', error);
       }
-    } catch (error) {
-      // Silently fail - don't disrupt user experience
-    }
+    }, 0);
   };
 
   useEffect(() => {
@@ -145,15 +146,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session with better error handling
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn('Session fetch error:', error);
+        setLoading(false);
+        return;
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserInfo(session.user.id);
+        fetchUserInfo(session.user.id).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
       }
-      
+    }).catch((error) => {
+      console.warn('Auth initialization failed:', error);
       setLoading(false);
     });
 
