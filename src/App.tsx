@@ -29,6 +29,23 @@ import Purchases from "./pages/Purchases";
 import Accounting from "./pages/Accounting";
 import Profile from "./pages/Profile";
 
+// Error boundary to catch and suppress external errors
+window.addEventListener('error', (event) => {
+  if (event.message.includes('firebase') || event.message.includes('firestore') || event.message.includes('googleapis')) {
+    event.preventDefault();
+    return false;
+  }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason?.message?.includes('firebase') || 
+      event.reason?.message?.includes('firestore') || 
+      event.reason?.message?.includes('googleapis')) {
+    event.preventDefault();
+    return false;
+  }
+});
+
 const queryClient = new QueryClient();
 
 const App = () => (
