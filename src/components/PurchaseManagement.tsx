@@ -331,27 +331,8 @@ const PurchaseManagement = () => {
         throw itemsError;
       }
 
-      // Create accounting journal entry for the purchase
-      try {
-        await createPurchaseJournalEntry(tenantId, {
-          purchaseId: purchase.id,
-          supplierId: formData.supplier_id,
-          totalAmount: totalAmount,
-          isReceived: false,
-          createdBy: user?.id || ''
-        });
-      } catch (accountingError: any) {
-        console.error('Accounting entry error:', accountingError);
-        
-        // Check if it's a missing accounts error
-        if (accountingError.message?.includes('account not found')) {
-          toast.error(`Purchase created successfully, but accounting integration failed: ${accountingError.message}. Please visit the Accounting module to set up your chart of accounts.`);
-        } else {
-          toast.error('Purchase created but accounting entry failed. Please check your accounting setup in the Accounting module.');
-        }
-        
-        // Don't fail the purchase creation - just warn the user
-      }
+      // Note: Accounting entry will be created when purchase is received, not at creation
+      // This prevents double-counting inventory and payables
 
       toast.success('Purchase order created successfully');
       setIsCreateOpen(false);
