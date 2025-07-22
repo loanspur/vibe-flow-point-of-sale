@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPurchaseJournalEntry, createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { processPurchaseReceipt } from '@/lib/inventory-integration';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,6 +114,7 @@ const PURCHASE_STATUSES = [
 
 const PurchaseManagement = () => {
   const { tenantId, user } = useAuth();
+  const { toast } = useToast();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -167,7 +169,11 @@ const PurchaseManagement = () => {
       setPurchases(purchasesWithSupplier);
     } catch (error) {
       console.error('Error fetching purchases:', error);
-      toast.error('Failed to load purchases');
+      toast({
+        title: "Error",
+        description: "Failed to load purchases",
+        variant: "destructive",
+      });
     }
   };
 
@@ -270,7 +276,11 @@ const PurchaseManagement = () => {
 
   const createPurchase = async () => {
     if (!formData.supplier_id || selectedItems.length === 0) {
-      toast.error('Please select a supplier and add at least one item');
+      toast({
+        title: "Error",
+        description: "Please select a supplier and add at least one item",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -280,7 +290,11 @@ const PurchaseManagement = () => {
     );
     
     if (invalidItems.length > 0) {
-      toast.error('Please ensure all items have a product selected with valid quantity and cost');
+      toast({
+        title: "Error",
+        description: "Please ensure all items have a product selected with valid quantity and cost",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -334,13 +348,20 @@ const PurchaseManagement = () => {
       // Note: Accounting entry will be created when purchase is received, not at creation
       // This prevents double-counting inventory and payables
 
-      toast.success('Purchase order created successfully');
+      toast({
+        title: "Success",
+        description: "Purchase order created successfully"
+      });
       setIsCreateOpen(false);
       resetForm();
       fetchPurchases();
     } catch (error: any) {
       console.error('Error creating purchase:', error);
-      toast.error(`Failed to create purchase order: ${error.message || 'Unknown error'}`);
+      toast({
+        title: "Error",
+        description: `Failed to create purchase order: ${error.message || 'Unknown error'}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -361,11 +382,18 @@ const PurchaseManagement = () => {
 
       if (error) throw error;
 
-      toast.success(`Purchase ${status} successfully`);
+      toast({
+        title: "Success",
+        description: `Purchase ${status} successfully`
+      });
       fetchPurchases();
     } catch (error) {
       console.error('Error updating purchase status:', error);
-      toast.error('Failed to update purchase status');
+      toast({
+        title: "Error",
+        description: "Failed to update purchase status",
+        variant: "destructive",
+      });
     }
   };
 
@@ -404,9 +432,15 @@ const PurchaseManagement = () => {
       if (receivedItems.length > 0) {
         // Process inventory updates using the new integration
         await processPurchaseReceipt(tenantId, receivingPurchase.id, receivedItems);
-        toast.success(`Purchase received and inventory updated for ${receivedItems.length} items`);
+        toast({
+          title: "Success",
+          description: `Purchase received and inventory updated for ${receivedItems.length} items`
+        });
       } else {
-        toast.success('Purchase received (no inventory updates - no quantities received)');
+        toast({
+          title: "Success",
+          description: "Purchase received (no inventory updates - no quantities received)"
+        });
       }
 
       // Create accounting journal entry for received purchase
@@ -429,7 +463,11 @@ const PurchaseManagement = () => {
       fetchProducts(); // Refresh products to show updated inventory
     } catch (error) {
       console.error('Error receiving purchase:', error);
-      toast.error('Failed to receive purchase');
+      toast({
+        title: "Error",
+        description: "Failed to receive purchase",
+        variant: "destructive",
+      });
     }
   };
 
@@ -473,7 +511,10 @@ const PurchaseManagement = () => {
       if (receivedItems.length > 0) {
         // Process inventory updates using the integration
         await processPurchaseReceipt(tenantId, purchase.id, receivedItems);
-        toast.success(`Purchase auto-received and inventory updated for ${receivedItems.length} items`);
+        toast({
+          title: "Success",
+          description: `Purchase auto-received and inventory updated for ${receivedItems.length} items`
+        });
       }
 
       // Create accounting journal entry for received purchase
@@ -494,7 +535,11 @@ const PurchaseManagement = () => {
       fetchProducts(); // Refresh products to show updated inventory
     } catch (error) {
       console.error('Error auto-receiving purchase:', error);
-      toast.error('Failed to auto-receive purchase');
+      toast({
+        title: "Error",
+        description: "Failed to auto-receive purchase",
+        variant: "destructive",
+      });
     }
   };
 
@@ -579,15 +624,43 @@ const PurchaseManagement = () => {
 
   const fetchPurchasePayments = async (purchaseId: string) => {
     try {
-      // Fetch payments from accounts payable payments table
+      console.log('Fetching payments for purchase:', purchaseId);
+      
+      // First get AP record for this purchase
+      const { data: apData, error: apError } = await supabase
+        .from('accounts_payable')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('reference_id', purchaseId)
+        .eq('reference_type', 'purchase')
+        .single();
+
+      if (apError && apError.code !== 'PGRST116') {
+        console.error('Error fetching AP record:', apError);
+        setPurchasePayments([]);
+        return;
+      }
+
+      if (!apData) {
+        console.log('No AP record found for purchase');
+        setPurchasePayments([]);
+        return;
+      }
+
+      // Fetch payments from ar_ap_payments table using AP record ID
       const { data, error } = await supabase
         .from('ar_ap_payments')
         .select('*')
-        .eq('reference_id', purchaseId)
+        .eq('reference_id', apData.id)
         .eq('payment_type', 'payable')
         .order('payment_date', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching payments:', error);
+        throw error;
+      }
+      
+      console.log('Fetched payments:', data);
       
       // Transform to match PurchasePayment interface
       const payments = (data || []).map(payment => ({
@@ -595,28 +668,157 @@ const PurchaseManagement = () => {
         purchase_id: purchaseId,
         method: payment.payment_method,
         amount: payment.amount,
-        reference: payment.reference_number,
+        reference: payment.reference_number || '',
         date: payment.payment_date,
-        notes: payment.notes,
+        notes: payment.notes || '',
         status: 'completed' as const
       }));
       
       setPurchasePayments(payments);
     } catch (error) {
       console.error('Error fetching purchase payments:', error);
+      setPurchasePayments([]);
     }
   };
 
-  const addPayment = (payment: Omit<PurchasePayment, 'id' | 'purchase_id'>) => {
-    const newPayment: PurchasePayment = {
-      id: `payment-${Date.now()}`,
-      purchase_id: paymentPurchase?.id || '',
-      ...payment
-    };
-    setPurchasePayments(prev => [...prev, newPayment]);
+  const addPayment = async (payment: Omit<PurchasePayment, 'id' | 'purchase_id'>) => {
+    if (!paymentPurchase || !tenantId || !user) return;
+
+    try {
+      console.log('Adding payment for purchase:', paymentPurchase.id, payment);
+
+      // Step 1: Check if AP record exists for this purchase
+      let apRecordId = null;
+      const { data: existingAP, error: apSearchError } = await supabase
+        .from('accounts_payable')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('reference_id', paymentPurchase.id)
+        .eq('reference_type', 'purchase')
+        .single();
+
+      if (apSearchError && apSearchError.code !== 'PGRST116') {
+        console.error('Error checking existing AP:', apSearchError);
+        throw new Error('Failed to check existing payable record');
+      }
+
+      // Step 2: Create AP record if it doesn't exist
+      if (!existingAP) {
+        console.log('Creating new AP record for purchase');
+        const { data: newAP, error: apCreateError } = await supabase.rpc(
+          'create_accounts_payable_record',
+          {
+            tenant_id_param: tenantId,
+            purchase_id_param: paymentPurchase.id,
+            supplier_id_param: paymentPurchase.supplier_id,
+            total_amount_param: paymentPurchase.total_amount
+          }
+        );
+
+        if (apCreateError) {
+          console.error('Error creating AP record:', apCreateError);
+          throw new Error('Failed to create payable record');
+        }
+        apRecordId = newAP;
+        console.log('AP record created:', apRecordId);
+      } else {
+        apRecordId = existingAP.id;
+        console.log('Using existing AP record:', apRecordId);
+      }
+
+      // Step 3: Record the payment
+      const { data: savedPayment, error: paymentError } = await supabase
+        .from('ar_ap_payments')
+        .insert({
+          tenant_id: tenantId,
+          payment_type: 'payable',
+          reference_id: apRecordId,
+          payment_date: payment.date,
+          amount: payment.amount,
+          payment_method: payment.method,
+          reference_number: payment.reference,
+          notes: payment.notes
+        })
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error('Error recording payment:', paymentError);
+        throw new Error('Failed to record payment');
+      }
+
+      console.log('Payment recorded successfully:', savedPayment);
+
+      // Step 4: Create accounting journal entry
+      try {
+        await createPaymentJournalEntry(tenantId, {
+          paymentId: savedPayment.id,
+          amount: payment.amount,
+          paymentType: 'payable',
+          paymentMethod: payment.method,
+          referenceId: apRecordId,
+          createdBy: user.id
+        });
+        console.log('Accounting entry created');
+      } catch (accountingError) {
+        console.error('Accounting entry error:', accountingError);
+        // Don't fail payment if accounting fails
+        toast({
+          title: "Warning", 
+          description: "Payment recorded but accounting entry failed",
+          variant: "destructive",
+        });
+      }
+
+      // Step 5: Check if purchase should be marked as paid
+      setTimeout(async () => {
+        try {
+          const { data: updatedAP, error: apCheckError } = await supabase
+            .from('accounts_payable')
+            .select('status')
+            .eq('id', apRecordId)
+            .single();
+
+          if (!apCheckError && updatedAP?.status === 'paid') {
+            console.log('Purchase fully paid, updating purchase status');
+            await supabase
+              .from('purchases')
+              .update({ status: 'paid' })
+              .eq('id', paymentPurchase.id);
+          }
+        } catch (statusError) {
+          console.error('Error updating purchase status:', statusError);
+        }
+      }, 500);
+
+      // Step 6: Refresh payments data
+      await fetchPurchasePayments(paymentPurchase.id);
+      
+      toast({
+        title: "Success", 
+        description: `Payment of $${payment.amount.toFixed(2)} recorded successfully`
+      });
+
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to add payment',
+        variant: "destructive",
+      });
+    }
   };
 
-  const removePayment = (paymentId: string) => {
+  const removePayment = async (paymentId: string) => {
+    if (!paymentId.includes('payment-')) {
+      // This is a real payment from database, don't allow removal for now
+      toast({
+        title: "Error", 
+        description: "Cannot remove saved payments. Contact administrator if needed.",
+        variant: "destructive",
+      });
+      return;
+    }
     setPurchasePayments(prev => prev.filter(p => p.id !== paymentId));
   };
 
