@@ -124,25 +124,24 @@ export default function PurchaseReturns() {
 
   const fetchReturns = async () => {
     try {
-      // Note: Purchase returns would be fetched from a dedicated table when implemented
-      // For now, returns are managed through the general returns table
       const { data, error } = await supabase
         .from('returns')
         .select(`
           *,
           return_reason_codes(id, code, description, requires_approval),
-          contacts!returns_customer_id_fkey(name, email),
+          contacts(name, email),
           return_items(
             *,
             products(name, sku)
           )
         `)
-        .eq('return_type', 'refund')
+        .eq('return_type', 'purchase')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setReturns(data as any || []);
     } catch (error) {
+      console.error('Failed to fetch purchase returns:', error);
       toast({
         title: "Error",
         description: "Failed to fetch purchase returns",
