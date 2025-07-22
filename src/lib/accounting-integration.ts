@@ -90,6 +90,10 @@ export const getDefaultAccounts = async (tenantId: string) => {
     if (account.name.toLowerCase().includes('inventory')) {
       map.inventory = account.id;
     }
+    // Also check for common inventory account patterns
+    if (account.code === '1200' || account.name.toLowerCase() === 'inventory' || account.name.toLowerCase().includes('stock')) {
+      map.inventory = account.id;
+    }
     if (account.name.toLowerCase().includes('sales') && category === 'income') {
       map.sales_revenue = account.id;
     }
