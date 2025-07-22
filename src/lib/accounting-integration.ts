@@ -202,20 +202,30 @@ export const createSalesJournalEntry = async (
     const subtotal = totalAmount - taxAmount + discountAmount;
     const entries: AccountingEntry[] = [];
 
-    // Debit: Cash/Accounts Receivable
+    // Debit: Cash/Accounts Receivable based on payment status
     if (paymentMethod === 'cash' || paymentMethod === 'card' || paymentMethod === 'multiple') {
+      // Paid sale - debit cash
       if (!accounts.cash) throw new Error('Cash account not found');
       entries.push({
         account_id: accounts.cash,
         debit_amount: totalAmount,
         description: 'Cash received from sale'
       });
-    } else {
+    } else if (paymentMethod === 'credit' || paymentMethod === 'account' || !saleData.customerId) {
+      // Credit sale or walk-in customer not paid - debit accounts receivable
       if (!accounts.accounts_receivable) throw new Error('Accounts Receivable account not found');
       entries.push({
         account_id: accounts.accounts_receivable,
         debit_amount: totalAmount,
-        description: 'Sale on account'
+        description: 'Sale on account - customer owes'
+      });
+    } else {
+      // Default to cash for other payment methods
+      if (!accounts.cash) throw new Error('Cash account not found');
+      entries.push({
+        account_id: accounts.cash,
+        debit_amount: totalAmount,
+        description: 'Payment received from sale'
       });
     }
 
