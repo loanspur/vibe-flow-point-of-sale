@@ -602,56 +602,70 @@ export default function TransactionManagement() {
                       <Badge variant="outline">Draft</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openViewDialog(transaction)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      {!transaction.is_posted && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openEditDialog(transaction)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => postTransaction(transaction.id)}
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="sm" variant="outline">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete this transaction? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteTransaction(transaction.id)}>
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
+                   <TableCell>
+                     <div className="flex space-x-2">
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => openViewDialog(transaction)}
+                         title="View transaction"
+                       >
+                         <Eye className="w-4 h-4" />
+                       </Button>
+                       {transaction.is_posted ? (
+                         // For posted transactions - view only with edit option for reversals
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => openEditDialog(transaction)}
+                           title="View/Reverse transaction"
+                         >
+                           <Edit className="w-4 h-4" />
+                         </Button>
+                       ) : (
+                         // For draft transactions - full edit capabilities
+                         <>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => openEditDialog(transaction)}
+                             title="Edit transaction"
+                           >
+                             <Edit className="w-4 h-4" />
+                           </Button>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => postTransaction(transaction.id)}
+                             title="Post transaction"
+                           >
+                             <CheckCircle className="w-4 h-4" />
+                           </Button>
+                           <AlertDialog>
+                             <AlertDialogTrigger asChild>
+                               <Button size="sm" variant="outline" title="Delete transaction">
+                                 <Trash2 className="w-4 h-4" />
+                               </Button>
+                             </AlertDialogTrigger>
+                             <AlertDialogContent>
+                               <AlertDialogHeader>
+                                 <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+                                 <AlertDialogDescription>
+                                   Are you sure you want to delete this transaction? This action cannot be undone.
+                                 </AlertDialogDescription>
+                               </AlertDialogHeader>
+                               <AlertDialogFooter>
+                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                 <AlertDialogAction onClick={() => deleteTransaction(transaction.id)}>
+                                   Delete
+                                 </AlertDialogAction>
+                               </AlertDialogFooter>
+                             </AlertDialogContent>
+                           </AlertDialog>
+                         </>
+                       )}
+                     </div>
+                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
