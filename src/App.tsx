@@ -73,6 +73,8 @@ window.addEventListener('unhandledrejection', (event) => {
       reason.includes('firestore') || 
       reason.includes('googleapis') ||
       reason.includes('webchannelconnection') ||
+      reason.includes('message channel closed') ||
+      reason.includes('listener indicated an asynchronous response') ||
       reason.includes('quic_protocol_error')) {
     event.preventDefault();
     return false;
