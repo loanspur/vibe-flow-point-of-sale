@@ -123,18 +123,21 @@ export default function PurchaseReturns() {
   }, []);
 
   const fetchReturns = async () => {
+    if (!tenantId) return;
+    
     try {
       const { data, error } = await supabase
         .from('returns')
         .select(`
           *,
           return_reason_codes(id, code, description, requires_approval),
-          contacts(name, email),
+          contacts!customer_id(name, email),
           return_items(
             *,
             products(name, sku)
           )
         `)
+        .eq('tenant_id', tenantId)
         .eq('return_type', 'purchase')
         .order('created_at', { ascending: false });
 
