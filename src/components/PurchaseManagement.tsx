@@ -395,6 +395,21 @@ const PurchaseManagement = () => {
       // Update purchase status to received
       await updatePurchaseStatus(receivingPurchase.id, 'received');
 
+      // Update the quantity_received in purchase_items table
+      for (const item of purchaseItems) {
+        if (item.quantity_received > 0) {
+          const { error } = await supabase
+            .from('purchase_items')
+            .update({ quantity_received: item.quantity_received })
+            .eq('id', item.id);
+
+          if (error) {
+            console.error('Error updating purchase item:', error);
+            throw error;
+          }
+        }
+      }
+
       // Prepare inventory transactions for items with received quantities
       const receivedItems = purchaseItems
         .filter(item => item.quantity_received > 0)
@@ -408,15 +423,69 @@ const PurchaseManagement = () => {
       if (receivedItems.length > 0) {
         // Process inventory updates using the new integration
         await processPurchaseReceipt(tenantId, receivingPurchase.id, receivedItems);
+        toast.success(`Purchase received and inventory updated for ${receivedItems.length} items`);
+      } else {
+        toast.success('Purchase received (no inventory updates - no quantities received)');
       }
 
-      toast.success('Purchase received and inventory updated');
       setIsReceiveOpen(false);
       setReceivingPurchase(null);
       fetchPurchases();
+      fetchProducts(); // Refresh products to show updated inventory
     } catch (error) {
       console.error('Error receiving purchase:', error);
       toast.error('Failed to receive purchase');
+    }
+  };
+
+  const autoReceivePurchase = async (purchase: Purchase) => {
+    try {
+      // Fetch purchase items for this purchase
+      const { data: items, error } = await supabase
+        .from('purchase_items')
+        .select(`
+          *,
+          product:products(name, sku)
+        `)
+        .eq('purchase_id', purchase.id);
+
+      if (error) throw error;
+
+      // Update all items to be fully received (quantity_received = quantity_ordered)
+      for (const item of items || []) {
+        const { error: updateError } = await supabase
+          .from('purchase_items')
+          .update({ quantity_received: item.quantity_ordered })
+          .eq('id', item.id);
+
+        if (updateError) {
+          console.error('Error updating purchase item:', updateError);
+          throw updateError;
+        }
+      }
+
+      // Update purchase status to received
+      await updatePurchaseStatus(purchase.id, 'received');
+
+      // Prepare inventory transactions for all items (fully received)
+      const receivedItems = (items || []).map(item => ({
+        productId: item.product_id,
+        variantId: item.variant_id || undefined,
+        quantityReceived: item.quantity_ordered, // Auto-receive full quantity
+        unitCost: item.unit_cost
+      }));
+
+      if (receivedItems.length > 0) {
+        // Process inventory updates using the integration
+        await processPurchaseReceipt(tenantId, purchase.id, receivedItems);
+        toast.success(`Purchase auto-received and inventory updated for ${receivedItems.length} items`);
+      }
+
+      fetchPurchases();
+      fetchProducts(); // Refresh products to show updated inventory
+    } catch (error) {
+      console.error('Error auto-receiving purchase:', error);
+      toast.error('Failed to auto-receive purchase');
     }
   };
 
@@ -473,6 +542,23 @@ const PurchaseManagement = () => {
   const openReceiveDialog = async (purchase: Purchase) => {
     setReceivingPurchase(purchase);
     await fetchPurchaseItems(purchase.id);
+    
+    // Auto-set received quantities to ordered quantities for convenience
+    const updatedItems = await Promise.all(purchaseItems.map(async (item) => {
+      return {
+        ...item,
+        quantity_received: item.quantity_ordered // Auto-fill with ordered quantity
+      };
+    }));
+    
+    // Wait a moment for the purchase items to be set, then update with auto-filled quantities
+    setTimeout(() => {
+      setPurchaseItems(prev => prev.map(item => ({
+        ...item,
+        quantity_received: item.quantity_ordered
+      })));
+    }, 100);
+    
     setIsReceiveOpen(true);
   };
 
@@ -874,14 +960,25 @@ const PurchaseManagement = () => {
                             </Button>
                           )}
                           {purchase.status === 'ordered' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openReceiveDialog(purchase)}
-                            >
-                              <Package className="h-4 w-4 mr-1" />
-                              Receive
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openReceiveDialog(purchase)}
+                              >
+                                <Package className="h-4 w-4 mr-1" />
+                                Receive
+                              </Button>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => autoReceivePurchase(purchase)}
+                                className="ml-2"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Auto Receive
+                              </Button>
+                            </>
                           )}
                           {(purchase.status === 'ordered' || purchase.status === 'received') && (
                             <Button
