@@ -159,9 +159,17 @@ export default function ProductManagement() {
     product.product_categories?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const lowStockProducts = products.filter(product => 
-    product.stock_quantity <= product.min_stock_level
-  );
+  const lowStockProducts = products.filter(product => {
+    // For products with variants, calculate total stock from variants
+    if (product.product_variants && product.product_variants.length > 0) {
+      const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
+        return total + (variant.stock_quantity || 0);
+      }, 0);
+      return totalVariantStock <= (product.min_stock_level || 0);
+    }
+    // For products without variants, use main product stock
+    return product.stock_quantity <= (product.min_stock_level || 0);
+  });
 
   const ProductTable = () => (
     <Card>
@@ -196,19 +204,45 @@ export default function ProductManagement() {
                   )}
                   <div>
                     <div className="font-medium">{product.name}</div>
-                    {product.stock_quantity <= product.min_stock_level && (
-                      <Badge variant="destructive" className="text-xs mt-1">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Low Stock
-                      </Badge>
-                    )}
+                    {(() => {
+                      // Calculate if product is low stock based on variants or main stock
+                      let isLowStock = false;
+                      let currentStock = product.stock_quantity || 0;
+                      
+                      if (product.product_variants && product.product_variants.length > 0) {
+                        currentStock = product.product_variants.reduce((total: number, variant: any) => {
+                          return total + (variant.stock_quantity || 0);
+                        }, 0);
+                      }
+                      
+                      isLowStock = currentStock <= (product.min_stock_level || 0);
+                      
+                      return isLowStock ? (
+                        <Badge variant="destructive" className="text-xs mt-1">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Low Stock
+                        </Badge>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </TableCell>
               <TableCell>{product.sku || 'N/A'}</TableCell>
               <TableCell>{product.product_categories?.name || 'None'}</TableCell>
               <TableCell>${product.price}</TableCell>
-              <TableCell>{product.stock_quantity || 0}</TableCell>
+              <TableCell>
+                {(() => {
+                  // Show total stock including variants
+                  if (product.product_variants && product.product_variants.length > 0) {
+                    const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
+                      return total + (variant.stock_quantity || 0);
+                    }, 0);
+                    const mainStock = product.stock_quantity || 0;
+                    return mainStock + totalVariantStock;
+                  }
+                  return product.stock_quantity || 0;
+                })()}
+              </TableCell>
               <TableCell>
                 <Badge variant={product.is_active ? "secondary" : "outline"}>
                   {product.is_active ? "Active" : "Inactive"}
@@ -218,15 +252,18 @@ export default function ProductManagement() {
                 {product.product_variants && product.product_variants.length > 0 ? (
                   <div className="space-y-1">
                     {product.product_variants.slice(0, 2).map((variant: any, index: number) => (
-                      <div key={index} className="text-xs">
+                      <div key={index} className="text-xs flex items-center justify-between">
                         <Badge variant="outline" className="text-xs">
                           {variant.name}: {variant.value}
                         </Badge>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          Stock: {variant.stock_quantity || 0}
+                        </span>
                       </div>
                     ))}
                     {product.product_variants.length > 2 && (
                       <div className="text-xs text-muted-foreground">
-                        +{product.product_variants.length - 2} more
+                        +{product.product_variants.length - 2} more variants
                       </div>
                     )}
                   </div>
@@ -350,11 +387,21 @@ export default function ProductManagement() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {lowStockProducts.map(product => (
-                <Badge key={product.id} variant="outline" className="text-orange-700">
-                  {product.name} ({product.stock_quantity} left)
-                </Badge>
-              ))}
+              {lowStockProducts.map(product => {
+                // Calculate current stock (including variants)
+                let currentStock = product.stock_quantity || 0;
+                if (product.product_variants && product.product_variants.length > 0) {
+                  currentStock = product.product_variants.reduce((total: number, variant: any) => {
+                    return total + (variant.stock_quantity || 0);
+                  }, 0);
+                }
+                
+                return (
+                  <Badge key={product.id} variant="outline" className="text-orange-700">
+                    {product.name} ({currentStock} left)
+                  </Badge>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
