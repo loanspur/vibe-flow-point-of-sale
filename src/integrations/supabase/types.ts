@@ -1859,6 +1859,7 @@ export type Database = {
           status: string
           store_credit_amount: number
           subtotal_amount: number
+          supplier_id: string | null
           tax_amount: number
           tenant_id: string
           total_amount: number
@@ -1884,6 +1885,7 @@ export type Database = {
           status?: string
           store_credit_amount?: number
           subtotal_amount?: number
+          supplier_id?: string | null
           tax_amount?: number
           tenant_id: string
           total_amount?: number
@@ -1909,6 +1911,7 @@ export type Database = {
           status?: string
           store_credit_amount?: number
           subtotal_amount?: number
+          supplier_id?: string | null
           tax_amount?: number
           tenant_id?: string
           total_amount?: number
@@ -1934,6 +1937,13 @@ export type Database = {
             columns: ["reason_code_id"]
             isOneToOne: false
             referencedRelation: "return_reason_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]

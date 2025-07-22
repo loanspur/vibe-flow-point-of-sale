@@ -57,6 +57,7 @@ interface PurchaseReturn {
   return_number: string;
   original_sale_id?: string;
   customer_id?: string;
+  supplier_id?: string;
   return_type: 'refund' | 'replacement' | 'credit_note' | 'purchase';
   status: 'pending' | 'approved' | 'completed' | 'cancelled';
   reason_code_id?: string;
@@ -69,6 +70,10 @@ interface PurchaseReturn {
   created_at: string;
   return_reason_codes?: ReturnReasonCode;
   customers?: {
+    name: string;
+    email?: string;
+  };
+  contacts?: {
     name: string;
     email?: string;
   };
@@ -134,6 +139,7 @@ export default function PurchaseReturns() {
           *,
           return_reason_codes(id, code, description, requires_approval),
           customers(name, email),
+          contacts(name, email),
           return_items(
             *,
             products(name, sku)
@@ -327,12 +333,12 @@ export default function PurchaseReturns() {
 
       const returnNumber = generateReturnNumber();
 
-      // Create purchase return record (using returns table adapted for purchases)
+      // Create purchase return record (using returns table with supplier_id)
       const { data: returnRecord, error: returnError } = await supabase
         .from('returns')
         .insert({
           return_number: returnNumber,
-          customer_id: selectedPurchase.supplier_id,
+          supplier_id: selectedPurchase.supplier_id,  // Use supplier_id for purchase returns
           return_type: 'purchase',
           status: 'completed',
           reason_code_id: returnFormData.reason_code_id,
@@ -426,8 +432,11 @@ export default function PurchaseReturns() {
   };
 
   const filteredReturns = returns.filter(returnItem => {
+    const supplierName = returnItem.contacts?.name || 'Unknown Supplier';
+    const customerName = returnItem.customers?.name || 'Unknown Customer';
     const matchesSearch = returnItem.return_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         returnItem.customers?.name.toLowerCase().includes(searchTerm.toLowerCase());
+                         supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customerName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || returnItem.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -838,7 +847,7 @@ export default function PurchaseReturns() {
                     {returns.slice(0, 5).map((returnItem) => (
                       <TableRow key={returnItem.id}>
                         <TableCell className="font-medium">{returnItem.return_number}</TableCell>
-                        <TableCell>{returnItem.customers?.name || 'Unknown Supplier'}</TableCell>
+                        <TableCell>{returnItem.contacts?.name || returnItem.customers?.name || 'Unknown'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getReturnTypeIcon(returnItem.return_type)}
@@ -906,7 +915,7 @@ export default function PurchaseReturns() {
                     {filteredReturns.map((returnItem) => (
                       <TableRow key={returnItem.id}>
                         <TableCell className="font-medium">{returnItem.return_number}</TableCell>
-                        <TableCell>{returnItem.customers?.name || 'Unknown Supplier'}</TableCell>
+                        <TableCell>{returnItem.contacts?.name || returnItem.customers?.name || 'Unknown'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getReturnTypeIcon(returnItem.return_type)}
