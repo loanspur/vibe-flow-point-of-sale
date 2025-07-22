@@ -357,6 +357,33 @@ const AccountsReceivablePayable: React.FC = () => {
         toast({ title: "Warning", description: "Payment recorded but accounting entry failed", variant: "destructive" });
       }
 
+      // Update credit sale status if this is a receivable payment
+      if (recordType === 'receivable' && selectedRecord.reference_type === 'sale') {
+        try {
+          // Get updated AR record to check if fully paid
+          const { data: updatedAR, error: arError } = await supabase
+            .from('accounts_receivable')
+            .select('status, reference_id')
+            .eq('id', selectedRecord.id)
+            .single();
+
+          if (!arError && updatedAR && updatedAR.status === 'paid') {
+            // Update sale status to paid
+            const { error: saleUpdateError } = await supabase
+              .from('sales')
+              .update({ status: 'paid' })
+              .eq('id', updatedAR.reference_id);
+
+            if (saleUpdateError) {
+              console.error('Error updating sale status:', saleUpdateError);
+            }
+          }
+        } catch (statusUpdateError) {
+          console.error('Error updating credit sale status:', statusUpdateError);
+          // Don't fail the payment if status update fails
+        }
+      }
+
       toast({ title: "Success", description: "Payment recorded successfully" });
       setIsPaymentOpen(false);
       resetPaymentForm();
