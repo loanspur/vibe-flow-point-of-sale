@@ -56,6 +56,7 @@ interface Product {
   product_categories?: { name: string };
   product_subcategories?: { name: string };
   variants?: any[];
+  product_variants?: any[];
 }
 
 export default function ProductManagement() {
@@ -214,18 +215,18 @@ export default function ProductManagement() {
                 </Badge>
               </TableCell>
               <TableCell>
-                {product.variants && product.variants.length > 0 ? (
+                {product.product_variants && product.product_variants.length > 0 ? (
                   <div className="space-y-1">
-                    {product.variants.slice(0, 2).map((variant: any, index: number) => (
+                    {product.product_variants.slice(0, 2).map((variant: any, index: number) => (
                       <div key={index} className="text-xs">
                         <Badge variant="outline" className="text-xs">
                           {variant.name}: {variant.value}
                         </Badge>
                       </div>
                     ))}
-                    {product.variants.length > 2 && (
+                    {product.product_variants.length > 2 && (
                       <div className="text-xs text-muted-foreground">
-                        +{product.variants.length - 2} more
+                        +{product.product_variants.length - 2} more
                       </div>
                     )}
                   </div>
