@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -154,116 +162,117 @@ export default function ProductManagement() {
     product.stock_quantity <= product.min_stock_level
   );
 
-  const ProductCard = ({ product }: { product: Product }) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {product.image_url ? (
-              <img 
-                src={product.image_url} 
-                alt={product.name}
-                className="w-12 h-12 object-cover rounded-lg"
-              />
-            ) : (
-              <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
-                <Package className="h-6 w-6 text-muted-foreground" />
-              </div>
-            )}
-            <div>
-              <CardTitle className="text-lg">{product.name}</CardTitle>
-              <CardDescription className="flex items-center gap-2">
-                SKU: {product.sku || 'N/A'}
-                {product.stock_quantity <= product.min_stock_level && (
-                  <Badge variant="destructive" className="text-xs">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Low Stock
-                  </Badge>
-                )}
-              </CardDescription>
-            </div>
-          </div>
-          <Badge variant={product.is_active ? "secondary" : "outline"}>
-            {product.is_active ? "Active" : "Inactive"}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Price</p>
-            <p className="font-semibold">${product.price}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Stock</p>
-            <p className="font-semibold">{product.stock_quantity || 0}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Category</p>
-            <p className="text-sm">{product.product_categories?.name || 'None'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Variants</p>
-            <p className="text-sm">{product.variants?.length || 0} variants</p>
-          </div>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => {
-              setSelectedProduct(product);
-              setShowProductForm(true);
-            }}
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            Edit
-          </Button>
-          
-          <div className="flex gap-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>{product.name}</DialogTitle>
-                  <DialogDescription>Product details and variants</DialogDescription>
-                </DialogHeader>
-                <ProductVariants productId={product.id} />
-              </DialogContent>
-            </Dialog>
-            
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete "{product.name}"? This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={() => handleDeleteProduct(product.id)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  const ProductTable = () => (
+    <Card>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Product</TableHead>
+            <TableHead>SKU</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Price</TableHead>
+            <TableHead>Stock</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Variants</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredProducts.map((product) => (
+            <TableRow key={product.id}>
+              <TableCell>
+                <div className="flex items-center space-x-3">
+                  {product.image_url ? (
+                    <img 
+                      src={product.image_url} 
+                      alt={product.name}
+                      className="w-10 h-10 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                      <Package className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-medium">{product.name}</div>
+                    {product.stock_quantity <= product.min_stock_level && (
+                      <Badge variant="destructive" className="text-xs mt-1">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        Low Stock
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>{product.sku || 'N/A'}</TableCell>
+              <TableCell>{product.product_categories?.name || 'None'}</TableCell>
+              <TableCell>${product.price}</TableCell>
+              <TableCell>{product.stock_quantity || 0}</TableCell>
+              <TableCell>
+                <Badge variant={product.is_active ? "secondary" : "outline"}>
+                  {product.is_active ? "Active" : "Inactive"}
+                </Badge>
+              </TableCell>
+              <TableCell>{product.variants?.length || 0}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setShowProductForm(true);
+                    }}
                   >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </div>
-      </CardContent>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                  
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>{product.name}</DialogTitle>
+                        <DialogDescription>Product details and variants</DialogDescription>
+                      </DialogHeader>
+                      <ProductVariants productId={product.id} />
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </Card>
   );
 
@@ -376,11 +385,7 @@ export default function ProductManagement() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <ProductTable />
           )}
         </TabsContent>
 
