@@ -283,6 +283,9 @@ const PurchaseManagement = () => {
       return;
     }
 
+    console.log('Creating purchase with items:', selectedItems);
+    console.log('Form data:', formData);
+
     try {
       const purchaseNumber = generatePurchaseNumber();
       const totalAmount = selectedItems.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
@@ -314,13 +317,18 @@ const PurchaseManagement = () => {
         quantity_received: 0,
         unit_cost: item.unit_cost,
         total_cost: item.quantity * item.unit_cost
-      }));
+       }));
+
+      console.log('Inserting purchase items:', items);
 
       const { error: itemsError } = await supabase
         .from('purchase_items')
         .insert(items);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('Error inserting purchase items:', itemsError);
+        throw itemsError;
+      }
 
       // Create accounting journal entry for the purchase
       try {
@@ -341,9 +349,9 @@ const PurchaseManagement = () => {
       setIsCreateOpen(false);
       resetForm();
       fetchPurchases();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating purchase:', error);
-      toast.error('Failed to create purchase order');
+      toast.error(`Failed to create purchase order: ${error.message || 'Unknown error'}`);
     }
   };
 
