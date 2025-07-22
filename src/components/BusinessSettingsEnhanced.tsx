@@ -125,6 +125,20 @@ export function BusinessSettingsEnhanced() {
   const [locations, setLocations] = useState<StoreLocation[]>([]);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<StoreLocation | null>(null);
+  const [locationForm, setLocationForm] = useState({
+    name: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    state_province: '',
+    postal_code: '',
+    country: 'United States',
+    phone: '',
+    email: '',
+    manager_name: '',
+    is_primary: false,
+    is_active: true
+  });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [themeColors, setThemeColors] = useState({
@@ -341,6 +355,41 @@ export function BusinessSettingsEnhanced() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleLocationSubmit = async () => {
+    if (!locationForm.name || !locationForm.address_line_1 || !locationForm.city || !locationForm.phone) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields (Name, Address, City, Phone).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await addLocation({
+      ...locationForm,
+      tenant_id: '',
+      created_at: '',
+      updated_at: ''
+    });
+  };
+
+  const resetLocationForm = () => {
+    setLocationForm({
+      name: '',
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state_province: '',
+      postal_code: '',
+      country: 'United States',
+      phone: '',
+      email: '',
+      manager_name: '',
+      is_primary: false,
+      is_active: true
+    });
   };
 
   const handleCountryChange = (country: Country) => {
@@ -851,31 +900,93 @@ export function BusinessSettingsEnhanced() {
                               <Store className="h-5 w-5 text-primary" />
                               Store Locations
                             </CardTitle>
-                            <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-                              <DialogTrigger asChild>
-                                <Button>
-                                  <Plus className="h-4 w-4 mr-2" />
-                                  Add Location
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Add Store Location</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <Input placeholder="Location Name" />
-                                  <Textarea placeholder="Full Address" />
-                                  <Input placeholder="Phone Number" />
-                                  <div className="flex items-center space-x-2">
-                                    <Switch />
-                                    <Label>Main Location</Label>
-                                  </div>
-                                  <Button onClick={() => setIsLocationDialogOpen(false)}>
-                                    Add Location
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                                <Dialog open={isLocationDialogOpen} onOpenChange={(open) => {
+                                  setIsLocationDialogOpen(open);
+                                  if (!open) resetLocationForm();
+                                }}>
+                                  <DialogTrigger asChild>
+                                    <Button>
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add Location
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Add Store Location</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <Input 
+                                        placeholder="Location Name *" 
+                                        value={locationForm.name}
+                                        onChange={(e) => setLocationForm(prev => ({...prev, name: e.target.value}))}
+                                      />
+                                      <Input 
+                                        placeholder="Address Line 1 *" 
+                                        value={locationForm.address_line_1}
+                                        onChange={(e) => setLocationForm(prev => ({...prev, address_line_1: e.target.value}))}
+                                      />
+                                      <Input 
+                                        placeholder="Address Line 2" 
+                                        value={locationForm.address_line_2}
+                                        onChange={(e) => setLocationForm(prev => ({...prev, address_line_2: e.target.value}))}
+                                      />
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <Input 
+                                          placeholder="City *" 
+                                          value={locationForm.city}
+                                          onChange={(e) => setLocationForm(prev => ({...prev, city: e.target.value}))}
+                                        />
+                                        <Input 
+                                          placeholder="State/Province" 
+                                          value={locationForm.state_province}
+                                          onChange={(e) => setLocationForm(prev => ({...prev, state_province: e.target.value}))}
+                                        />
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <Input 
+                                          placeholder="Postal Code" 
+                                          value={locationForm.postal_code}
+                                          onChange={(e) => setLocationForm(prev => ({...prev, postal_code: e.target.value}))}
+                                        />
+                                        <Input 
+                                          placeholder="Country" 
+                                          value={locationForm.country}
+                                          onChange={(e) => setLocationForm(prev => ({...prev, country: e.target.value}))}
+                                        />
+                                      </div>
+                                      <Input 
+                                        placeholder="Phone Number *" 
+                                        value={locationForm.phone}
+                                        onChange={(e) => setLocationForm(prev => ({...prev, phone: e.target.value}))}
+                                      />
+                                      <Input 
+                                        placeholder="Email" 
+                                        value={locationForm.email}
+                                        onChange={(e) => setLocationForm(prev => ({...prev, email: e.target.value}))}
+                                      />
+                                      <Input 
+                                        placeholder="Manager Name" 
+                                        value={locationForm.manager_name}
+                                        onChange={(e) => setLocationForm(prev => ({...prev, manager_name: e.target.value}))}
+                                      />
+                                      <div className="flex items-center space-x-2">
+                                        <Switch 
+                                          checked={locationForm.is_primary}
+                                          onCheckedChange={(checked) => setLocationForm(prev => ({...prev, is_primary: checked}))}
+                                        />
+                                        <Label>Primary Location</Label>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>
+                                          Cancel
+                                        </Button>
+                                        <Button onClick={handleLocationSubmit}>
+                                          Add Location
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
                           </div>
                         </CardHeader>
                         <CardContent>
