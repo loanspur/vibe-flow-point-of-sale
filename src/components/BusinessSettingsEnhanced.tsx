@@ -540,7 +540,261 @@ export function BusinessSettingsEnhanced() {
                             </div>
                           </CardContent>
                         </Card>
-                      </div>
+                       </div>
+
+                       <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50">
+                         <CardHeader className="pb-4">
+                           <CardTitle className="flex items-center gap-2 text-xl">
+                             <Globe className="h-5 w-5 text-primary" />
+                             Regional Settings
+                           </CardTitle>
+                           <CardDescription>
+                             Set your business location, currency, and timezone preferences
+                           </CardDescription>
+                         </CardHeader>
+                         <CardContent>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <FormField
+                               control={form.control}
+                               name="currency_code"
+                               render={({ field }) => (
+                                 <FormItem>
+                                   <FormLabel className="flex items-center gap-2">
+                                     <DollarSign className="h-4 w-4" />
+                                     Country & Currency
+                                   </FormLabel>
+                                   <Select onValueChange={(countryCode) => {
+                                     const country = countries.find(c => c.code === countryCode);
+                                     if (country) handleCountryChange(country);
+                                   }} value={selectedCountry?.code || ""}>
+                                     <FormControl>
+                                       <SelectTrigger className="bg-background border hover:border-primary/50 transition-colors">
+                                         <SelectValue placeholder="Select country" />
+                                       </SelectTrigger>
+                                     </FormControl>
+                                     <SelectContent className="bg-background border shadow-lg max-h-[300px] overflow-y-auto z-50">
+                                       <div className="p-3 border-b bg-muted/20">
+                                         <Input
+                                           placeholder="Search countries..."
+                                           value={currencySearch}
+                                           onChange={(e) => setCurrencySearch(e.target.value)}
+                                           className="h-8 text-sm"
+                                         />
+                                       </div>
+
+                                       {/* Popular countries */}
+                                       <div className="p-2 border-b bg-muted/30">
+                                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Popular</p>
+                                       </div>
+                                       {countries
+                                         .filter(country => popularCountries.includes(country.code))
+                                         .map(country => (
+                                           <SelectItem 
+                                             key={country.code} 
+                                             value={country.code}
+                                             className="py-2 hover:bg-accent/50 cursor-pointer"
+                                           >
+                                             <div className="flex items-center gap-3 w-full">
+                                               <span className="text-lg">{country.flag}</span>
+                                               <div className="flex-1">
+                                                 <div className="font-medium">{country.name}</div>
+                                                 <div className="text-sm text-muted-foreground">
+                                                   {country.currencySymbol} {country.currency} • {country.currencyName}
+                                                 </div>
+                                               </div>
+                                             </div>
+                                           </SelectItem>
+                                         ))}
+                                       
+                                       {/* All countries by region */}
+                                       {getRegions().map(region => {
+                                         const regionCountries = filteredCountries.filter(country => country.region === region);
+                                         if (regionCountries.length === 0) return null;
+                                         
+                                         return (
+                                           <div key={region}>
+                                             <div className="p-2 border-b bg-muted/30">
+                                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{region}</p>
+                                             </div>
+                                             {regionCountries.map(country => (
+                                               <SelectItem 
+                                                 key={country.code} 
+                                                 value={country.code}
+                                                 className="py-2 hover:bg-accent/50 cursor-pointer"
+                                               >
+                                                 <div className="flex items-center gap-3 w-full">
+                                                   <span className="text-lg">{country.flag}</span>
+                                                   <div className="flex-1">
+                                                     <div className="font-medium">{country.name}</div>
+                                                     <div className="text-sm text-muted-foreground">
+                                                       {country.currencySymbol} {country.currency} • {country.currencyName}
+                                                     </div>
+                                                   </div>
+                                                 </div>
+                                               </SelectItem>
+                                             ))}
+                                           </div>
+                                         );
+                                       })}
+                                     </SelectContent>
+                                   </Select>
+                                   <FormMessage />
+                                   {selectedCountry && (
+                                     <div className="mt-2 p-3 bg-primary/5 border border-primary/20 rounded-md">
+                                       <div className="flex items-center gap-2 mb-1">
+                                         <span className="text-lg">{selectedCountry.flag}</span>
+                                         <span className="font-medium">{selectedCountry.name}</span>
+                                       </div>
+                                       <div className="text-sm text-muted-foreground">
+                                         <div>Currency: {selectedCountry.currencySymbol} {selectedCountry.currency} - {selectedCountry.currencyName}</div>
+                                         <div>Timezone: {selectedCountry.timezone}</div>
+                                       </div>
+                                     </div>
+                                   )}
+                                 </FormItem>
+                               )}
+                             />
+                             
+                             <FormField
+                               control={form.control}
+                               name="timezone"
+                               render={({ field }) => (
+                                 <FormItem>
+                                   <FormLabel className="flex items-center gap-2">
+                                     <Clock className="h-4 w-4" />
+                                     Timezone
+                                   </FormLabel>
+                                   <Select onValueChange={field.onChange} value={field.value}>
+                                     <FormControl>
+                                       <SelectTrigger className="bg-background border hover:border-primary/50 transition-colors">
+                                         <SelectValue placeholder="Select timezone" />
+                                       </SelectTrigger>
+                                     </FormControl>
+                                     <SelectContent className="bg-background border shadow-lg max-h-[300px] overflow-y-auto z-50">
+                                       <div className="p-3 border-b bg-muted/20">
+                                         <Input
+                                           placeholder="Search timezones..."
+                                           value={timezoneSearch}
+                                           onChange={(e) => setTimezoneSearch(e.target.value)}
+                                           className="h-8 text-sm"
+                                         />
+                                       </div>
+
+                                       {/* Popular timezones */}
+                                       <div className="p-2 border-b bg-muted/30">
+                                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Popular</p>
+                                       </div>
+                                       {timezones
+                                         .filter(tz => [
+                                           'UTC',
+                                           'America/New_York',
+                                           'America/Chicago', 
+                                           'America/Denver',
+                                           'America/Los_Angeles',
+                                           'Europe/London',
+                                           'Europe/Paris',
+                                           'Europe/Berlin',
+                                           'Asia/Tokyo',
+                                           'Asia/Shanghai',
+                                           'Asia/Mumbai',
+                                           'Australia/Sydney'
+                                         ].includes(tz.value))
+                                         .filter(tz => !timezoneSearch || tz.label.toLowerCase().includes(timezoneSearch.toLowerCase()))
+                                         .map(tz => (
+                                           <SelectItem 
+                                             key={tz.value} 
+                                             value={tz.value}
+                                             className="py-2 hover:bg-accent/50"
+                                           >
+                                             <div className="text-sm">
+                                               <div className="font-medium">{tz.label}</div>
+                                             </div>
+                                           </SelectItem>
+                                         ))}
+                                       
+                                       {/* All timezones by region */}
+                                       {['Universal', 'North America', 'South America', 'Central America', 'Caribbean', 'Europe', 'Middle East', 'Asia', 'Africa', 'Oceania', 'Atlantic', 'Indian Ocean'].map(region => {
+                                         const regionTimezones = timezones
+                                           .filter(tz => tz.region === region)
+                                           .filter(tz => !timezoneSearch || tz.label.toLowerCase().includes(timezoneSearch.toLowerCase()));
+                                         if (regionTimezones.length === 0) return null;
+                                         
+                                         return (
+                                           <div key={region}>
+                                             <div className="p-2 border-b bg-muted/30">
+                                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{region}</p>
+                                             </div>
+                                             {regionTimezones.map(tz => (
+                                               <SelectItem 
+                                                 key={tz.value} 
+                                                 value={tz.value}
+                                                 className="py-2 hover:bg-accent/50"
+                                               >
+                                                 <div className="text-sm">
+                                                   <div className="font-medium">{tz.label}</div>
+                                                 </div>
+                                               </SelectItem>
+                                             ))}
+                                           </div>
+                                         );
+                                       })}
+                                     </SelectContent>
+                                   </Select>
+                                   <FormMessage />
+                                   {field.value && (
+                                     <div className="mt-2 p-2 bg-muted/50 rounded-md">
+                                       <p className="text-sm">
+                                         Selected: <strong>
+                                           {timezones.find(tz => tz.value === field.value)?.label}
+                                         </strong>
+                                       </p>
+                                     </div>
+                                   )}
+                                 </FormItem>
+                               )}
+                             />
+                           </div>
+
+                           <Separator className="my-6" />
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <FormField
+                               control={form.control}
+                               name="default_tax_rate"
+                               render={({ field }) => (
+                                 <FormItem>
+                                   <FormLabel>Default Tax Rate (%)</FormLabel>
+                                   <FormControl>
+                                     <Input 
+                                       type="number" 
+                                       step="0.01"
+                                       min="0"
+                                       max="100"
+                                       {...field} 
+                                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                       placeholder="0.00" 
+                                     />
+                                   </FormControl>
+                                   <FormMessage />
+                                 </FormItem>
+                               )}
+                             />
+                             <FormField
+                               control={form.control}
+                               name="tax_name"
+                               render={({ field }) => (
+                                 <FormItem>
+                                   <FormLabel>Tax Name</FormLabel>
+                                   <FormControl>
+                                     <Input {...field} placeholder="VAT, GST, Sales Tax, etc." />
+                                   </FormControl>
+                                   <FormMessage />
+                                 </FormItem>
+                               )}
+                             />
+                           </div>
+                         </CardContent>
+                       </Card>
 
                      </TabsContent>
 
