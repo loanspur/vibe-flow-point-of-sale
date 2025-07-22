@@ -202,8 +202,28 @@ export const createSalesJournalEntry = async (
     const subtotal = totalAmount - taxAmount + discountAmount;
     const entries: AccountingEntry[] = [];
     
-    const isCreditSale = paymentMethod === 'credit' || paymentMethod === 'account' || 
-                        (saleData.customerId && paymentMethod !== 'cash' && paymentMethod !== 'card' && paymentMethod !== 'multiple');
+    // Check if this is a credit sale by looking at the actual payments
+    let isCreditSale = false;
+    
+    if (paymentMethod === 'credit' || paymentMethod === 'account') {
+      isCreditSale = true;
+    } else if (paymentMethod === 'multiple' && saleData.customerId) {
+      // For multiple payment method sales, check if there are any credit payments
+      try {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('payment_method, amount')
+          .eq('sale_id', saleData.saleId);
+        
+        isCreditSale = payments?.some(p => p.payment_method === 'credit') || false;
+      } catch (error) {
+        console.error('Error checking payment methods:', error);
+        // Fallback: if customer is selected and payment method is multiple, assume it might be credit
+        isCreditSale = !!saleData.customerId;
+      }
+    } else if (saleData.customerId && paymentMethod !== 'cash' && paymentMethod !== 'card') {
+      isCreditSale = true;
+    }
 
     // Debit: Cash/Accounts Receivable based on payment status
     if (isCreditSale) {
