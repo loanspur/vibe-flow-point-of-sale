@@ -414,21 +414,21 @@ export function QuoteManagement() {
       const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
       if (!tenantData) throw new Error("User not assigned to a tenant");
 
-      // Generate receipt number for invoice
-      const receiptNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      // Generate invoice number
+      const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
-      // Create sale record as invoice (pending payment)
+      // Create sale record as invoice (credit sale awaiting payment)
       const { data: sale, error: saleError } = await supabase
         .from("sales")
         .insert({
           cashier_id: user.id,
           customer_id: quote.customer_id,
-          payment_method: "pending",
-          receipt_number: receiptNumber,
+          payment_method: "credit", // This marks it as an invoice
+          receipt_number: invoiceNumber,
           total_amount: quote.total_amount,
           discount_amount: quote.discount_amount || 0,
           tax_amount: quote.tax_amount || 0,
-          status: "pending",
+          status: "pending", // Pending payment
           tenant_id: tenantData,
         })
         .select()
@@ -440,6 +440,7 @@ export function QuoteManagement() {
       const saleItemsData = quoteItems?.map(item => ({
         sale_id: sale.id,
         product_id: item.product_id,
+        variant_id: item.variant_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
@@ -451,19 +452,36 @@ export function QuoteManagement() {
 
       if (itemsInsertError) throw itemsInsertError;
 
+      // Create accounts receivable record for the invoice
+      if (quote.customer_id) {
+        const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
+          tenant_id_param: tenantData,
+          sale_id_param: sale.id,
+          customer_id_param: quote.customer_id,
+          total_amount_param: quote.total_amount,
+          due_date_param: null // Will use default 30 days
+        });
+
+        if (arError) {
+          console.error('Error creating AR record:', arError);
+          // Don't fail the conversion if AR creation fails
+        }
+      }
+
       // Update quote status to converted
       await updateQuoteStatus(quote.id, "converted");
 
       toast({
         title: "Quote Converted to Invoice",
-        description: `Quote converted to invoice ${receiptNumber} - awaiting payment`,
+        description: `Quote successfully converted to invoice ${invoiceNumber}. The invoice is now awaiting payment.`,
       });
 
       fetchQuotes();
     } catch (error: any) {
+      console.error('Error converting quote to invoice:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to convert quote to invoice",
         variant: "destructive",
       });
     }
