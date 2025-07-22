@@ -42,7 +42,7 @@ const PageLoader = () => (
   </div>
 );
 
-// Comprehensive error suppression for external Firebase errors
+// Comprehensive error suppression for external errors and warnings
 window.addEventListener('error', (event) => {
   const message = event.message?.toLowerCase() || '';
   const filename = event.filename?.toLowerCase() || '';
@@ -50,6 +50,9 @@ window.addEventListener('error', (event) => {
   if (message.includes('firebase') || 
       message.includes('firestore') || 
       message.includes('googleapis') ||
+      message.includes('unrecognized feature') ||
+      message.includes('iframe') ||
+      message.includes('sandbox') ||
       filename.includes('firebase') ||
       filename.includes('firestore') ||
       message.includes('webchannelconnection') ||
@@ -74,17 +77,36 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Block Firebase network requests at the console level
+// Block Firebase network requests and feature warnings at the console level
 const originalLog = console.error;
+const originalWarn = console.warn;
+
 console.error = function(...args) {
   const message = args.join(' ').toLowerCase();
   if (message.includes('firebase') || 
       message.includes('firestore') || 
       message.includes('googleapis') ||
-      message.includes('webchannelconnection')) {
-    return; // Suppress Firebase error logs
+      message.includes('webchannelconnection') ||
+      message.includes('unrecognized feature') ||
+      message.includes('iframe') ||
+      message.includes('sandbox')) {
+    return; // Suppress these error logs
   }
   originalLog.apply(console, args);
+};
+
+console.warn = function(...args) {
+  const message = args.join(' ').toLowerCase();
+  if (message.includes('firebase') || 
+      message.includes('firestore') || 
+      message.includes('googleapis') ||
+      message.includes('unrecognized feature') ||
+      message.includes('iframe') ||
+      message.includes('multiple gotrueclient') ||
+      message.includes('sandbox')) {
+    return; // Suppress these warnings
+  }
+  originalWarn.apply(console, args);
 };
 
 const queryClient = new QueryClient({

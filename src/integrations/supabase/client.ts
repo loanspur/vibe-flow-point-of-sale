@@ -8,24 +8,33 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false, // Improve initial load time
-  },
-  global: {
-    headers: {
-      'x-application-name': 'vibePOS'
-    }
-  },
-  db: {
-    schema: 'public'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10 // Limit realtime events for better performance
-    }
+// Create a singleton instance to prevent multiple GoTrueClient instances
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+
+export const supabase = (() => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false, // Improve initial load time
+        storageKey: 'vibepos-auth', // Unique storage key to avoid conflicts
+      },
+      global: {
+        headers: {
+          'x-application-name': 'vibePOS'
+        }
+      },
+      db: {
+        schema: 'public'
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10 // Limit realtime events for better performance
+        }
+      }
+    });
   }
-});
+  return supabaseInstance;
+})();
