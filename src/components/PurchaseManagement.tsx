@@ -729,15 +729,15 @@ const PurchaseManagement = () => {
                               </div>
                               <div>
                                 <Select 
-                                  value={item.variant_id || ''} 
-                                  onValueChange={(value) => updateItem(index, 'variant_id', value)}
+                                  value={item.variant_id || 'no-variant'} 
+                                  onValueChange={(value) => updateItem(index, 'variant_id', value === 'no-variant' ? '' : value)}
                                   disabled={!item.product_id}
                                 >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Variant (optional)" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">No variant</SelectItem>
+                                    <SelectItem value="no-variant">No variant</SelectItem>
                                     {products
                                       .find(p => p.id === item.product_id)
                                       ?.product_variants?.map((variant) => (
