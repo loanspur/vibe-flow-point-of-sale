@@ -26,6 +26,7 @@ import {
   MapPin,
   Users
 } from 'lucide-react';
+import ContactStatement from './ContactStatement';
 
 interface Contact {
   id: string;
@@ -90,6 +91,7 @@ const ContactDetails: React.FC<ContactDetailsProps> = ({ contact, isOpen, onClos
     totalPayable: 0,
     totalPaid: 0
   });
+  const [isStatementOpen, setIsStatementOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen && contact.id) {
@@ -376,9 +378,21 @@ const ContactDetails: React.FC<ContactDetailsProps> = ({ contact, isOpen, onClos
               )}
               {contact.name}
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {(contact.type === 'customer' || contact.type === 'supplier') && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsStatementOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Generate Statement
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
@@ -691,6 +705,13 @@ const ContactDetails: React.FC<ContactDetailsProps> = ({ contact, isOpen, onClos
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Contact Statement Dialog */}
+        <ContactStatement
+          contact={contact}
+          isOpen={isStatementOpen}
+          onClose={() => setIsStatementOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );
