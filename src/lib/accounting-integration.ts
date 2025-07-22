@@ -522,3 +522,82 @@ export const createReturnJournalEntry = async (
     throw error;
   }
 };
+
+// Purchase return transaction accounting integration  
+export const createPurchaseReturnJournalEntry = async (
+  tenantId: string,
+  returnData: {
+    returnId: string;
+    originalPurchaseId?: string;
+    supplierId: string;
+    refundAmount: number;
+    restockAmount: number;
+    processedBy: string;
+  }
+) => {
+  try {
+    const accounts = await getDefaultAccounts(tenantId);
+    const entries: AccountingEntry[] = [];
+
+    // Debit: Accounts Payable (reduce what we owe supplier)
+    if (!accounts.accounts_payable) throw new Error('Accounts Payable account not found');
+    entries.push({
+      account_id: accounts.accounts_payable,
+      debit_amount: returnData.refundAmount,
+      description: 'Purchase return - reduce supplier balance'
+    });
+
+    // Credit: Cash (refund received or credit applied)  
+    if (!accounts.cash) throw new Error('Cash account not found');
+    entries.push({
+      account_id: accounts.cash,
+      credit_amount: returnData.refundAmount,
+      description: 'Purchase return refund or credit'
+    });
+
+    // If items are NOT restocked, reduce inventory
+    if (returnData.restockAmount < returnData.refundAmount) {
+      const nonRestockAmount = returnData.refundAmount - returnData.restockAmount;
+      
+      // Credit: Inventory (reduce inventory for non-restocked items)
+      if (accounts.inventory) {
+        entries.push({
+          account_id: accounts.inventory,
+          credit_amount: nonRestockAmount,
+          description: 'Inventory adjustment - non-restocked returns'
+        });
+      }
+    }
+
+    const transaction: AccountingTransaction = {
+      description: `Purchase return${returnData.originalPurchaseId ? ` for purchase ${returnData.originalPurchaseId}` : ''}`,
+      reference_id: returnData.returnId,
+      reference_type: 'purchase_return',
+      entries
+    };
+
+    // Create AP payment record to reduce outstanding balance
+    try {
+      await supabase
+        .from('ar_ap_payments')
+        .insert({
+          tenant_id: tenantId,
+          payment_type: 'payable',
+          reference_id: returnData.supplierId, // This should reference the AP record ID, but we'll use supplier for now
+          amount: returnData.refundAmount,
+          payment_method: 'purchase_return',
+          payment_date: new Date().toISOString().split('T')[0],
+          reference_number: returnData.returnId,
+          notes: `Purchase return credit: ${returnData.returnId}`
+        });
+    } catch (apError) {
+      console.error('Error creating AP payment record:', apError);
+      // Don't fail the transaction if AP payment creation fails
+    }
+
+    return await createJournalEntry(tenantId, transaction, returnData.processedBy);
+  } catch (error) {
+    console.error('Error creating purchase return journal entry:', error);
+    throw error;
+  }
+};

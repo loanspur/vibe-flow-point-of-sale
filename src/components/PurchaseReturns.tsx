@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, RotateCcw, Receipt, CheckCircle, XCircle, Clock, ShoppingCart, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
 import { updateProductInventory } from "@/lib/inventory-integration";
+import { createPurchaseReturnJournalEntry } from "@/lib/accounting-integration";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ReturnReasonCode {
@@ -404,6 +405,25 @@ export default function PurchaseReturns() {
         }
       }
 
+      // Create accounting entries for purchase return
+      try {
+        const restockAmount = returnItems
+          .filter(item => selectedItems[item.product_id]?.restock)
+          .reduce((sum, item) => sum + (item.total_price || 0), 0);
+
+        await createPurchaseReturnJournalEntry(tenantId, {
+          returnId: returnRecord.id,
+          originalPurchaseId: selectedPurchase.purchase_number,
+          supplierId: selectedPurchase.supplier_id,
+          refundAmount: returnTotal,
+          restockAmount: restockAmount,
+          processedBy: user.id
+        });
+      } catch (accountingError) {
+        console.error('Error creating purchase return accounting entries:', accountingError);
+        // Don't fail the return if accounting fails
+      }
+
       toast({
         title: "Return Processed",
         description: `Purchase return ${returnNumber} has been successfully processed. Refund amount: ${formatCurrency(returnTotal)}`,
@@ -619,25 +639,6 @@ export default function PurchaseReturns() {
                           <SelectItem value="refund">Refund</SelectItem>
                           <SelectItem value="replacement">Replacement</SelectItem>
                           <SelectItem value="credit_note">Credit Note</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Reason Code</Label>
-                      <Select
-                        value={returnFormData.reason_code_id}
-                        onValueChange={(value) => setReturnFormData(prev => ({ ...prev, reason_code_id: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {reasonCodes.map((code) => (
-                            <SelectItem key={code.id} value={code.id}>
-                              {code.description}
-                            </SelectItem>
-                          ))}
                         </SelectContent>
                       </Select>
                     </div>
