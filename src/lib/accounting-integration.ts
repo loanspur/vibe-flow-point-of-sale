@@ -199,7 +199,7 @@ export const createSalesJournalEntry = async (
     const accounts = await getDefaultAccounts(tenantId);
     const { totalAmount, discountAmount, taxAmount, payments } = saleData;
     
-    const subtotal = totalAmount - taxAmount + discountAmount;
+    const subtotal = totalAmount + discountAmount - taxAmount;
     const entries: AccountingEntry[] = [];
     
     // Handle each payment method separately
