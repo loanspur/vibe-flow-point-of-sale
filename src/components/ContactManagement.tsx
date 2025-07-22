@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Users, UserPlus, Link, Edit, Trash2, Phone, Mail, MapPin, Plus, UserCheck, Building } from 'lucide-react';
+import { Users, UserPlus, Link, Edit, Trash2, Phone, Mail, MapPin, Plus, UserCheck, Building, Eye } from 'lucide-react';
+import ContactDetails from './ContactDetails';
 
 interface Contact {
   id: string;
@@ -56,6 +57,8 @@ const ContactManagement = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [userContact, setUserContact] = useState<Contact | null>(null);
+  const [isContactDetailsOpen, setIsContactDetailsOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -519,6 +522,19 @@ const ContactManagement = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
+                          {(contact.type === 'customer' || contact.type === 'supplier') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedContact(contact);
+                                setIsContactDetailsOpen(true);
+                              }}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -576,9 +592,22 @@ const ContactManagement = () => {
                       <div className="text-sm text-muted-foreground">{customer.email}</div>
                       {customer.company && <div className="text-sm text-muted-foreground">{customer.company}</div>}
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(customer)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedContact(customer);
+                          setIsContactDetailsOpen(true);
+                        }}
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openEditDialog(customer)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {customers.length === 0 && (
@@ -604,9 +633,22 @@ const ContactManagement = () => {
                       <div className="text-sm text-muted-foreground">{supplier.email}</div>
                       {supplier.company && <div className="text-sm text-muted-foreground">{supplier.company}</div>}
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(supplier)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedContact(supplier);
+                          setIsContactDetailsOpen(true);
+                        }}
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openEditDialog(supplier)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {suppliers.length === 0 && (
@@ -831,6 +873,18 @@ const ContactManagement = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Contact Details Dialog */}
+      {selectedContact && (
+        <ContactDetails
+          contact={selectedContact}
+          isOpen={isContactDetailsOpen}
+          onClose={() => {
+            setIsContactDetailsOpen(false);
+            setSelectedContact(null);
+          }}
+        />
+      )}
     </div>
   );
 };
