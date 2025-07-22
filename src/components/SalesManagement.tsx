@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText, Printer, CreditCard } from "lucide-react";
+import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText, Printer, CreditCard, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SaleForm } from "./SaleForm";
 import { QuoteManagement } from "./QuoteManagement";
@@ -64,6 +64,8 @@ export function SalesManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [saleForReturn, setSaleForReturn] = useState<Sale | null>(null);
   
   // Payment dialog states
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -350,6 +352,53 @@ export function SalesManagement() {
     }
   };
 
+  const handleCreateReturn = (sale: Sale) => {
+    setSaleForReturn(sale);
+    setShowReturnDialog(true);
+  };
+
+  const createReturnFromSale = async () => {
+    if (!saleForReturn || !tenantId) return;
+
+    try {
+      // Fetch the sale with complete details including sale items
+      const { data: saleData, error: saleError } = await supabase
+        .from('sales')
+        .select(`
+          *,
+          customers(name, email),
+          sale_items(
+            *,
+            products(name, sku)
+          )
+        `)
+        .eq('id', saleForReturn.id)
+        .single();
+
+      if (saleError) throw saleError;
+
+      // Navigate to the returns tab with pre-selected sale
+      setActiveTab("returns");
+      
+      // Close the dialog
+      setShowReturnDialog(false);
+      setSaleForReturn(null);
+
+      toast({
+        title: "Success",
+        description: "Redirected to Returns page. Please create the return from the Historical Sales tab.",
+      });
+
+    } catch (error) {
+      console.error('Error preparing return:', error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare return",
+        variant: "destructive",
+      });
+    }
+  };
+
   const isCreditSale = (sale: Sale) => {
     return sale.payment_method === 'credit' && sale.customer_id;
   };
@@ -519,6 +568,11 @@ export function SalesManagement() {
                       <Button variant="outline" size="sm" onClick={() => handleReprintReceipt(sale)} title="Reprint Receipt">
                         <Printer className="h-3 w-3" />
                       </Button>
+                      {sale.status === "completed" && (
+                        <Button variant="outline" size="sm" onClick={() => handleCreateReturn(sale)} title="Create Return">
+                          <RotateCcw className="h-3 w-3" />
+                        </Button>
+                      )}
                       {getPaymentStatusButton(sale)}
                     </div>
                   </div>
@@ -608,13 +662,18 @@ export function SalesManagement() {
                       <Badge variant={sale.status === "completed" ? "default" : "secondary"}>
                         {sale.status}
                       </Badge>
-                      <div className="flex gap-1">
+                       <div className="flex gap-1">
                         <Button variant="outline" size="sm" onClick={() => handleViewReceipt(sale)} title="View Receipt">
                           <Eye className="h-3 w-3" />
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleReprintReceipt(sale)} title="Reprint Receipt">
                           <Printer className="h-3 w-3" />
                         </Button>
+                        {sale.status === "completed" && (
+                          <Button variant="outline" size="sm" onClick={() => handleCreateReturn(sale)} title="Create Return">
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                        )}
                         {getPaymentStatusButton(sale)}
                       </div>
                     </div>
@@ -717,6 +776,48 @@ export function SalesManagement() {
               </Button>
               <Button onClick={processPayment} disabled={paymentData.amount <= 0}>
                 Record Payment
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Return Confirmation Dialog */}
+      <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Return</DialogTitle>
+            <DialogDescription>
+              Create a return for sale {saleForReturn?.receipt_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-medium">Sale Details:</span>
+                <Badge variant="outline">{saleForReturn?.status}</Badge>
+              </div>
+              <div className="text-sm space-y-1">
+                <div>Receipt: {saleForReturn?.receipt_number}</div>
+                <div>Customer: {saleForReturn?.customers?.name || "Walk-in Customer"}</div>
+                <div>Amount: {saleForReturn ? formatCurrency(saleForReturn.total_amount) : "$0.00"}</div>
+                <div>Date: {saleForReturn ? formatDate(saleForReturn.created_at) : ""}</div>
+              </div>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              This will redirect you to the Returns page where you can select the items to return 
+              and specify the return details.
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowReturnDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={createReturnFromSale}>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Create Return
               </Button>
             </div>
           </div>
