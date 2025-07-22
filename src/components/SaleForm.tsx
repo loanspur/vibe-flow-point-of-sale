@@ -803,9 +803,20 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                           </div>
                           <div className="flex-1">
                             <p className="font-medium text-sm">{item.product_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.quantity} × ${item.unit_price.toFixed(2)}
-                            </p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{item.quantity} × ${item.unit_price.toFixed(2)}</span>
+                              <span>•</span>
+                              <span className={`font-medium ${(() => {
+                                const product = products.find(p => p.id === item.product_id);
+                                const currentStock = product?.stock_quantity || 0;
+                                return currentStock <= 0 ? 'text-red-500' : currentStock <= (product?.min_stock_level || 0) ? 'text-orange-500' : 'text-green-600';
+                              })()} `}>
+                                Stock: {(() => {
+                                  const product = products.find(p => p.id === item.product_id);
+                                  return product?.stock_quantity || 0;
+                                })()}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -815,6 +826,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => removeItem(index)}
+                            title="Remove item from cart"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
