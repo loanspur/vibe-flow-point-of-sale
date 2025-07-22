@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { processSaleInventory } from './inventory-integration';
 
 export interface AccountingEntry {
   account_id: string;
@@ -146,7 +147,7 @@ export const createSalesJournalEntry = async (
     taxAmount: number;
     paymentMethod: string;
     cashierId: string;
-    items?: Array<{ productId: string; quantity: number; unitCost?: number }>;
+    items?: Array<{ productId: string; variantId?: string; quantity: number; unitCost?: number }>;
   }
 ) => {
   try {
@@ -229,7 +230,20 @@ export const createSalesJournalEntry = async (
       entries
     };
 
-    return await createJournalEntry(tenantId, transaction, saleData.cashierId);
+    // Create the journal entry first
+    const result = await createJournalEntry(tenantId, transaction, saleData.cashierId);
+
+    // Update inventory for sale items
+    if (saleData.items && saleData.items.length > 0) {
+      try {
+        await processSaleInventory(tenantId, saleData.saleId, saleData.items);
+      } catch (inventoryError) {
+        console.error('Error updating inventory for sale:', inventoryError);
+        // Don't fail the transaction if inventory update fails, but log it
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error('Error creating sales journal entry:', error);
     throw error;

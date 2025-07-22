@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPurchaseJournalEntry, createPaymentJournalEntry } from '@/lib/accounting-integration';
+import { processPurchaseReceipt } from '@/lib/inventory-integration';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -394,28 +395,19 @@ const PurchaseManagement = () => {
       // Update purchase status to received
       await updatePurchaseStatus(receivingPurchase.id, 'received');
 
-      // Update product stock quantities based on received quantities
-      for (const item of purchaseItems) {
-        if (item.quantity_received > 0) {
-          // Get current stock quantity first
-          const { data: product, error: getError } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', item.product_id)
-            .single();
+      // Prepare inventory transactions for items with received quantities
+      const receivedItems = purchaseItems
+        .filter(item => item.quantity_received > 0)
+        .map(item => ({
+          productId: item.product_id,
+          variantId: item.variant_id || undefined,
+          quantityReceived: item.quantity_received,
+          unitCost: item.unit_cost
+        }));
 
-          if (getError) throw getError;
-
-          // Update with new stock quantity
-          const { error } = await supabase
-            .from('products')
-            .update({
-              stock_quantity: (product.stock_quantity || 0) + item.quantity_received
-            })
-            .eq('id', item.product_id);
-
-          if (error) throw error;
-        }
+      if (receivedItems.length > 0) {
+        // Process inventory updates using the new integration
+        await processPurchaseReceipt(tenantId, receivingPurchase.id, receivedItems);
       }
 
       toast.success('Purchase received and inventory updated');
