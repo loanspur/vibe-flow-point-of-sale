@@ -27,6 +27,7 @@ import Customers from "./pages/Customers";
 import Sales from "./pages/Sales";
 import Purchases from "./pages/Purchases";
 import Accounting from "./pages/Accounting";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -160,6 +161,16 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
                   <ComprehensivePOS />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Profile Route - accessible to all authenticated users */}
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+                  <Profile />
                 </ProtectedRoute>
               } 
             />

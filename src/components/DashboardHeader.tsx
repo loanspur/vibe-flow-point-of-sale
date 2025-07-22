@@ -42,6 +42,10 @@ export default function DashboardHeader() {
               <DropdownMenuItem onClick={() => navigate('/')}>
                 Home
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/profile')}>
+                <User className="mr-2 h-4 w-4" />
+                My Profile
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
