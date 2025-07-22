@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { createSalesJournalEntry } from "@/lib/accounting-integration";
+import { processSaleInventory } from "@/lib/inventory-integration";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -318,6 +319,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       const saleItemsData = saleItems.map(item => ({
         sale_id: sale.id,
         product_id: item.product_id,
+        variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
@@ -346,42 +348,23 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         if (paymentsError) throw paymentsError;
       }
 
-      // Update product stock quantities
-      for (const item of saleItems) {
-        if (item.variant_id && item.variant_id !== "no-variant") {
-          // Get current variant stock and update
-          const { data: variant, error: fetchError } = await supabase
-            .from('product_variants')
-            .select('stock_quantity')
-            .eq('id', item.variant_id)
-            .single();
-          
-          if (fetchError) throw fetchError;
-          
-          const newStock = (variant.stock_quantity || 0) - item.quantity;
-          const { error: variantError } = await supabase
-            .from('product_variants')
-            .update({ stock_quantity: Math.max(0, newStock) })
-            .eq('id', item.variant_id);
-          
-          if (variantError) throw variantError;
-        } else {
-          // Get current product stock and update
-          const { data: product, error: fetchError } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', item.product_id)
-            .single();
-          
-          if (fetchError) throw fetchError;
-          
-          const newStock = (product.stock_quantity || 0) - item.quantity;
-          const { error: productError } = await supabase
-            .from('products')
-            .update({ stock_quantity: Math.max(0, newStock) })
-            .eq('id', item.product_id);
-          
-          if (productError) throw productError;
+      // Process inventory updates using the integration
+      const inventoryItems = saleItems.map(item => ({
+        productId: item.product_id,
+        variantId: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : undefined,
+        quantity: item.quantity
+      }));
+
+      if (inventoryItems.length > 0) {
+        try {
+          await processSaleInventory(tenantData, sale.id, inventoryItems);
+        } catch (inventoryError) {
+          console.error('Inventory update error:', inventoryError);
+          toast({
+            title: "Warning",
+            description: "Sale completed but inventory update failed",
+            variant: "destructive",
+          });
         }
       }
 
