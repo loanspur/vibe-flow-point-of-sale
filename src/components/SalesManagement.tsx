@@ -59,6 +59,7 @@ export function SalesManagement() {
     averageSale: 0,
   });
   const [activeTab, setActiveTab] = useState("overview");
+  const [invoices, setInvoices] = useState<Sale[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
@@ -83,8 +84,59 @@ export function SalesManagement() {
 
   useEffect(() => {
     fetchSales();
+    fetchInvoices();
     fetchStats();
   }, []);
+
+  const fetchInvoices = async () => {
+    if (!tenantId) return;
+
+    try {
+      // Fetch invoices - these are sales converted from quotes that are awaiting payment
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`
+          *,
+          customers (
+            id,
+            name,
+            email,
+            phone,
+            address
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('payment_method', 'credit')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Get cashier profiles for invoices
+      const cashierIds = [...new Set((data || []).map(invoice => invoice.cashier_id))];
+      
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', cashierIds);
+        
+      if (profilesError) throw profilesError;
+      
+      const profilesMap: Record<string, any> = {};
+      profilesData?.forEach(profile => {
+        profilesMap[profile.user_id] = profile;
+      });
+      
+      const invoicesWithProfiles = (data || []).map(invoice => ({
+        ...invoice,
+        profiles: profilesMap[invoice.cashier_id] || null
+      }));
+
+      setInvoices(invoicesWithProfiles);
+    } catch (error: any) {
+      console.error('Error fetching invoices:', error);
+    }
+  };
 
   const fetchSales = async () => {
     if (!tenantId) return;
@@ -525,6 +577,7 @@ export function SalesManagement() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="new-sale">New Sale</TabsTrigger>
           <TabsTrigger value="history">Sales History</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
           <TabsTrigger value="returns">Returns</TabsTrigger>
         </TabsList>
@@ -786,6 +839,169 @@ export function SalesManagement() {
               {filteredSales.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No sales found matching your criteria.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="invoices" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Invoice Management
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Manage invoices created from quotes that are awaiting payment
+              </p>
+            </CardHeader>
+            <CardContent>
+              {invoices.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No Outstanding Invoices</h3>
+                  <p>No invoices are currently awaiting payment. Invoices are created when quotes are converted to sales.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search invoices..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 w-64"
+                        />
+                      </div>
+                    </div>
+                    <Button variant="outline">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Invoices
+                    </Button>
+                  </div>
+
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice #</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Created by</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Payment Status</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoices
+                          .filter(invoice => 
+                            invoice.receipt_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            invoice.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+                          )
+                          .map((invoice) => {
+                            const paymentStatus = salesPaymentStatus[invoice.id];
+                            return (
+                              <TableRow key={invoice.id} className="hover:bg-accent/50">
+                                <TableCell className="font-medium font-mono">
+                                  {invoice.receipt_number}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    <div>{new Date(invoice.created_at).toLocaleDateString()}</div>
+                                    <div className="text-muted-foreground">
+                                      {new Date(invoice.created_at).toLocaleTimeString()}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">
+                                      {invoice.customers?.name || "Walk-in Customer"}
+                                    </div>
+                                    {invoice.customers?.email && (
+                                      <div className="text-sm text-muted-foreground">
+                                        {invoice.customers.email}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    {invoice.profiles?.full_name || "Unknown"}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-bold">
+                                  {formatCurrency(invoice.total_amount)}
+                                </TableCell>
+                                <TableCell>
+                                  {paymentStatus ? (
+                                    <div className="flex flex-col gap-1">
+                                      <Badge 
+                                        variant={
+                                          paymentStatus.status === 'paid' ? 'default' :
+                                          paymentStatus.status === 'partial' ? 'secondary' :
+                                          paymentStatus.status === 'overdue' ? 'destructive' : 'outline'
+                                        }
+                                      >
+                                        {paymentStatus.status.charAt(0).toUpperCase() + paymentStatus.status.slice(1)}
+                                      </Badge>
+                                      {paymentStatus.status !== 'paid' && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {formatCurrency(paymentStatus.outstanding)} remaining
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Badge variant="outline">Outstanding</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={invoice.status === "completed" ? "default" : "secondary"}>
+                                    {invoice.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex justify-end gap-1">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      onClick={() => handleViewReceipt(invoice)} 
+                                      title="View Invoice"
+                                    >
+                                      <Eye className="h-3 w-3" />
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      onClick={() => handleReprintReceipt(invoice)} 
+                                      title="Print Invoice"
+                                    >
+                                      <Printer className="h-3 w-3" />
+                                    </Button>
+                                    {paymentStatus?.status !== 'paid' && (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => handleCreditPayment(invoice)} 
+                                        title="Record Payment"
+                                        className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                                      >
+                                        <CreditCard className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               )}
             </CardContent>
