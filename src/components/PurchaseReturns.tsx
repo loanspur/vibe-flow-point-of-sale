@@ -85,8 +85,8 @@ interface PurchaseReturnItem {
   id: string;
   product_id: string;
   quantity_returned: number;
-  unit_cost: number;
-  total_cost: number;
+  unit_price: number;
+  total_price: number;
   condition_notes?: string;
   restock: boolean;
   products: {
@@ -789,9 +789,9 @@ export default function PurchaseReturns() {
                                   </div>
                                 </TableCell>
                                 <TableCell>{item.quantity_returned}</TableCell>
-                                <TableCell>{formatCurrency(item.unit_cost)}</TableCell>
+                                <TableCell>{formatCurrency(item.unit_price)}</TableCell>
                                 <TableCell className="font-semibold">
-                                  {formatCurrency(item.total_cost)}
+                                  {formatCurrency(item.total_price)}
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant={item.restock ? "default" : "secondary"}>
