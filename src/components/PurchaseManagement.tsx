@@ -428,6 +428,20 @@ const PurchaseManagement = () => {
         toast.success('Purchase received (no inventory updates - no quantities received)');
       }
 
+      // Create accounting journal entry for received purchase
+      try {
+        await createPurchaseJournalEntry(tenantId, {
+          purchaseId: receivingPurchase.id,
+          supplierId: receivingPurchase.supplier_id,
+          totalAmount: receivingPurchase.total_amount,
+          isReceived: true,
+          createdBy: user?.id || ''
+        });
+      } catch (accountingError) {
+        console.error('Accounting entry error during receive:', accountingError);
+        // Don't fail the entire operation if accounting fails
+      }
+
       setIsReceiveOpen(false);
       setReceivingPurchase(null);
       fetchPurchases();
@@ -479,6 +493,20 @@ const PurchaseManagement = () => {
         // Process inventory updates using the integration
         await processPurchaseReceipt(tenantId, purchase.id, receivedItems);
         toast.success(`Purchase auto-received and inventory updated for ${receivedItems.length} items`);
+      }
+
+      // Create accounting journal entry for received purchase
+      try {
+        await createPurchaseJournalEntry(tenantId, {
+          purchaseId: purchase.id,
+          supplierId: purchase.supplier_id,
+          totalAmount: purchase.total_amount,
+          isReceived: true,
+          createdBy: user?.id || ''
+        });
+      } catch (accountingError) {
+        console.error('Accounting entry error during auto-receive:', accountingError);
+        // Don't fail the entire operation if accounting fails
       }
 
       fetchPurchases();
