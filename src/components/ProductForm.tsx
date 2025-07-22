@@ -86,6 +86,18 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     return `${namePrefix}${randomSuffix}${timestamp}`;
   };
 
+  const generateVariantSKU = (productSku: string, variantValue: string) => {
+    if (!productSku || !variantValue) return '';
+    
+    // Generate variant SKU: ProductSKU + VariantValue (cleaned)
+    const variantSuffix = variantValue
+      .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
+      .substring(0, 4) // Take first 4 characters
+      .toUpperCase();
+    
+    return `${productSku}-${variantSuffix}`;
+  };
+
   useEffect(() => {
     if (tenantId) {
       fetchCategories();
@@ -359,6 +371,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       
       return newData;
     });
+
+    // Update all variant SKUs when product SKU changes
+    if (field === 'sku' && typeof value === 'string' && value.trim()) {
+      setVariants(prev => prev.map(variant => ({
+        ...variant,
+        sku: variant.value ? generateVariantSKU(value, variant.value) : variant.sku
+      })));
+    }
   };
 
   // Variant management functions
@@ -388,9 +408,19 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   };
 
   const updateVariant = (index: number, field: keyof ProductVariant, value: string | boolean) => {
-    setVariants(prev => prev.map((variant, i) => 
-      i === index ? { ...variant, [field]: value } : variant
-    ));
+    setVariants(prev => prev.map((variant, i) => {
+      if (i === index) {
+        const updatedVariant = { ...variant, [field]: value };
+        
+        // Auto-generate variant SKU when value changes
+        if (field === 'value' && typeof value === 'string' && value.trim() && formData.sku) {
+          updatedVariant.sku = generateVariantSKU(formData.sku, value);
+        }
+        
+        return updatedVariant;
+      }
+      return variant;
+    }));
   };
 
   const handleVariantImageSelect = (variantIndex: number, file: File | null) => {
@@ -802,14 +832,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                   </div>
                   
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>SKU</Label>
-                      <Input
-                        value={variant.sku}
-                        onChange={(e) => updateVariant(index, 'sku', e.target.value)}
-                        placeholder="Variant SKU"
-                      />
-                    </div>
+                     <div className="space-y-2">
+                       <Label>SKU <span className="text-muted-foreground text-sm">(Auto-generated)</span></Label>
+                       <Input
+                         value={variant.sku}
+                         onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                         placeholder="Auto-generated from variant value"
+                       />
+                     </div>
                     <div className="space-y-2">
                       <Label>Price Adjustment</Label>
                       <Input
