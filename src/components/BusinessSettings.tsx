@@ -628,7 +628,7 @@ export function BusinessSettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-12 h-auto">
+        <TabsList className="grid w-full grid-cols-13 h-auto">
           <TabsTrigger value="company" className="text-xs">Company</TabsTrigger>
           <TabsTrigger value="locations" className="text-xs">Locations</TabsTrigger>
           <TabsTrigger value="hours" className="text-xs">Hours</TabsTrigger>
@@ -638,6 +638,7 @@ export function BusinessSettings() {
           <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
           <TabsTrigger value="pos" className="text-xs">POS</TabsTrigger>
           <TabsTrigger value="purchase" className="text-xs">Purchase</TabsTrigger>
+          <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
           <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
           <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
           <TabsTrigger value="sms" className="text-xs">SMS</TabsTrigger>
@@ -1699,13 +1700,16 @@ export function BusinessSettings() {
 
             {/* POS Settings Tab */}
             <TabsContent value="pos" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    POS Settings
-                  </CardTitle>
-                </CardHeader>
+               <Card>
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <ShoppingCart className="h-5 w-5" />
+                     Sales & POS Settings
+                   </CardTitle>
+                   <p className="text-sm text-muted-foreground">
+                     Configure sales behavior, pricing, and point-of-sale options
+                   </p>
+                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
@@ -1847,12 +1851,15 @@ export function BusinessSettings() {
             {/* Purchase Settings Tab */}
             <TabsContent value="purchase" className="space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    Purchase Settings
-                  </CardTitle>
-                </CardHeader>
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <Package className="h-5 w-5" />
+                     Purchase Management Settings
+                   </CardTitle>
+                   <p className="text-sm text-muted-foreground">
+                     Configure purchase orders, receiving, and supplier management
+                   </p>
+                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
@@ -1920,6 +1927,367 @@ export function BusinessSettings() {
                   />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Templates Tab */}
+            <TabsContent value="templates" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Invoice Templates */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Invoice Templates
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="invoice_template"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Template Style</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select template" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templateOptions.map(template => (
+                                <SelectItem key={template.value} value={template.value}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="invoice_auto_number"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Auto Number</FormLabel>
+                              <FormDescription className="text-xs">
+                                Automatically generate invoice numbers
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="invoice_number_prefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Number Prefix</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="INV-" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="invoice_terms_conditions"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Terms & Conditions</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              {...field} 
+                              placeholder="Enter default terms and conditions for invoices"
+                              rows={3}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Quote Templates */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Quote Templates
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="quote_template"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Template Style</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select template" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templateOptions.map(template => (
+                                <SelectItem key={template.value} value={template.value}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="quote_auto_number"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Auto Number</FormLabel>
+                              <FormDescription className="text-xs">
+                                Automatically generate quote numbers
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="quote_number_prefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Number Prefix</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="QT-" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="quote_validity_days"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Validity (Days)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              type="number"
+                              min="1"
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            How many days quotes remain valid by default
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Receipt Templates */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Receipt className="h-5 w-5" />
+                      Receipt Templates
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="receipt_header"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Header Text</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              {...field} 
+                              placeholder="Thank you for your business!"
+                              rows={2}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Text displayed at the top of receipts
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="receipt_footer"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Footer Text</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              {...field} 
+                              placeholder="Please come again!"
+                              rows={2}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Text displayed at the bottom of receipts
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="print_customer_copy"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Customer Copy</FormLabel>
+                              <FormDescription className="text-xs">
+                                Print customer copy by default
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="print_merchant_copy"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Merchant Copy</FormLabel>
+                              <FormDescription className="text-xs">
+                                Print merchant copy by default
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Delivery Note Templates */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5" />
+                      Delivery Note Templates
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="delivery_note_template"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Template Style</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select template" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templateOptions.map(template => (
+                                <SelectItem key={template.value} value={template.value}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="delivery_note_auto_number"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Auto Number</FormLabel>
+                              <FormDescription className="text-xs">
+                                Automatically generate delivery note numbers
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="delivery_note_prefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Number Prefix</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="DN-" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Email Settings Tab */}
