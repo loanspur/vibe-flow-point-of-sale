@@ -58,7 +58,8 @@ export const syncExistingTransactions = async (tenantId: string, userId: string)
       .select(`
         id, total_amount, discount_amount, tax_amount, payment_method,
         cashier_id, customer_id, created_at,
-        sale_items(product_id, quantity, products(cost))
+        sale_items(product_id, quantity, products(cost)),
+        payments(payment_method, amount)
       `)
       .eq('tenant_id', tenantId)
       .not('id', 'in', `(
@@ -78,13 +79,18 @@ export const syncExistingTransactions = async (tenantId: string, userId: string)
           unitCost: item.products?.cost || 0
         })) || [];
 
+        // Convert payments to new format, fallback to sale payment_method if no individual payments
+        const paymentsArray = sale.payments && sale.payments.length > 0 
+          ? sale.payments.map(p => ({ method: p.payment_method, amount: p.amount }))
+          : [{ method: sale.payment_method || 'cash', amount: sale.total_amount }];
+
         await createSalesJournalEntry(tenantId, {
           saleId: sale.id,
           customerId: sale.customer_id,
           totalAmount: sale.total_amount,
           discountAmount: sale.discount_amount || 0,
           taxAmount: sale.tax_amount || 0,
-          paymentMethod: sale.payment_method,
+          payments: paymentsArray,
           cashierId: sale.cashier_id,
           items: itemsWithCost
         });

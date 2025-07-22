@@ -190,72 +190,64 @@ export const createSalesJournalEntry = async (
     totalAmount: number;
     discountAmount: number;
     taxAmount: number;
-    paymentMethod: string;
+    payments: Array<{ method: string; amount: number }>;
     cashierId: string;
     items?: Array<{ productId: string; variantId?: string; quantity: number; unitCost?: number }>;
   }
 ) => {
   try {
     const accounts = await getDefaultAccounts(tenantId);
-    const { totalAmount, discountAmount, taxAmount, paymentMethod } = saleData;
+    const { totalAmount, discountAmount, taxAmount, payments } = saleData;
     
     const subtotal = totalAmount - taxAmount + discountAmount;
     const entries: AccountingEntry[] = [];
     
-    // Check if this is a credit sale by looking at the actual payments
-    let isCreditSale = false;
+    // Handle each payment method separately
+    let totalCreditAmount = 0;
+    let totalCashAmount = 0;
     
-    if (paymentMethod === 'credit' || paymentMethod === 'account') {
-      isCreditSale = true;
-    } else if (paymentMethod === 'multiple' && saleData.customerId) {
-      // For multiple payment method sales, check if there are any credit payments
-      try {
-        const { data: payments } = await supabase
-          .from('payments')
-          .select('payment_method, amount')
-          .eq('sale_id', saleData.saleId);
-        
-        isCreditSale = payments?.some(p => p.payment_method === 'credit') || false;
-      } catch (error) {
-        console.error('Error checking payment methods:', error);
-        // Fallback: if customer is selected and payment method is multiple, assume it might be credit
-        isCreditSale = !!saleData.customerId;
+    for (const payment of payments) {
+      if (payment.method === 'credit') {
+        totalCreditAmount += payment.amount;
+      } else {
+        // All non-credit payments (cash, card, etc.) go to cash account
+        totalCashAmount += payment.amount;
       }
-    } else if (saleData.customerId && paymentMethod !== 'cash' && paymentMethod !== 'card') {
-      isCreditSale = true;
+    }
+    
+    // Debit: Cash for non-credit payments
+    if (totalCashAmount > 0) {
+      if (!accounts.cash) throw new Error('Cash account not found');
+      entries.push({
+        account_id: accounts.cash,
+        debit_amount: totalCashAmount,
+        description: 'Cash/Card payment received'
+      });
     }
 
-    // Debit: Cash/Accounts Receivable based on payment status
-    if (isCreditSale) {
-      // Credit sale - debit accounts receivable
+    // Debit: Accounts Receivable for credit payments
+    if (totalCreditAmount > 0) {
       if (!accounts.accounts_receivable) throw new Error('Accounts Receivable account not found');
       entries.push({
         account_id: accounts.accounts_receivable,
-        debit_amount: totalAmount,
+        debit_amount: totalCreditAmount,
         description: 'Sale on account - customer owes'
       });
 
-      // Create AR record for credit sales
-      if (saleData.customerId) {
+      // Create AR record for credit portion only
+      if (saleData.customerId && totalCreditAmount > 0) {
         try {
           await supabase.rpc('create_accounts_receivable_record', {
             tenant_id_param: tenantId,
             sale_id_param: saleData.saleId,
             customer_id_param: saleData.customerId,
-            total_amount_param: totalAmount
+            total_amount_param: totalCreditAmount
           });
+          console.log('AR record created for credit amount:', totalCreditAmount);
         } catch (arError) {
           console.error('Error creating AR record:', arError);
         }
       }
-    } else {
-      // Paid sale - debit cash
-      if (!accounts.cash) throw new Error('Cash account not found');
-      entries.push({
-        account_id: accounts.cash,
-        debit_amount: totalAmount,
-        description: 'Cash received from sale'
-      });
     }
 
     // Credit: Sales Revenue
@@ -308,7 +300,7 @@ export const createSalesJournalEntry = async (
     }
 
     const transaction: AccountingTransaction = {
-      description: `Sale transaction${isCreditSale ? ' (Credit Sale)' : ''}`,
+      description: `Sale transaction${totalCreditAmount > 0 ? ' (Partial Credit Sale)' : ''}`,
       reference_id: saleData.saleId,
       reference_type: 'sale',
       entries

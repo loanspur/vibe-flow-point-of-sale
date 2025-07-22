@@ -399,7 +399,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           totalAmount: totalAmount,
           discountAmount: values.discount_amount,
           taxAmount: values.tax_amount,
-          paymentMethod: payments.length > 1 ? "multiple" : payments[0]?.method || "cash",
+          payments: payments, // Pass the payments array instead of single payment method
           cashierId: user.id,
           items: itemsWithCost
         });
