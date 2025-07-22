@@ -195,7 +195,7 @@ export function BusinessSettingsEnhanced() {
       const { data } = await supabase
         .from('store_locations')
         .select('*')
-        .order('is_main', { ascending: false });
+        .order('is_primary', { ascending: false });
       
       if (data) {
         setLocations(data);
@@ -321,7 +321,10 @@ export function BusinessSettingsEnhanced() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Location add error:', error);
+        throw error;
+      }
 
       setLocations([...locations, data]);
       setIsLocationDialogOpen(false);
@@ -331,9 +334,10 @@ export function BusinessSettingsEnhanced() {
         description: "Store location has been added successfully.",
       });
     } catch (error) {
+      console.error('Add location error:', error);
       toast({
         title: "Error",
-        description: "Failed to add location. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to add location. Please try again.",
         variant: "destructive",
       });
     }
