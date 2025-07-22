@@ -244,29 +244,49 @@ export function BusinessSettingsEnhanced() {
     setIsSaving(true);
     try {
       // Get the current user's tenant ID
-      const { data: profile } = await supabase
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('tenant_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', user.user.id)
         .single();
+
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        throw new Error('Failed to get user profile');
+      }
+
+      if (!profile?.tenant_id) {
+        throw new Error('No tenant associated with user');
+      }
+
+      console.log('Saving settings with tenant_id:', profile.tenant_id);
 
       const { error } = await supabase
         .from('business_settings')
         .upsert({
           ...values,
-          tenant_id: profile?.tenant_id
+          tenant_id: profile.tenant_id
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       toast({
         title: "Settings saved",
         description: "Your business settings have been updated successfully.",
       });
     } catch (error) {
+      console.error('Settings save error:', error);
       toast({
         title: "Error",
-        description: "Failed to save settings. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to save settings. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -277,17 +297,26 @@ export function BusinessSettingsEnhanced() {
   const addLocation = async (locationData: Omit<StoreLocation, 'id'>) => {
     try {
       // Get the current user's tenant ID
-      const { data: profile } = await supabase
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('tenant_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', user.user.id)
         .single();
+
+      if (profileError || !profile?.tenant_id) {
+        throw new Error('Failed to get user tenant');
+      }
 
       const { data, error } = await supabase
         .from('store_locations')
         .insert({
           ...locationData,
-          tenant_id: profile?.tenant_id
+          tenant_id: profile.tenant_id
         })
         .select()
         .single();
