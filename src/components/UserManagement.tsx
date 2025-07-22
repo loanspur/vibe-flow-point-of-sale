@@ -624,31 +624,43 @@ const UserManagement = () => {
         .from('user_invitations')
         .select('*')
         .eq('id', invitationId)
-        .single();
+        .maybeSingle();
 
       if (invitationError) throw invitationError;
+      if (!invitation) throw new Error('Invitation not found');
 
-      // Get role and inviter details separately
-      const [roleData, inviterData, businessSettings] = await Promise.all([
+      // Get role and inviter details separately with better error handling
+      const [roleData, inviterData, businessSettings] = await Promise.allSettled([
         supabase
           .from('user_roles')
           .select('name')
           .eq('id', invitation.role_id)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('profiles')
           .select('full_name')
           .eq('user_id', invitation.invited_by)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('business_settings')
           .select('company_name')
           .eq('tenant_id', invitation.tenant_id)
-          .single()
+          .maybeSingle()
       ]);
 
+      // Extract values with fallbacks
+      const roleName = roleData.status === 'fulfilled' && roleData.value.data?.name 
+        ? roleData.value.data.name 
+        : 'Team Member';
+      const inviterName = inviterData.status === 'fulfilled' && inviterData.value.data?.full_name 
+        ? inviterData.value.data.full_name 
+        : 'Team Member';
+      const companyName = businessSettings.status === 'fulfilled' && businessSettings.value.data?.company_name 
+        ? businessSettings.value.data.company_name 
+        : 'Your Company';
+
       // Generate new token and update invitation
-      const { data: updatedInvitation, error: updateError } = await supabase
+      const { data: updatedInvitationId, error: updateError } = await supabase
         .rpc('create_user_invitation', {
           tenant_id_param: invitation.tenant_id,
           email_param: invitation.email,
@@ -669,27 +681,33 @@ const UserManagement = () => {
       const { data: newInvitation, error: newInvitationError } = await supabase
         .from('user_invitations')
         .select('invitation_token')
-        .eq('id', updatedInvitation)
-        .single();
+        .eq('id', updatedInvitationId)
+        .maybeSingle();
 
       if (newInvitationError) throw newInvitationError;
+      if (!newInvitation) throw new Error('Failed to retrieve new invitation token');
 
       // Send email via edge function
-      await supabase.functions.invoke('send-invitation-email', {
+      const { data, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
         body: {
           email: invitation.email,
           invitationToken: newInvitation.invitation_token,
-          inviterName: inviterData.data?.full_name || 'Team Member',
-          companyName: businessSettings.data?.company_name || 'Your Company',
-          roleName: roleData.data?.name || 'Unknown Role'
+          inviterName,
+          companyName,
+          roleName
         }
       });
 
+      if (emailError) {
+        console.error('Email function error:', emailError);
+        throw new Error(`Failed to send email: ${emailError.message}`);
+      }
+
       toast.success('Invitation resent successfully');
       fetchInvitations();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to resend invitation:', error);
-      toast.error('Failed to resend invitation');
+      toast.error(`Failed to resend invitation: ${error.message || 'Unknown error'}`);
     }
   };
 
