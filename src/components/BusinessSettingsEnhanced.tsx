@@ -280,15 +280,26 @@ export function BusinessSettingsEnhanced() {
 
       console.log('Saving settings with tenant_id:', profile.tenant_id);
 
+      const settingsData = {
+        ...values,
+        tenant_id: profile.tenant_id
+      };
+      
+      console.log('Saving settings data:', settingsData);
+
       const { error } = await supabase
         .from('business_settings')
-        .upsert({
-          ...values,
-          tenant_id: profile.tenant_id
+        .upsert(settingsData, {
+          onConflict: 'tenant_id'
         });
 
       if (error) {
-        console.error('Database error:', error);
+        console.error('Database error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
 
