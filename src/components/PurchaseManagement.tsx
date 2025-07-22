@@ -298,7 +298,7 @@ const PurchaseManagement = () => {
           supplier_id: formData.supplier_id,
           status: 'draft',
           order_date: new Date().toISOString().split('T')[0],
-          expected_date: formData.expected_date || null,
+          expected_date: formData.expected_date || new Date().toISOString().split('T')[0],
           total_amount: totalAmount,
           notes: formData.notes,
           created_by: user?.id,
