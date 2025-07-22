@@ -795,6 +795,56 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_permissions: {
+        Row: {
+          action: string
+          category: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_critical: boolean
+          name: string
+          resource: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          category?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_critical?: boolean
+          name: string
+          resource: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_critical?: boolean
+          name?: string
+          resource?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_permissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -2498,35 +2548,47 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          color: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
           is_active: boolean | null
+          is_editable: boolean
           is_system_role: boolean | null
           name: string
           permissions: Json | null
+          sort_order: number | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          color?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_editable?: boolean
           is_system_role?: boolean | null
           name: string
           permissions?: Json | null
+          sort_order?: number | null
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          color?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_editable?: boolean
           is_system_role?: boolean | null
           name?: string
           permissions?: Json | null
+          sort_order?: number | null
           tenant_id?: string
           updated_at?: string
         }
@@ -2627,6 +2689,15 @@ export type Database = {
         Args: { purchase_id_param: string }
         Returns: number
       }
+      copy_role: {
+        Args: {
+          source_role_id: string
+          new_role_name: string
+          new_role_description?: string
+          target_tenant_id?: string
+        }
+        Returns: string
+      }
       create_accounts_payable_record: {
         Args: {
           tenant_id_param: string
@@ -2676,6 +2747,20 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_tenant_permissions: {
+        Args: { tenant_id_param: string }
+        Returns: {
+          id: string
+          name: string
+          description: string
+          resource: string
+          action: string
+          category: string
+          is_critical: boolean
+          is_custom: boolean
+          tenant_id: string
+        }[]
       }
       get_user_contact_profile: {
         Args: Record<PropertyKey, never>
