@@ -485,16 +485,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
   const saveVariants = async (productId: string) => {
     try {
-      // Delete existing variants if editing
-      if (product) {
-        await supabase
-          .from('product_variants')
-          .delete()
-          .eq('product_id', productId);
-      }
-
-      // Insert new variants with uploaded images
       if (variants.length > 0) {
+        // Get existing variants for this product
+        const { data: existingVariants, error: fetchError } = await supabase
+          .from('product_variants')
+          .select('*')
+          .eq('product_id', productId);
+
+        if (fetchError) throw fetchError;
+
         const variantDataPromises = variants.map(async (variant, index) => {
           let imageUrl = variant.image_url;
           
@@ -507,6 +506,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           }
 
           return {
+            id: variant.id,
             product_id: productId,
             name: variant.name,
             value: variant.value,
@@ -522,11 +522,128 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
         const variantData = await Promise.all(variantDataPromises);
 
-        const { error } = await supabase
-          .from('product_variants')
-          .insert(variantData);
+        // Separate variants into updates and inserts
+        const toUpdate = variantData.filter(v => v.id && existingVariants?.some(ev => ev.id === v.id));
+        const toInsert = variantData.filter(v => !v.id);
 
-        if (error) throw error;
+        // Update existing variants
+        for (const variant of toUpdate) {
+          const { id, ...updateData } = variant;
+          const { error: updateError } = await supabase
+            .from('product_variants')
+            .update(updateData)
+            .eq('id', id);
+
+          if (updateError) throw updateError;
+        }
+
+        // Insert new variants
+        if (toInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('product_variants')
+            .insert(toInsert);
+
+          if (insertError) throw insertError;
+        }
+
+        // Handle variants to delete (only delete if not referenced)
+        if (existingVariants && existingVariants.length > 0) {
+          const variantIdsToKeep = variantData.map(v => v.id).filter(Boolean);
+          const variantsToDelete = existingVariants.filter(ev => !variantIdsToKeep.includes(ev.id));
+
+          for (const variantToDelete of variantsToDelete) {
+            // Check if variant is referenced in other tables
+            const { data: purchaseRefs, error: purchaseError } = await supabase
+              .from('purchase_items')
+              .select('id')
+              .eq('variant_id', variantToDelete.id)
+              .limit(1);
+
+            if (purchaseError) throw purchaseError;
+
+            const { data: quoteRefs, error: quoteError } = await supabase
+              .from('quote_items')
+              .select('id')
+              .eq('variant_id', variantToDelete.id)
+              .limit(1);
+
+            if (quoteError) throw quoteError;
+
+            const { data: returnRefs, error: returnError } = await supabase
+              .from('return_items')
+              .select('id')
+              .eq('variant_id', variantToDelete.id)
+              .limit(1);
+
+            if (returnError) throw returnError;
+
+            const { data: exchangeRefs, error: exchangeError } = await supabase
+              .from('exchange_items')
+              .select('id')
+              .eq('variant_id', variantToDelete.id)
+              .limit(1);
+
+            if (exchangeError) throw exchangeError;
+
+            // Only delete if not referenced anywhere
+            if (!purchaseRefs?.length && !quoteRefs?.length && !returnRefs?.length && !exchangeRefs?.length) {
+              const { error: deleteError } = await supabase
+                .from('product_variants')
+                .delete()
+                .eq('id', variantToDelete.id);
+
+              if (deleteError) throw deleteError;
+            } else {
+              // If referenced, just mark as inactive
+              const { error: deactivateError } = await supabase
+                .from('product_variants')
+                .update({ is_active: false })
+                .eq('id', variantToDelete.id);
+
+              if (deactivateError) throw deactivateError;
+            }
+          }
+        }
+      } else if (product) {
+        // If no variants are provided but we're editing a product, 
+        // check existing variants and handle them appropriately
+        const { data: existingVariants, error: fetchError } = await supabase
+          .from('product_variants')
+          .select('*')
+          .eq('product_id', productId);
+
+        if (fetchError) throw fetchError;
+
+        if (existingVariants && existingVariants.length > 0) {
+          for (const variant of existingVariants) {
+            // Check if variant is referenced in other tables
+            const { data: refs, error: refError } = await supabase
+              .from('purchase_items')
+              .select('id')
+              .eq('variant_id', variant.id)
+              .limit(1);
+
+            if (refError) throw refError;
+
+            if (!refs?.length) {
+              // Not referenced, safe to delete
+              const { error: deleteError } = await supabase
+                .from('product_variants')
+                .delete()
+                .eq('id', variant.id);
+
+              if (deleteError) throw deleteError;
+            } else {
+              // Referenced, mark as inactive
+              const { error: deactivateError } = await supabase
+                .from('product_variants')
+                .update({ is_active: false })
+                .eq('id', variant.id);
+
+              if (deactivateError) throw deactivateError;
+            }
+          }
+        }
       }
     } catch (error: any) {
       throw new Error(`Error saving variants: ${error.message}`);
