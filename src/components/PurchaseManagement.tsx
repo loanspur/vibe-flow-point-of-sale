@@ -345,9 +345,9 @@ const PurchaseManagement = () => {
         
         // Check if it's a missing accounts error
         if (accountingError.message?.includes('account not found')) {
-          toast.error(`Purchase created successfully, but accounting integration failed: ${accountingError.message}. Please set up your chart of accounts.`);
+          toast.error(`Purchase created successfully, but accounting integration failed: ${accountingError.message}. Please visit the Accounting module to set up your chart of accounts.`);
         } else {
-          toast.error('Purchase created but accounting entry failed. Please check your accounting setup.');
+          toast.error('Purchase created but accounting entry failed. Please check your accounting setup in the Accounting module.');
         }
         
         // Don't fail the purchase creation - just warn the user

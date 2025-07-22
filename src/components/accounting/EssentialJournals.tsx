@@ -21,6 +21,7 @@ import {
   Plus
 } from 'lucide-react';
 import { createJournalEntry, getDefaultAccounts } from '@/lib/accounting-integration';
+import { updateProductInventory, processPurchaseReceipt, processSaleInventory } from '@/lib/inventory-integration';
 
 interface JournalTemplate {
   id: string;

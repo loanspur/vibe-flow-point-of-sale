@@ -283,7 +283,7 @@ export const createSalesJournalEntry = async (
   }
 };
 
-// Purchase transaction accounting integration
+// Enhanced purchase journal entry to work with existing accounting module
 export const createPurchaseJournalEntry = async (
   tenantId: string,
   purchaseData: {
@@ -296,30 +296,30 @@ export const createPurchaseJournalEntry = async (
 ) => {
   try {
     const accounts = await getDefaultAccounts(tenantId);
-    const entries: AccountingEntry[] = [];
-
-    // Debit: Inventory or Expenses
-    if (!accounts.inventory) throw new Error('Inventory account not found');
-    entries.push({
-      account_id: accounts.inventory,
-      debit_amount: purchaseData.totalAmount,
-      description: 'Inventory purchased'
-    });
-
-    // Credit: Accounts Payable
-    if (!accounts.accounts_payable) throw new Error('Accounts Payable account not found');
-    entries.push({
-      account_id: accounts.accounts_payable,
-      credit_amount: purchaseData.totalAmount,
-      description: 'Amount owed to supplier'
-    });
-
-    const transaction: AccountingTransaction = {
-      description: `Purchase from supplier`,
+    
+    // Use existing accounting module structure for purchase transactions
+    const transaction = {
+      description: `Purchase from supplier (PO: ${purchaseData.purchaseId})`,
       reference_id: purchaseData.purchaseId,
       reference_type: 'purchase',
-      entries
+      entries: [
+        {
+          account_id: accounts.inventory,
+          debit_amount: purchaseData.totalAmount,
+          credit_amount: 0,
+          description: 'Inventory purchased'
+        },
+        {
+          account_id: accounts.accounts_payable,
+          debit_amount: 0,
+          credit_amount: purchaseData.totalAmount,
+          description: 'Amount owed to supplier'
+        }
+      ]
     };
+
+    if (!accounts.inventory) throw new Error('Inventory account not found');
+    if (!accounts.accounts_payable) throw new Error('Accounts Payable account not found');
 
     return await createJournalEntry(tenantId, transaction, purchaseData.createdBy);
   } catch (error) {
