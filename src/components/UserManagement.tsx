@@ -480,6 +480,43 @@ const UserManagement = () => {
         return;
       }
 
+      // Check if invitation already exists for this email
+      const { data: existingInvitation } = await supabase
+        .from('user_invitations')
+        .select('id, status')
+        .eq('tenant_id', tenantId)
+        .eq('email', inviteEmail.trim())
+        .eq('status', 'pending')
+        .single();
+
+      if (existingInvitation) {
+        toast.error('An invitation has already been sent to this email address');
+        return;
+      }
+
+      // Check if user already exists with this email
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (existingUser) {
+        // Get user email from auth.users would require admin access, so we'll check by email in contacts
+        const { data: contactWithEmail } = await supabase
+          .from('contacts')
+          .select('user_id')
+          .eq('tenant_id', tenantId)
+          .eq('email', inviteEmail.trim())
+          .not('user_id', 'is', null)
+          .single();
+
+        if (contactWithEmail) {
+          toast.error('A user with this email already exists in your organization');
+          return;
+        }
+      }
+
       // Create the invitation record
       const { data: invitationId, error } = await supabase.rpc('create_user_invitation', {
         tenant_id_param: tenantId,
