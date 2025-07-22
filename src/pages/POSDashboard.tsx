@@ -2,14 +2,23 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { createPaymentJournalEntry } from "@/lib/accounting-integration";
+import { useToast } from "@/hooks/use-toast";
 import { 
   DollarSign, 
   Package, 
   Users, 
   ShoppingCart, 
   TrendingUp, 
-  AlertTriangle 
+  AlertTriangle,
+  CreditCard
 } from "lucide-react";
 
 interface DashboardStats {
@@ -22,7 +31,8 @@ interface DashboardStats {
 }
 
 const POSDashboard = () => {
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
+  const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats>({
     totalSales: 0,
     todaySales: 0,
@@ -31,6 +41,16 @@ const POSDashboard = () => {
     totalCustomers: 0,
     recentSales: []
   });
+
+  // Payment dialog states
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    amount: 0,
+    payment_method: 'cash',
+    reference_number: '',
+    notes: ''
+  });
+  const [arRecord, setArRecord] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -81,6 +101,8 @@ const POSDashboard = () => {
           total_amount,
           created_at,
           receipt_number,
+          payment_method,
+          customer_id,
           customers(name)
         `)
         .order('created_at', { ascending: false })
@@ -99,6 +121,130 @@ const POSDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Credit sale payment functions
+  const handleCreditPayment = async (sale: any) => {
+    if (!tenantId || !sale.customer_id) {
+      toast({
+        title: "Error",
+        description: "Customer information is required for credit sale payments",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Find the AR record for this sale
+      const { data: arData, error: arError } = await supabase
+        .from('accounts_receivable')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('reference_id', sale.id)
+        .eq('reference_type', 'sale')
+        .single();
+
+      if (arError || !arData) {
+        toast({
+          title: "Error",
+          description: "No outstanding balance found for this credit sale",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (arData.status === 'paid') {
+        toast({
+          title: "Already Paid",
+          description: "This credit sale has already been paid in full",
+        });
+        return;
+      }
+
+      setArRecord(arData);
+      setPaymentData({
+        amount: arData.outstanding_amount,
+        payment_method: 'cash',
+        reference_number: '',
+        notes: ''
+      });
+      setIsPaymentDialogOpen(true);
+
+    } catch (error) {
+      console.error('Error checking AR record:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load payment information",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const processPayment = async () => {
+    if (!tenantId || !user || !arRecord) return;
+
+    try {
+      // Create payment record
+      const { data: payment, error: paymentError } = await supabase
+        .from('ar_ap_payments')
+        .insert({
+          tenant_id: tenantId,
+          payment_type: 'receivable',
+          reference_id: arRecord.id,
+          payment_date: new Date().toISOString().split('T')[0],
+          amount: paymentData.amount,
+          payment_method: paymentData.payment_method,
+          reference_number: paymentData.reference_number,
+          notes: paymentData.notes
+        })
+        .select()
+        .single();
+
+      if (paymentError) throw paymentError;
+
+      // Create accounting journal entry
+      try {
+        await createPaymentJournalEntry(tenantId, {
+          paymentId: payment.id,
+          amount: paymentData.amount,
+          paymentType: 'receivable',
+          paymentMethod: paymentData.payment_method,
+          referenceId: arRecord.id,
+          createdBy: user.id
+        });
+      } catch (accountingError) {
+        console.error('Accounting entry error:', accountingError);
+        toast({
+          title: "Warning", 
+          description: "Payment recorded but accounting entry failed",
+          variant: "destructive"
+        });
+      }
+
+      toast({
+        title: "Success",
+        description: `Payment of $${paymentData.amount.toFixed(2)} recorded successfully`,
+      });
+
+      setIsPaymentDialogOpen(false);
+      setPaymentData({ amount: 0, payment_method: 'cash', reference_number: '', notes: '' });
+      setArRecord(null);
+      
+      // Refresh dashboard data
+      fetchDashboardStats();
+
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process payment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const isCreditSale = (sale: any) => {
+    return sale.payment_method === 'credit' && sale.customer_id;
   };
 
   if (loading) {
@@ -187,8 +333,26 @@ const POSDashboard = () => {
                       {new Date(sale.created_at).toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold">${Number(sale.total_amount).toFixed(2)}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="font-bold">${Number(sale.total_amount).toFixed(2)}</div>
+                      {sale.payment_method && (
+                        <Badge variant={sale.payment_method === 'credit' ? 'destructive' : 'secondary'} className="text-xs">
+                          {sale.payment_method.toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                    {isCreditSale(sale) && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleCreditPayment(sale)} 
+                        title="Record Payment"
+                        className="bg-green-50 hover:bg-green-100 border-green-200"
+                      >
+                        <CreditCard className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -200,6 +364,78 @@ const POSDashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Credit Sale Payment</DialogTitle>
+            <DialogDescription>
+              Record payment for {arRecord ? `Invoice #${arRecord.invoice_number}` : 'credit sale'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="amount">Payment Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                value={paymentData.amount}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="payment_method">Payment Method</Label>
+              <Select 
+                value={paymentData.payment_method} 
+                onValueChange={(value) => setPaymentData(prev => ({ ...prev, payment_method: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="reference_number">Reference Number (Optional)</Label>
+              <Input
+                id="reference_number"
+                value={paymentData.reference_number}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, reference_number: e.target.value }))}
+                placeholder="Check number, transaction ID, etc."
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Textarea
+                id="notes"
+                value={paymentData.notes}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Additional payment details..."
+              />
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={processPayment} disabled={paymentData.amount <= 0}>
+                Record Payment
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
