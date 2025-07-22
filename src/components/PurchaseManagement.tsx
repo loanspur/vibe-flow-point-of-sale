@@ -127,7 +127,7 @@ const PurchaseManagement = () => {
   const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [purchasePayments, setPurchasePayments] = useState<PurchasePayment[]>([]);
-  const [selectedItems, setSelectedItems] = useState<any[]>([{ product_id: '', variant_id: '', quantity: 1, unit_cost: 0 }]);
+  const [selectedItems, setSelectedItems] = useState<any[]>([{ product_id: null, variant_id: null, quantity: 1, unit_cost: 0 }]);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -422,7 +422,7 @@ const PurchaseManagement = () => {
   };
 
   const addItem = () => {
-    setSelectedItems([...selectedItems, { product_id: '', variant_id: '', quantity: 1, unit_cost: 0 }]);
+    setSelectedItems([...selectedItems, { product_id: null, variant_id: null, quantity: 1, unit_cost: 0 }]);
   };
 
   const removeItem = (index: number) => {
@@ -468,7 +468,7 @@ const PurchaseManagement = () => {
       notes: '',
       items: []
     });
-    setSelectedItems([{ product_id: '', variant_id: '', quantity: 1, unit_cost: 0 }]);
+    setSelectedItems([{ product_id: null, variant_id: null, quantity: 1, unit_cost: 0 }]);
   };
 
   const openReceiveDialog = async (purchase: Purchase) => {
@@ -710,23 +710,23 @@ const PurchaseManagement = () => {
                         <div className="space-y-3 border rounded-lg p-4">
                           {selectedItems.map((item, index) => (
                             <div key={index} className="grid grid-cols-6 gap-2 items-end">
-                              <div>
-                                <Select 
-                                  value={item.product_id} 
-                                  onValueChange={(value) => updateItem(index, 'product_id', value)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select product" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {products.map((product) => (
-                                      <SelectItem key={product.id} value={product.id}>
-                                        {product.name} ({product.sku})
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                               <div>
+                                 <Select 
+                                   value={item.product_id || ''} 
+                                   onValueChange={(value) => updateItem(index, 'product_id', value)}
+                                 >
+                                   <SelectTrigger>
+                                     <SelectValue placeholder="Select product" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                     {products.filter(product => product.id && product.name).map((product) => (
+                                       <SelectItem key={product.id} value={product.id}>
+                                         {product.name} ({product.sku})
+                                       </SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
+                               </div>
                               <div>
                                 <Select 
                                   value={item.variant_id || 'no-variant'} 
