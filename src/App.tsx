@@ -53,6 +53,8 @@ window.addEventListener('error', (event) => {
       message.includes('unrecognized feature') ||
       message.includes('iframe') ||
       message.includes('sandbox') ||
+      message.includes('message channel closed') ||
+      message.includes('listener indicated an asynchronous response') ||
       filename.includes('firebase') ||
       filename.includes('firestore') ||
       message.includes('webchannelconnection') ||
@@ -89,6 +91,8 @@ console.error = function(...args) {
       message.includes('webchannelconnection') ||
       message.includes('unrecognized feature') ||
       message.includes('iframe') ||
+      message.includes('message channel closed') ||
+      message.includes('listener indicated an asynchronous response') ||
       message.includes('sandbox')) {
     return; // Suppress these error logs
   }
