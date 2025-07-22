@@ -67,6 +67,21 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     is_active: true,
   });
 
+  const generateSKU = (productName: string) => {
+    if (!productName) return '';
+    
+    // Generate SKU from product name: Take first 3 letters + random 4 digits
+    const namePrefix = productName
+      .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
+      .substring(0, 3)
+      .toUpperCase();
+    
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
+    const timestamp = Date.now().toString().slice(-3); // Last 3 digits of timestamp
+    
+    return `${namePrefix}${randomSuffix}${timestamp}`;
+  };
+
   useEffect(() => {
     fetchCategories();
     fetchRevenueAccounts();
@@ -322,7 +337,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Auto-generate SKU when product name changes (only for new products)
+      if (field === 'name' && !product && typeof value === 'string' && value.trim()) {
+        newData.sku = generateSKU(value);
+      }
+      
+      return newData;
+    });
   };
 
   // Variant management functions
@@ -402,12 +426,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
+              <Label htmlFor="sku">SKU {!product && <span className="text-muted-foreground text-sm">(Auto-generated)</span>}</Label>
               <Input
                 id="sku"
                 value={formData.sku}
                 onChange={(e) => handleInputChange('sku', e.target.value)}
-                placeholder="Product SKU"
+                placeholder={product ? "Product SKU" : "Will be auto-generated from product name"}
               />
             </div>
           </div>
