@@ -100,19 +100,33 @@ export function SalesManagement() {
             email,
             phone,
             address
-          ),
-          profiles!sales_cashier_id_fkey (
-            full_name
           )
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSales((data as any[]) || []);
+
+      // Fetch cashier profiles separately to avoid foreign key issues
+      const salesWithProfiles = await Promise.all(
+        (data || []).map(async (sale) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('user_id', sale.cashier_id)
+            .single();
+          
+          return {
+            ...sale,
+            profiles: profile
+          };
+        })
+      );
+
+      setSales(salesWithProfiles as any[]);
 
       // Fetch AR status for credit sales
-      await fetchCreditSalesStatus((data as any[])?.filter(sale => sale.payment_method === 'credit') || []);
+      await fetchCreditSalesStatus(salesWithProfiles?.filter(sale => sale.payment_method === 'credit') || []);
     } catch (error: any) {
       toast({
         title: "Error",
