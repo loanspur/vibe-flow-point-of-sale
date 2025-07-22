@@ -552,58 +552,56 @@ export function BusinessSettingsEnhanced() {
                                         <SelectValue placeholder="Select currency" />
                                       </SelectTrigger>
                                     </FormControl>
-                                    <SelectContent className="bg-background border-2 shadow-lg max-h-[300px] overflow-y-auto z-50">
-                                      <div className="p-2 border-b">
-                                        <p className="text-sm font-medium text-muted-foreground">Popular Currencies</p>
-                                      </div>
-                                      {/* Major currencies first */}
-                                      {currencies
-                                        .filter(currency => ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF'].includes(currency.code))
-                                        .map(currency => (
-                                          <SelectItem 
-                                            key={currency.code} 
-                                            value={currency.code}
-                                            className="flex items-center justify-between py-3 hover:bg-accent"
-                                          >
-                                            <div className="flex items-center gap-3">
-                                              <span className="font-medium text-lg">{currency.symbol}</span>
-                                              <div>
-                                                <div className="font-medium">{currency.name}</div>
-                                                <div className="text-sm text-muted-foreground">{currency.code} • {currency.region}</div>
-                                              </div>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      
-                                      {/* All currencies organized by region */}
-                                      {['North America', 'Europe', 'Asia', 'Middle East', 'Africa', 'South America', 'Central America', 'Caribbean', 'Oceania', 'Pacific', 'Atlantic', 'Indian Ocean', 'Commodities', 'Cryptocurrency'].map(region => {
-                                        const regionCurrencies = currencies.filter(currency => currency.region === region);
-                                        if (regionCurrencies.length === 0) return null;
-                                        
-                                        return (
-                                          <div key={region}>
-                                            <div className="p-2 border-b bg-muted/50">
-                                              <p className="text-sm font-medium text-muted-foreground">{region}</p>
-                                            </div>
-                                            {regionCurrencies.map(currency => (
-                                              <SelectItem 
-                                                key={currency.code} 
-                                                value={currency.code}
-                                                className="flex items-center justify-between py-3 hover:bg-accent pl-4"
-                                              >
-                                                <div className="flex items-center gap-3">
-                                                  <span className="font-medium text-lg min-w-[2rem]">{currency.symbol}</span>
-                                                  <div>
-                                                    <div className="font-medium">{currency.name}</div>
-                                                    <div className="text-sm text-muted-foreground">{currency.code}</div>
-                                                  </div>
-                                                </div>
-                                              </SelectItem>
-                                            ))}
-                                          </div>
-                                        );
-                                      })}
-                                    </SelectContent>
+                                     <SelectContent className="bg-background border shadow-lg max-h-[300px] overflow-y-auto z-50">
+                                       {/* Popular currencies */}
+                                       <div className="p-2 border-b bg-muted/30">
+                                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Popular</p>
+                                       </div>
+                                       {currencies
+                                         .filter(currency => ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF'].includes(currency.code))
+                                         .map(currency => (
+                                           <SelectItem 
+                                             key={currency.code} 
+                                             value={currency.code}
+                                             className="py-2 hover:bg-accent/50"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="font-mono text-sm w-6">{currency.symbol}</span>
+                                               <span className="font-medium">{currency.code}</span>
+                                               <span className="text-muted-foreground">—</span>
+                                               <span className="text-sm">{currency.name}</span>
+                                             </div>
+                                           </SelectItem>
+                                         ))}
+                                       
+                                       {/* All currencies by region */}
+                                       {['North America', 'Europe', 'Asia', 'Middle East', 'Africa', 'South America', 'Central America', 'Caribbean', 'Oceania', 'Pacific', 'Commodities', 'Cryptocurrency'].map(region => {
+                                         const regionCurrencies = currencies.filter(currency => currency.region === region);
+                                         if (regionCurrencies.length === 0) return null;
+                                         
+                                         return (
+                                           <div key={region}>
+                                             <div className="p-2 border-b bg-muted/30">
+                                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{region}</p>
+                                             </div>
+                                             {regionCurrencies.map(currency => (
+                                               <SelectItem 
+                                                 key={currency.code} 
+                                                 value={currency.code}
+                                                 className="py-2 hover:bg-accent/50"
+                                               >
+                                                 <div className="flex items-center gap-2">
+                                                   <span className="font-mono text-sm w-6">{currency.symbol}</span>
+                                                   <span className="font-medium">{currency.code}</span>
+                                                   <span className="text-muted-foreground">—</span>
+                                                   <span className="text-sm">{currency.name}</span>
+                                                 </div>
+                                               </SelectItem>
+                                             ))}
+                                           </div>
+                                         );
+                                       })}
+                                     </SelectContent>
                                   </Select>
                                   <FormMessage />
                                   {field.value && (
@@ -633,64 +631,62 @@ export function BusinessSettingsEnhanced() {
                                         <SelectValue placeholder="Select timezone" />
                                       </SelectTrigger>
                                     </FormControl>
-                                    <SelectContent className="bg-background border-2 shadow-lg max-h-[300px] overflow-y-auto z-50">
-                                      <div className="p-2 border-b">
-                                        <p className="text-sm font-medium text-muted-foreground">Popular Timezones</p>
-                                      </div>
-                                      {/* Popular timezones first */}
-                                      {timezones
-                                        .filter(tz => [
-                                          'UTC',
-                                          'America/New_York',
-                                          'America/Chicago', 
-                                          'America/Denver',
-                                          'America/Los_Angeles',
-                                          'Europe/London',
-                                          'Europe/Paris',
-                                          'Europe/Berlin',
-                                          'Asia/Tokyo',
-                                          'Asia/Shanghai',
-                                          'Asia/Mumbai',
-                                          'Australia/Sydney'
-                                        ].includes(tz.value))
-                                        .map(tz => (
-                                          <SelectItem 
-                                            key={tz.value} 
-                                            value={tz.value}
-                                            className="py-3 hover:bg-accent"
-                                          >
-                                            <div>
-                                              <div className="font-medium">{tz.label}</div>
-                                              <div className="text-sm text-muted-foreground">{tz.region}</div>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      
-                                      {/* All timezones organized by region */}
-                                      {['Universal', 'North America', 'South America', 'Central America', 'Caribbean', 'Europe', 'Middle East', 'Asia', 'Africa', 'Oceania', 'Atlantic', 'Indian Ocean'].map(region => {
-                                        const regionTimezones = timezones.filter(tz => tz.region === region);
-                                        if (regionTimezones.length === 0) return null;
-                                        
-                                        return (
-                                          <div key={region}>
-                                            <div className="p-2 border-b bg-muted/50">
-                                              <p className="text-sm font-medium text-muted-foreground">{region}</p>
-                                            </div>
-                                            {regionTimezones.map(tz => (
-                                              <SelectItem 
-                                                key={tz.value} 
-                                                value={tz.value}
-                                                className="py-3 hover:bg-accent pl-4"
-                                              >
-                                                <div>
-                                                  <div className="font-medium">{tz.label}</div>
-                                                </div>
-                                              </SelectItem>
-                                            ))}
-                                          </div>
-                                        );
-                                      })}
-                                    </SelectContent>
+                                     <SelectContent className="bg-background border shadow-lg max-h-[300px] overflow-y-auto z-50">
+                                       {/* Popular timezones */}
+                                       <div className="p-2 border-b bg-muted/30">
+                                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Popular</p>
+                                       </div>
+                                       {timezones
+                                         .filter(tz => [
+                                           'UTC',
+                                           'America/New_York',
+                                           'America/Chicago', 
+                                           'America/Denver',
+                                           'America/Los_Angeles',
+                                           'Europe/London',
+                                           'Europe/Paris',
+                                           'Europe/Berlin',
+                                           'Asia/Tokyo',
+                                           'Asia/Shanghai',
+                                           'Asia/Mumbai',
+                                           'Australia/Sydney'
+                                         ].includes(tz.value))
+                                         .map(tz => (
+                                           <SelectItem 
+                                             key={tz.value} 
+                                             value={tz.value}
+                                             className="py-2 hover:bg-accent/50"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="font-medium">{tz.label}</span>
+                                               <span className="text-muted-foreground text-sm">({tz.region})</span>
+                                             </div>
+                                           </SelectItem>
+                                         ))}
+                                       
+                                       {/* All timezones by region */}
+                                       {['Universal', 'North America', 'South America', 'Central America', 'Caribbean', 'Europe', 'Middle East', 'Asia', 'Africa', 'Oceania', 'Atlantic', 'Indian Ocean'].map(region => {
+                                         const regionTimezones = timezones.filter(tz => tz.region === region);
+                                         if (regionTimezones.length === 0) return null;
+                                         
+                                         return (
+                                           <div key={region}>
+                                             <div className="p-2 border-b bg-muted/30">
+                                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{region}</p>
+                                             </div>
+                                             {regionTimezones.map(tz => (
+                                               <SelectItem 
+                                                 key={tz.value} 
+                                                 value={tz.value}
+                                                 className="py-2 hover:bg-accent/50"
+                                               >
+                                                 <span className="font-medium">{tz.label}</span>
+                                               </SelectItem>
+                                             ))}
+                                           </div>
+                                         );
+                                       })}
+                                     </SelectContent>
                                   </Select>
                                   <FormMessage />
                                   {field.value && (
