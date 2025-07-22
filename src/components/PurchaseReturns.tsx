@@ -20,12 +20,6 @@ import { updateProductInventory } from "@/lib/inventory-integration";
 import { createPurchaseReturnJournalEntry } from "@/lib/accounting-integration";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface ReturnReasonCode {
-  id: string;
-  code: string;
-  description: string;
-  requires_approval: boolean;
-}
 
 interface Purchase {
   id: string;
@@ -62,7 +56,6 @@ interface PurchaseReturn {
   supplier_id?: string;
   return_type: 'refund' | 'replacement' | 'credit_note' | 'purchase';
   status: 'pending' | 'approved' | 'completed' | 'cancelled';
-  reason_code_id?: string;
   custom_reason?: string;
   total_amount: number;
   refund_amount: number;
@@ -70,7 +63,7 @@ interface PurchaseReturn {
   refund_method?: string;
   notes?: string;
   created_at: string;
-  return_reason_codes?: ReturnReasonCode;
+  return_reason_codes?: any;
   customers?: {
     name: string;
     email?: string;
@@ -99,7 +92,6 @@ interface PurchaseReturnItem {
 
 interface ReturnFormData {
   return_type: 'refund' | 'replacement' | 'credit_note';
-  reason_code_id?: string;
   custom_reason?: string;
   refund_method?: string;
   notes?: string;
@@ -110,7 +102,6 @@ export default function PurchaseReturns() {
   const [activeTab, setActiveTab] = useState('historical-purchases');
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [reasonCodes, setReasonCodes] = useState<ReturnReasonCode[]>([]);
   const [selectedReturn, setSelectedReturn] = useState<PurchaseReturn | null>(null);
   const [newReturnDialogOpen, setNewReturnDialogOpen] = useState(false);
   const [viewReturnDialogOpen, setViewReturnDialogOpen] = useState<string | null>(null);
@@ -132,7 +123,6 @@ export default function PurchaseReturns() {
 
   useEffect(() => {
     fetchReturns();
-    fetchReasonCodes();
     fetchHistoricalPurchases();
   }, []);
 
@@ -168,24 +158,6 @@ export default function PurchaseReturns() {
     }
   };
 
-  const fetchReasonCodes = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('return_reason_codes')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order');
-
-      if (error) throw error;
-      setReasonCodes(data || []);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch reason codes",
-        variant: "destructive"
-      });
-    }
-  };
 
   const fetchHistoricalPurchases = async () => {
     if (!tenantId) return;
@@ -348,7 +320,6 @@ export default function PurchaseReturns() {
           supplier_id: selectedPurchase.supplier_id,  // Use supplier_id for purchase returns
           return_type: 'purchase',
           status: 'completed',
-          reason_code_id: returnFormData.reason_code_id,
           custom_reason: returnFormData.custom_reason,
           total_amount: returnTotal,
           refund_amount: returnFormData.return_type === 'refund' ? returnTotal : 0,
@@ -1217,7 +1188,6 @@ export default function PurchaseReturns() {
           <TabsTrigger value="historical-purchases">Historical Purchases</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="returns">Returns</TabsTrigger>
-          <TabsTrigger value="reason-codes">Reason Codes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="historical-purchases" className="space-y-6">
@@ -1516,39 +1486,6 @@ export default function PurchaseReturns() {
                   </TableBody>
                 </Table>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reason-codes" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Return Reason Codes</CardTitle>
-              <CardDescription>Manage return reason codes for purchases</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Requires Approval</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reasonCodes.map((code) => (
-                    <TableRow key={code.id}>
-                      <TableCell className="font-medium">{code.code}</TableCell>
-                      <TableCell>{code.description}</TableCell>
-                      <TableCell>
-                        <Badge variant={code.requires_approval ? "destructive" : "secondary"}>
-                          {code.requires_approval ? "Yes" : "No"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </CardContent>
           </Card>
         </TabsContent>
