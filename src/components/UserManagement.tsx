@@ -619,19 +619,76 @@ const UserManagement = () => {
 
   const resendInvitation = async (invitationId: string) => {
     try {
-      const { error } = await supabase
+      // First get the invitation details
+      const { data: invitation, error: invitationError } = await supabase
         .from('user_invitations')
-        .update({ 
-          expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-          status: 'pending'
-        })
+        .select('*')
+        .eq('id', invitationId)
+        .single();
+
+      if (invitationError) throw invitationError;
+
+      // Get role and inviter details separately
+      const [roleData, inviterData, businessSettings] = await Promise.all([
+        supabase
+          .from('user_roles')
+          .select('name')
+          .eq('id', invitation.role_id)
+          .single(),
+        supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', invitation.invited_by)
+          .single(),
+        supabase
+          .from('business_settings')
+          .select('company_name')
+          .eq('tenant_id', invitation.tenant_id)
+          .single()
+      ]);
+
+      // Generate new token and update invitation
+      const { data: updatedInvitation, error: updateError } = await supabase
+        .rpc('create_user_invitation', {
+          tenant_id_param: invitation.tenant_id,
+          email_param: invitation.email,
+          role_id_param: invitation.role_id,
+          invited_by_param: invitation.invited_by,
+          expires_in_hours: 72
+        });
+
+      if (updateError) throw updateError;
+
+      // Cancel the old invitation
+      await supabase
+        .from('user_invitations')
+        .update({ status: 'cancelled' })
         .eq('id', invitationId);
 
-      if (error) throw error;
+      // Get the new invitation token
+      const { data: newInvitation, error: newInvitationError } = await supabase
+        .from('user_invitations')
+        .select('invitation_token')
+        .eq('id', updatedInvitation)
+        .single();
 
-      toast.success('Invitation resent');
+      if (newInvitationError) throw newInvitationError;
+
+      // Send email via edge function
+      await supabase.functions.invoke('send-invitation-email', {
+        body: {
+          email: invitation.email,
+          invitationToken: newInvitation.invitation_token,
+          inviterName: inviterData.data?.full_name || 'Team Member',
+          companyName: businessSettings.data?.company_name || 'Your Company',
+          roleName: roleData.data?.name || 'Unknown Role'
+        }
+      });
+
+      toast.success('Invitation resent successfully');
       fetchInvitations();
     } catch (error) {
+      console.error('Failed to resend invitation:', error);
       toast.error('Failed to resend invitation');
     }
   };
