@@ -198,11 +198,49 @@ export const getInventoryLevels = async (tenantId: string, productId?: string) =
       query = query.eq('id', productId);
     }
 
-    const { data, error } = await query.order('name');
+    const { data: products, error } = await query.order('name');
 
     if (error) throw error;
 
-    return data;
+    // Calculate actual stock based on transactions for each product
+    const productsWithCalculatedStock = await Promise.all(
+      (products || []).map(async (product) => {
+        // Get purchase receipts (received items)
+        const { data: purchaseItems } = await supabase
+          .from('purchase_items')
+          .select('quantity_received')
+          .eq('product_id', product.id);
+
+        // Get sales
+        const { data: saleItems } = await supabase
+          .from('sale_items')
+          .select('quantity')
+          .eq('product_id', product.id);
+
+        // Get returns that were restocked
+        const { data: returnItems } = await supabase
+          .from('return_items')
+          .select('quantity_returned')
+          .eq('product_id', product.id)
+          .eq('restock', true);
+
+        const totalReceived = purchaseItems?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0;
+        const totalSold = saleItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+        const totalReturned = returnItems?.reduce((sum, item) => sum + (item.quantity_returned || 0), 0) || 0;
+
+        const calculatedStock = totalReceived + totalReturned - totalSold;
+
+        return {
+          ...product,
+          calculated_stock: calculatedStock,
+          database_stock: product.stock_quantity,
+          // Use calculated stock for display
+          stock_quantity: calculatedStock
+        };
+      })
+    );
+
+    return productsWithCalculatedStock;
   } catch (error) {
     console.error('Error fetching inventory levels:', error);
     throw error;
