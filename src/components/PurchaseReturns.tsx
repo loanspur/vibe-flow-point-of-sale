@@ -67,7 +67,7 @@ interface PurchaseReturn {
   notes?: string;
   created_at: string;
   return_reason_codes?: ReturnReasonCode;
-  contacts?: {
+  customers?: {
     name: string;
     email?: string;
   };
@@ -131,7 +131,7 @@ export default function PurchaseReturns() {
         .select(`
           *,
           return_reason_codes(id, code, description, requires_approval),
-          contacts!customer_id(name, email),
+          customers(name, email),
           return_items(
             *,
             products(name, sku)
@@ -424,7 +424,7 @@ export default function PurchaseReturns() {
 
   const filteredReturns = returns.filter(returnItem => {
     const matchesSearch = returnItem.return_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         returnItem.contacts?.name.toLowerCase().includes(searchTerm.toLowerCase());
+                         returnItem.customers?.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || returnItem.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -812,7 +812,7 @@ export default function PurchaseReturns() {
                     {returns.slice(0, 5).map((returnItem) => (
                       <TableRow key={returnItem.id}>
                         <TableCell className="font-medium">{returnItem.return_number}</TableCell>
-                        <TableCell>{returnItem.contacts?.name || 'Unknown Supplier'}</TableCell>
+                        <TableCell>{returnItem.customers?.name || 'Unknown Supplier'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getReturnTypeIcon(returnItem.return_type)}
@@ -880,7 +880,7 @@ export default function PurchaseReturns() {
                     {filteredReturns.map((returnItem) => (
                       <TableRow key={returnItem.id}>
                         <TableCell className="font-medium">{returnItem.return_number}</TableCell>
-                        <TableCell>{returnItem.contacts?.name || 'Unknown Supplier'}</TableCell>
+                        <TableCell>{returnItem.customers?.name || 'Unknown Supplier'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getReturnTypeIcon(returnItem.return_type)}
