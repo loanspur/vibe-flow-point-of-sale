@@ -315,7 +315,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         .insert({
           cashier_id: user.id,
           customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
-          payment_method: payments.length > 1 ? "multiple" : payments[0]?.method || "cash",
+          payment_method: hasCreditPayment ? "credit" : (payments.length > 1 ? "multiple" : payments[0]?.method || "cash"),
           receipt_number: receiptNumber,
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
