@@ -243,11 +243,18 @@ export function BusinessSettingsEnhanced() {
   const onSubmit = async (values: z.infer<typeof businessSettingsSchema>) => {
     setIsSaving(true);
     try {
+      // Get the current user's tenant ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
       const { error } = await supabase
         .from('business_settings')
         .upsert({
           ...values,
-          tenant_id: 'current-tenant-id' // Replace with actual tenant ID
+          tenant_id: profile?.tenant_id
         });
 
       if (error) throw error;
@@ -269,11 +276,18 @@ export function BusinessSettingsEnhanced() {
 
   const addLocation = async (locationData: Omit<StoreLocation, 'id'>) => {
     try {
+      // Get the current user's tenant ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
       const { data, error } = await supabase
         .from('store_locations')
         .insert({
           ...locationData,
-          tenant_id: 'current-tenant-id'
+          tenant_id: profile?.tenant_id
         })
         .select()
         .single();
