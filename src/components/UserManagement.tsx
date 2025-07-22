@@ -480,7 +480,8 @@ const UserManagement = () => {
         return;
       }
 
-      const { data, error } = await supabase.rpc('create_user_invitation', {
+      // Create the invitation record
+      const { data: invitationId, error } = await supabase.rpc('create_user_invitation', {
         tenant_id_param: tenantId,
         email_param: inviteEmail.trim(),
         role_id_param: inviteRoleId,
@@ -489,6 +490,50 @@ const UserManagement = () => {
       });
 
       if (error) throw error;
+
+      // Get invitation details for email
+      const { data: invitation } = await supabase
+        .from('user_invitations')
+        .select(`
+          invitation_token,
+          role_id
+        `)
+        .eq('id', invitationId)
+        .single();
+
+      // Get role name separately
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('name')
+        .eq('id', inviteRoleId)
+        .single();
+
+      // Get business settings for company name
+      const { data: businessSettings } = await supabase
+        .from('business_settings')
+        .select('company_name')
+        .eq('tenant_id', tenantId)
+        .single();
+
+      // Get inviter profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (invitation) {
+        // Send email via edge function
+        await supabase.functions.invoke('send-invitation-email', {
+          body: {
+            email: inviteEmail.trim(),
+            invitationToken: invitation.invitation_token,
+            inviterName: profile?.full_name || 'Team Member',
+            companyName: businessSettings?.company_name || 'Your Company',
+            roleName: roleData?.name || 'Unknown Role'
+          }
+        });
+      }
 
       toast.success('User invitation sent successfully');
       setInviteEmail('');
