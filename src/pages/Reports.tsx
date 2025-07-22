@@ -1,6 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BarChart3, Download, TrendingUp, DollarSign, ShoppingCart, Users, Calendar, FileText } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, BarChart3, Download, TrendingUp, DollarSign, ShoppingCart, Users, Calendar, FileText, Filter, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +34,11 @@ type ReportView = 'overview' | 'sales' | 'products' | 'customers' | 'financial' 
 const Reports = () => {
   const { tenantId } = useAuth();
   const [currentView, setCurrentView] = useState<ReportView>('overview');
+  const [detailedSales, setDetailedSales] = useState<any[]>([]);
+  const [detailedProducts, setDetailedProducts] = useState<any[]>([]);
+  const [detailedCustomers, setDetailedCustomers] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('all');
   const [metrics, setMetrics] = useState<ReportMetrics>({
     totalRevenue: 0,
     totalSales: 0,
@@ -175,6 +184,11 @@ const Reports = () => {
         totalInventoryValue,
       });
 
+      // Set detailed data for reports
+      setDetailedSales(salesData || []);
+      setDetailedProducts(productsData || []);
+      setDetailedCustomers(customersData || []);
+
     } catch (error: any) {
       console.error("Error fetching report data:", error);
       toast.error("Failed to load report data");
@@ -189,6 +203,39 @@ const Reports = () => {
       currency: 'USD'
     }).format(amount);
   };
+
+  const filteredSales = detailedSales.filter(sale => {
+    const matchesSearch = sale.id?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         formatCurrency(sale.total_amount).includes(searchTerm);
+    
+    if (dateFilter === 'all') return matchesSearch;
+    
+    const saleDate = new Date(sale.created_at);
+    const now = new Date();
+    
+    switch (dateFilter) {
+      case 'today':
+        return matchesSearch && saleDate.toDateString() === now.toDateString();
+      case 'week':
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return matchesSearch && saleDate >= weekAgo;
+      case 'month':
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return matchesSearch && saleDate >= monthAgo;
+      default:
+        return matchesSearch;
+    }
+  });
+
+  const filteredProducts = detailedProducts.filter(product => {
+    return product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const filteredCustomers = detailedCustomers.filter(customer => {
+    return customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           customer.email?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const renderReportView = () => {
     switch (currentView) {
@@ -211,6 +258,10 @@ const Reports = () => {
                   </div>
                 </div>
               </div>
+              <Button>
+                <Download className="h-4 w-4 mr-2" />
+                Export Sales Data
+              </Button>
             </div>
             
             <div className="grid md:grid-cols-3 gap-6">
@@ -253,6 +304,90 @@ const Reports = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Filters and Search */}
+            <div className="flex items-center gap-4 p-4 bg-card rounded-lg border">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search sales..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter by date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Detailed Sales Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Sales Transactions</CardTitle>
+                <CardDescription>Detailed list of all sales transactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Sale ID</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Payment Method</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSales.length > 0 ? (
+                      filteredSales.slice(0, 20).map((sale) => (
+                        <TableRow key={sale.id}>
+                          <TableCell>
+                            {new Date(sale.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            #{sale.id?.slice(-8)}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(sale.total_amount)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={sale.status === 'completed' ? 'default' : 'secondary'}>
+                              {sale.status || 'completed'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {sale.payment_method || 'Cash'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          {searchTerm || dateFilter !== 'all' ? 'No sales found matching your criteria' : 'No sales data available'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {filteredSales.length > 20 && (
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Showing first 20 of {filteredSales.length} sales. Use export to get all data.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
         
@@ -275,6 +410,10 @@ const Reports = () => {
                   </div>
                 </div>
               </div>
+              <Button>
+                <Download className="h-4 w-4 mr-2" />
+                Export Product Data
+              </Button>
             </div>
             
             <div className="grid md:grid-cols-3 gap-6">
@@ -308,6 +447,86 @@ const Reports = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Search */}
+            <div className="flex items-center gap-4 p-4 bg-card rounded-lg border">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search products by name or SKU..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
+                />
+              </div>
+            </div>
+
+            {/* Product Performance Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Inventory</CardTitle>
+                <CardDescription>Detailed product information and stock levels</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product Name</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Category</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.length > 0 ? (
+                      filteredProducts.slice(0, 20).map((product) => (
+                        <TableRow key={product.id}>
+                          <TableCell className="font-medium">
+                            {product.name}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {product.sku || 'N/A'}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(product.price)}
+                          </TableCell>
+                          <TableCell>
+                            <span className={product.stock_quantity <= product.min_stock_level ? 'text-red-600 font-semibold' : ''}>
+                              {product.stock_quantity}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              product.stock_quantity <= product.min_stock_level ? 'destructive' :
+                              product.stock_quantity <= product.min_stock_level * 2 ? 'secondary' : 'default'
+                            }>
+                              {product.stock_quantity <= product.min_stock_level ? 'Low Stock' :
+                               product.stock_quantity <= product.min_stock_level * 2 ? 'Running Low' : 'In Stock'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {product.category?.name || 'Uncategorized'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          {searchTerm ? 'No products found matching your search' : 'No products available'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {filteredProducts.length > 20 && (
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Showing first 20 of {filteredProducts.length} products. Use export to get all data.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
         
@@ -330,6 +549,10 @@ const Reports = () => {
                   </div>
                 </div>
               </div>
+              <Button>
+                <Download className="h-4 w-4 mr-2" />
+                Export Customer Data
+              </Button>
             </div>
             
             <div className="grid md:grid-cols-3 gap-6">
@@ -363,6 +586,78 @@ const Reports = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Search */}
+            <div className="flex items-center gap-4 p-4 bg-card rounded-lg border">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search customers by name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
+                />
+              </div>
+            </div>
+
+            {/* Customer Details Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Customer Directory</CardTitle>
+                <CardDescription>Complete customer information and contact details</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead>Joined Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.slice(0, 20).map((customer) => (
+                        <TableRow key={customer.id}>
+                          <TableCell className="font-medium">
+                            {customer.name}
+                          </TableCell>
+                          <TableCell>
+                            {customer.email || 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {customer.phone || 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {customer.address ? (
+                              <span className="text-sm">{customer.address}</span>
+                            ) : (
+                              'N/A'
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(customer.created_at).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          {searchTerm ? 'No customers found matching your search' : 'No customers available'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {filteredCustomers.length > 20 && (
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Showing first 20 of {filteredCustomers.length} customers. Use export to get all data.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
         
