@@ -30,6 +30,7 @@ interface Purchase {
   purchase_number: string;
   total_amount: number;
   supplier_id: string;
+  status: string;
   created_at: string;
   contacts?: {
     name: string;
@@ -114,6 +115,7 @@ export default function PurchaseReturns() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [purchaseSearchTerm, setPurchaseSearchTerm] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -187,13 +189,14 @@ export default function PurchaseReturns() {
           )
         `)
         .eq('tenant_id', tenantId)
-        .eq('status', 'completed')
+        .in('status', ['received', 'completed'])
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
       setPurchases(data || []);
     } catch (error) {
+      console.error('Failed to fetch historical purchases:', error);
       toast({
         title: "Error",
         description: "Failed to fetch historical purchases",
@@ -427,6 +430,12 @@ export default function PurchaseReturns() {
                          returnItem.customers?.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || returnItem.status === statusFilter;
     return matchesSearch && matchesStatus;
+  });
+
+  const filteredPurchases = purchases.filter(purchase => {
+    const matchesSearch = purchase.purchase_number.toLowerCase().includes(purchaseSearchTerm.toLowerCase()) ||
+                         purchase.contacts?.name.toLowerCase().includes(purchaseSearchTerm.toLowerCase());
+    return matchesSearch;
   });
 
   return (
@@ -680,13 +689,25 @@ export default function PurchaseReturns() {
         <TabsContent value="historical-purchases" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Select Purchase to Return</CardTitle>
-              <CardDescription>Choose a completed purchase to process returns</CardDescription>
+              <CardTitle>All Received Purchases - Return Options</CardTitle>
+              <CardDescription>Choose any received or completed purchase to process returns</CardDescription>
             </CardHeader>
-            <CardContent>
-              {purchases.length === 0 ? (
+            <CardContent className="space-y-4">
+              {/* Search for purchases */}
+              <div className="flex gap-4">
+                <Input
+                  placeholder="Search purchases by number or supplier..."
+                  value={purchaseSearchTerm}
+                  onChange={(e) => setPurchaseSearchTerm(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+
+              {filteredPurchases.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No completed purchases found</p>
+                  <p className="text-muted-foreground">
+                    {purchaseSearchTerm ? 'No purchases found matching your search' : 'No received purchases found'}
+                  </p>
                 </div>
               ) : (
                 <Table>
@@ -701,18 +722,22 @@ export default function PurchaseReturns() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {purchases.map((purchase) => (
+                    {filteredPurchases.map((purchase) => (
                       <TableRow key={purchase.id}>
                         <TableCell className="font-medium">{purchase.purchase_number}</TableCell>
                         <TableCell>{purchase.contacts?.name || 'Unknown Supplier'}</TableCell>
                         <TableCell>{format(new Date(purchase.created_at), 'MMM dd, yyyy')}</TableCell>
                         <TableCell>{formatCurrency(purchase.total_amount)}</TableCell>
                         <TableCell>
-                          <Badge variant="default">Completed</Badge>
+                          <Badge variant={purchase.status === 'completed' ? 'default' : 'secondary'}>
+                            {purchase.status.charAt(0).toUpperCase() + purchase.status.slice(1)}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Button
                             size="sm"
+                            variant="default"
+                            className="bg-orange-600 hover:bg-orange-700"
                             onClick={() => {
                               setSelectedPurchase(purchase);
                               const initialSelection: {[key: string]: { quantity: number; condition: string; restock: boolean }} = {};
@@ -723,6 +748,7 @@ export default function PurchaseReturns() {
                               setNewReturnDialogOpen(true);
                             }}
                           >
+                            <RotateCcw className="mr-2 h-4 w-4" />
                             Process Return
                           </Button>
                         </TableCell>
