@@ -27,7 +27,8 @@ import {
   Shield, 
   Settings, 
   Plus, 
-  Edit, 
+  Edit,
+  Eye,
   Trash2, 
   Save,
   Upload,
@@ -139,6 +140,10 @@ export function BusinessSettingsEnhanced() {
     is_primary: false,
     is_active: true
   });
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locationToEdit, setLocationToEdit] = useState<StoreLocation | null>(null);
+  const [isViewingLocation, setIsViewingLocation] = useState(false);
+  const [locationToView, setLocationToView] = useState<StoreLocation | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [themeColors, setThemeColors] = useState({
@@ -394,7 +399,154 @@ export function BusinessSettingsEnhanced() {
       return;
     }
 
-    await addLocation(locationForm);
+    await handleLocationSubmitOrUpdate();
+  };
+
+  const editLocation = async (locationId: string, locationData: Partial<StoreLocation>) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.user.id)
+        .single();
+
+      if (profileError || !profile?.tenant_id) {
+        throw new Error('Failed to get user tenant');
+      }
+
+      const { error } = await supabase
+        .from('store_locations')
+        .update({
+          name: locationData.name,
+          address_line_1: locationData.address_line_1,
+          address_line_2: locationData.address_line_2,
+          city: locationData.city,
+          state_province: locationData.state_province,
+          postal_code: locationData.postal_code,
+          country: locationData.country,
+          phone: locationData.phone,
+          email: locationData.email,
+          manager_name: locationData.manager_name,
+          is_primary: locationData.is_primary,
+          is_active: locationData.is_active,
+        })
+        .eq('id', locationId)
+        .eq('tenant_id', profile.tenant_id);
+
+      if (error) {
+        console.error('Location update error:', error);
+        throw error;
+      }
+
+      // Refresh locations
+      await fetchLocations();
+      setIsEditingLocation(false);
+      setLocationToEdit(null);
+      resetLocationForm();
+      
+      toast({
+        title: "Location updated",
+        description: "Store location has been updated successfully.",
+      });
+    } catch (error) {
+      console.error('Edit location error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update location. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteLocation = async (locationId: string) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.user.id)
+        .single();
+
+      if (profileError || !profile?.tenant_id) {
+        throw new Error('Failed to get user tenant');
+      }
+
+      const { error } = await supabase
+        .from('store_locations')
+        .delete()
+        .eq('id', locationId)
+        .eq('tenant_id', profile.tenant_id);
+
+      if (error) {
+        console.error('Location delete error:', error);
+        throw error;
+      }
+
+      // Refresh locations
+      await fetchLocations();
+      
+      toast({
+        title: "Location deleted",
+        description: "Store location has been deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Delete location error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete location. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditLocation = (location: StoreLocation) => {
+    setLocationToEdit(location);
+    setLocationForm({
+      name: location.name,
+      address_line_1: location.address_line_1,
+      address_line_2: location.address_line_2 || '',
+      city: location.city,
+      state_province: location.state_province,
+      postal_code: location.postal_code,
+      country: location.country,
+      phone: location.phone,
+      email: location.email || '',
+      manager_name: location.manager_name || '',
+      is_primary: location.is_primary,
+      is_active: location.is_active
+    });
+    setIsEditingLocation(true);
+  };
+
+  const handleViewLocation = (location: StoreLocation) => {
+    setLocationToView(location);
+    setIsViewingLocation(true);
+  };
+
+  const handleLocationSubmitOrUpdate = async () => {
+    if (!locationForm.name || !locationForm.address_line_1 || !locationForm.city || !locationForm.phone) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields (Name, Address, City, Phone).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isEditingLocation && locationToEdit) {
+      await editLocation(locationToEdit.id, locationForm);
+    } else {
+      await addLocation(locationForm);
+    }
   };
 
   const resetLocationForm = () => {
@@ -922,9 +1074,13 @@ export function BusinessSettingsEnhanced() {
                               <Store className="h-5 w-5 text-primary" />
                               Store Locations
                             </CardTitle>
-                                <Dialog open={isLocationDialogOpen} onOpenChange={(open) => {
+                                <Dialog open={isLocationDialogOpen || isEditingLocation} onOpenChange={(open) => {
                                   setIsLocationDialogOpen(open);
-                                  if (!open) resetLocationForm();
+                                  setIsEditingLocation(open);
+                                  if (!open) {
+                                    resetLocationForm();
+                                    setLocationToEdit(null);
+                                  }
                                 }}>
                                   <DialogTrigger asChild>
                                     <Button>
@@ -934,7 +1090,9 @@ export function BusinessSettingsEnhanced() {
                                   </DialogTrigger>
                                   <DialogContent>
                                     <DialogHeader>
-                                      <DialogTitle>Add Store Location</DialogTitle>
+                                      <DialogTitle>
+                                        {isEditingLocation ? 'Edit Store Location' : 'Add Store Location'}
+                                      </DialogTitle>
                                     </DialogHeader>
                                     <div className="space-y-4">
                                       <Input 
@@ -999,14 +1157,83 @@ export function BusinessSettingsEnhanced() {
                                         <Label>Primary Location</Label>
                                       </div>
                                       <div className="flex gap-2">
-                                        <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>
-                                          Cancel
-                                        </Button>
-                                        <Button onClick={handleLocationSubmit}>
-                                          Add Location
-                                        </Button>
+                                         <Button variant="outline" onClick={() => {
+                                           setIsLocationDialogOpen(false);
+                                           setIsEditingLocation(false);
+                                           resetLocationForm();
+                                           setLocationToEdit(null);
+                                         }}>
+                                           Cancel
+                                         </Button>
+                                         <Button onClick={handleLocationSubmit}>
+                                           {isEditingLocation ? 'Update Location' : 'Add Location'}
+                                         </Button>
                                       </div>
                                     </div>
+                                  </DialogContent>
+                                </Dialog>
+                                
+                                {/* View Location Dialog */}
+                                <Dialog open={isViewingLocation} onOpenChange={setIsViewingLocation}>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Location Details</DialogTitle>
+                                    </DialogHeader>
+                                    {locationToView && (
+                                      <div className="space-y-4">
+                                        <div>
+                                          <Label className="text-sm font-medium">Location Name</Label>
+                                          <p className="text-sm text-muted-foreground">{locationToView.name}</p>
+                                        </div>
+                                        <div>
+                                          <Label className="text-sm font-medium">Address</Label>
+                                          <p className="text-sm text-muted-foreground">
+                                            {locationToView.address_line_1}
+                                            {locationToView.address_line_2 && <><br />{locationToView.address_line_2}</>}
+                                            <br />
+                                            {locationToView.city}, {locationToView.state_province} {locationToView.postal_code}
+                                            <br />
+                                            {locationToView.country}
+                                          </p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                            <Label className="text-sm font-medium">Phone</Label>
+                                            <p className="text-sm text-muted-foreground">{locationToView.phone}</p>
+                                          </div>
+                                          <div>
+                                            <Label className="text-sm font-medium">Email</Label>
+                                            <p className="text-sm text-muted-foreground">{locationToView.email || 'Not provided'}</p>
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <Label className="text-sm font-medium">Manager</Label>
+                                          <p className="text-sm text-muted-foreground">{locationToView.manager_name || 'Not assigned'}</p>
+                                        </div>
+                                        <div className="flex gap-4">
+                                          <div className="flex items-center gap-2">
+                                            <Label className="text-sm font-medium">Status:</Label>
+                                            <Badge variant={locationToView.is_active ? "default" : "secondary"}>
+                                              {locationToView.is_active ? "Active" : "Inactive"}
+                                            </Badge>
+                                          </div>
+                                          {locationToView.is_primary && (
+                                            <Badge variant="outline">Primary Location</Badge>
+                                          )}
+                                        </div>
+                                        <div className="flex gap-2 pt-4">
+                                          <Button variant="outline" onClick={() => setIsViewingLocation(false)}>
+                                            Close
+                                          </Button>
+                                          <Button onClick={() => {
+                                            setIsViewingLocation(false);
+                                            handleEditLocation(locationToView);
+                                          }}>
+                                            Edit Location
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </DialogContent>
                                 </Dialog>
                           </div>
@@ -1027,14 +1254,25 @@ export function BusinessSettingsEnhanced() {
                                   </div>
                                   <div className="text-sm text-muted-foreground">{location.phone}</div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <Button variant="outline" size="sm">
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="outline" size="sm">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
+                                 <div className="flex items-center gap-2">
+                                   <Button variant="outline" size="sm" onClick={() => handleViewLocation(location)}>
+                                     <Eye className="h-4 w-4" />
+                                   </Button>
+                                   <Button variant="outline" size="sm" onClick={() => handleEditLocation(location)}>
+                                     <Edit className="h-4 w-4" />
+                                   </Button>
+                                   <Button 
+                                     variant="outline" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       if (confirm('Are you sure you want to delete this location?')) {
+                                         deleteLocation(location.id);
+                                       }
+                                     }}
+                                   >
+                                     <Trash2 className="h-4 w-4" />
+                                   </Button>
+                                 </div>
                               </div>
                             ))}
                             {locations.length === 0 && (
