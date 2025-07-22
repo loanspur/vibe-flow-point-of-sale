@@ -473,11 +473,18 @@ const UserManagement = () => {
     }
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('User not authenticated');
+        return;
+      }
+
       const { data, error } = await supabase.rpc('create_user_invitation', {
         tenant_id_param: tenantId,
-        email_param: inviteEmail,
+        email_param: inviteEmail.trim(),
         role_id_param: inviteRoleId,
-        invited_by_param: 'current-user-id',
+        invited_by_param: user.id,
         expires_in_hours: 72
       });
 
