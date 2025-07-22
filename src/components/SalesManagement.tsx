@@ -90,6 +90,7 @@ export function SalesManagement() {
     if (!tenantId) return;
 
     try {
+      // Fetch sales with customers in one query
       const { data, error } = await supabase
         .from('sales')
         .select(`
@@ -107,26 +108,38 @@ export function SalesManagement() {
 
       if (error) throw error;
 
-      // Fetch cashier profiles separately to avoid foreign key issues
-      const salesWithProfiles = await Promise.all(
-        (data || []).map(async (sale) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('user_id', sale.cashier_id)
-            .single();
-          
-          return {
-            ...sale,
-            profiles: profile
-          };
-        })
-      );
+      // Get unique cashier IDs to fetch all profiles in one query
+      const cashierIds = [...new Set((data || []).map(sale => sale.cashier_id))];
+      
+      // Fetch all profiles in a single query
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', cashierIds);
+        
+      if (profilesError) throw profilesError;
+      
+      // Create a map of cashier_id to profile for easy lookup
+      const profilesMap: Record<string, any> = {};
+      profilesData?.forEach(profile => {
+        profilesMap[profile.user_id] = profile;
+      });
+      
+      // Add profile data to sales
+      const salesWithProfiles = (data || []).map(sale => ({
+        ...sale,
+        profiles: profilesMap[sale.cashier_id] || null
+      }));
 
-      setSales(salesWithProfiles as any[]);
-
-      // Fetch AR status for credit sales
-      await fetchCreditSalesStatus(salesWithProfiles?.filter(sale => sale.payment_method === 'credit') || []);
+      setSales(salesWithProfiles);
+      
+      // Get credit sales for AR status
+      const creditSales = salesWithProfiles.filter(sale => sale.payment_method === 'credit');
+      
+      // Fetch AR status for credit sales in parallel
+      if (creditSales.length > 0) {
+        fetchCreditSalesStatus(creditSales);
+      }
     } catch (error: any) {
       toast({
         title: "Error",
