@@ -34,7 +34,7 @@ const businessItems = [
   { title: "Products", url: "/admin/products", icon: Package },
   { title: "Sales", url: "/admin/sales", icon: TrendingUp },
   { title: "Purchases", url: "/admin/purchases", icon: ShoppingCart },
-  { title: "Customers", url: "/admin/customers", icon: Users },
+  { title: "Contacts", url: "/admin/customers", icon: Users },
   { title: "Accounting", url: "/admin/accounting", icon: Calculator },
   { title: "Reports", url: "/admin/reports", icon: BarChart3 },
   { title: "Team", url: "/admin/team", icon: Users },
