@@ -273,7 +273,20 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       return;
     }
 
-    if (remainingBalance > 0) {
+    // Check if this is a credit sale (has credit payment method)
+    const hasCreditPayment = payments.some(p => p.method === 'credit');
+    
+    // For credit sales, require a customer to be selected
+    if (hasCreditPayment && (!values.customer_id || values.customer_id === "walk-in")) {
+      toast({
+        title: "Customer Required",
+        description: "Please select a customer for credit sales",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (remainingBalance > 0 && !hasCreditPayment) {
       toast({
         title: "Payment Required",
         description: "Please complete payment before finalizing sale",
@@ -382,7 +395,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       try {
         await createSalesJournalEntry(tenantData, {
           saleId: sale.id,
-          customerId: values.customer_id === "walk-in" ? undefined : values.customer_id,
+          customerId: values.customer_id && values.customer_id !== "walk-in" ? values.customer_id : undefined,
           totalAmount: totalAmount,
           discountAmount: values.discount_amount,
           taxAmount: values.tax_amount,
@@ -828,7 +841,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                 <Button 
                   type="submit" 
                   className="flex-1" 
-                  disabled={saleItems.length === 0 || isSubmitting || (mode === "sale" && remainingBalance > 0)}
+                  disabled={saleItems.length === 0 || isSubmitting || (mode === "sale" && remainingBalance > 0 && !payments.some(p => p.method === 'credit'))}
                 >
                   {isSubmitting ? "Processing..." : mode === "sale" ? "Complete Sale" : "Save Quote"}
                 </Button>
