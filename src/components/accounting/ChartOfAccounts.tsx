@@ -56,6 +56,8 @@ export default function ChartOfAccounts() {
   const [loading, setLoading] = useState(false);
   const [isCreateAccountOpen, setIsCreateAccountOpen] = useState(false);
   const [isCreateTypeOpen, setIsCreateTypeOpen] = useState(false);
+  const [isEditAccountOpen, setIsEditAccountOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Form states
@@ -173,6 +175,66 @@ export default function ChartOfAccounts() {
     } catch (error) {
       console.error('Error creating account type:', error);
       toast({ title: "Error", description: "Failed to create account type", variant: "destructive" });
+    }
+  };
+
+  // Edit account
+  const editAccount = (account: Account) => {
+    setEditingAccount(account);
+    setNewAccount({
+      code: account.code,
+      name: account.name,
+      account_type_id: account.account_type_id
+    });
+    setIsEditAccountOpen(true);
+  };
+
+  // Update account
+  const updateAccount = async () => {
+    if (!editingAccount) return;
+
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .update({
+          code: newAccount.code,
+          name: newAccount.name,
+          account_type_id: newAccount.account_type_id
+        })
+        .eq('id', editingAccount.id);
+
+      if (error) throw error;
+
+      toast({ title: "Success", description: "Account updated successfully" });
+      setIsEditAccountOpen(false);
+      setEditingAccount(null);
+      resetAccountForm();
+      fetchAccounts();
+    } catch (error) {
+      console.error('Error updating account:', error);
+      toast({ title: "Error", description: "Failed to update account", variant: "destructive" });
+    }
+  };
+
+  // Delete account
+  const deleteAccount = async (accountId: string, accountName: string) => {
+    if (!confirm(`Are you sure you want to delete the account "${accountName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', accountId);
+
+      if (error) throw error;
+
+      toast({ title: "Success", description: "Account deleted successfully" });
+      fetchAccounts();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast({ title: "Error", description: "Failed to delete account", variant: "destructive" });
     }
   };
 
@@ -395,6 +457,62 @@ export default function ChartOfAccounts() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Account Dialog */}
+          <Dialog open={isEditAccountOpen} onOpenChange={setIsEditAccountOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Account</DialogTitle>
+                <DialogDescription>
+                  Modify the account details
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_code">Account Code</Label>
+                  <Input
+                    id="edit_code"
+                    value={newAccount.code}
+                    onChange={(e) => setNewAccount(prev => ({ ...prev, code: e.target.value }))}
+                    placeholder="e.g., 1000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_name">Account Name</Label>
+                  <Input
+                    id="edit_name"
+                    value={newAccount.name}
+                    onChange={(e) => setNewAccount(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., Cash"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_account_type">Account Type</Label>
+                  <Select
+                    value={newAccount.account_type_id}
+                    onValueChange={(value) => setNewAccount(prev => ({ ...prev, account_type_id: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accountTypes.map(type => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name} ({type.category})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsEditAccountOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={updateAccount}>Update</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -484,15 +602,31 @@ export default function ChartOfAccounts() {
                                 <Badge variant="outline">Inactive</Badge>
                               )}
                             </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => toggleAccountStatus(account.id, account.is_active)}
-                              >
-                                {account.is_active ? 'Deactivate' : 'Activate'}
-                              </Button>
-                            </TableCell>
+                             <TableCell>
+                               <div className="flex space-x-1">
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => editAccount(account)}
+                                 >
+                                   <Edit className="w-4 h-4" />
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => deleteAccount(account.id, account.name)}
+                                 >
+                                   <Trash2 className="w-4 h-4" />
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => toggleAccountStatus(account.id, account.is_active)}
+                                 >
+                                   {account.is_active ? 'Deactivate' : 'Activate'}
+                                 </Button>
+                               </div>
+                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -528,15 +662,31 @@ export default function ChartOfAccounts() {
                         <Badge variant="outline">Inactive</Badge>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleAccountStatus(account.id, account.is_active)}
-                      >
-                        {account.is_active ? 'Deactivate' : 'Activate'}
-                      </Button>
-                    </TableCell>
+                     <TableCell>
+                       <div className="flex space-x-1">
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => editAccount(account)}
+                         >
+                           <Edit className="w-4 h-4" />
+                         </Button>
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => deleteAccount(account.id, account.name)}
+                         >
+                           <Trash2 className="w-4 h-4" />
+                         </Button>
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => toggleAccountStatus(account.id, account.is_active)}
+                         >
+                           {account.is_active ? 'Deactivate' : 'Activate'}
+                         </Button>
+                       </div>
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
