@@ -1,7 +1,7 @@
-import { BusinessSettings } from '@/components/BusinessSettings';
+import { BusinessSettingsEnhanced } from '@/components/BusinessSettingsEnhanced';
 
 const Settings = () => {
-  return <BusinessSettings />;
+  return <BusinessSettingsEnhanced />;
 };
 
 export default Settings;

@@ -618,32 +618,138 @@ export function BusinessSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Business Settings</h2>
-        <Button onClick={() => onSubmit(form.getValues())} disabled={isSaving}>
-          <Save className="h-4 w-4 mr-2" />
-          {isSaving ? "Saving..." : "Save Changes"}
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Business Settings
+              </h1>
+              <p className="text-muted-foreground text-lg">
+                Configure your business preferences, templates, and system settings
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => form.reset()}
+                className="hover:bg-muted/80"
+              >
+                Reset Changes
+              </Button>
+              <Button 
+                onClick={() => onSubmit(form.getValues())} 
+                disabled={isSaving}
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Settings Navigation */}
+          <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-1 shadow-sm">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-13 h-auto bg-transparent gap-1 p-1">
+                <TabsTrigger 
+                  value="company" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <Building className="h-3 w-3 mr-1" />
+                  Company
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="locations" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <MapPin className="h-3 w-3 mr-1" />
+                  Locations
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="hours" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <Clock className="h-3 w-3 mr-1" />
+                  Hours
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="financial" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  Financial
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="payments" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <CreditCard className="h-3 w-3 mr-1" />
+                  Payments
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="receipts" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <Receipt className="h-3 w-3 mr-1" />
+                  Receipts
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="products" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <Package className="h-3 w-3 mr-1" />
+                  Products
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="pos" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <ShoppingCart className="h-3 w-3 mr-1" />
+                  Sales
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="purchase" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <Package className="h-3 w-3 mr-1" />
+                  Purchase
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="templates" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  Templates
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="email" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <Mail className="h-3 w-3 mr-1" />
+                  Email
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="whatsapp" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <MessageCircle className="h-3 w-3 mr-1" />
+                  WhatsApp
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="sms" 
+                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 hover:bg-muted/50 text-xs font-medium"
+                >
+                  <Smartphone className="h-3 w-3 mr-1" />
+                  SMS
+                </TabsTrigger>
+              </TabsList>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-13 h-auto">
-          <TabsTrigger value="company" className="text-xs">Company</TabsTrigger>
-          <TabsTrigger value="locations" className="text-xs">Locations</TabsTrigger>
-          <TabsTrigger value="hours" className="text-xs">Hours</TabsTrigger>
-          <TabsTrigger value="financial" className="text-xs">Financial</TabsTrigger>
-          <TabsTrigger value="payments" className="text-xs">Payments</TabsTrigger>
-          <TabsTrigger value="receipts" className="text-xs">Receipts</TabsTrigger>
-          <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
-          <TabsTrigger value="pos" className="text-xs">POS</TabsTrigger>
-          <TabsTrigger value="purchase" className="text-xs">Purchase</TabsTrigger>
-          <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
-          <TabsTrigger value="email" className="text-xs">Email</TabsTrigger>
-          <TabsTrigger value="whatsapp" className="text-xs">WhatsApp</TabsTrigger>
-          <TabsTrigger value="sms" className="text-xs">SMS</TabsTrigger>
-        </TabsList>
-
+      <div className="space-y-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             
@@ -2840,10 +2946,12 @@ export function BusinessSettings() {
                   {editingLocation ? "Update" : "Add"} Location
                 </Button>
               </div>
-            </form>
-          </Form>
+          </form>
+        </Form>
         </DialogContent>
       </Dialog>
+      </Tabs>
+      </div>
     </div>
   );
 }
