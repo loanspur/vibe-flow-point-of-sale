@@ -1027,7 +1027,14 @@ const PurchaseManagement = () => {
               <TableBody>
                 {purchaseItems.map((item, index) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.product_name}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{item.product_name}</div>
+                        {item.variant_name && (
+                          <div className="text-sm text-muted-foreground">{item.variant_name}</div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{item.quantity_ordered}</TableCell>
                     <TableCell>
                       <Input

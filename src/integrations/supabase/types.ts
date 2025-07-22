@@ -1495,6 +1495,7 @@ export type Database = {
           total_cost: number
           unit_cost: number
           updated_at: string
+          variant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1507,6 +1508,7 @@ export type Database = {
           total_cost: number
           unit_cost: number
           updated_at?: string
+          variant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1519,6 +1521,7 @@ export type Database = {
           total_cost?: number
           unit_cost?: number
           updated_at?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -1533,6 +1536,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
