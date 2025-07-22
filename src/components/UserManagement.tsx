@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, Edit, Trash2, Eye, Plus, Settings } from 'lucide-react';
+import { Users, UserPlus, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Mail, Clock, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface User {
   id: string;
@@ -33,6 +33,42 @@ interface UserRole {
   tenant_id: string;
   created_at: string;
   updated_at: string;
+}
+
+interface UserActivityLog {
+  id: string;
+  user_id: string;
+  action_type: string;
+  resource_type?: string;
+  resource_id?: string;
+  details?: any;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+  user_name?: string;
+}
+
+interface UserInvitation {
+  id: string;
+  email: string;
+  role_id: string;
+  status: string;
+  expires_at: string;
+  created_at: string;
+  invited_by: string;
+  role_name?: string;
+  invited_by_name?: string;
+}
+
+interface UserSession {
+  id: string;
+  user_id: string;
+  device_info?: any;
+  ip_address?: string;
+  last_activity: string;
+  is_active: boolean;
+  created_at: string;
+  user_name?: string;
 }
 
 interface Permission {
@@ -62,6 +98,9 @@ const UserManagement = () => {
   const { tenantId, userRole } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
+  const [activityLogs, setActivityLogs] = useState<UserActivityLog[]>([]);
+  const [invitations, setInvitations] = useState<UserInvitation[]>([]);
+  const [userSessions, setUserSessions] = useState<UserSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
@@ -71,11 +110,17 @@ const UserManagement = () => {
   const [rolePermissions, setRolePermissions] = useState<Permission[]>([]);
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
   const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
+  const [isInviteUserOpen, setIsInviteUserOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRoleId, setInviteRoleId] = useState('');
 
   useEffect(() => {
     if (tenantId) {
       fetchUsers();
       fetchRoles();
+      fetchActivityLogs();
+      fetchInvitations();
+      fetchUserSessions();
     }
   }, [tenantId]);
 
@@ -172,6 +217,105 @@ const UserManagement = () => {
     } catch (error) {
       console.error('Error creating role:', error);
       toast.error('Failed to create role');
+    }
+  };
+
+  const fetchActivityLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_activity_logs')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      
+      // Get user names separately to avoid relation issues
+      const userIds = [...new Set(data?.map(log => log.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+      
+      const logsWithUserNames = data?.map(log => ({
+        ...log,
+        user_name: profileMap.get(log.user_id) || 'Unknown User',
+        ip_address: log.ip_address as string || undefined,
+        user_agent: log.user_agent as string || undefined
+      })) || [];
+      
+      setActivityLogs(logsWithUserNames);
+    } catch (error) {
+      console.error('Error fetching activity logs:', error);
+    }
+  };
+
+  const fetchInvitations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Get role names and invited by names separately
+      const roleIds = [...new Set(data?.map(inv => inv.role_id).filter(Boolean) || [])];
+      const userIds = [...new Set(data?.map(inv => inv.invited_by) || [])];
+      
+      const [rolesData, profilesData] = await Promise.all([
+        supabase.from('user_roles').select('id, name').in('id', roleIds),
+        supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
+      ]);
+
+      const roleMap = new Map(rolesData.data?.map(r => [r.id, r.name]) || []);
+      const profileMap = new Map(profilesData.data?.map(p => [p.user_id, p.full_name]) || []);
+      
+      const invitationsWithNames = data?.map(invitation => ({
+        ...invitation,
+        role_name: roleMap.get(invitation.role_id) || 'Unknown Role',
+        invited_by_name: profileMap.get(invitation.invited_by) || 'Unknown User'
+      })) || [];
+      
+      setInvitations(invitationsWithNames);
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+    }
+  };
+
+  const fetchUserSessions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('last_activity', { ascending: false });
+
+      if (error) throw error;
+      
+      // Get user names separately
+      const userIds = [...new Set(data?.map(session => session.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+      
+      const sessionsWithUserNames = data?.map(session => ({
+        ...session,
+        user_name: profileMap.get(session.user_id) || 'Unknown User',
+        ip_address: session.ip_address as string || undefined
+      })) || [];
+      
+      setUserSessions(sessionsWithUserNames);
+    } catch (error) {
+      console.error('Error fetching user sessions:', error);
     }
   };
 
@@ -274,6 +418,88 @@ const UserManagement = () => {
     setIsEditRoleOpen(true);
   };
 
+  const sendUserInvitation = async () => {
+    if (!inviteEmail.trim() || !inviteRoleId) {
+      toast.error('Email and role are required');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('create_user_invitation', {
+        tenant_id_param: tenantId,
+        email_param: inviteEmail,
+        role_id_param: inviteRoleId,
+        invited_by_param: 'current-user-id', // You'd get this from auth context
+        expires_in_hours: 72
+      });
+
+      if (error) throw error;
+
+      toast.success('User invitation sent successfully');
+      setInviteEmail('');
+      setInviteRoleId('');
+      setIsInviteUserOpen(false);
+      fetchInvitations();
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      toast.error('Failed to send invitation');
+    }
+  };
+
+  const cancelInvitation = async (invitationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_invitations')
+        .update({ status: 'cancelled' })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      toast.success('Invitation cancelled');
+      fetchInvitations();
+    } catch (error) {
+      console.error('Error cancelling invitation:', error);
+      toast.error('Failed to cancel invitation');
+    }
+  };
+
+  const resendInvitation = async (invitationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_invitations')
+        .update({ 
+          expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+          status: 'pending'
+        })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      toast.success('Invitation resent');
+      fetchInvitations();
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      toast.error('Failed to resend invitation');
+    }
+  };
+
+  const deactivateUserSession = async (sessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_sessions')
+        .update({ is_active: false })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      toast.success('User session deactivated');
+      fetchUserSessions();
+    } catch (error) {
+      console.error('Error deactivating session:', error);
+      toast.error('Failed to deactivate session');
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
@@ -293,7 +519,13 @@ const UserManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground">Manage users, roles, and permissions</p>
+          <p className="text-muted-foreground">Manage users, roles, permissions, and security</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setIsInviteUserOpen(true)}>
+            <Mail className="h-4 w-4 mr-2" />
+            Invite User
+          </Button>
         </div>
       </div>
 
@@ -306,6 +538,18 @@ const UserManagement = () => {
           <TabsTrigger value="roles" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Roles & Permissions
+          </TabsTrigger>
+          <TabsTrigger value="invitations" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Invitations
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Activity Logs
+          </TabsTrigger>
+          <TabsTrigger value="sessions" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Active Sessions
           </TabsTrigger>
         </TabsList>
 
@@ -619,7 +863,224 @@ const UserManagement = () => {
             </DialogContent>
           </Dialog>
         </TabsContent>
+
+        {/* Invitations Tab */}
+        <TabsContent value="invitations" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  User Invitations
+                </div>
+              </CardTitle>
+              <CardDescription>Manage pending user invitations</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Invited By</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invitations.map((invitation) => (
+                    <TableRow key={invitation.id}>
+                      <TableCell className="font-medium">{invitation.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{invitation.role_name}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          invitation.status === 'pending' ? 'default' :
+                          invitation.status === 'accepted' ? 'secondary' : 'destructive'
+                        }>
+                          {invitation.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{invitation.invited_by_name}</TableCell>
+                      <TableCell>
+                        {new Date(invitation.expires_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {invitation.status === 'pending' && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => resendInvitation(invitation.id)}
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => cancelInvitation(invitation.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Activity Logs Tab */}
+        <TabsContent value="activity" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                User Activity Logs
+              </CardTitle>
+              <CardDescription>Track user actions and system events</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Resource</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activityLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="font-medium">{log.user_name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{log.action_type}</Badge>
+                      </TableCell>
+                      <TableCell>{log.resource_type || 'N/A'}</TableCell>
+                      <TableCell>
+                        {log.details ? (
+                          <span className="text-sm text-muted-foreground">
+                            {JSON.stringify(log.details).slice(0, 50)}...
+                          </span>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(log.created_at).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* User Sessions Tab */}
+        <TabsContent value="sessions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Active User Sessions
+              </CardTitle>
+              <CardDescription>Monitor and manage active user sessions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Device</TableHead>
+                    <TableHead>IP Address</TableHead>
+                    <TableHead>Last Activity</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {userSessions.map((session) => (
+                    <TableRow key={session.id}>
+                      <TableCell className="font-medium">{session.user_name}</TableCell>
+                      <TableCell>
+                        {session.device_info?.browser || 'Unknown'} on {session.device_info?.os || 'Unknown'}
+                      </TableCell>
+                      <TableCell>{session.ip_address || 'N/A'}</TableCell>
+                      <TableCell>
+                        {new Date(session.last_activity).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deactivateUserSession(session.id)}
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Invite User Dialog */}
+      <Dialog open={isInviteUserOpen} onOpenChange={setIsInviteUserOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite New User</DialogTitle>
+            <DialogDescription>
+              Send an invitation to join your organization
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="inviteEmail">Email Address</Label>
+              <Input
+                id="inviteEmail"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="inviteRole">Role</Label>
+              <Select value={inviteRoleId} onValueChange={setInviteRoleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsInviteUserOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={sendUserInvitation}>
+                <Mail className="h-4 w-4 mr-2" />
+                Send Invitation
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
