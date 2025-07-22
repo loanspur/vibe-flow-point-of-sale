@@ -9,10 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Search, RotateCcw, Receipt, CheckCircle, XCircle, Clock, ShoppingCart, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
+import { updateProductInventory } from "@/lib/inventory-integration";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ReturnReasonCode {
   id: string;
@@ -50,15 +54,15 @@ interface PurchaseItem {
 interface PurchaseReturn {
   id: string;
   return_number: string;
-  original_purchase_id?: string;
-  supplier_id?: string;
-  return_type: 'refund' | 'replacement' | 'credit_note';
+  original_sale_id?: string;
+  customer_id?: string;
+  return_type: 'refund' | 'replacement' | 'credit_note' | 'purchase';
   status: 'pending' | 'approved' | 'completed' | 'cancelled';
   reason_code_id?: string;
   custom_reason?: string;
   total_amount: number;
   refund_amount: number;
-  credit_amount: number;
+  store_credit_amount: number;
   refund_method?: string;
   notes?: string;
   created_at: string;
@@ -93,8 +97,10 @@ interface ReturnFormData {
 }
 
 export default function PurchaseReturns() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const { tenantId } = useAuth();
+  const [activeTab, setActiveTab] = useState('historical-purchases');
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [reasonCodes, setReasonCodes] = useState<ReturnReasonCode[]>([]);
   const [selectedReturn, setSelectedReturn] = useState<PurchaseReturn | null>(null);
   const [newReturnDialogOpen, setNewReturnDialogOpen] = useState(false);
@@ -104,7 +110,7 @@ export default function PurchaseReturns() {
     return_type: 'refund',
     refund_method: 'bank_transfer'
   });
-  const [selectedItems, setSelectedItems] = useState<{[key: string]: { quantity: number; condition: string }}>({});
+  const [selectedItems, setSelectedItems] = useState<{[key: string]: { quantity: number; condition: string; restock: boolean }}>({});
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -113,6 +119,7 @@ export default function PurchaseReturns() {
   useEffect(() => {
     fetchReturns();
     fetchReasonCodes();
+    fetchHistoricalPurchases();
   }, []);
 
   const fetchReturns = async () => {
@@ -163,6 +170,36 @@ export default function PurchaseReturns() {
     }
   };
 
+  const fetchHistoricalPurchases = async () => {
+    if (!tenantId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('purchases')
+        .select(`
+          *,
+          contacts!purchases_supplier_id_fkey(name, email),
+          purchase_items(
+            *,
+            products(name, sku)
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setPurchases(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch historical purchases",
+        variant: "destructive"
+      });
+    }
+  };
+
   const searchPurchase = async () => {
     if (!purchaseSearch.trim()) return;
 
@@ -196,9 +233,9 @@ export default function PurchaseReturns() {
       
       setSelectedPurchase(data);
       // Initialize selected items
-      const initialSelection: {[key: string]: { quantity: number; condition: string }} = {};
+      const initialSelection: {[key: string]: { quantity: number; condition: string; restock: boolean }} = {};
       data.purchase_items.forEach((item: any) => {
-        initialSelection[item.id] = { quantity: 0, condition: 'new' };
+        initialSelection[item.id] = { quantity: 0, condition: 'new', restock: true };
       });
       setSelectedItems(initialSelection);
 
@@ -249,6 +286,138 @@ export default function PurchaseReturns() {
       style: 'currency',
       currency: 'USD'
     }).format(amount);
+  };
+
+  const calculateReturnTotal = () => {
+    if (!selectedPurchase) return 0;
+    
+    return selectedPurchase.purchase_items.reduce((total, item) => {
+      const selectedQuantity = selectedItems[item.id]?.quantity || 0;
+      return total + (selectedQuantity * item.unit_cost);
+    }, 0);
+  };
+
+  const generateReturnNumber = () => {
+    return `RET-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+  };
+
+  const processReturn = async () => {
+    if (!selectedPurchase || !tenantId) return;
+
+    const returnTotal = calculateReturnTotal();
+    if (returnTotal === 0) {
+      toast({
+        title: "Error",
+        description: "Please select items to return",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const returnNumber = generateReturnNumber();
+
+      // Create purchase return record (using returns table adapted for purchases)
+      const { data: returnRecord, error: returnError } = await supabase
+        .from('returns')
+        .insert({
+          return_number: returnNumber,
+          customer_id: selectedPurchase.supplier_id,
+          return_type: 'purchase',
+          status: 'completed',
+          reason_code_id: returnFormData.reason_code_id,
+          custom_reason: returnFormData.custom_reason,
+          total_amount: returnTotal,
+          refund_amount: returnFormData.return_type === 'refund' ? returnTotal : 0,
+          store_credit_amount: returnFormData.return_type === 'credit_note' ? returnTotal : 0,
+          refund_method: returnFormData.refund_method,
+          notes: `Purchase return for ${selectedPurchase.purchase_number}. ${returnFormData.notes || ''}`,
+          tenant_id: tenantId,
+          processed_by: user.id,
+          completed_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (returnError) throw returnError;
+
+      // Create return items and update inventory
+      const returnItems = [];
+      const inventoryTransactions = [];
+
+      for (const item of selectedPurchase.purchase_items) {
+        const selectedItem = selectedItems[item.id];
+        if (selectedItem && selectedItem.quantity > 0) {
+          // Create return item
+          const returnItem = {
+            return_id: returnRecord.id,
+            product_id: item.product_id,
+            quantity_returned: selectedItem.quantity,
+            unit_price: item.unit_cost,
+            total_price: selectedItem.quantity * item.unit_cost,
+            condition_notes: selectedItem.condition,
+            restock: selectedItem.restock,
+          };
+          returnItems.push(returnItem);
+
+          // Add to inventory if restocking
+          if (selectedItem.restock) {
+            inventoryTransactions.push({
+              productId: item.product_id,
+              quantity: selectedItem.quantity,
+              type: 'return' as const,
+              referenceId: returnRecord.id,
+              referenceType: 'purchase_return',
+              unitCost: item.unit_cost,
+              notes: `Purchase return: ${returnNumber}`,
+            });
+          }
+        }
+      }
+
+      if (returnItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('return_items')
+          .insert(returnItems);
+
+        if (itemsError) throw itemsError;
+
+        // Update inventory for restocked items
+        if (inventoryTransactions.length > 0) {
+          await updateProductInventory(tenantId, inventoryTransactions);
+        }
+      }
+
+      toast({
+        title: "Return Processed",
+        description: `Purchase return ${returnNumber} has been successfully processed. Refund amount: ${formatCurrency(returnTotal)}`,
+      });
+
+      // Reset form and refresh data
+      setNewReturnDialogOpen(false);
+      setSelectedPurchase(null);
+      setSelectedItems({});
+      setReturnFormData({
+        return_type: 'refund',
+        refund_method: 'bank_transfer'
+      });
+      fetchReturns();
+      fetchHistoricalPurchases();
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process return",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredReturns = returns.filter(returnItem => {
@@ -323,6 +492,7 @@ export default function PurchaseReturns() {
                           <TableHead>Received Qty</TableHead>
                           <TableHead>Return Qty</TableHead>
                           <TableHead>Unit Cost</TableHead>
+                          <TableHead>Restock</TableHead>
                           <TableHead>Condition</TableHead>
                           <TableHead>Return Total</TableHead>
                         </TableRow>
@@ -358,6 +528,18 @@ export default function PurchaseReturns() {
                             </TableCell>
                             <TableCell>{formatCurrency(item.unit_cost)}</TableCell>
                             <TableCell>
+                              <Checkbox
+                                checked={selectedItems[item.id]?.restock || false}
+                                onCheckedChange={(checked) => setSelectedItems(prev => ({
+                                  ...prev,
+                                  [item.id]: {
+                                    ...prev[item.id],
+                                    restock: !!checked
+                                  }
+                                }))}
+                              />
+                            </TableCell>
+                            <TableCell>
                               <Select
                                 value={selectedItems[item.id]?.condition || 'new'}
                                 onValueChange={(value) => setSelectedItems(prev => ({
@@ -386,6 +568,18 @@ export default function PurchaseReturns() {
                         ))}
                       </TableBody>
                     </Table>
+
+                    {/* Return Summary */}
+                    <Card className="mt-4">
+                      <CardContent className="pt-6">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-medium">Total Return Amount:</span>
+                          <span className="text-2xl font-bold text-green-600">
+                            {formatCurrency(calculateReturnTotal())}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
 
                   {/* Return Details */}
@@ -462,8 +656,8 @@ export default function PurchaseReturns() {
                     <Button variant="outline" onClick={() => setNewReturnDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button disabled={loading}>
-                      {loading ? "Processing..." : "Create Return"}
+                    <Button onClick={processReturn} disabled={loading || calculateReturnTotal() === 0}>
+                      {loading ? "Processing..." : `Process Return - ${formatCurrency(calculateReturnTotal())}`}
                     </Button>
                   </div>
                 </>
@@ -475,10 +669,69 @@ export default function PurchaseReturns() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="historical-purchases">Historical Purchases</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="returns">Returns</TabsTrigger>
           <TabsTrigger value="reason-codes">Reason Codes</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="historical-purchases" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Purchase to Return</CardTitle>
+              <CardDescription>Choose a completed purchase to process returns</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {purchases.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No completed purchases found</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Purchase #</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Total Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {purchases.map((purchase) => (
+                      <TableRow key={purchase.id}>
+                        <TableCell className="font-medium">{purchase.purchase_number}</TableCell>
+                        <TableCell>{purchase.contacts?.name || 'Unknown Supplier'}</TableCell>
+                        <TableCell>{format(new Date(purchase.created_at), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell>{formatCurrency(purchase.total_amount)}</TableCell>
+                        <TableCell>
+                          <Badge variant="default">Completed</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPurchase(purchase);
+                              const initialSelection: {[key: string]: { quantity: number; condition: string; restock: boolean }} = {};
+                              purchase.purchase_items.forEach((item: any) => {
+                                initialSelection[item.id] = { quantity: 0, condition: 'new', restock: true };
+                              });
+                              setSelectedItems(initialSelection);
+                              setNewReturnDialogOpen(true);
+                            }}
+                          >
+                            Process Return
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           {/* Stats Cards */}
@@ -524,7 +777,7 @@ export default function PurchaseReturns() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(returns.reduce((sum, r) => sum + r.credit_amount, 0))}
+                  {formatCurrency(returns.reduce((sum, r) => sum + (r.store_credit_amount || 0), 0))}
                 </div>
               </CardContent>
             </Card>
