@@ -44,7 +44,8 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
   ];
 
   const addPayment = () => {
-    if (newPayment.amount <= 0) {
+    // For non-credit payments, validate amount is greater than 0
+    if (newPayment.method !== "credit" && newPayment.amount <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Payment amount must be greater than 0",
