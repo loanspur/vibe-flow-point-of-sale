@@ -17,13 +17,6 @@ import { createReturnJournalEntry } from '@/lib/accounting-integration';
 import { Search, RotateCcw, Receipt, CheckCircle, XCircle, Clock, ShoppingCart, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
 
-interface ReturnReasonCode {
-  id: string;
-  code: string;
-  description: string;
-  requires_approval: boolean;
-}
-
 interface Sale {
   id: string;
   receipt_number: string;
@@ -57,7 +50,6 @@ interface Return {
   customer_id?: string;
   return_type: 'refund' | 'exchange' | 'store_credit';
   status: 'pending' | 'approved' | 'completed' | 'cancelled';
-  reason_code_id?: string;
   custom_reason?: string;
   total_amount: number;
   refund_amount: number;
@@ -66,7 +58,7 @@ interface Return {
   refund_method?: string;
   notes?: string;
   created_at: string;
-  return_reason_codes?: ReturnReasonCode;
+  return_reason_codes?: any;
   customers?: {
     name: string;
     email?: string;
@@ -105,7 +97,6 @@ interface ExchangeItem {
 
 interface ReturnFormData {
   return_type: 'refund' | 'exchange' | 'store_credit';
-  reason_code_id?: string;
   custom_reason?: string;
   refund_method?: string;
   notes?: string;
@@ -114,9 +105,10 @@ interface ReturnFormData {
 export default function SalesReturns() {
   const [activeTab, setActiveTab] = useState('overview');
   const [returns, setReturns] = useState<Return[]>([]);
-  const [reasonCodes, setReasonCodes] = useState<ReturnReasonCode[]>([]);
   const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
   const [newReturnDialogOpen, setNewReturnDialogOpen] = useState(false);
+  const [editReturnDialogOpen, setEditReturnDialogOpen] = useState<string | null>(null);
+  const [editingReturn, setEditingReturn] = useState<Return | null>(null);
   const [receiptSearch, setReceiptSearch] = useState('');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [returnFormData, setReturnFormData] = useState<ReturnFormData>({
@@ -132,7 +124,6 @@ export default function SalesReturns() {
 
   useEffect(() => {
     fetchReturns();
-    fetchReasonCodes();
   }, []);
 
   const fetchReturns = async () => {
@@ -141,7 +132,6 @@ export default function SalesReturns() {
         .from('returns')
         .select(`
           *,
-          return_reason_codes(id, code, description, requires_approval),
           customers(name, email),
           return_items(
             *,
@@ -165,24 +155,6 @@ export default function SalesReturns() {
     }
   };
 
-  const fetchReasonCodes = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('return_reason_codes')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order');
-
-      if (error) throw error;
-      setReasonCodes(data || []);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch reason codes",
-        variant: "destructive"
-      });
-    }
-  };
 
   const searchSale = async () => {
     if (!receiptSearch.trim()) return;
@@ -316,7 +288,6 @@ export default function SalesReturns() {
           customer_id: selectedSale.customer_id,
           processed_by: user?.id,
           return_type: returnFormData.return_type,
-          reason_code_id: returnFormData.reason_code_id,
           custom_reason: returnFormData.custom_reason,
           subtotal_amount: subtotalAmount,
           tax_amount: taxAmount,
@@ -469,6 +440,224 @@ export default function SalesReturns() {
       toast({
         title: "Error",
         description: "Failed to complete return",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const deleteReturn = async (returnId: string) => {
+    try {
+      const returnToDelete = returns.find(r => r.id === returnId);
+      if (!returnToDelete) throw new Error('Return not found');
+
+      // Get tenant ID and user
+      const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
+      const { data: { user } } = await supabase.auth.getUser();
+      const tenantId = profile?.tenant_id;
+
+      // If return was completed, reverse inventory adjustments
+      if (returnToDelete.status === 'completed') {
+        for (const item of returnToDelete.return_items) {
+          if (item.restock) {
+            // Reverse the stock adjustment by decreasing stock
+            const currentProduct = await supabase
+              .from('products')
+              .select('stock_quantity')
+              .eq('id', item.product_id)
+              .single();
+            
+            if (currentProduct.data) {
+              await supabase
+                .from('products')
+                .update({ 
+                  stock_quantity: Math.max(0, currentProduct.data.stock_quantity - item.quantity_returned)
+                })
+                .eq('id', item.product_id);
+            }
+
+            if (item.variant_id) {
+              const currentVariant = await supabase
+                .from('product_variants')
+                .select('stock_quantity')
+                .eq('id', item.variant_id)
+                .single();
+              
+              if (currentVariant.data) {
+                await supabase
+                  .from('product_variants')
+                  .update({ 
+                    stock_quantity: Math.max(0, currentVariant.data.stock_quantity - item.quantity_returned)
+                  })
+                  .eq('id', item.variant_id);
+              }
+            }
+          }
+        }
+
+        // Create reversal accounting entry
+        try {
+          const restockAmount = returnToDelete.return_items
+            .filter(item => item.restock)
+            .reduce((sum, item) => sum + item.total_price, 0);
+
+          await createReturnJournalEntry(tenantId, {
+            returnId: returnId,
+            originalSaleId: returnToDelete.original_sale_id,
+            refundAmount: -returnToDelete.refund_amount, // Negative to reverse
+            restockAmount: -restockAmount, // Negative to reverse
+            processedBy: user?.id || ''
+          });
+        } catch (accountingError) {
+          console.error('Reversal accounting entry error:', accountingError);
+        }
+      }
+
+      // Delete exchange items first
+      await supabase
+        .from('exchange_items')
+        .delete()
+        .eq('return_id', returnId);
+
+      // Delete return items
+      await supabase
+        .from('return_items')
+        .delete()
+        .eq('return_id', returnId);
+
+      // Delete the return
+      const { error } = await supabase
+        .from('returns')
+        .delete()
+        .eq('id', returnId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Return deleted successfully",
+      });
+
+      fetchReturns();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete return",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const editReturn = async (returnId: string) => {
+    const returnToEdit = returns.find(r => r.id === returnId);
+    if (!returnToEdit) return;
+
+    setEditingReturn(returnToEdit);
+    setEditReturnDialogOpen(returnId);
+  };
+
+  const updateReturn = async () => {
+    if (!editingReturn) return;
+
+    try {
+      // Calculate new totals
+      const newTotal = editingReturn.return_items.reduce((sum, item) => 
+        sum + (item.quantity_returned * item.unit_price), 0
+      );
+
+      let refundAmount = 0;
+      let storeCreditAmount = 0;
+
+      if (editingReturn.return_type === 'refund') {
+        refundAmount = newTotal;
+      } else if (editingReturn.return_type === 'store_credit') {
+        storeCreditAmount = newTotal;
+      }
+
+      // Update return
+      const { error: returnError } = await supabase
+        .from('returns')
+        .update({
+          total_amount: newTotal,
+          refund_amount: refundAmount,
+          store_credit_amount: storeCreditAmount,
+          notes: editingReturn.notes
+        })
+        .eq('id', editingReturn.id);
+
+      if (returnError) throw returnError;
+
+      // Update return items
+      for (const item of editingReturn.return_items) {
+        const { error: itemError } = await supabase
+          .from('return_items')
+          .update({
+            quantity_returned: item.quantity_returned,
+            total_price: item.quantity_returned * item.unit_price,
+            restock: item.restock,
+            condition_notes: item.condition_notes
+          })
+          .eq('id', item.id);
+
+        if (itemError) throw itemError;
+      }
+
+      // If return was completed, update inventory based on new restock settings
+      if (editingReturn.status === 'completed') {
+        for (const item of editingReturn.return_items) {
+          // Get original item to compare restock status
+          const originalReturn = returns.find(r => r.id === editingReturn.id);
+          const originalItem = originalReturn?.return_items.find(ri => ri.id === item.id);
+          
+          if (originalItem && originalItem.restock !== item.restock) {
+            const adjustment = item.restock ? item.quantity_returned : -item.quantity_returned;
+            
+            const currentProduct = await supabase
+              .from('products')
+              .select('stock_quantity')
+              .eq('id', item.product_id)
+              .single();
+            
+            if (currentProduct.data) {
+              await supabase
+                .from('products')
+                .update({ 
+                  stock_quantity: Math.max(0, currentProduct.data.stock_quantity + adjustment)
+                })
+                .eq('id', item.product_id);
+            }
+
+            if (item.variant_id) {
+              const currentVariant = await supabase
+                .from('product_variants')
+                .select('stock_quantity')
+                .eq('id', item.variant_id)
+                .single();
+              
+              if (currentVariant.data) {
+                await supabase
+                  .from('product_variants')
+                  .update({ 
+                    stock_quantity: Math.max(0, currentVariant.data.stock_quantity + adjustment)
+                  })
+                  .eq('id', item.variant_id);
+              }
+            }
+          }
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Return updated successfully",
+      });
+
+      setEditReturnDialogOpen(null);
+      setEditingReturn(null);
+      fetchReturns();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update return",
         variant: "destructive"
       });
     }
@@ -668,24 +857,6 @@ export default function SalesReturns() {
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>Reason Code</Label>
-                      <Select
-                        value={returnFormData.reason_code_id}
-                        onValueChange={(value) => setReturnFormData(prev => ({ ...prev, reason_code_id: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {reasonCodes.map((code) => (
-                            <SelectItem key={code.id} value={code.id}>
-                              {code.description}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
 
                     {returnFormData.return_type === 'refund' && (
                       <div className="space-y-2">
@@ -736,7 +907,6 @@ export default function SalesReturns() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="returns">Returns</TabsTrigger>
-          <TabsTrigger value="reason-codes">Reason Codes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -905,9 +1075,24 @@ export default function SalesReturns() {
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => editReturn(returnItem.id)}
+                            disabled={returnItem.status === 'completed'}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => setSelectedReturn(returnItem)}
                           >
                             View
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteReturn(returnItem.id)}
+                          >
+                            Delete
                           </Button>
                         </div>
                       </TableCell>
@@ -919,44 +1104,6 @@ export default function SalesReturns() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="reason-codes" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Return Reason Codes</CardTitle>
-              <CardDescription>Manage standardized return reasons</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Requires Approval</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reasonCodes.map((code) => (
-                    <TableRow key={code.id}>
-                      <TableCell className="font-medium">{code.code}</TableCell>
-                      <TableCell>{code.description}</TableCell>
-                      <TableCell>
-                        {code.requires_approval ? (
-                          <Badge variant="secondary">Required</Badge>
-                        ) : (
-                          <Badge variant="outline">Optional</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="default">Active</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Return Details Dialog */}
@@ -1128,6 +1275,141 @@ export default function SalesReturns() {
                   </CardContent>
                 </Card>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Return Dialog */}
+      {editReturnDialogOpen && editingReturn && (
+        <Dialog open={!!editReturnDialogOpen} onOpenChange={() => setEditReturnDialogOpen(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Return - {editingReturn.return_number}</DialogTitle>
+              <DialogDescription>
+                Modify return quantities and restock settings
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Return Items */}
+              <div className="space-y-4">
+                <Label>Return Items</Label>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Return Qty</TableHead>
+                      <TableHead>Unit Price</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Condition</TableHead>
+                      <TableHead>Restock</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editingReturn.return_items.map((item, index) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{item.product.name}</div>
+                            {item.product.sku && (
+                              <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantity_returned}
+                            onChange={(e) => {
+                              const newItems = [...editingReturn.return_items];
+                              newItems[index] = {
+                                ...newItems[index],
+                                quantity_returned: parseInt(e.target.value) || 1
+                              };
+                              setEditingReturn({
+                                ...editingReturn,
+                                return_items: newItems
+                              });
+                            }}
+                            className="w-20"
+                          />
+                        </TableCell>
+                        <TableCell>{formatCurrency(item.unit_price)}</TableCell>
+                        <TableCell>{formatCurrency(item.quantity_returned * item.unit_price)}</TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.condition_notes || ''}
+                            onChange={(e) => {
+                              const newItems = [...editingReturn.return_items];
+                              newItems[index] = {
+                                ...newItems[index],
+                                condition_notes: e.target.value
+                              };
+                              setEditingReturn({
+                                ...editingReturn,
+                                return_items: newItems
+                              });
+                            }}
+                            className="w-32"
+                            placeholder="Condition..."
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={item.restock}
+                            onCheckedChange={(checked) => {
+                              const newItems = [...editingReturn.return_items];
+                              newItems[index] = {
+                                ...newItems[index],
+                                restock: checked as boolean
+                              };
+                              setEditingReturn({
+                                ...editingReturn,
+                                return_items: newItems
+                              });
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea
+                  value={editingReturn.notes || ''}
+                  onChange={(e) => setEditingReturn({
+                    ...editingReturn,
+                    notes: e.target.value
+                  })}
+                  placeholder="Additional notes..."
+                />
+              </div>
+
+              {/* Total */}
+              <div className="text-right">
+                <div className="text-lg font-semibold">
+                  New Total: {formatCurrency(
+                    editingReturn.return_items.reduce((sum, item) => 
+                      sum + (item.quantity_returned * item.unit_price), 0
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditReturnDialogOpen(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={updateReturn}>
+                  Update Return
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
