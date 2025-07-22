@@ -279,18 +279,7 @@ export default function SalesReturns() {
           total_price: saleItem!.unit_price * data.quantity,
           condition_notes: data.condition,
           restock: data.condition === 'new' || data.condition === 'opened'
-  };
-
-  const createReturnFromSale = (sale: Sale) => {
-    setSelectedSale(sale);
-    // Initialize selected items
-    const initialSelection: {[key: string]: { quantity: number; condition: string }} = {};
-    sale.sale_items.forEach((item: SaleItem) => {
-      initialSelection[item.id] = { quantity: 0, condition: 'new' };
-    });
-    setSelectedItems(initialSelection);
-    setNewReturnDialogOpen(true);
-  };
+        };
       });
 
     if (returnItems.length === 0) {
@@ -326,8 +315,13 @@ export default function SalesReturns() {
     setLoading(true);
     try {
       // Get tenant ID
-      const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
-      const tenantId = profile?.tenant_id;
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('tenant_id').single();
+      
+      if (profileError || !profile?.tenant_id) {
+        throw new Error('Failed to retrieve tenant ID. Please try again or contact support.');
+      }
+      
+      const tenantId = profile.tenant_id;
 
       // Generate return number
       const { data: returnNumberData, error: returnNumberError } = await supabase
@@ -410,9 +404,10 @@ export default function SalesReturns() {
       fetchReturns();
 
     } catch (error) {
+      console.error('Return creation error:', error);
       toast({
         title: "Error",
-        description: "Failed to create return",
+        description: error instanceof Error ? error.message : "Failed to create return. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -442,9 +437,10 @@ export default function SalesReturns() {
 
       fetchReturns();
     } catch (error) {
+      console.error('Return approval error:', error);
       toast({
         title: "Error",
-        description: "Failed to approve return",
+        description: error instanceof Error ? error.message : "Failed to approve return. Please try again.",
         variant: "destructive"
       });
     }
@@ -457,9 +453,14 @@ export default function SalesReturns() {
       if (!returnToComplete) throw new Error('Return not found');
 
       // Get tenant ID and user
-      const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('tenant_id').single();
       const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = profile?.tenant_id;
+      
+      if (profileError || !profile?.tenant_id) {
+        throw new Error('Failed to retrieve tenant ID. Please try again or contact support.');
+      }
+      
+      const tenantId = profile.tenant_id;
 
       // Process the return (updates inventory and status)
       const { data, error } = await supabase
@@ -497,9 +498,10 @@ export default function SalesReturns() {
 
       fetchReturns();
     } catch (error) {
+      console.error('Return completion error:', error);
       toast({
         title: "Error",
-        description: "Failed to complete return",
+        description: error instanceof Error ? error.message : "Failed to complete return. Please try again.",
         variant: "destructive"
       });
     }
@@ -511,9 +513,14 @@ export default function SalesReturns() {
       if (!returnToDelete) throw new Error('Return not found');
 
       // Get tenant ID and user
-      const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('tenant_id').single();
       const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = profile?.tenant_id;
+      
+      if (profileError || !profile?.tenant_id) {
+        throw new Error('Failed to retrieve tenant ID. Please try again or contact support.');
+      }
+      
+      const tenantId = profile.tenant_id;
 
       // If return was completed, reverse inventory adjustments
       if (returnToDelete.status === 'completed') {
@@ -599,9 +606,10 @@ export default function SalesReturns() {
 
       fetchReturns();
     } catch (error) {
+      console.error('Return deletion error:', error);
       toast({
         title: "Error",
-        description: "Failed to delete return",
+        description: error instanceof Error ? error.message : "Failed to delete return. Please try again.",
         variant: "destructive"
       });
     }
