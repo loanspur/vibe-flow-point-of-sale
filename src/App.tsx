@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AppProvider } from "@/contexts/AppContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { TenantAdminLayout } from "./components/TenantAdminLayout";
 import PerformanceMonitor from "./components/PerformanceMonitor";
@@ -119,7 +120,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 2,
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1,
       refetchOnWindowFocus: false,
     },
   },
@@ -128,6 +130,7 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <AppProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -279,6 +282,7 @@ const App = () => (
           </Suspense>
         </BrowserRouter>
       </TooltipProvider>
+    </AppProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

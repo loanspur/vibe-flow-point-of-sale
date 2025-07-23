@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { initializeDefaultChartOfAccounts } from "@/lib/default-accounts";
-import { useCurrencySettings } from "@/lib/currency";
+import { useApp } from "@/contexts/AppContext";
+import { useOptimizedQuery } from "@/hooks/useOptimizedQuery";
 import { verifyAccountingIntegration, syncExistingTransactions } from "@/lib/accounting-verification";
 import { Button } from "@/components/ui/button";
 import { 
@@ -18,8 +19,8 @@ import dashboardImage from "@/assets/dashboard-preview.jpg";
 
 const Dashboard = () => {
   const { tenantId } = useAuth();
-  const { formatAmount } = useCurrencySettings();
-  const [metrics, setMetrics] = useState([
+  const { formatCurrency } = useApp();
+  const [initialMetrics] = useState([
     {
       title: "Today's Sales",
       value: "0",
@@ -50,90 +51,114 @@ const Dashboard = () => {
     }
   ]);
 
+  // Initialize accounting system only once
   useEffect(() => {
     if (tenantId) {
-      fetchDashboardMetrics();
-      initializeAccountingSystem();
+      initializeDefaultChartOfAccounts(tenantId).catch(error => {
+        console.error('Error initializing accounting system:', error);
+      });
     }
   }, [tenantId]);
 
-  const initializeAccountingSystem = async () => {
-    try {
-      await initializeDefaultChartOfAccounts(tenantId);
-    } catch (error) {
-      console.error('Error initializing accounting system:', error);
-    }
-  };
 
-  const fetchDashboardMetrics = async () => {
-    try {
+  // Optimized data fetching with caching
+  const { data: dashboardData, loading } = useOptimizedQuery(
+    async () => {
+      if (!tenantId) return { data: null, error: null };
+      
       const today = new Date().toISOString().split('T')[0];
       
-      // Fetch today's sales
-      const { data: todaySales } = await supabase
-        .from('sales')
-        .select('total_amount, created_at')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', today);
-
-      // Fetch all sales for comparison
-      const { data: allSales } = await supabase
-        .from('sales')
-        .select('total_amount, created_at')
-        .eq('tenant_id', tenantId);
-
-      // Fetch customers count
-      const { data: customers } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('tenant_id', tenantId);
-
-      // Fetch products sold today
-      const { data: saleItems } = await supabase
-        .from('sale_items')
-        .select('quantity, sales!inner(created_at, tenant_id)')
-        .eq('sales.tenant_id', tenantId)
-        .gte('sales.created_at', today);
-
-      const todayRevenue = todaySales?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
-      const todayTransactions = todaySales?.length || 0;
-      const totalProductsSold = saleItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-      const totalCustomers = customers?.length || 0;
-
-      setMetrics([
-        {
-          title: "Today's Sales",
-          value: formatAmount(todayRevenue),
-          change: "0%", // Calculate based on yesterday's data if needed
-          icon: DollarSign,
-          trend: "up"
-        },
-        {
-          title: "Transactions",
-          value: todayTransactions.toString(),
-          change: "0%",
-          icon: Activity,
-          trend: "up"
-        },
-        {
-          title: "Products Sold",
-          value: totalProductsSold.toString(),
-          change: "0%",
-          icon: ShoppingBag,
-          trend: "up"
-        },
-        {
-          title: "Customers",
-          value: totalCustomers.toString(),
-          change: "0%",
-          icon: Users,
-          trend: "up"
-        }
+      // Fetch all data in parallel for better performance
+      const [todaySalesResponse, customersResponse, saleItemsResponse] = await Promise.all([
+        supabase
+          .from('sales')
+          .select('total_amount, created_at')
+          .eq('tenant_id', tenantId)
+          .gte('created_at', today),
+        supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId),
+        supabase
+          .from('sale_items')
+          .select('quantity, sales!inner(created_at, tenant_id)')
+          .eq('sales.tenant_id', tenantId)
+          .gte('sales.created_at', today)
       ]);
-    } catch (error) {
-      console.error('Error fetching dashboard metrics:', error);
+
+      if (todaySalesResponse.error) throw todaySalesResponse.error;
+      if (customersResponse.error) throw customersResponse.error;
+      if (saleItemsResponse.error) throw saleItemsResponse.error;
+
+      const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+      const todayTransactions = todaySalesResponse.data?.length || 0;
+      const totalProductsSold = saleItemsResponse.data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      const totalCustomers = customersResponse.count || 0;
+
+      return {
+        data: {
+          todayRevenue,
+          todayTransactions,
+          totalProductsSold,
+          totalCustomers
+        },
+        error: null
+      };
+    },
+    [tenantId],
+    {
+      enabled: !!tenantId,
+      staleTime: 2 * 60 * 1000, // 2 minutes cache
+      cacheKey: `dashboard-metrics-${tenantId}`
     }
-  };
+  );
+
+  // Memoize display metrics calculation
+  const displayMetrics = useMemo(() => {
+    if (!dashboardData) {
+      return initialMetrics;
+    }
+
+    return [
+      {
+        title: "Today's Sales",
+        value: formatCurrency(dashboardData.todayRevenue),
+        change: "0%",
+        icon: DollarSign,
+        trend: "up"
+      },
+      {
+        title: "Transactions",
+        value: dashboardData.todayTransactions.toString(),
+        change: "0%",
+        icon: Activity,
+        trend: "up"
+      },
+      {
+        title: "Products Sold",
+        value: dashboardData.totalProductsSold.toString(),
+        change: "0%",
+        icon: ShoppingBag,
+        trend: "up"
+      },
+      {
+        title: "Customers",
+        value: dashboardData.totalCustomers.toString(),
+        change: "0%",
+        icon: Users,
+        trend: "up"
+      }
+    ];
+  }, [dashboardData, formatCurrency, initialMetrics]);
+
+  // Initialize accounting system only once
+  useEffect(() => {
+    if (tenantId) {
+      initializeDefaultChartOfAccounts(tenantId).catch(error => {
+        console.error('Error initializing accounting system:', error);
+      });
+    }
+  }, [tenantId]);
 
   return (
     <section className="py-20 bg-muted/30">
@@ -151,7 +176,7 @@ const Dashboard = () => {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
             <div className="grid grid-cols-2 gap-4">
-              {metrics.map((metric, index) => (
+              {displayMetrics.map((metric, index) => (
                 <Card key={index} className="p-6 bg-card border-border hover:shadow-[var(--shadow-card)] transition-all duration-300">
                   <div className="flex items-start justify-between">
                     <div className="space-y-2">

@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useCurrencySettings } from '@/lib/currency';
+import { useState, useEffect, useMemo } from 'react';
+import { useApp } from '@/contexts/AppContext';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -64,40 +66,20 @@ interface Product {
 export default function ProductManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
-  const { formatAmount } = useCurrencySettings();
+  const { formatCurrency } = useApp();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [activeTab, setActiveTab] = useState('products');
 
-  useEffect(() => {
-    if (tenantId) {
-      fetchProducts();
-    }
-  }, [tenantId]);
+  // Optimized product fetching with caching
+  const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
 
-  // Removed auto-refresh mechanism to prevent interruption during development
-  // useEffect(() => {
-  //   const interval = setInterval(() => {
-  //     if (tenantId) {
-  //       fetchProducts();
-  //     }
-  //   }, 30000); // Refresh every 30 seconds
-  //
-  //   return () => clearInterval(interval);
-  // }, [tenantId]);
-
-  const fetchProducts = async () => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      setLoading(true);
+    async () => {
+      if (!tenantId) return { data: [], error: null };
+      
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -110,17 +92,41 @@ export default function ProductManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProducts(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error fetching products",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return { data: data || [], error: null };
+    },
+    [tenantId],
+    {
+      enabled: !!tenantId,
+      staleTime: 1 * 60 * 1000, // 1 minute cache
+      cacheKey: `products-${tenantId}`
     }
-  };
+  );
+
+  // Memoized filtered products for better performance
+  const filteredProducts = useMemo(() => {
+    if (!debouncedSearchTerm) return products;
+    
+    return products.filter(product =>
+      product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      product.product_categories?.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+    );
+  }, [products, debouncedSearchTerm]);
+
+  // Memoized low stock calculation
+  const lowStockProducts = useMemo(() => {
+    return products.filter(product => {
+      // For products with variants, calculate total stock from variants
+      if (product.product_variants && product.product_variants.length > 0) {
+        const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
+          return total + (variant.stock_quantity || 0);
+        }, 0);
+        return totalVariantStock <= (product.min_stock_level || 0);
+      }
+      // For products without variants, use main product stock
+      return product.stock_quantity <= (product.min_stock_level || 0);
+    });
+  }, [products]);
 
   const handleDeleteProduct = async (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -158,7 +164,7 @@ export default function ProductManagement() {
         description: "Product has been successfully deleted.",
       });
       
-      fetchProducts();
+      refetchProducts();
     } catch (error: any) {
       toast({
         title: "Error deleting product",
@@ -168,23 +174,6 @@ export default function ProductManagement() {
     }
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.product_categories?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const lowStockProducts = products.filter(product => {
-    // For products with variants, calculate total stock from variants
-    if (product.product_variants && product.product_variants.length > 0) {
-      const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
-        return total + (variant.stock_quantity || 0);
-      }, 0);
-      return totalVariantStock <= (product.min_stock_level || 0);
-    }
-    // For products without variants, use main product stock
-    return product.stock_quantity <= (product.min_stock_level || 0);
-  });
 
   const ProductTable = () => (
     <Card>
@@ -244,7 +233,7 @@ export default function ProductManagement() {
               </TableCell>
               <TableCell>{product.sku || 'N/A'}</TableCell>
               <TableCell>{product.product_categories?.name || 'None'}</TableCell>
-              <TableCell>{formatAmount(product.price)}</TableCell>
+              <TableCell>{formatCurrency(product.price)}</TableCell>
               <TableCell>
                 {(() => {
                   // Show total stock including variants
@@ -374,7 +363,7 @@ export default function ProductManagement() {
         <div className="flex gap-2">
           <Button 
             variant="outline"
-            onClick={fetchProducts}
+            onClick={refetchProducts}
             title="Refresh product data"
           >
             <RotateCcw className="h-4 w-4 mr-2" />
@@ -476,7 +465,7 @@ export default function ProductManagement() {
         </TabsContent>
 
         <TabsContent value="categories">
-          <CategoryManagement onUpdate={fetchProducts} />
+          <CategoryManagement onUpdate={refetchProducts} />
         </TabsContent>
       </Tabs>
 
