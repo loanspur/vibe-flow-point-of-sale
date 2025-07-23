@@ -155,6 +155,8 @@ export function BusinessSettingsEnhanced() {
   const [currencySearch, setCurrencySearch] = useState("");
   const [timezoneSearch, setTimezoneSearch] = useState("");
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [previewType, setPreviewType] = useState<"invoice" | "receipt" | "quote">("invoice");
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof businessSettingsSchema>>({
@@ -1706,7 +1708,7 @@ export function BusinessSettingsEnhanced() {
                               Invoice Template
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="space-y-4">
                             <FormField
                               control={form.control}
                               name="invoice_template"
@@ -1731,6 +1733,18 @@ export function BusinessSettingsEnhanced() {
                                 </FormItem>
                               )}
                             />
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              className="w-full"
+                              onClick={() => {
+                                setPreviewType("invoice");
+                                setIsPreviewDialogOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview Invoice
+                            </Button>
                           </CardContent>
                         </Card>
 
@@ -1741,7 +1755,7 @@ export function BusinessSettingsEnhanced() {
                               Receipt Template
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="space-y-4">
                             <FormField
                               control={form.control}
                               name="receipt_template"
@@ -1766,6 +1780,18 @@ export function BusinessSettingsEnhanced() {
                                 </FormItem>
                               )}
                             />
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              className="w-full"
+                              onClick={() => {
+                                setPreviewType("receipt");
+                                setIsPreviewDialogOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview Receipt
+                            </Button>
                           </CardContent>
                         </Card>
 
@@ -1776,7 +1802,7 @@ export function BusinessSettingsEnhanced() {
                               Quote Template
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="space-y-4">
                             <FormField
                               control={form.control}
                               name="quote_template"
@@ -1801,6 +1827,18 @@ export function BusinessSettingsEnhanced() {
                                 </FormItem>
                               )}
                             />
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              className="w-full"
+                              onClick={() => {
+                                setPreviewType("quote");
+                                setIsPreviewDialogOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview Quote
+                            </Button>
                           </CardContent>
                         </Card>
                       </div>
@@ -1830,6 +1868,178 @@ export function BusinessSettingsEnhanced() {
           </div>
         </div>
       </div>
+
+      {/* Template Preview Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              {previewType === "invoice" ? "Invoice" : previewType === "receipt" ? "Receipt" : "Quote"} Preview
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-white border rounded-lg p-6" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+              {/* Header */}
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    {previewType === "invoice" ? "INVOICE" : previewType === "receipt" ? "RECEIPT" : "QUOTATION"}
+                  </h1>
+                  <p className="text-gray-600">
+                    #{previewType === "invoice" ? "INV-001" : previewType === "receipt" ? "RCP-001" : "QUO-001"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    {settings?.company_name || "Your Business Name"}
+                  </h2>
+                  <div className="text-gray-600 text-sm space-y-1">
+                    <p>{settings?.address_line_1 || "123 Business Street"}</p>
+                    {settings?.address_line_2 && <p>{settings.address_line_2}</p>}
+                    <p>{settings?.city || "City"}, {settings?.state_province || "State"} {settings?.postal_code || "12345"}</p>
+                    <p>{settings?.phone || "(555) 123-4567"}</p>
+                    <p>{settings?.email || "info@business.com"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bill To Section */}
+              <div className="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">
+                    {previewType === "invoice" ? "Bill To:" : previewType === "receipt" ? "Customer:" : "Quote For:"}
+                  </h3>
+                  <div className="text-gray-600 space-y-1">
+                    <p className="font-medium">Sample Customer</p>
+                    <p>456 Customer Ave</p>
+                    <p>Customer City, CS 67890</p>
+                    <p>customer@email.com</p>
+                    <p>(555) 987-6543</p>
+                  </div>
+                </div>
+                <div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Date:</span>
+                      <span className="text-gray-900">{new Date().toLocaleDateString()}</span>
+                    </div>
+                    {previewType === "invoice" && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Due Date:</span>
+                        <span className="text-gray-900">{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {previewType === "quote" && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Valid Until:</span>
+                        <span className="text-gray-900">{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="mb-8">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gray-200">
+                      <th className="text-left py-3 text-gray-900 font-semibold">Item</th>
+                      <th className="text-center py-3 text-gray-900 font-semibold">Qty</th>
+                      <th className="text-right py-3 text-gray-900 font-semibold">Unit Price</th>
+                      <th className="text-right py-3 text-gray-900 font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3">
+                        <div>
+                          <p className="font-medium text-gray-900">Sample Product 1</p>
+                          <p className="text-sm text-gray-600">Product description or SKU</p>
+                        </div>
+                      </td>
+                      <td className="text-center py-3 text-gray-900">2</td>
+                      <td className="text-right py-3 text-gray-900">$50.00</td>
+                      <td className="text-right py-3 text-gray-900">$100.00</td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3">
+                        <div>
+                          <p className="font-medium text-gray-900">Sample Product 2</p>
+                          <p className="text-sm text-gray-600">Another product description</p>
+                        </div>
+                      </td>
+                      <td className="text-center py-3 text-gray-900">1</td>
+                      <td className="text-right py-3 text-gray-900">$75.00</td>
+                      <td className="text-right py-3 text-gray-900">$75.00</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="flex justify-end mb-8">
+                <div className="w-64 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="text-gray-900">$175.00</span>
+                  </div>
+                  {settings?.default_tax_rate && settings.default_tax_rate > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">{settings.tax_name || "Tax"} ({settings.default_tax_rate}%):</span>
+                      <span className="text-gray-900">${(175 * (settings.default_tax_rate / 100)).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-2 font-semibold text-lg">
+                    <span className="text-gray-900">Total:</span>
+                    <span className="text-gray-900">
+                      ${settings?.default_tax_rate 
+                        ? (175 * (1 + (settings.default_tax_rate / 100))).toFixed(2)
+                        : "175.00"
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t pt-6 mt-8">
+                <div className="grid grid-cols-2 gap-8">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Payment Terms</h4>
+                    <p className="text-sm text-gray-600">
+                      {previewType === "invoice" 
+                        ? "Payment is due within 30 days of invoice date."
+                        : previewType === "receipt"
+                        ? "Thank you for your business!"
+                        : "This quote is valid for 30 days from the date above."
+                      }
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Notes</h4>
+                    <p className="text-sm text-gray-600">
+                      Thank you for choosing {settings?.company_name || "our business"}. 
+                      We appreciate your continued support.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={() => window.print()}>
+                <Receipt className="h-4 w-4 mr-2" />
+                Print Preview
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
