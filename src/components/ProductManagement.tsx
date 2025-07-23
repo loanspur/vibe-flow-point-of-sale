@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCurrencySettings } from '@/lib/currency';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +64,7 @@ interface Product {
 export default function ProductManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
+  const { formatAmount } = useCurrencySettings();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,7 +244,7 @@ export default function ProductManagement() {
               </TableCell>
               <TableCell>{product.sku || 'N/A'}</TableCell>
               <TableCell>{product.product_categories?.name || 'None'}</TableCell>
-              <TableCell>${product.price}</TableCell>
+              <TableCell>{formatAmount(product.price)}</TableCell>
               <TableCell>
                 {(() => {
                   // Show total stock including variants
