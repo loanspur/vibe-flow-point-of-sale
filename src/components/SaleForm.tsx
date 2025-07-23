@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
 import { getInventoryLevels } from "@/lib/inventory-integration";
+import { useCurrencySettings } from "@/lib/currency";
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
@@ -50,6 +51,7 @@ interface SaleFormProps {
 export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const { tenantId } = useAuth();
   const { toast } = useToast();
+  const { formatAmount } = useCurrencySettings();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -447,7 +449,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
       toast({
         title: "Sale Completed",
-        description: `Receipt #${receiptNumber} - Total: $${totalAmount.toFixed(2)}`,
+        description: `Receipt #${receiptNumber} - Total: ${formatAmount(totalAmount)}`,
       });
 
       // Reset form
@@ -523,8 +525,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-sm">{product.name}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>${product.price}</span>
+                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                             <span>{formatAmount(product.price)}</span>
                             {product.sku && <span>SKU: {product.sku}</span>}
                             <Badge variant="outline" className="text-xs">
                               Stock: {product.stock_quantity || 0}
@@ -564,7 +566,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     </div>
                     <div>
                       <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-muted-foreground">${product.price}</p>
+                      <p className="text-sm text-muted-foreground">{formatAmount(product.price)}</p>
                     </div>
                   </div>
                 ) : null;
@@ -585,8 +587,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     <SelectItem key={variant.id} value={variant.id}>
                       {variant.name}: {variant.value} 
                       {variant.price_adjustment !== 0 && (
-                        <span className="text-muted-foreground">
-                          {variant.price_adjustment > 0 ? '+' : ''}${variant.price_adjustment}
+                         <span className="text-muted-foreground">
+                           {variant.price_adjustment > 0 ? '+' : ''}{formatAmount(variant.price_adjustment)}
                         </span>
                       )}
                     </SelectItem>
@@ -803,8 +805,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                           </div>
                           <div className="flex-1">
                             <p className="font-medium text-sm">{item.product_name}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{item.quantity} × ${item.unit_price.toFixed(2)}</span>
+                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                               <span>{item.quantity} × {formatAmount(item.unit_price)}</span>
                               <span>•</span>
                               <span className={`font-medium ${(() => {
                                 const product = products.find(p => p.id === item.product_id);
@@ -820,7 +822,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">${item.total_price.toFixed(2)}</span>
+                          <span className="font-medium">{formatAmount(item.total_price)}</span>
                           <Button
                             type="button"
                             variant="outline"
@@ -841,22 +843,22 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
               {/* Totals */}
               <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>${calculateSubtotal().toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Discount:</span>
-                  <span>-${form.watch("discount_amount").toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Tax:</span>
-                  <span>+${form.watch("tax_amount").toFixed(2)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span>${calculateTotal().toFixed(2)}</span>
+                 <div className="flex justify-between">
+                   <span>Subtotal:</span>
+                   <span>{formatAmount(calculateSubtotal())}</span>
+                 </div>
+                 <div className="flex justify-between text-sm text-muted-foreground">
+                   <span>Discount:</span>
+                   <span>-{formatAmount(form.watch("discount_amount"))}</span>
+                 </div>
+                 <div className="flex justify-between text-sm text-muted-foreground">
+                   <span>Tax:</span>
+                   <span>+{formatAmount(form.watch("tax_amount"))}</span>
+                 </div>
+                 <Separator />
+                 <div className="flex justify-between font-bold text-lg">
+                   <span>Total:</span>
+                   <span>{formatAmount(calculateTotal())}</span>
                 </div>
               </div>
 

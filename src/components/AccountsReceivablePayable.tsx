@@ -31,6 +31,7 @@ import {
   Filter,
   Download
 } from 'lucide-react';
+import { useCurrencySettings } from "@/lib/currency";
 
 interface AccountsReceivable {
   id: string;
@@ -515,12 +516,7 @@ const AccountsReceivablePayable: React.FC = () => {
     setIsPaymentOpen(true);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
+  const { formatAmount } = useCurrencySettings();
 
   const getTransactionReference = (referenceType: string, referenceId: string) => {
     if (!referenceId) return '-';
@@ -597,24 +593,24 @@ const AccountsReceivablePayable: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Current (0-30 days)</span>
-                  <span className="font-medium">{formatCurrency(receivableAging.current_amount)}</span>
+                  <span className="font-medium">{formatAmount(receivableAging.current_amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">31-60 days</span>
-                  <span className="font-medium">{formatCurrency(receivableAging.days_30_amount)}</span>
+                  <span className="font-medium">{formatAmount(receivableAging.days_30_amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">61-90 days</span>
-                  <span className="font-medium">{formatCurrency(receivableAging.days_60_amount)}</span>
+                  <span className="font-medium">{formatAmount(receivableAging.days_60_amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">90+ days</span>
-                  <span className="font-medium text-red-600">{formatCurrency(receivableAging.days_over_90_amount)}</span>
+                  <span className="font-medium text-red-600">{formatAmount(receivableAging.days_over_90_amount)}</span>
                 </div>
                 <div className="border-t pt-3">
                   <div className="flex justify-between font-bold">
                     <span>Total Outstanding</span>
-                    <span>{formatCurrency(receivableAging.total_amount)}</span>
+                    <span>{formatAmount(receivableAging.total_amount)}</span>
                   </div>
                 </div>
               </div>
@@ -634,24 +630,24 @@ const AccountsReceivablePayable: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Current (0-30 days)</span>
-                  <span className="font-medium">{formatCurrency(payableAging.current_amount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">31-60 days</span>
-                  <span className="font-medium">{formatCurrency(payableAging.days_30_amount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">61-90 days</span>
-                  <span className="font-medium">{formatCurrency(payableAging.days_60_amount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">90+ days</span>
-                  <span className="font-medium text-red-600">{formatCurrency(payableAging.days_over_90_amount)}</span>
-                </div>
-                <div className="border-t pt-3">
-                  <div className="flex justify-between font-bold">
-                    <span>Total Outstanding</span>
-                    <span>{formatCurrency(payableAging.total_amount)}</span>
+                   <span className="font-medium">{formatAmount(payableAging.current_amount)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span className="text-sm text-muted-foreground">31-60 days</span>
+                   <span className="font-medium">{formatAmount(payableAging.days_30_amount)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span className="text-sm text-muted-foreground">61-90 days</span>
+                   <span className="font-medium">{formatAmount(payableAging.days_60_amount)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span className="text-sm text-muted-foreground">90+ days</span>
+                   <span className="font-medium text-red-600">{formatAmount(payableAging.days_over_90_amount)}</span>
+                 </div>
+                 <div className="border-t pt-3">
+                   <div className="flex justify-between font-bold">
+                     <span>Total Outstanding</span>
+                     <span>{formatAmount(payableAging.total_amount)}</span>
                   </div>
                 </div>
               </div>
@@ -751,10 +747,10 @@ const AccountsReceivablePayable: React.FC = () => {
                               <TableCell>{receivable.customer_name}</TableCell>
                               <TableCell>{format(new Date(receivable.invoice_date), 'MMM d, yyyy')}</TableCell>
                               <TableCell>{format(new Date(receivable.due_date), 'MMM d, yyyy')}</TableCell>
-                              <TableCell>{formatCurrency(receivable.original_amount)}</TableCell>
-                              <TableCell>{formatCurrency(receivable.paid_amount)}</TableCell>
-                              <TableCell className="font-semibold text-orange-600">
-                                {formatCurrency(receivable.outstanding_amount)}
+                               <TableCell>{formatAmount(receivable.original_amount)}</TableCell>
+                               <TableCell>{formatAmount(receivable.paid_amount)}</TableCell>
+                               <TableCell className="font-semibold text-orange-600">
+                                 {formatAmount(receivable.outstanding_amount)}
                               </TableCell>
                               <TableCell>
                                 {receivable.days_overdue > 0 ? (
@@ -816,8 +812,8 @@ const AccountsReceivablePayable: React.FC = () => {
                       <TableCell>{getTransactionReference(receivable.reference_type, receivable.reference_id)}</TableCell>
                       <TableCell>{format(new Date(receivable.invoice_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>{format(new Date(receivable.due_date), 'MMM dd, yyyy')}</TableCell>
-                      <TableCell>{formatCurrency(receivable.original_amount)}</TableCell>
-                      <TableCell>{formatCurrency(receivable.outstanding_amount)}</TableCell>
+                       <TableCell>{formatAmount(receivable.original_amount)}</TableCell>
+                       <TableCell>{formatAmount(receivable.outstanding_amount)}</TableCell>
                       <TableCell>{getStatusBadge(receivable.status, receivable.days_overdue)}</TableCell>
                       <TableCell>
                         {receivable.outstanding_amount > 0 && (
@@ -866,8 +862,8 @@ const AccountsReceivablePayable: React.FC = () => {
                       <TableCell>{getTransactionReference(payable.reference_type, payable.reference_id)}</TableCell>
                       <TableCell>{format(new Date(payable.invoice_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>{format(new Date(payable.due_date), 'MMM dd, yyyy')}</TableCell>
-                      <TableCell>{formatCurrency(payable.original_amount)}</TableCell>
-                      <TableCell>{formatCurrency(payable.outstanding_amount)}</TableCell>
+                       <TableCell>{formatAmount(payable.original_amount)}</TableCell>
+                       <TableCell>{formatAmount(payable.outstanding_amount)}</TableCell>
                       <TableCell>{getStatusBadge(payable.status, payable.days_overdue)}</TableCell>
                       <TableCell>
                         {payable.outstanding_amount > 0 && (
@@ -907,7 +903,7 @@ const AccountsReceivablePayable: React.FC = () => {
                 <SelectContent>
                   {sales.map(sale => (
                     <SelectItem key={sale.id} value={sale.id}>
-                      {sale.receipt_number} - {sale.customer_name} - {formatCurrency(sale.total_amount)}
+                      {sale.receipt_number} - {sale.customer_name} - {formatAmount(sale.total_amount)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1026,7 +1022,7 @@ const AccountsReceivablePayable: React.FC = () => {
                 <SelectContent>
                   {purchases.map(purchase => (
                     <SelectItem key={purchase.id} value={purchase.id}>
-                      {purchase.purchase_number} - {purchase.supplier_name} - {formatCurrency(purchase.total_amount)}
+                      {purchase.purchase_number} - {purchase.supplier_name} - {formatAmount(purchase.total_amount)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1139,7 +1135,7 @@ const AccountsReceivablePayable: React.FC = () => {
             <div className="p-4 bg-muted rounded-lg">
               <div className="flex justify-between text-sm">
                 <span>Outstanding Amount:</span>
-                <span className="font-medium">{formatCurrency(selectedRecord?.outstanding_amount || 0)}</span>
+                <span className="font-medium">{formatAmount(selectedRecord?.outstanding_amount || 0)}</span>
               </div>
             </div>
             <div>
