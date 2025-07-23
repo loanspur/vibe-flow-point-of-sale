@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Bell, Settings, Users, MessageSquare, Edit, Eye, Send, Calendar, FileText } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
+import { Mail, Bell, Settings, Users, MessageSquare, Edit, Eye, Send, Calendar, FileText, Shield, Clock, Zap, Globe, Phone, AlertTriangle } from "lucide-react";
 import { EmailTemplateManager } from "@/components/EmailTemplateManager";
 import { toast } from "@/hooks/use-toast";
 
@@ -710,37 +713,477 @@ const SuperAdminCommunications = () => {
         </Dialog>
 
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Global Communication Settings</CardTitle>
-              <CardDescription>
-                Configure platform-wide communication preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Default From Address</h3>
-                  <p className="text-sm text-muted-foreground">Platform email sender address</p>
+          <div className="space-y-6">
+            {/* Email Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Email Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure global email settings and delivery preferences
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="from-email">Default From Email</Label>
+                      <Input 
+                        id="from-email" 
+                        defaultValue="noreply@vibepos.com"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Email address used for all platform communications
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="from-name">Default From Name</Label>
+                      <Input 
+                        id="from-name" 
+                        defaultValue="VibePOS Platform"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="reply-to">Reply-To Email</Label>
+                      <Input 
+                        id="reply-to" 
+                        defaultValue="support@vibepos.com"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Email Provider</Label>
+                      <Select defaultValue="sendgrid">
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sendgrid">SendGrid</SelectItem>
+                          <SelectItem value="ses">Amazon SES</SelectItem>
+                          <SelectItem value="mailgun">Mailgun</SelectItem>
+                          <SelectItem value="postmark">Postmark</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Delivery Rate Limit</Label>
+                      <div className="mt-1 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">1000 emails/hour</span>
+                          <Badge variant="secondary">Current: 850/hour</Badge>
+                        </div>
+                        <Slider 
+                          defaultValue={[1000]} 
+                          max={5000} 
+                          min={100} 
+                          step={100}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Enable DKIM Signing</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Improve email deliverability
+                        </p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                  </div>
                 </div>
-                <Badge variant="secondary">noreply@platform.com</Badge>
-              </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">SMS Provider</h3>
-                  <p className="text-sm text-muted-foreground">Global SMS service provider</p>
+                
+                <Separator />
+                
+                {/* Email Templates Global Settings */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Template Settings</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">Auto-localization</h4>
+                        <p className="text-sm text-muted-foreground">Translate emails based on tenant locale</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">Dark Mode Support</h4>
+                        <p className="text-sm text-muted-foreground">Include dark mode CSS in templates</p>
+                      </div>
+                      <Switch />
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">Track Opens</h4>
+                        <p className="text-sm text-muted-foreground">Include tracking pixels in emails</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">Track Clicks</h4>
+                        <p className="text-sm text-muted-foreground">Track link clicks in emails</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                  </div>
                 </div>
-                <Badge variant="outline">Twilio</Badge>
-              </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Email Delivery Rate</h3>
-                  <p className="text-sm text-muted-foreground">System email throughput limit</p>
+              </CardContent>
+            </Card>
+
+            {/* SMS Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Phone className="h-5 w-5" />
+                  SMS Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure SMS delivery and notification settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label>SMS Provider</Label>
+                      <Select defaultValue="twilio">
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="twilio">Twilio</SelectItem>
+                          <SelectItem value="aws-sns">AWS SNS</SelectItem>
+                          <SelectItem value="vonage">Vonage</SelectItem>
+                          <SelectItem value="messagebird">MessageBird</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Enable SMS Notifications</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Allow system to send SMS notifications
+                        </p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>International SMS</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Enable international SMS delivery
+                        </p>
+                      </div>
+                      <Switch />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Default Country Code</Label>
+                      <Select defaultValue="+1">
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="+1">+1 (United States)</SelectItem>
+                          <SelectItem value="+44">+44 (United Kingdom)</SelectItem>
+                          <SelectItem value="+49">+49 (Germany)</SelectItem>
+                          <SelectItem value="+33">+33 (France)</SelectItem>
+                          <SelectItem value="+61">+61 (Australia)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Daily SMS Limit</Label>
+                      <div className="mt-1 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">500 SMS/day</span>
+                          <Badge variant="outline">Usage: 127/day</Badge>
+                        </div>
+                        <Slider 
+                          defaultValue={[500]} 
+                          max={2000} 
+                          min={50} 
+                          step={50}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <Badge variant="secondary">1000/hour</Badge>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Security & Compliance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Security & Compliance
+                </CardTitle>
+                <CardDescription>
+                  Configure security policies and compliance settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">GDPR Compliance</h4>
+                      <p className="text-sm text-muted-foreground">Enable GDPR compliance features</p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">Double Opt-in</h4>
+                      <p className="text-sm text-muted-foreground">Require email confirmation for subscriptions</p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">Unsubscribe Link</h4>
+                      <p className="text-sm text-muted-foreground">Automatically include unsubscribe links</p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">Data Retention</h4>
+                      <p className="text-sm text-muted-foreground">Auto-delete communication logs after 1 year</p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="font-medium">Content Filtering</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h5 className="font-medium">Spam Detection</h5>
+                        <p className="text-xs text-muted-foreground">Auto-filter spam content</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h5 className="font-medium">Profanity Filter</h5>
+                        <p className="text-xs text-muted-foreground">Filter inappropriate content</p>
+                      </div>
+                      <Switch />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* System Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5" />
+                  Performance & Monitoring
+                </CardTitle>
+                <CardDescription>
+                  Monitor system performance and delivery metrics
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Email Delivery Rate</p>
+                        <p className="text-2xl font-bold text-green-600">97.8%</p>
+                      </div>
+                      <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <Mail className="h-4 w-4 text-green-600" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">↑ 2.1% from last month</p>
+                  </Card>
+                  
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">SMS Delivery Rate</p>
+                        <p className="text-2xl font-bold text-blue-600">99.2%</p>
+                      </div>
+                      <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Phone className="h-4 w-4 text-blue-600" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">↑ 0.8% from last month</p>
+                  </Card>
+                  
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">System Uptime</p>
+                        <p className="text-2xl font-bold text-purple-600">99.97%</p>
+                      </div>
+                      <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
+                        <Clock className="h-4 w-4 text-purple-600" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">Last 30 days</p>
+                  </Card>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-medium">Alert Thresholds</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>Delivery Rate Alert (Email)</Label>
+                        <span className="text-sm text-muted-foreground">&lt; 95%</span>
+                      </div>
+                      <Slider 
+                        defaultValue={[95]} 
+                        max={100} 
+                        min={80} 
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>Queue Size Alert</Label>
+                        <span className="text-sm text-muted-foreground">&gt; 1000 items</span>
+                      </div>
+                      <Slider 
+                        defaultValue={[1000]} 
+                        max={5000} 
+                        min={100} 
+                        step={100}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg border-orange-200 bg-orange-50">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    <div>
+                      <h4 className="font-medium text-orange-800">Rate Limit Warning</h4>
+                      <p className="text-sm text-orange-700">Current usage: 847/1000 emails per hour</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    Increase Limit
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Global Timezone Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  Global Settings
+                </CardTitle>
+                <CardDescription>
+                  Configure global communication preferences and defaults
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Default Timezone</Label>
+                      <Select defaultValue="utc">
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="utc">UTC (Coordinated Universal Time)</SelectItem>
+                          <SelectItem value="est">EST (Eastern Standard Time)</SelectItem>
+                          <SelectItem value="pst">PST (Pacific Standard Time)</SelectItem>
+                          <SelectItem value="gmt">GMT (Greenwich Mean Time)</SelectItem>
+                          <SelectItem value="cet">CET (Central European Time)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Default Language</Label>
+                      <Select defaultValue="en">
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="es">Spanish</SelectItem>
+                          <SelectItem value="fr">French</SelectItem>
+                          <SelectItem value="de">German</SelectItem>
+                          <SelectItem value="pt">Portuguese</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Retry Attempts</Label>
+                      <Select defaultValue="3">
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 attempt</SelectItem>
+                          <SelectItem value="2">2 attempts</SelectItem>
+                          <SelectItem value="3">3 attempts</SelectItem>
+                          <SelectItem value="5">5 attempts</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Batch Size</Label>
+                      <Select defaultValue="100">
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="50">50 messages</SelectItem>
+                          <SelectItem value="100">100 messages</SelectItem>
+                          <SelectItem value="250">250 messages</SelectItem>
+                          <SelectItem value="500">500 messages</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline">
+                    Reset to Defaults
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      toast({
+                        title: "Settings Updated",
+                        description: "Global communication settings have been saved successfully.",
+                      });
+                    }}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
