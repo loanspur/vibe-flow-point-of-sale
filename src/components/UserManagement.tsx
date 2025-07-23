@@ -198,7 +198,8 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Build query based on user role
+      let query = supabase
         .from('profiles')
         .select(`
           id,
@@ -208,8 +209,14 @@ const UserManagement = () => {
           tenant_id,
           created_at,
           avatar_url
-        `)
-        .eq('tenant_id', tenantId);
+        `);
+
+      // Only filter by tenant if not superadmin - superadmins can see all users
+      if (userRole !== 'superadmin') {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setUsers(data || []);
