@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -288,66 +289,86 @@ export default function TenantManagement() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {tenants.map((tenant) => (
-          <Card key={tenant.id} className="relative">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">{tenant.name}</CardTitle>
-                </div>
-                <Badge variant={tenant.is_active ? "default" : "secondary"}>
-                  {tenant.is_active ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-              {tenant.subdomain && (
-                <CardDescription>{tenant.subdomain}.vibepos.com</CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Plan</p>
-                  <p className="font-medium capitalize">{tenant.plan_type}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Max Users</p>
-                  <p className="font-medium">{tenant.max_users}</p>
-                </div>
-              </div>
-              
-              {tenant.contact_email && (
-                <div>
-                  <p className="text-muted-foreground text-sm">Contact</p>
-                  <p className="text-sm">{tenant.contact_email}</p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openUsersDialog(tenant)}
-                  className="flex-1"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Users
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleTenantStatus(tenant)}
-                  className="flex-1"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  {tenant.is_active ? 'Deactivate' : 'Activate'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Tenants</CardTitle>
+          <CardDescription>
+            {tenants.length} tenant{tenants.length !== 1 ? 's' : ''} total
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Subdomain</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Max Users</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tenants.map((tenant) => (
+                <TableRow key={tenant.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{tenant.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {tenant.subdomain ? (
+                      <span className="text-sm text-muted-foreground">
+                        {tenant.subdomain}.vibepos.com
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="capitalize">{tenant.plan_type}</span>
+                  </TableCell>
+                  <TableCell>{tenant.max_users}</TableCell>
+                  <TableCell>
+                    {tenant.contact_email ? (
+                      <span className="text-sm">{tenant.contact_email}</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={tenant.is_active ? "default" : "secondary"}>
+                      {tenant.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openUsersDialog(tenant)}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Users
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleTenantStatus(tenant)}
+                      >
+                        <Settings className="h-4 w-4 mr-1" />
+                        {tenant.is_active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Dialog open={usersDialogOpen} onOpenChange={setUsersDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
