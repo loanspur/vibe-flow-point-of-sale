@@ -397,7 +397,6 @@ const ContactManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Contact Management</h1>
-          <p className="text-muted-foreground">Manage customers, suppliers, sales reps and business contacts</p>
         </div>
       </div>
 
