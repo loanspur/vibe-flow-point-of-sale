@@ -8,7 +8,8 @@ import {
   Home,
   CreditCard,
   TrendingUp,
-  Calculator
+  Calculator,
+  Mail
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ const businessItems = [
 ];
 
 const systemItems = [
+  { title: "Communications", url: "/communications", icon: Mail },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 

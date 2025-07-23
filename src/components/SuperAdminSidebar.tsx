@@ -79,7 +79,7 @@ const systemItems = [
   },
   { 
     title: "Communications", 
-    url: "/superadmin/communications", 
+    url: "/communications", 
     icon: Mail,
     description: "Email & notifications"
   },
