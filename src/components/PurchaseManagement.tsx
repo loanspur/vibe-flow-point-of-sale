@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 import { createPurchaseJournalEntry, createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { processPurchaseReceipt } from '@/lib/inventory-integration';
 import { useToast } from '@/hooks/use-toast';
@@ -115,12 +117,11 @@ const PURCHASE_STATUSES = [
 
 const PurchaseManagement = () => {
   const { tenantId, user } = useAuth();
+  const { formatCurrency } = useApp();
   const { toast } = useToast();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -142,42 +143,48 @@ const PurchaseManagement = () => {
     items: [] as any[]
   });
 
+  // Optimized purchase data fetching with caching
+  const { data: purchases = [], loading, refetch: refetchPurchases } = useOptimizedQuery(
+    async () => {
+      if (!tenantId) return { data: [], error: null };
+      
+      try {
+        const { data, error } = await supabase
+          .from('purchases')
+          .select(`
+            *,
+            supplier:contacts(name)
+          `)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        const purchasesWithSupplier = (data || []).map(purchase => ({
+          ...purchase,
+          supplier_name: purchase.supplier?.name || 'Unknown Supplier'
+        }));
+        
+        return { data: purchasesWithSupplier, error: null };
+      } catch (error) {
+        console.error('Error fetching purchases:', error);
+        throw error;
+      }
+    },
+    [tenantId],
+    {
+      enabled: !!tenantId,
+      staleTime: 2 * 60 * 1000, // 2 minutes cache
+      cacheKey: `purchases-${tenantId}`
+    }
+  );
+
   useEffect(() => {
     if (tenantId) {
-      fetchPurchases();
       fetchProducts();
       fetchSuppliers();
     }
   }, [tenantId]);
-
-  const fetchPurchases = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('purchases')
-        .select(`
-          *,
-          supplier:contacts(name)
-        `)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      const purchasesWithSupplier = (data || []).map(purchase => ({
-        ...purchase,
-        supplier_name: purchase.supplier?.name || 'Unknown Supplier'
-      }));
-      
-      setPurchases(purchasesWithSupplier);
-    } catch (error) {
-      console.error('Error fetching purchases:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load purchases",
-        variant: "destructive",
-      });
-    }
-  };
 
   const fetchProducts = async () => {
     try {
@@ -225,8 +232,6 @@ const PurchaseManagement = () => {
       setSuppliers(data || []);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -356,7 +361,7 @@ const PurchaseManagement = () => {
       });
       setIsCreateOpen(false);
       resetForm();
-      fetchPurchases();
+      refetchPurchases();
     } catch (error: any) {
       console.error('Error creating purchase:', error);
       toast({
@@ -388,7 +393,7 @@ const PurchaseManagement = () => {
         title: "Success",
         description: `Purchase ${status} successfully`
       });
-      fetchPurchases();
+      refetchPurchases();
     } catch (error) {
       console.error('Error updating purchase status:', error);
       toast({
@@ -461,7 +466,7 @@ const PurchaseManagement = () => {
 
       setIsReceiveOpen(false);
       setReceivingPurchase(null);
-      fetchPurchases();
+      refetchPurchases();
       fetchProducts(); // Refresh products to show updated inventory
     } catch (error) {
       console.error('Error receiving purchase:', error);
@@ -533,7 +538,7 @@ const PurchaseManagement = () => {
         // Don't fail the entire operation if accounting fails
       }
 
-      fetchPurchases();
+      refetchPurchases();
       fetchProducts(); // Refresh products to show updated inventory
     } catch (error) {
       console.error('Error auto-receiving purchase:', error);
@@ -852,17 +857,23 @@ const PurchaseManagement = () => {
     );
   };
 
-  const filteredPurchases = purchases.filter(purchase => {
-    const matchesSearch = purchase.purchase_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         purchase.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || purchase.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Memoized calculations for better performance
+  const filteredPurchases = useMemo(() => {
+    if (!purchases || !Array.isArray(purchases)) return [];
+    
+    return purchases.filter(purchase => {
+      const matchesSearch = purchase.purchase_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           purchase.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || purchase.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [purchases, searchTerm, statusFilter]);
 
-  const totalPurchases = purchases.length;
-  const draftPurchases = purchases.filter(p => p.status === 'draft').length;
-  const orderedPurchases = purchases.filter(p => p.status === 'ordered').length;
-  const receivedPurchases = purchases.filter(p => p.status === 'received').length;
+  const totalPurchases = purchases?.length || 0;
+  const draftPurchases = purchases?.filter(p => p.status === 'draft').length || 0;
+  const orderedPurchases = purchases?.filter(p => p.status === 'ordered').length || 0;
+  const receivedPurchases = purchases?.filter(p => p.status === 'received').length || 0;
+  const totalPurchaseValue = purchases?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0;
 
   if (loading) {
     return (
@@ -950,7 +961,7 @@ const PurchaseManagement = () => {
                       <TableCell className="font-medium">{purchase.purchase_number}</TableCell>
                       <TableCell>{purchase.supplier_name}</TableCell>
                       <TableCell>{getStatusBadge(purchase.status)}</TableCell>
-                      <TableCell>${purchase.total_amount.toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(purchase.total_amount || 0)}</TableCell>
                       <TableCell>{new Date(purchase.order_date).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
@@ -1328,13 +1339,13 @@ const PurchaseManagement = () => {
                   <div className="flex justify-between">
                     <span>Total Amount:</span>
                     <span className="font-semibold">
-                      ${purchases.reduce((sum, p) => sum + p.total_amount, 0).toFixed(2)}
+                      {formatCurrency(totalPurchaseValue)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Average Order Value:</span>
                     <span className="font-semibold">
-                      ${totalPurchases > 0 ? (purchases.reduce((sum, p) => sum + p.total_amount, 0) / totalPurchases).toFixed(2) : '0.00'}
+                      {totalPurchases > 0 ? formatCurrency(totalPurchaseValue / totalPurchases) : formatCurrency(0)}
                     </span>
                   </div>
                 </div>
