@@ -2316,6 +2316,349 @@ export type Database = {
         }
         Relationships: []
       }
+      tax_calculations: {
+        Row: {
+          base_amount: number
+          calculation_date: string
+          created_at: string
+          exemption_amount: number | null
+          exemption_id: string | null
+          final_tax_amount: number
+          id: string
+          jurisdiction_id: string | null
+          tax_amount: number
+          tax_rate: number
+          tax_rate_id: string | null
+          tax_type_id: string
+          tenant_id: string
+          transaction_id: string
+          transaction_type: string
+        }
+        Insert: {
+          base_amount: number
+          calculation_date?: string
+          created_at?: string
+          exemption_amount?: number | null
+          exemption_id?: string | null
+          final_tax_amount: number
+          id?: string
+          jurisdiction_id?: string | null
+          tax_amount: number
+          tax_rate: number
+          tax_rate_id?: string | null
+          tax_type_id: string
+          tenant_id: string
+          transaction_id: string
+          transaction_type: string
+        }
+        Update: {
+          base_amount?: number
+          calculation_date?: string
+          created_at?: string
+          exemption_amount?: number | null
+          exemption_id?: string | null
+          final_tax_amount?: number
+          id?: string
+          jurisdiction_id?: string | null
+          tax_amount?: number
+          tax_rate?: number
+          tax_rate_id?: string | null
+          tax_type_id?: string
+          tenant_id?: string
+          transaction_id?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_calculations_exemption_id_fkey"
+            columns: ["exemption_id"]
+            isOneToOne: false
+            referencedRelation: "tax_exemptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_calculations_jurisdiction_id_fkey"
+            columns: ["jurisdiction_id"]
+            isOneToOne: false
+            referencedRelation: "tax_jurisdictions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_calculations_tax_rate_id_fkey"
+            columns: ["tax_rate_id"]
+            isOneToOne: false
+            referencedRelation: "tax_rates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_calculations_tax_type_id_fkey"
+            columns: ["tax_type_id"]
+            isOneToOne: false
+            referencedRelation: "tax_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_exemptions: {
+        Row: {
+          created_at: string
+          description: string | null
+          effective_date: string
+          exemption_code: string
+          exemption_percentage: number | null
+          exemption_type: string
+          expiry_date: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          tax_type_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          effective_date?: string
+          exemption_code: string
+          exemption_percentage?: number | null
+          exemption_type: string
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          tax_type_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          effective_date?: string
+          exemption_code?: string
+          exemption_percentage?: number | null
+          exemption_type?: string
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          tax_type_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_exemptions_tax_type_id_fkey"
+            columns: ["tax_type_id"]
+            isOneToOne: false
+            referencedRelation: "tax_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_group_rates: {
+        Row: {
+          created_at: string
+          id: string
+          tax_group_id: string
+          tax_rate_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tax_group_id: string
+          tax_rate_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tax_group_id?: string
+          tax_rate_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_group_rates_tax_group_id_fkey"
+            columns: ["tax_group_id"]
+            isOneToOne: false
+            referencedRelation: "tax_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_group_rates_tax_rate_id_fkey"
+            columns: ["tax_rate_id"]
+            isOneToOne: false
+            referencedRelation: "tax_rates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tax_jurisdictions: {
+        Row: {
+          city: string | null
+          country: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          jurisdiction_code: string
+          name: string
+          postal_code_pattern: string | null
+          state_province: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          jurisdiction_code: string
+          name: string
+          postal_code_pattern?: string | null
+          state_province?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          jurisdiction_code?: string
+          name?: string
+          postal_code_pattern?: string | null
+          state_province?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tax_rates: {
+        Row: {
+          created_at: string
+          effective_date: string
+          expiry_date: string | null
+          id: string
+          is_active: boolean | null
+          jurisdiction_id: string | null
+          name: string
+          rate_percentage: number
+          tax_type_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          effective_date?: string
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction_id?: string | null
+          name: string
+          rate_percentage?: number
+          tax_type_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          effective_date?: string
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction_id?: string | null
+          name?: string
+          rate_percentage?: number
+          tax_type_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_rates_jurisdiction_id_fkey"
+            columns: ["jurisdiction_id"]
+            isOneToOne: false
+            referencedRelation: "tax_jurisdictions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_rates_tax_type_id_fkey"
+            columns: ["tax_type_id"]
+            isOneToOne: false
+            referencedRelation: "tax_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_compound: boolean | null
+          is_inclusive: boolean | null
+          name: string
+          tenant_id: string
+          type_code: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_compound?: boolean | null
+          is_inclusive?: boolean | null
+          name: string
+          tenant_id: string
+          type_code: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_compound?: boolean | null
+          is_inclusive?: boolean | null
+          name?: string
+          tenant_id?: string
+          type_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenant_users: {
         Row: {
           created_at: string
@@ -2688,6 +3031,19 @@ export type Database = {
       calculate_purchase_total: {
         Args: { purchase_id_param: string }
         Returns: number
+      }
+      calculate_tax_amount: {
+        Args: {
+          tenant_id_param: string
+          base_amount_param: number
+          tax_rate_id_param: string
+          exemption_id_param?: string
+        }
+        Returns: {
+          tax_amount: number
+          exemption_amount: number
+          final_tax_amount: number
+        }[]
       }
       copy_role: {
         Args: {
