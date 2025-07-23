@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmailTemplateManager } from '@/components/EmailTemplateManager';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { CommunicationSettings } from '@/components/CommunicationSettings';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -213,16 +214,7 @@ const Communications = () => {
         </TabsContent>
 
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Communication Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Communication settings interface coming soon...
-              </p>
-            </CardContent>
-          </Card>
+          <CommunicationSettings />
         </TabsContent>
       </Tabs>
     </div>
