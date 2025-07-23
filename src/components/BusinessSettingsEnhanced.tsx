@@ -51,10 +51,13 @@ import {
   Zap,
   Mail as MailIcon,
   MessageSquare,
-  Layout
+  Layout,
+  Download,
+  Printer
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useApp } from "@/contexts/AppContext";
 import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
 import { timezones } from "@/lib/timezones";
 import { countries, popularCountries, getRegions, searchCountries, type Country } from "@/lib/countries";
@@ -91,7 +94,10 @@ const businessSettingsSchema = z.object({
   whatsapp_phone_number: z.string().optional(),
   invoice_template: z.string().default("standard"),
   receipt_template: z.string().default("standard"),
-  quote_template: z.string().default("standard")
+  quote_template: z.string().default("standard"),
+  invoice_number_prefix: z.string().default("INV-"),
+  quote_number_prefix: z.string().default("QT-"),
+  invoice_terms_conditions: z.string().optional()
 });
 
 interface BusinessSettings {
@@ -157,7 +163,10 @@ export function BusinessSettingsEnhanced() {
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewType, setPreviewType] = useState<"invoice" | "receipt" | "quote">("invoice");
+  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+  const [templateEditType, setTemplateEditType] = useState<"invoice" | "receipt" | "quote">("invoice");
   const { toast } = useToast();
+  const { formatCurrency } = useApp();
 
   const form = useForm<z.infer<typeof businessSettingsSchema>>({
     resolver: zodResolver(businessSettingsSchema),
@@ -182,7 +191,10 @@ export function BusinessSettingsEnhanced() {
       whatsapp_enable_notifications: false,
       invoice_template: "standard",
       receipt_template: "standard",
-      quote_template: "standard"
+      quote_template: "standard",
+      invoice_number_prefix: "INV-",
+      quote_number_prefix: "QT-",
+      invoice_terms_conditions: ""
     },
   });
 
@@ -1733,18 +1745,31 @@ export function BusinessSettingsEnhanced() {
                                 </FormItem>
                               )}
                             />
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              className="w-full"
-                              onClick={() => {
-                                setPreviewType("invoice");
-                                setIsPreviewDialogOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview Invoice
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                className="flex-1"
+                                onClick={() => {
+                                  setPreviewType("invoice");
+                                  setIsPreviewDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={() => {
+                                  setTemplateEditType("invoice");
+                                  setIsEditingTemplate(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </CardContent>
                         </Card>
 
@@ -1780,18 +1805,31 @@ export function BusinessSettingsEnhanced() {
                                 </FormItem>
                               )}
                             />
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              className="w-full"
-                              onClick={() => {
-                                setPreviewType("receipt");
-                                setIsPreviewDialogOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview Receipt
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                className="flex-1"
+                                onClick={() => {
+                                  setPreviewType("receipt");
+                                  setIsPreviewDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={() => {
+                                  setTemplateEditType("receipt");
+                                  setIsEditingTemplate(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </CardContent>
                         </Card>
 
@@ -1827,18 +1865,31 @@ export function BusinessSettingsEnhanced() {
                                 </FormItem>
                               )}
                             />
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              className="w-full"
-                              onClick={() => {
-                                setPreviewType("quote");
-                                setIsPreviewDialogOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview Quote
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                className="flex-1"
+                                onClick={() => {
+                                  setPreviewType("quote");
+                                  setIsPreviewDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={() => {
+                                  setTemplateEditType("quote");
+                                  setIsEditingTemplate(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </CardContent>
                         </Card>
                       </div>
@@ -1871,108 +1922,181 @@ export function BusinessSettingsEnhanced() {
 
       {/* Template Preview Dialog */}
       <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
               {previewType === "invoice" ? "Invoice" : previewType === "receipt" ? "Receipt" : "Quote"} Preview
+              <Badge variant="secondary" className="ml-2">
+                {form.watch(`${previewType}_template`) || "Standard"} Template
+              </Badge>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-white border rounded-lg p-6" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-              {/* Header */}
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    {previewType === "invoice" ? "INVOICE" : previewType === "receipt" ? "RECEIPT" : "QUOTATION"}
-                  </h1>
-                  <p className="text-gray-600">
-                    #{previewType === "invoice" ? "INV-001" : previewType === "receipt" ? "RCP-001" : "QUO-001"}
-                  </p>
+            <div className="bg-white border rounded-lg p-8 shadow-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+              {/* Header with Logo */}
+              <div className="flex justify-between items-start mb-8 border-b pb-6">
+                <div className="flex items-start gap-6">
+                  {settings?.company_logo_url && (
+                    <div className="flex-shrink-0">
+                      <img 
+                        src={settings.company_logo_url} 
+                        alt="Company Logo" 
+                        className="h-16 w-auto object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="text-4xl font-bold text-primary mb-2 uppercase tracking-wide">
+                      {previewType === "invoice" ? "Invoice" : previewType === "receipt" ? "Receipt" : "Quotation"}
+                    </h1>
+                    <div className="space-y-1">
+                      <p className="text-lg font-semibold text-gray-800">
+                        #{previewType === "invoice" ? settings?.invoice_number_prefix || "INV-" : previewType === "receipt" ? "RCP-" : settings?.quote_number_prefix || "QT-"}
+                        {new Date().getFullYear()}{String(new Date().getMonth() + 1).padStart(2, '0')}{String(new Date().getDate()).padStart(2, '0')}-001
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Status: <span className="font-medium text-green-600">
+                          {previewType === "invoice" ? "Sent" : previewType === "receipt" ? "Paid" : "Draft"}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-3">
                     {settings?.company_name || "Your Business Name"}
                   </h2>
-                  <div className="text-gray-600 text-sm space-y-1">
-                    <p>{settings?.address_line_1 || "123 Business Street"}</p>
+                  <div className="text-gray-600 space-y-1 text-sm">
+                    <p className="font-medium">{settings?.address_line_1 || "123 Business Street"}</p>
                     {settings?.address_line_2 && <p>{settings.address_line_2}</p>}
                     <p>{settings?.city || "City"}, {settings?.state_province || "State"} {settings?.postal_code || "12345"}</p>
-                    <p>{settings?.phone || "(555) 123-4567"}</p>
-                    <p>{settings?.email || "info@business.com"}</p>
+                    <p>{settings?.country || "United States"}</p>
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="flex items-center justify-end gap-1">
+                        <Phone className="h-3 w-3" />
+                        {settings?.phone || "(555) 123-4567"}
+                      </p>
+                      <p className="flex items-center justify-end gap-1">
+                        <Mail className="h-3 w-3" />
+                        {settings?.email || "info@business.com"}
+                      </p>
+                      {settings?.website && (
+                        <p className="flex items-center justify-end gap-1">
+                          <Globe className="h-3 w-3" />
+                          {settings.website}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Bill To Section */}
               <div className="grid grid-cols-2 gap-8 mb-8">
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wide border-b border-gray-200 pb-2">
                     {previewType === "invoice" ? "Bill To:" : previewType === "receipt" ? "Customer:" : "Quote For:"}
                   </h3>
-                  <div className="text-gray-600 space-y-1">
-                    <p className="font-medium">Sample Customer</p>
-                    <p>456 Customer Ave</p>
+                  <div className="text-gray-700 space-y-1">
+                    <p className="font-semibold text-lg">Sample Customer</p>
+                    <p>456 Customer Avenue</p>
                     <p>Customer City, CS 67890</p>
-                    <p>customer@email.com</p>
-                    <p>(555) 987-6543</p>
+                    <p>United States</p>
+                    <div className="mt-3 pt-2 border-t border-gray-200 space-y-1">
+                      <p className="flex items-center gap-2">
+                        <Mail className="h-3 w-3" />
+                        customer@email.com
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <Phone className="h-3 w-3" />
+                        (555) 987-6543
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Date:</span>
-                      <span className="text-gray-900">{new Date().toLocaleDateString()}</span>
+                <div className="space-y-4">
+                  <div className="bg-primary/5 p-4 rounded-lg">
+                    <div className="grid grid-cols-2 gap-y-3">
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Date:</span>
+                        <p className="font-semibold">{new Date().toLocaleDateString()}</p>
+                      </div>
+                      {previewType === "invoice" && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Due Date:</span>
+                          <p className="font-semibold text-orange-600">
+                            {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                      {previewType === "quote" && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Valid Until:</span>
+                          <p className="font-semibold text-blue-600">
+                            {new Date(Date.now() + (settings?.quote_validity_days || 30) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Currency:</span>
+                        <p className="font-semibold">{settings?.currency_code || "USD"}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Payment Terms:</span>
+                        <p className="font-semibold">Net 30</p>
+                      </div>
                     </div>
-                    {previewType === "invoice" && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Due Date:</span>
-                        <span className="text-gray-900">{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    {previewType === "quote" && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Valid Until:</span>
-                        <span className="text-gray-900">{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
 
               {/* Items Table */}
               <div className="mb-8">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse bg-white rounded-lg overflow-hidden shadow-sm">
                   <thead>
-                    <tr className="border-b-2 border-gray-200">
-                      <th className="text-left py-3 text-gray-900 font-semibold">Item</th>
-                      <th className="text-center py-3 text-gray-900 font-semibold">Qty</th>
-                      <th className="text-right py-3 text-gray-900 font-semibold">Unit Price</th>
-                      <th className="text-right py-3 text-gray-900 font-semibold">Total</th>
+                    <tr className="bg-primary text-primary-foreground">
+                      <th className="text-left py-4 px-4 font-semibold">Item Description</th>
+                      <th className="text-center py-4 px-4 font-semibold">Qty</th>
+                      <th className="text-right py-4 px-4 font-semibold">Unit Price</th>
+                      <th className="text-right py-4 px-4 font-semibold">Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-gray-100">
-                      <td className="py-3">
+                    <tr className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-4 px-4">
                         <div>
-                          <p className="font-medium text-gray-900">Sample Product 1</p>
-                          <p className="text-sm text-gray-600">Product description or SKU</p>
+                          <p className="font-semibold text-gray-900">Premium Product Suite</p>
+                          <p className="text-sm text-gray-600">Advanced solution with comprehensive features</p>
+                          <p className="text-xs text-gray-500 mt-1">SKU: PRD-001</p>
                         </div>
                       </td>
-                      <td className="text-center py-3 text-gray-900">2</td>
-                      <td className="text-right py-3 text-gray-900">$50.00</td>
-                      <td className="text-right py-3 text-gray-900">$100.00</td>
+                      <td className="text-center py-4 px-4 text-gray-900 font-medium">2</td>
+                      <td className="text-right py-4 px-4 text-gray-900 font-medium">
+                        {formatCurrency ? formatCurrency(50) : `${settings?.currency_symbol || '$'}50.00`}
+                      </td>
+                      <td className="text-right py-4 px-4 text-gray-900 font-semibold">
+                        {formatCurrency ? formatCurrency(100) : `${settings?.currency_symbol || '$'}100.00`}
+                      </td>
                     </tr>
-                    <tr className="border-b border-gray-100">
-                      <td className="py-3">
+                    <tr className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-4 px-4">
                         <div>
-                          <p className="font-medium text-gray-900">Sample Product 2</p>
-                          <p className="text-sm text-gray-600">Another product description</p>
+                          <p className="font-semibold text-gray-900">Professional Services</p>
+                          <p className="text-sm text-gray-600">Expert consultation and implementation</p>
+                          <p className="text-xs text-gray-500 mt-1">SKU: SRV-002</p>
                         </div>
                       </td>
-                      <td className="text-center py-3 text-gray-900">1</td>
-                      <td className="text-right py-3 text-gray-900">$75.00</td>
-                      <td className="text-right py-3 text-gray-900">$75.00</td>
+                      <td className="text-center py-4 px-4 text-gray-900 font-medium">1</td>
+                      <td className="text-right py-4 px-4 text-gray-900 font-medium">
+                        {formatCurrency ? formatCurrency(75) : `${settings?.currency_symbol || '$'}75.00`}
+                      </td>
+                      <td className="text-right py-4 px-4 text-gray-900 font-semibold">
+                        {formatCurrency ? formatCurrency(75) : `${settings?.currency_symbol || '$'}75.00`}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -1980,61 +2104,198 @@ export function BusinessSettingsEnhanced() {
 
               {/* Totals */}
               <div className="flex justify-end mb-8">
-                <div className="w-64 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="text-gray-900">$175.00</span>
-                  </div>
-                  {settings?.default_tax_rate && settings.default_tax_rate > 0 && (
+                <div className="w-80 bg-gray-50 p-6 rounded-lg">
+                  <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{settings.tax_name || "Tax"} ({settings.default_tax_rate}%):</span>
-                      <span className="text-gray-900">${(175 * (settings.default_tax_rate / 100)).toFixed(2)}</span>
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency ? formatCurrency(175) : `${settings?.currency_symbol || '$'}175.00`}
+                      </span>
                     </div>
-                  )}
-                  <div className="flex justify-between border-t pt-2 font-semibold text-lg">
-                    <span className="text-gray-900">Total:</span>
-                    <span className="text-gray-900">
-                      ${settings?.default_tax_rate 
-                        ? (175 * (1 + (settings.default_tax_rate / 100))).toFixed(2)
-                        : "175.00"
-                      }
-                    </span>
+                    {settings?.default_tax_rate && settings.default_tax_rate > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">{settings.tax_name || "Tax"} ({settings.default_tax_rate}%):</span>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency ? formatCurrency(175 * (settings.default_tax_rate / 100)) : `${settings?.currency_symbol || '$'}${(175 * (settings.default_tax_rate / 100)).toFixed(2)}`}
+                        </span>
+                      </div>
+                    )}
+                    <div className="border-t border-gray-300 pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-gray-900">Total:</span>
+                        <span className="text-2xl font-bold text-primary">
+                          {formatCurrency ? formatCurrency(settings?.default_tax_rate ? 175 * (1 + (settings.default_tax_rate / 100)) : 175) : `${settings?.currency_symbol || '$'}${settings?.default_tax_rate ? (175 * (1 + (settings.default_tax_rate / 100))).toFixed(2) : "175.00"}`}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="border-t pt-6 mt-8">
-                <div className="grid grid-cols-2 gap-8">
+              <div className="border-t border-gray-200 pt-6 mt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Payment Terms</h4>
-                    <p className="text-sm text-gray-600">
-                      {previewType === "invoice" 
-                        ? "Payment is due within 30 days of invoice date."
-                        : previewType === "receipt"
-                        ? "Thank you for your business!"
-                        : "This quote is valid for 30 days from the date above."
-                      }
-                    </p>
+                    <h4 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wide">Payment Terms</h4>
+                    <div className="text-sm text-gray-600 space-y-2">
+                      <p>
+                        {previewType === "invoice" 
+                          ? "Payment is due within 30 days of invoice date. Late payments may incur additional charges."
+                          : previewType === "receipt"
+                          ? "Thank you for your business! This receipt serves as proof of payment."
+                          : `This quote is valid for ${settings?.quote_validity_days || 30} days from the date above. Terms and conditions apply.`
+                        }
+                      </p>
+                      {previewType !== "receipt" && (
+                        <p className="font-medium">
+                          Accepted Payment Methods: Cash, Credit Card, Bank Transfer
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Notes</h4>
-                    <p className="text-sm text-gray-600">
-                      Thank you for choosing {settings?.company_name || "our business"}. 
-                      We appreciate your continued support.
-                    </p>
+                    <h4 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wide">Additional Notes</h4>
+                    <div className="text-sm text-gray-600 space-y-2">
+                      <p>
+                        Thank you for choosing {settings?.company_name || "our business"}. 
+                        We appreciate your continued support and look forward to serving you again.
+                      </p>
+                      {settings?.invoice_terms_conditions && previewType === "invoice" && (
+                        <p className="italic">{settings.invoice_terms_conditions}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Branded Footer */}
+              <div className="mt-8 pt-4 border-t border-primary/20 text-center">
+                <p className="text-xs text-gray-500">
+                  Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+                </p>
+                {settings?.website && (
+                  <p className="text-xs text-primary mt-1">
+                    Visit us at {settings.website}
+                  </p>
+                )}
+              </div>
             </div>
             
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
-                Close
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div className="text-sm text-gray-600">
+                Template: {form.watch(`${previewType}_template`) || "Standard"}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
+                  Close
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  const printContent = document.querySelector('.bg-white.border.rounded-lg.p-8.shadow-sm');
+                  if (printContent) {
+                    const printWindow = window.open('', '_blank');
+                    printWindow?.document.write(`
+                      <html>
+                        <head>
+                          <title>${previewType === "invoice" ? "Invoice" : previewType === "receipt" ? "Receipt" : "Quote"} Preview</title>
+                          <style>
+                            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; }
+                            @media print { body { margin: 0; padding: 10px; } }
+                          </style>
+                        </head>
+                        <body>${printContent.outerHTML}</body>
+                      </html>
+                    `);
+                    printWindow?.document.close();
+                    printWindow?.print();
+                  }
+                }}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                <Button onClick={() => {
+                  const element = document.querySelector('.bg-white.border.rounded-lg.p-8.shadow-sm');
+                  if (element) {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    // This would require html2canvas library for full implementation
+                    toast({
+                      title: "Download Feature",
+                      description: "Download as PDF feature would be implemented with additional libraries.",
+                    });
+                  }
+                }}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Edit Dialog */}
+      <Dialog open={isEditingTemplate} onOpenChange={setIsEditingTemplate}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Edit {templateEditType === "invoice" ? "Invoice" : templateEditType === "receipt" ? "Receipt" : "Quote"} Template
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Template Style</Label>
+                <Select 
+                  value={form.watch(`${templateEditType}_template`) || "standard"}
+                  onValueChange={(value) => form.setValue(`${templateEditType}_template`, value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templateOptions.map(template => (
+                      <SelectItem key={template.value} value={template.value}>
+                        {template.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Number Prefix</Label>
+                <Input 
+                  value={templateEditType === "invoice" ? (form.watch("invoice_number_prefix") as string) || "INV-" : (form.watch("quote_number_prefix") as string) || "QT-"}
+                  onChange={(e) => form.setValue(templateEditType === "invoice" ? "invoice_number_prefix" : "quote_number_prefix", e.target.value)}
+                  placeholder={templateEditType === "invoice" ? "INV-" : "QT-"}
+                />
+              </div>
+            </div>
+            
+            {templateEditType === "invoice" && (
+              <div>
+                <Label>Terms & Conditions</Label>
+                <Textarea 
+                  value={(form.watch("invoice_terms_conditions") as string) || ""}
+                  onChange={(e) => form.setValue("invoice_terms_conditions", e.target.value)}
+                  placeholder="Enter terms and conditions for invoices..."
+                  rows={4}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditingTemplate(false)}>
+                Cancel
               </Button>
-              <Button onClick={() => window.print()}>
-                <Receipt className="h-4 w-4 mr-2" />
-                Print Preview
+              <Button onClick={() => {
+                toast({
+                  title: "Template Updated",
+                  description: `${templateEditType} template settings have been updated.`,
+                });
+                setIsEditingTemplate(false);
+              }}>
+                Save Changes
               </Button>
             </div>
           </div>
