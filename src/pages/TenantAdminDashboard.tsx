@@ -16,6 +16,13 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const getTimeBasedGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+};
+
 export default function TenantAdminDashboard() {
   const { user } = useAuth();
 
@@ -153,7 +160,7 @@ export default function TenantAdminDashboard() {
       {/* Welcome Section */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">
-          Welcome back, {user?.user_metadata?.full_name || user?.email?.split('@')[0]}!
+          {getTimeBasedGreeting()}, {user?.user_metadata?.full_name || user?.email?.split('@')[0]}!
         </h1>
         <p className="text-muted-foreground">
           Here's what's happening with your business today.
