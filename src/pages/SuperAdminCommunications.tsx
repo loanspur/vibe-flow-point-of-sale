@@ -71,12 +71,17 @@ const SuperAdminCommunications = () => {
   });
 
   const handleCreateBroadcast = () => {
+    setSelectedTemplate(null);
     setShowCreateDialog(true);
   };
 
   const handleUseTemplate = (templateType: string) => {
     setSelectedTemplate(templateType);
     setShowCreateDialog(true);
+    toast({
+      title: "Template Loaded",
+      description: `${getTemplateTitle(templateType)} template has been loaded into the form.`,
+    });
   };
 
   const handleViewBroadcast = (broadcastId: string) => {
@@ -609,7 +614,10 @@ const SuperAdminCommunications = () => {
         </TabsContent>
 
         {/* Create Broadcast Dialog */}
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog open={showCreateDialog} onOpenChange={(open) => {
+          setShowCreateDialog(open);
+          if (!open) setSelectedTemplate(null);
+        }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
