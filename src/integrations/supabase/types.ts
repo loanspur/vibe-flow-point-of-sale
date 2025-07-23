@@ -744,6 +744,71 @@ export type Database = {
           },
         ]
       }
+      communication_logs: {
+        Row: {
+          channel: string
+          content: string
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          read_at: string | null
+          recipient: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          subject: string | null
+          tenant_id: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          channel: string
+          content: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          read_at?: string | null
+          recipient: string
+          sent_at?: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          subject?: string | null
+          tenant_id?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          channel?: string
+          content?: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          read_at?: string | null
+          recipient?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          subject?: string | null
+          tenant_id?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           address: string | null
@@ -886,6 +951,155 @@ export type Database = {
           },
         ]
       }
+      email_queue: {
+        Row: {
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          external_id: string | null
+          failed_at: string | null
+          from_email: string | null
+          from_name: string | null
+          html_content: string
+          id: string
+          max_retries: number | null
+          priority: Database["public"]["Enums"]["notification_priority"] | null
+          retry_count: number | null
+          scheduled_for: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"] | null
+          subject: string
+          template_id: string | null
+          tenant_id: string | null
+          text_content: string | null
+          to_email: string
+          to_name: string | null
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          failed_at?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          html_content: string
+          id?: string
+          max_retries?: number | null
+          priority?: Database["public"]["Enums"]["notification_priority"] | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"] | null
+          subject: string
+          template_id?: string | null
+          tenant_id?: string | null
+          text_content?: string | null
+          to_email: string
+          to_name?: string | null
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          failed_at?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          html_content?: string
+          id?: string
+          max_retries?: number | null
+          priority?: Database["public"]["Enums"]["notification_priority"] | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"] | null
+          subject?: string
+          template_id?: string | null
+          tenant_id?: string | null
+          text_content?: string | null
+          to_email?: string
+          to_name?: string | null
+          updated_at?: string
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_queue_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          html_content: string
+          id: string
+          is_active: boolean | null
+          is_system_template: boolean | null
+          name: string
+          subject: string
+          tenant_id: string | null
+          text_content: string | null
+          type: Database["public"]["Enums"]["notification_type"]
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          html_content: string
+          id?: string
+          is_active?: boolean | null
+          is_system_template?: boolean | null
+          name: string
+          subject: string
+          tenant_id?: string | null
+          text_content?: string | null
+          type: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean | null
+          is_system_template?: boolean | null
+          name?: string
+          subject?: string
+          tenant_id?: string | null
+          text_content?: string | null
+          type?: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_items: {
         Row: {
           created_at: string
@@ -979,6 +1193,127 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_enabled: boolean | null
+          id: string
+          marketing_emails: boolean | null
+          order_updates: boolean | null
+          payment_reminders: boolean | null
+          push_enabled: boolean | null
+          security_alerts: boolean | null
+          sms_enabled: boolean | null
+          system_announcements: boolean | null
+          tenant_id: string | null
+          updated_at: string
+          user_id: string | null
+          whatsapp_enabled: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean | null
+          id?: string
+          marketing_emails?: boolean | null
+          order_updates?: boolean | null
+          payment_reminders?: boolean | null
+          push_enabled?: boolean | null
+          security_alerts?: boolean | null
+          sms_enabled?: boolean | null
+          system_announcements?: boolean | null
+          tenant_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          whatsapp_enabled?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean | null
+          id?: string
+          marketing_emails?: boolean | null
+          order_updates?: boolean | null
+          payment_reminders?: boolean | null
+          push_enabled?: boolean | null
+          security_alerts?: boolean | null
+          sms_enabled?: boolean | null
+          system_announcements?: boolean | null
+          tenant_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          whatsapp_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          channels: string[] | null
+          created_at: string
+          data: Json | null
+          expires_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          priority: Database["public"]["Enums"]["notification_priority"] | null
+          read_at: string | null
+          scheduled_for: string | null
+          tenant_id: string | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          channels?: string[] | null
+          created_at?: string
+          data?: Json | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          priority?: Database["public"]["Enums"]["notification_priority"] | null
+          read_at?: string | null
+          scheduled_for?: string | null
+          tenant_id?: string | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          channels?: string[] | null
+          created_at?: string
+          data?: Json | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          priority?: Database["public"]["Enums"]["notification_priority"] | null
+          read_at?: string | null
+          scheduled_for?: string | null
+          tenant_id?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_methods: {
         Row: {
@@ -3195,6 +3530,19 @@ export type Database = {
       }
     }
     Enums: {
+      notification_priority: "low" | "medium" | "high" | "urgent"
+      notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
+      notification_type:
+        | "system"
+        | "user_invitation"
+        | "password_reset"
+        | "account_verification"
+        | "payment_reminder"
+        | "order_confirmation"
+        | "subscription_update"
+        | "security_alert"
+        | "marketing"
+        | "announcement"
       permission_action:
         | "create"
         | "read"
@@ -3383,6 +3731,20 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      notification_priority: ["low", "medium", "high", "urgent"],
+      notification_status: ["pending", "sent", "delivered", "failed", "read"],
+      notification_type: [
+        "system",
+        "user_invitation",
+        "password_reset",
+        "account_verification",
+        "payment_reminder",
+        "order_confirmation",
+        "subscription_update",
+        "security_alert",
+        "marketing",
+        "announcement",
+      ],
       permission_action: [
         "create",
         "read",
