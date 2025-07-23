@@ -3,10 +3,105 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, Bell, Settings, Users, MessageSquare, Edit } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Mail, Bell, Settings, Users, MessageSquare, Edit, Eye, Send, Calendar, FileText } from "lucide-react";
 import { EmailTemplateManager } from "@/components/EmailTemplateManager";
+import { toast } from "@/hooks/use-toast";
 
 const SuperAdminCommunications = () => {
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [broadcasts] = useState([
+    {
+      id: "1",
+      title: "Q4 Platform Updates & New Features",
+      description: "Exciting new features including advanced reporting, mobile app improvements, and enhanced security",
+      status: "delivered",
+      reach: 2387,
+      deliveryRate: 95,
+      sentDate: "2 days ago",
+      type: "feature"
+    },
+    {
+      id: "2", 
+      title: "Scheduled Maintenance Window - December 15th",
+      description: "System maintenance scheduled for December 15th, 2:00 AM - 4:00 AM UTC",
+      status: "scheduled",
+      scheduledFor: "tomorrow",
+      type: "maintenance"
+    },
+    {
+      id: "3",
+      title: "Holiday Season Performance Tips", 
+      description: "Best practices for managing high-volume sales during the holiday season",
+      status: "delivered",
+      reach: 2401,
+      deliveryRate: 97,
+      sentDate: "1 week ago",
+      type: "tips"
+    },
+    {
+      id: "4",
+      title: "Security Enhancement Notification",
+      description: "Important security updates have been deployed to protect your data", 
+      status: "delivered",
+      reach: 2398,
+      deliveryRate: 98,
+      sentDate: "2 weeks ago",
+      type: "security"
+    },
+    {
+      id: "5",
+      title: "Year-End Billing Update",
+      description: "Important changes to billing cycles and subscription management",
+      status: "draft",
+      lastEdited: "3 hours ago",
+      type: "billing"
+    }
+  ]);
+
+  const filteredBroadcasts = broadcasts.filter(broadcast => {
+    if (activeFilter === "all") return true;
+    return broadcast.status === activeFilter;
+  });
+
+  const handleCreateBroadcast = () => {
+    setShowCreateDialog(true);
+  };
+
+  const handleUseTemplate = (templateType: string) => {
+    setSelectedTemplate(templateType);
+    setShowCreateDialog(true);
+  };
+
+  const handleViewBroadcast = (broadcastId: string) => {
+    console.log("Viewing broadcast:", broadcastId);
+    // Here you would implement view functionality
+  };
+
+  const handleEditBroadcast = (broadcastId: string) => {
+    console.log("Editing broadcast:", broadcastId);
+    // Here you would implement edit functionality
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "delivered":
+        return <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">Delivered</Badge>;
+      case "scheduled":
+        return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">Scheduled</Badge>;
+      case "draft":
+        return <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200">Draft</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
@@ -281,144 +376,122 @@ const SuperAdminCommunications = () => {
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <Button className="bg-primary hover:bg-primary/90">
+                  <Button onClick={handleCreateBroadcast} className="bg-primary hover:bg-primary/90">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Create New Broadcast
                   </Button>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">All</Button>
-                    <Button variant="outline" size="sm">Delivered</Button>
-                    <Button variant="outline" size="sm">Scheduled</Button>
-                    <Button variant="outline" size="sm">Drafts</Button>
+                    <Button 
+                      variant={activeFilter === "all" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setActiveFilter("all")}
+                    >
+                      All
+                    </Button>
+                    <Button 
+                      variant={activeFilter === "delivered" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setActiveFilter("delivered")}
+                    >
+                      Delivered
+                    </Button>
+                    <Button 
+                      variant={activeFilter === "scheduled" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setActiveFilter("scheduled")}
+                    >
+                      Scheduled
+                    </Button>
+                    <Button 
+                      variant={activeFilter === "draft" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setActiveFilter("draft")}
+                    >
+                      Drafts
+                    </Button>
                   </div>
                 </div>
                 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 border rounded-lg bg-green-50 border-green-200">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">Q4 Platform Updates & New Features</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Exciting new features including advanced reporting, mobile app improvements, and enhanced security
-                        </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>📧 2,387 tenants reached</span>
-                          <span>📱 95% delivery rate</span>
-                          <span>🕒 Sent 2 days ago</span>
+                  {filteredBroadcasts.map((broadcast) => (
+                    <div 
+                      key={broadcast.id}
+                      className={`flex items-center justify-between p-4 border rounded-lg ${
+                        broadcast.status === 'delivered' ? 'bg-green-50 border-green-200' :
+                        broadcast.status === 'scheduled' ? 'bg-blue-50 border-blue-200' :
+                        broadcast.status === 'draft' ? 'bg-orange-50 border-orange-200' :
+                        ''
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`h-3 w-3 rounded-full ${
+                          broadcast.status === 'delivered' ? 'bg-green-500' :
+                          broadcast.status === 'scheduled' ? 'bg-blue-500' :
+                          broadcast.status === 'draft' ? 'bg-orange-500' :
+                          'bg-gray-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <h3 className="font-medium">{broadcast.title}</h3>
+                          <p className="text-sm text-muted-foreground">{broadcast.description}</p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            {broadcast.status === 'delivered' && (
+                              <>
+                                <span>📧 {broadcast.reach} tenants reached</span>
+                                <span>📱 {broadcast.deliveryRate}% delivery rate</span>
+                                <span>🕒 Sent {broadcast.sentDate}</span>
+                              </>
+                            )}
+                            {broadcast.status === 'scheduled' && (
+                              <>
+                                <span>📅 Scheduled for {broadcast.scheduledFor}</span>
+                                <span>🎯 All active tenants</span>
+                                <span>⏰ 2:00 AM UTC</span>
+                              </>
+                            )}
+                            {broadcast.status === 'draft' && (
+                              <>
+                                <span>📝 Draft saved</span>
+                                <span>🎯 2,400 tenants targeted</span>
+                                <span>🕒 Last edited {broadcast.lastEdited}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
-                        Delivered
-                      </Badge>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg bg-blue-50 border-blue-200">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-3 w-3 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">Scheduled Maintenance Window - December 15th</h3>
-                        <p className="text-sm text-muted-foreground">
-                          System maintenance scheduled for December 15th, 2:00 AM - 4:00 AM UTC
-                        </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>📅 Scheduled for tomorrow</span>
-                          <span>🎯 All active tenants</span>
-                          <span>⏰ 2:00 AM UTC</span>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(broadcast.status)}
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => broadcast.status === 'draft' ? handleEditBroadcast(broadcast.id) : handleViewBroadcast(broadcast.id)}
+                        >
+                          {broadcast.status === 'draft' ? (
+                            <>
+                              <Edit className="h-4 w-4 mr-1" />
+                              Continue
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </>
+                          )}
+                        </Button>
+                        {broadcast.status === 'scheduled' && (
+                          <Button variant="outline" size="sm" onClick={() => handleEditBroadcast(broadcast.id)}>
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
-                        Scheduled
-                      </Badge>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
+                  ))}
+                  
+                  {filteredBroadcasts.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No broadcasts found for this filter.</p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">Holiday Season Performance Tips</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Best practices for managing high-volume sales during the holiday season
-                        </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>📧 2,401 tenants reached</span>
-                          <span>📱 97% delivery rate</span>
-                          <span>🕒 Sent 1 week ago</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">Delivered</Badge>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">Security Enhancement Notification</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Important security updates have been deployed to protect your data
-                        </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>📧 2,398 tenants reached</span>
-                          <span>📱 98% delivery rate</span>
-                          <span>🕒 Sent 2 weeks ago</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">Delivered</Badge>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg bg-orange-50 border-orange-200">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-3 w-3 bg-orange-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">Year-End Billing Update</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Important changes to billing cycles and subscription management
-                        </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>📝 Draft saved</span>
-                          <span>🎯 2,400 tenants targeted</span>
-                          <span>🕒 Last edited 3 hours ago</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200">
-                        Draft
-                      </Badge>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        Continue
-                      </Button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -445,7 +518,13 @@ const SuperAdminCommunications = () => {
                       <p>• {`{{feature_list}}`}</p>
                       <p>These updates are now live in your account. Learn more at {`{{documentation_link}}`}</p>
                     </div>
-                    <Button variant="outline" size="sm" className="w-full">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleUseTemplate("feature")}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
                       Use Template
                     </Button>
                   </div>
@@ -463,7 +542,13 @@ const SuperAdminCommunications = () => {
                       <p><strong>Expected Impact:</strong> {`{{impact_description}}`}</p>
                       <p>We apologize for any inconvenience.</p>
                     </div>
-                    <Button variant="outline" size="sm" className="w-full">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleUseTemplate("maintenance")}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
                       Use Template
                     </Button>
                   </div>
@@ -481,7 +566,13 @@ const SuperAdminCommunications = () => {
                       <p><strong>What's Changed:</strong> {`{{changes_list}}`}</p>
                       <p><strong>Action Required:</strong> {`{{action_required}}`}</p>
                     </div>
-                    <Button variant="outline" size="sm" className="w-full">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleUseTemplate("security")}
+                    >
+                      <Bell className="h-4 w-4 mr-2" />
                       Use Template
                     </Button>
                   </div>
@@ -501,7 +592,13 @@ const SuperAdminCommunications = () => {
                       <p>• {`{{tip_3}}`}</p>
                       <p>Visit our resource center for more: {`{{resource_link}}`}</p>
                     </div>
-                    <Button variant="outline" size="sm" className="w-full">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleUseTemplate("tips")}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
                       Use Template
                     </Button>
                   </div>
@@ -510,6 +607,99 @@ const SuperAdminCommunications = () => {
             </Card>
           </div>
         </TabsContent>
+
+        {/* Create Broadcast Dialog */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedTemplate ? `Create Broadcast - ${selectedTemplate} Template` : 'Create New Broadcast'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title">Broadcast Title</Label>
+                <Input 
+                  id="title" 
+                  placeholder="Enter broadcast title"
+                  defaultValue={selectedTemplate ? getTemplateTitle(selectedTemplate) : ""}
+                />
+              </div>
+              <div>
+                <Label htmlFor="subject">Email Subject</Label>
+                <Input 
+                  id="subject" 
+                  placeholder="Enter email subject"
+                  defaultValue={selectedTemplate ? getTemplateSubject(selectedTemplate) : ""}
+                />
+              </div>
+              <div>
+                <Label htmlFor="content">Message Content</Label>
+                <Textarea 
+                  id="content" 
+                  placeholder="Enter your message content..."
+                  className="min-h-32"
+                  defaultValue={selectedTemplate ? getTemplateContent(selectedTemplate) : ""}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="target">Target Audience</Label>
+                  <Select defaultValue="all">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Active Tenants</SelectItem>
+                      <SelectItem value="trial">Trial Users</SelectItem>
+                      <SelectItem value="paid">Paid Subscribers</SelectItem>
+                      <SelectItem value="new">New Signups (Last 30 days)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select defaultValue="medium">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                  Save as Draft
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  toast({
+                    title: "Broadcast Scheduled",
+                    description: "Your broadcast has been scheduled for delivery.",
+                  });
+                  setShowCreateDialog(false);
+                }}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Schedule
+                </Button>
+                <Button onClick={() => {
+                  toast({
+                    title: "Broadcast Sent",
+                    description: "Your broadcast has been sent to all targeted tenants.",
+                  });
+                  setShowCreateDialog(false);
+                }}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Now
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <TabsContent value="settings">
           <Card>
@@ -547,6 +737,79 @@ const SuperAdminCommunications = () => {
       </Tabs>
     </div>
   );
+
+  function getTemplateTitle(template: string) {
+    switch (template) {
+      case "feature": return "Feature Release Announcement";
+      case "maintenance": return "Scheduled Maintenance Notification";
+      case "security": return "Security Update Notice";
+      case "tips": return "Holiday Season Performance Tips";
+      default: return "";
+    }
+  }
+
+  function getTemplateSubject(template: string) {
+    switch (template) {
+      case "feature": return "Exciting New Features Now Available!";
+      case "maintenance": return "Scheduled Maintenance - {{date}}";
+      case "security": return "Important Security Enhancement";
+      case "tips": return "Maximize Your Holiday Sales Success";
+      default: return "";
+    }
+  }
+
+  function getTemplateContent(template: string) {
+    switch (template) {
+      case "feature": 
+        return `Dear {{tenant_name}},
+
+We're thrilled to announce {{feature_count}} new features that will enhance your VibePOS experience:
+
+• {{feature_list}}
+
+These updates are now live in your account. Learn more at {{documentation_link}}
+
+Best regards,
+The VibePOS Team`;
+      case "maintenance":
+        return `Dear {{tenant_name}},
+
+We'll be performing scheduled maintenance on {{date}} from {{start_time}} to {{end_time}} {{timezone}}.
+
+Expected Impact: {{impact_description}}
+
+We apologize for any inconvenience and appreciate your understanding.
+
+Best regards,
+The VibePOS Team`;
+      case "security":
+        return `Dear {{tenant_name}},
+
+We've enhanced our security measures with {{security_features}}.
+
+What's Changed: {{changes_list}}
+Action Required: {{action_required}}
+
+Your data security is our top priority.
+
+Best regards,
+The VibePOS Team`;
+      case "tips":
+        return `Dear {{tenant_name}},
+
+The holiday season is here! Maximize your sales with these tips:
+
+• {{tip_1}}
+• {{tip_2}}  
+• {{tip_3}}
+
+Visit our resource center for more: {{resource_link}}
+
+Happy Holidays!
+The VibePOS Team`;
+      default: return "";
+    }
+  }
 };
 
 export default SuperAdminCommunications;
