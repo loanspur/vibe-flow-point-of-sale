@@ -31,7 +31,10 @@ const SuperAdminSystemHealth = lazy(() => import("./pages/SuperAdminSystemHealth
 const SuperAdminDatabase = lazy(() => import("./pages/SuperAdminDatabase"));
 const SuperAdminSecurity = lazy(() => import("./pages/SuperAdminSecurity"));
 const Settings = lazy(() => import("./pages/Settings"));
-const Communications = lazy(() => import("./pages/Communications"));
+const TenantSettings = lazy(() => import("./pages/TenantSettings"));
+const TenantCommunications = lazy(() => import("./pages/TenantCommunications"));
+const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
+const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunications"));
 const Products = lazy(() => import("./pages/Products"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Team = lazy(() => import("./pages/Team"));
@@ -233,6 +236,26 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/superadmin/communications" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                  <SuperAdminLayout>
+                    <SuperAdminCommunications />
+                  </SuperAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/superadmin/settings" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                  <SuperAdminLayout>
+                    <SuperAdminSettings />
+                  </SuperAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Tenant Admin Routes */}
             <Route 
@@ -290,7 +313,17 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
                   <TenantAdminLayout>
-                    <Settings />
+                    <TenantSettings />
+                  </TenantAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/communications" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                  <TenantAdminLayout>
+                    <TenantCommunications />
                   </TenantAdminLayout>
                 </ProtectedRoute>
               } 
@@ -321,16 +354,6 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
                   <TenantAdminLayout>
                     <Accounting />
-                  </TenantAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/communications" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <Communications />
                   </TenantAdminLayout>
                 </ProtectedRoute>
               } 

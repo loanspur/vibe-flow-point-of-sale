@@ -42,7 +42,7 @@ const businessItems = [
 ];
 
 const systemItems = [
-  { title: "Communications", url: "/communications", icon: Mail },
+  { title: "Communications", url: "/admin/communications", icon: Mail },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 

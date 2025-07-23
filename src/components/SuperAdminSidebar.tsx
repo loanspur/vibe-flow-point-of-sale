@@ -79,9 +79,9 @@ const systemItems = [
   },
   { 
     title: "Communications", 
-    url: "/communications", 
+    url: "/superadmin/communications", 
     icon: Mail,
-    description: "Email & notifications"
+    description: "Platform communications"
   },
   { 
     title: "Settings", 
