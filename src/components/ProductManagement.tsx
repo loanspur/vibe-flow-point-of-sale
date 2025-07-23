@@ -485,7 +485,7 @@ export default function ProductManagement() {
             onSuccess={() => {
               setShowProductForm(false);
               setSelectedProduct(null);
-              fetchProducts();
+              refetchProducts();
             }}
             onCancel={() => {
               setShowProductForm(false);

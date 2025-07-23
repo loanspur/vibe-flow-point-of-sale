@@ -324,9 +324,9 @@ export default function AccountingDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Liabilities</span>
                 <div className="text-right">
-                  <span className="text-lg font-bold">{formatAmount(metrics.totalLiabilities)}</span>
+                  <span className="text-lg font-bold">{formatCurrency(metrics?.totalLiabilities || 0)}</span>
                   <p className="text-xs text-muted-foreground">
-                    {formatPercentage(metrics.totalLiabilities, metrics.totalAssets + metrics.totalLiabilities + metrics.totalEquity)}
+                    {formatPercentage((metrics?.totalLiabilities || 0), (metrics?.totalAssets || 0) + (metrics?.totalLiabilities || 0) + (metrics?.totalEquity || 0))}
                   </p>
                 </div>
               </div>
@@ -334,9 +334,9 @@ export default function AccountingDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Equity</span>
                 <div className="text-right">
-                  <span className="text-lg font-bold">{formatAmount(metrics.totalEquity)}</span>
+                  <span className="text-lg font-bold">{formatCurrency(metrics?.totalEquity || 0)}</span>
                   <p className="text-xs text-muted-foreground">
-                    {formatPercentage(metrics.totalEquity, metrics.totalAssets + metrics.totalLiabilities + metrics.totalEquity)}
+                    {formatPercentage((metrics?.totalEquity || 0), (metrics?.totalAssets || 0) + (metrics?.totalLiabilities || 0) + (metrics?.totalEquity || 0))}
                   </p>
                 </div>
               </div>
@@ -345,7 +345,7 @@ export default function AccountingDashboard() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Debt-to-Equity Ratio</span>
                   <span className="text-lg font-bold">
-                    {metrics.totalEquity !== 0 ? (metrics.totalLiabilities / metrics.totalEquity).toFixed(2) : 'N/A'}
+                    {(metrics?.totalEquity || 0) !== 0 ? ((metrics?.totalLiabilities || 0) / (metrics?.totalEquity || 1)).toFixed(2) : 'N/A'}
                   </span>
                 </div>
               </div>
