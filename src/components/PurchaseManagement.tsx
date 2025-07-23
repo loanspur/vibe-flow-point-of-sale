@@ -956,7 +956,7 @@ const PurchaseManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {purchases.slice(0, 5).map((purchase) => (
+                  {(purchases || []).slice(0, 5).map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell className="font-medium">{purchase.purchase_number}</TableCell>
                       <TableCell>{purchase.supplier_name}</TableCell>
@@ -1002,7 +1002,7 @@ const PurchaseManagement = () => {
                               <SelectValue placeholder="Select supplier" />
                             </SelectTrigger>
                             <SelectContent>
-                              {suppliers.map((supplier) => (
+                              {(suppliers || []).map((supplier) => (
                                 <SelectItem key={supplier.id} value={supplier.id}>
                                   {supplier.name} {supplier.company && `(${supplier.company})`}
                                 </SelectItem>
@@ -1178,7 +1178,7 @@ const PurchaseManagement = () => {
                       <TableCell>{getStatusBadge(purchase.status)}</TableCell>
                       <TableCell>{new Date(purchase.order_date).toLocaleDateString()}</TableCell>
                       <TableCell>{new Date(purchase.expected_date).toLocaleDateString()}</TableCell>
-                      <TableCell>${purchase.total_amount.toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(purchase.total_amount || 0)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {purchase.status === 'draft' && (
@@ -1295,13 +1295,13 @@ const PurchaseManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {purchases.filter(p => p.status === 'ordered').map((purchase) => (
+                  {(purchases || []).filter(p => p.status === 'ordered').map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell className="font-medium">{purchase.purchase_number}</TableCell>
                       <TableCell>{purchase.supplier_name}</TableCell>
                       <TableCell>{new Date(purchase.order_date).toLocaleDateString()}</TableCell>
                       <TableCell>{new Date(purchase.expected_date).toLocaleDateString()}</TableCell>
-                      <TableCell>${purchase.total_amount.toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(purchase.total_amount || 0)}</TableCell>
                       <TableCell>
                         <Button
                           variant="outline"
@@ -1358,7 +1358,7 @@ const PurchaseManagement = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {suppliers.slice(0, 5).map((supplier, index) => (
+                  {(suppliers || []).slice(0, 5).map((supplier, index) => (
                     <div key={supplier.id} className="flex items-center justify-between">
                       <div>
                         <div className="font-medium">{supplier.name}</div>
