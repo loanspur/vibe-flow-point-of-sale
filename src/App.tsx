@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { TenantAdminLayout } from "./components/TenantAdminLayout";
+import { SuperAdminLayout } from "./components/SuperAdminLayout";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 // Lazy load components for better performance
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -149,7 +150,9 @@ const App = () => (
               path="/superadmin" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
-                  <SuperAdminDashboard />
+                  <SuperAdminLayout>
+                    <SuperAdminDashboard />
+                  </SuperAdminLayout>
                 </ProtectedRoute>
               } 
             />
@@ -157,7 +160,9 @@ const App = () => (
               path="/superadmin/tenants" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
-                  <TenantManagement />
+                  <SuperAdminLayout>
+                    <TenantManagement />
+                  </SuperAdminLayout>
                 </ProtectedRoute>
               } 
             />

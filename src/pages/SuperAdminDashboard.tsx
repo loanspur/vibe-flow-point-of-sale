@@ -1,5 +1,4 @@
 import { useAuth } from '@/contexts/AuthContext';
-import DashboardHeader from '@/components/DashboardHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,36 +55,34 @@ export default function SuperAdminDashboard() {
       title: "Manage Tenants",
       description: "View and manage all tenant accounts",
       icon: Building2,
-      href: "/tenants",
+      href: "/superadmin/tenants",
       color: "bg-blue-50 text-blue-600"
     },
     {
       title: "User Management", 
       description: "Manage users across all tenants",
       icon: Users,
-      href: "/users",
+      href: "/superadmin/users",
       color: "bg-green-50 text-green-600"
     },
     {
       title: "System Analytics",
       description: "View platform-wide analytics",
       icon: BarChart3,
-      href: "/analytics",
+      href: "/superadmin/analytics",
       color: "bg-purple-50 text-purple-600"
     },
     {
       title: "Settings",
       description: "Configure system settings",
       icon: Settings,
-      href: "/settings",
+      href: "/superadmin/settings",
       color: "bg-orange-50 text-orange-600"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-      <DashboardHeader />
-      <div className="container mx-auto px-4 py-8">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="space-y-1">
@@ -180,7 +177,6 @@ export default function SuperAdminDashboard() {
             </CardContent>
           </Card>
         </div>
-      </div>
     </div>
   );
 }
