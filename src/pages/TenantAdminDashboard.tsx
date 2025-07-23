@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,45 +27,111 @@ const getTimeBasedGreeting = () => {
 };
 
 export default function TenantAdminDashboard() {
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
+
+  // Fetch real dashboard data
+  const { data: dashboardData, loading } = useOptimizedQuery(
+    async () => {
+      if (!tenantId) return { data: null, error: null };
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      try {
+        // Fetch all data in parallel for better performance
+        const [todaySalesResponse, totalOrdersResponse, productsResponse, customersResponse, lowStockResponse] = await Promise.all([
+          supabase
+            .from('sales')
+            .select('total_amount')
+            .eq('tenant_id', tenantId)
+            .gte('created_at', today),
+          supabase
+            .from('sales')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .gte('created_at', today),
+          supabase
+            .from('products')
+            .select('id, stock_quantity, min_stock_level', { count: 'exact' })
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true),
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId),
+          supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true)
+            .or('stock_quantity.lte.min_stock_level,stock_quantity.eq.0')
+        ]);
+
+        const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+        const todayOrders = totalOrdersResponse.count || 0;
+        const totalProducts = productsResponse.count || 0;
+        const totalCustomers = customersResponse.count || 0;
+        const lowStockCount = lowStockResponse.count || 0;
+
+        return {
+          data: {
+            todayRevenue,
+            todayOrders,
+            totalProducts,
+            totalCustomers,
+            lowStockCount
+          },
+          error: null
+        };
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        throw error;
+      }
+    },
+    [tenantId],
+    {
+      enabled: !!tenantId,
+      staleTime: 2 * 60 * 1000, // 2 minutes cache
+      cacheKey: `tenant-dashboard-${tenantId}`
+    }
+  );
 
   const businessStats = [
     {
       title: "Today's Revenue",
-      value: formatCurrency(2450),
-      change: "+15%",
-      changeType: "positive",
+      value: formatCurrency(dashboardData?.todayRevenue || 0),
+      change: dashboardData?.todayRevenue ? "+0%" : "No sales",
+      changeType: dashboardData?.todayRevenue ? "positive" : "neutral",
       icon: DollarSign,
       description: "vs yesterday",
-      trend: [2100, 2200, 2300, 2450]
+      trend: [0, 0, 0, dashboardData?.todayRevenue || 0]
     },
     {
       title: "Total Orders",
-      value: "89",
-      change: "+12",
-      changeType: "positive", 
+      value: (dashboardData?.todayOrders || 0).toString(),
+      change: dashboardData?.todayOrders ? `+${dashboardData.todayOrders}` : "No orders",
+      changeType: dashboardData?.todayOrders ? "positive" : "neutral", 
       icon: ShoppingCart,
       description: "orders today",
-      trend: [77, 82, 85, 89]
+      trend: [0, 0, 0, dashboardData?.todayOrders || 0]
     },
     {
       title: "Active Products",
-      value: "156",
-      change: "3 low stock",
-      changeType: "warning",
+      value: (dashboardData?.totalProducts || 0).toString(),
+      change: dashboardData?.lowStockCount ? `${dashboardData.lowStockCount} low stock` : "in stock",
+      changeType: dashboardData?.lowStockCount && dashboardData.lowStockCount > 0 ? "warning" : "positive",
       icon: Package,
       description: "need attention",
-      trend: [160, 158, 157, 156]
+      trend: [0, 0, 0, dashboardData?.totalProducts || 0]
     },
     {
       title: "Team Members",
-      value: "8",
-      change: "2 online",
+      value: "1", // Current user
+      change: "1 online",
       changeType: "neutral",
       icon: Users,
       description: "currently active",
-      trend: [8, 8, 8, 8]
+      trend: [1, 1, 1, 1]
     }
   ];
 
@@ -103,59 +171,50 @@ export default function TenantAdminDashboard() {
     }
   ];
 
-  const recentActivity = [
-    {
-      id: "#1234",
-      type: "sale",
-      customer: "John Doe",
-      amount: formatCurrency(45.99),
-      time: "2 minutes ago",
+  // Generate real activity based on actual data
+  const recentActivity = [];
+  
+  if (dashboardData?.todayRevenue && dashboardData.todayRevenue > 0) {
+    recentActivity.push({
+      id: "#TODAY",
+      type: "sales_summary",
+      customer: "Today's Sales",
+      amount: formatCurrency(dashboardData.todayRevenue),
+      time: "Today",
       status: "completed",
-      description: "Coffee & pastry"
-    },
-    {
-      id: "#1233",
-      type: "sale", 
-      customer: "Sarah Smith",
-      amount: formatCurrency(23.50),
-      time: "15 minutes ago",
-      status: "completed",
-      description: "Breakfast combo"
-    },
-    {
-      id: "#1232",
-      type: "return",
-      customer: "Mike Johnson",
-      amount: `-${formatCurrency(12.00).replace(/^[^\d-]*/, '')}`,
-      time: "1 hour ago",
-      status: "refunded",
-      description: "Product return"
-    },
-    {
-      id: "#1231",
-      type: "sale",
-      customer: "Emily Davis",
-      amount: formatCurrency(156.00),
-      time: "2 hours ago",
-      status: "completed",
-      description: "Bulk order"
-    }
-  ];
+      description: `${dashboardData.todayOrders} order(s) completed`
+    });
+  } else {
+    recentActivity.push({
+      id: "#NONE",
+      type: "info",
+      customer: "No Sales Today",
+      amount: formatCurrency(0),
+      time: "Today",
+      status: "info",
+      description: "No transactions recorded today"
+    });
+  }
 
-  const alerts = [
-    {
+  const alerts = [];
+  
+  if (dashboardData?.lowStockCount && dashboardData.lowStockCount > 0) {
+    alerts.push({
       type: "warning",
-      message: "3 products are running low on stock",
+      message: `${dashboardData.lowStockCount} products are running low on stock`,
       action: "View inventory",
-      time: "5 min ago"
-    },
-    {
+      time: "Now"
+    });
+  }
+
+  if (!dashboardData?.todayRevenue || dashboardData.todayRevenue === 0) {
+    alerts.push({
       type: "info", 
-      message: "Weekly sales report is ready",
-      action: "View report",
-      time: "1 hour ago"
-    }
-  ];
+      message: "No sales recorded today - consider promoting your products",
+      action: "View promotions",
+      time: "Now"
+    });
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -172,13 +231,23 @@ export default function TenantAdminDashboard() {
         {alerts.length > 0 && (
           <div className="mb-6 space-y-2">
             {alerts.map((alert, index) => (
-              <div key={index} className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <div key={index} className={`flex items-center justify-between rounded-lg p-3 ${
+                alert.type === 'warning' ? 'bg-orange-50 border border-orange-200' : 'bg-blue-50 border border-blue-200'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                  <span className="text-sm font-medium text-orange-900">{alert.message}</span>
-                  <span className="text-xs text-orange-600">• {alert.time}</span>
+                  <AlertTriangle className={`h-4 w-4 ${
+                    alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'
+                  }`} />
+                  <span className={`text-sm font-medium ${
+                    alert.type === 'warning' ? 'text-orange-900' : 'text-blue-900'
+                  }`}>{alert.message}</span>
+                  <span className={`text-xs ${
+                    alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'
+                  }`}>• {alert.time}</span>
                 </div>
-                <Button variant="ghost" size="sm" className="text-orange-700 hover:text-orange-900">
+                <Button variant="ghost" size="sm" className={`${
+                  alert.type === 'warning' ? 'text-orange-700 hover:text-orange-900' : 'text-blue-700 hover:text-blue-900'
+                }`}>
                   {alert.action}
                 </Button>
               </div>
@@ -192,6 +261,7 @@ export default function TenantAdminDashboard() {
             const Icon = stat.icon;
             const isPositive = stat.changeType === 'positive';
             const isWarning = stat.changeType === 'warning';
+            const isNeutral = stat.changeType === 'neutral';
             
             return (
               <Card key={index} className="relative overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
@@ -200,10 +270,10 @@ export default function TenantAdminDashboard() {
                     {stat.title}
                   </CardTitle>
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    isWarning ? 'bg-orange-100' : isPositive ? 'bg-green-100' : 'bg-blue-100'
+                    isWarning ? 'bg-orange-100' : isPositive ? 'bg-green-100' : 'bg-gray-100'
                   }`}>
                     <Icon className={`h-4 w-4 ${
-                      isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-blue-600'
+                      isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-gray-600'
                     }`} />
                   </div>
                 </CardHeader>
@@ -313,7 +383,7 @@ export default function TenantAdminDashboard() {
           {/* Performance Overview */}
           <Card>
             <CardHeader>
-              <CardTitle>This Week's Performance</CardTitle>
+              <CardTitle>Today's Performance</CardTitle>
               <CardDescription>Sales summary and key metrics</CardDescription>
             </CardHeader>
             <CardContent>
@@ -321,31 +391,26 @@ export default function TenantAdminDashboard() {
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                   <div>
                     <p className="text-sm text-green-700 font-medium">Total Revenue</p>
-                    <p className="text-2xl font-bold text-green-900">{formatCurrency(12450)}</p>
+                    <p className="text-2xl font-bold text-green-900">{formatCurrency(dashboardData?.todayRevenue || 0)}</p>
                   </div>
                   <div className="text-right">
                     <TrendingUp className="h-6 w-6 text-green-600 mb-1" />
-                    <Badge className="bg-green-100 text-green-700">+12%</Badge>
+                    <Badge className="bg-green-100 text-green-700">Today</Badge>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Transactions</span>
-                    <span className="font-semibold">423</span>
+                    <span className="font-semibold">{dashboardData?.todayOrders || 0}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Average Order Value</span>
-                    <span className="font-semibold">{formatCurrency(29.43)}</span>
+                    <span className="font-semibold">{formatCurrency(dashboardData?.todayRevenue && dashboardData?.todayOrders ? dashboardData.todayRevenue / dashboardData.todayOrders : 0)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Customer Satisfaction</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="w-[85%] h-full bg-green-500 rounded-full"></div>
-                      </div>
-                      <span className="text-sm font-medium">85%</span>
-                    </div>
+                    <span className="text-sm text-muted-foreground">Products in Catalog</span>
+                    <span className="font-semibold">{dashboardData?.totalProducts || 0}</span>
                   </div>
                 </div>
               </div>
