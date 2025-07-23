@@ -367,9 +367,6 @@ export default function ProductManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Product Management</h2>
-          <p className="text-muted-foreground">
-            Manage your products, categories, and inventory
-          </p>
         </div>
         
         <div className="flex gap-2">
