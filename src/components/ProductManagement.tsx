@@ -104,6 +104,7 @@ export default function ProductManagement() {
 
   // Memoized filtered products for better performance
   const filteredProducts = useMemo(() => {
+    if (!products || !Array.isArray(products)) return [];
     if (!debouncedSearchTerm) return products;
     
     return products.filter(product =>
@@ -115,6 +116,8 @@ export default function ProductManagement() {
 
   // Memoized low stock calculation
   const lowStockProducts = useMemo(() => {
+    if (!products || !Array.isArray(products)) return [];
+    
     return products.filter(product => {
       // For products with variants, calculate total stock from variants
       if (product.product_variants && product.product_variants.length > 0) {
@@ -129,7 +132,7 @@ export default function ProductManagement() {
   }, [products]);
 
   const handleDeleteProduct = async (productId: string) => {
-    const product = products.find(p => p.id === productId);
+    const product = products?.find(p => p.id === productId);
     
     if (!canDelete('product')) {
       logDeletionAttempt('product', productId, product?.name);
