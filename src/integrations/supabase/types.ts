@@ -951,6 +951,44 @@ export type Database = {
           },
         ]
       }
+      domain_verification_logs: {
+        Row: {
+          checked_at: string
+          domain_id: string
+          error_message: string | null
+          id: string
+          response_data: Json | null
+          status: string
+          verification_type: string
+        }
+        Insert: {
+          checked_at?: string
+          domain_id: string
+          error_message?: string | null
+          id?: string
+          response_data?: Json | null
+          status: string
+          verification_type: string
+        }
+        Update: {
+          checked_at?: string
+          domain_id?: string
+          error_message?: string | null
+          id?: string
+          response_data?: Json | null
+          status?: string
+          verification_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_verification_logs_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_queue: {
         Row: {
           created_at: string
@@ -2994,6 +3032,69 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_domains: {
+        Row: {
+          created_at: string
+          created_by: string
+          domain_name: string
+          domain_type: Database["public"]["Enums"]["domain_type"]
+          id: string
+          is_active: boolean
+          is_primary: boolean
+          notes: string | null
+          ssl_expires_at: string | null
+          ssl_issued_at: string | null
+          ssl_status: Database["public"]["Enums"]["ssl_status"]
+          status: Database["public"]["Enums"]["domain_status"]
+          tenant_id: string
+          updated_at: string
+          verification_method: string | null
+          verification_token: string | null
+          verification_value: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          domain_name: string
+          domain_type: Database["public"]["Enums"]["domain_type"]
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          notes?: string | null
+          ssl_expires_at?: string | null
+          ssl_issued_at?: string | null
+          ssl_status?: Database["public"]["Enums"]["ssl_status"]
+          status?: Database["public"]["Enums"]["domain_status"]
+          tenant_id: string
+          updated_at?: string
+          verification_method?: string | null
+          verification_token?: string | null
+          verification_value?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          domain_name?: string
+          domain_type?: Database["public"]["Enums"]["domain_type"]
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          notes?: string | null
+          ssl_expires_at?: string | null
+          ssl_issued_at?: string | null
+          ssl_status?: Database["public"]["Enums"]["ssl_status"]
+          status?: Database["public"]["Enums"]["domain_status"]
+          tenant_id?: string
+          updated_at?: string
+          verification_method?: string | null
+          verification_token?: string | null
+          verification_value?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       tenant_users: {
         Row: {
           created_at: string
@@ -3423,6 +3524,10 @@ export type Database = {
         }
         Returns: string
       }
+      generate_domain_verification_token: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_invitation_token: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -3438,6 +3543,10 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_tenant_by_domain: {
+        Args: { domain_name_param: string }
+        Returns: string
       }
       get_tenant_permissions: {
         Args: { tenant_id_param: string }
@@ -3469,6 +3578,10 @@ export type Database = {
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      is_domain_available: {
+        Args: { domain_name_param: string }
+        Returns: boolean
       }
       is_promotion_valid: {
         Args: {
@@ -3530,6 +3643,8 @@ export type Database = {
       }
     }
     Enums: {
+      domain_status: "pending" | "verifying" | "verified" | "failed" | "expired"
+      domain_type: "subdomain" | "custom_domain"
       notification_priority: "low" | "medium" | "high" | "urgent"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
       notification_type:
@@ -3603,6 +3718,7 @@ export type Database = {
         | "discount_management"
         | "receipt_printing"
         | "session_management"
+      ssl_status: "none" | "pending" | "issued" | "expired" | "failed"
       user_role: "superadmin" | "admin" | "manager" | "cashier" | "user"
     }
     CompositeTypes: {
@@ -3731,6 +3847,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      domain_status: ["pending", "verifying", "verified", "failed", "expired"],
+      domain_type: ["subdomain", "custom_domain"],
       notification_priority: ["low", "medium", "high", "urgent"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
       notification_type: [
@@ -3807,6 +3925,7 @@ export const Constants = {
         "receipt_printing",
         "session_management",
       ],
+      ssl_status: ["none", "pending", "issued", "expired", "failed"],
       user_role: ["superadmin", "admin", "manager", "cashier", "user"],
     },
   },

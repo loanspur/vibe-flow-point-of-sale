@@ -62,6 +62,7 @@ import { currencies, stockAccountingMethods, smsProviders, templateOptions } fro
 import { timezones } from "@/lib/timezones";
 import { countries, popularCountries, getRegions, searchCountries, type Country } from "@/lib/countries";
 import { clearCurrencyCache } from "@/lib/currency";
+import DomainManagement from '@/components/DomainManagement';
 
 const businessSettingsSchema = z.object({
   company_name: z.string().optional(),
@@ -631,7 +632,7 @@ export function BusinessSettingsEnhanced() {
           {/* Enhanced Navigation */}
           <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-1 shadow-sm">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-8 h-auto bg-transparent gap-1 p-1">
+              <TabsList className="grid w-full grid-cols-9 h-auto bg-transparent gap-1 p-1">
                 <TabsTrigger value="company" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <Building className="h-4 w-4 mr-2" />
                   Company
@@ -659,6 +660,10 @@ export function BusinessSettingsEnhanced() {
                 <TabsTrigger value="templates" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <Layout className="h-4 w-4 mr-2" />
                   Templates
+                </TabsTrigger>
+                <TabsTrigger value="domains" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+                  <Globe className="h-4 w-4 mr-2" />
+                  Domains
                 </TabsTrigger>
                 <TabsTrigger value="security" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <Shield className="h-4 w-4 mr-2" />
@@ -1893,6 +1898,11 @@ export function BusinessSettingsEnhanced() {
                           </CardContent>
                         </Card>
                       </div>
+                    </TabsContent>
+
+                    {/* Domains Tab */}
+                    <TabsContent value="domains" className="space-y-6 mt-6">
+                      <DomainManagement />
                     </TabsContent>
 
                     {/* Security Tab */}
