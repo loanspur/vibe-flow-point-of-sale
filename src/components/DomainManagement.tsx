@@ -49,7 +49,6 @@ export default function DomainManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newDomain, setNewDomain] = useState('');
-  const [domainType, setDomainType] = useState<'subdomain' | 'custom_domain'>('subdomain');
   const [verificationMethod, setVerificationMethod] = useState<'dns_txt' | 'dns_cname' | 'file_upload'>('dns_txt');
   const [selectedDomain, setSelectedDomain] = useState<TenantDomain | null>(null);
 
@@ -135,12 +134,10 @@ export default function DomainManagement() {
       return;
     }
 
-    const domainName = domainType === 'subdomain' 
-      ? `${newDomain.toLowerCase()}.yourapp.com` 
-      : newDomain.toLowerCase();
+    const domainName = newDomain.toLowerCase();
 
-    if (!validateDomain(domainType === 'subdomain' ? newDomain : domainName, domainType)) {
-      toast.error(`Invalid ${domainType === 'subdomain' ? 'subdomain' : 'domain'} format`);
+    if (!validateDomain(domainName, 'custom_domain')) {
+      toast.error('Invalid domain format');
       return;
     }
 
@@ -168,19 +165,17 @@ export default function DomainManagement() {
         .insert({
           tenant_id: tenantId,
           domain_name: domainName,
-          domain_type: domainType,
+          domain_type: 'custom_domain',
           verification_token: verificationToken,
           verification_method: verificationMethod,
-          verification_value: domainType === 'subdomain' 
-            ? `${verificationToken}.yourapp.com` 
-            : verificationToken,
+          verification_value: verificationToken,
           created_by: (await supabase.auth.getUser()).data.user?.id,
-          status: domainType === 'subdomain' ? 'verified' : 'pending' // Subdomains are auto-verified
+          status: 'pending'
         });
 
       if (insertError) throw insertError;
 
-      toast.success(`${domainType === 'subdomain' ? 'Subdomain' : 'Domain'} added successfully`);
+      toast.success('Custom domain added successfully');
       setShowAddDialog(false);
       setNewDomain('');
       fetchDomains();
@@ -385,7 +380,7 @@ export default function DomainManagement() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Domain Management</h2>
           <p className="text-muted-foreground">
-            Manage your custom domains and subdomains
+            Manage your custom domains
           </p>
         </div>
         {canManageDomains && (
@@ -400,55 +395,33 @@ export default function DomainManagement() {
               <DialogHeader>
                 <DialogTitle>Add New Domain</DialogTitle>
                 <DialogDescription>
-                  Add a subdomain or custom domain for your tenant
+                  Add a custom domain for your tenant
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="domain-type">Domain Type</Label>
-                  <Select value={domainType} onValueChange={(value: 'subdomain' | 'custom_domain') => setDomainType(value)}>
+                  <Label htmlFor="domain-name">Domain Name</Label>
+                  <Input
+                    id="domain-name"
+                    placeholder="example.com"
+                    value={newDomain}
+                    onChange={(e) => setNewDomain(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="verification-method">Verification Method</Label>
+                  <Select value={verificationMethod} onValueChange={(value: 'dns_txt' | 'dns_cname' | 'file_upload') => setVerificationMethod(value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="subdomain">Subdomain (tenant.yourapp.com)</SelectItem>
-                      <SelectItem value="custom_domain">Custom Domain (yourdomain.com)</SelectItem>
+                      <SelectItem value="dns_txt">DNS TXT Record</SelectItem>
+                      <SelectItem value="dns_cname">DNS CNAME Record</SelectItem>
+                      <SelectItem value="file_upload">File Upload</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div>
-                  <Label htmlFor="domain-name">
-                    {domainType === 'subdomain' ? 'Subdomain' : 'Domain Name'}
-                  </Label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      id="domain-name"
-                      placeholder={domainType === 'subdomain' ? 'mystore' : 'example.com'}
-                      value={newDomain}
-                      onChange={(e) => setNewDomain(e.target.value)}
-                    />
-                    {domainType === 'subdomain' && (
-                      <span className="text-muted-foreground">.yourapp.com</span>
-                    )}
-                  </div>
-                </div>
-
-                {domainType === 'custom_domain' && (
-                  <div>
-                    <Label htmlFor="verification-method">Verification Method</Label>
-                    <Select value={verificationMethod} onValueChange={(value: 'dns_txt' | 'dns_cname' | 'file_upload') => setVerificationMethod(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dns_txt">DNS TXT Record</SelectItem>
-                        <SelectItem value="dns_cname">DNS CNAME Record</SelectItem>
-                        <SelectItem value="file_upload">File Upload</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
 
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddDialog(false)}>
