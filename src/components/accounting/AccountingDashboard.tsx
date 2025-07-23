@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { useCurrencySettings } from '@/lib/currency';
 import {
   Building,
   CreditCard,
@@ -29,6 +30,7 @@ interface AccountingMetrics {
 export default function AccountingDashboard() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
+  const { formatAmount } = useCurrencySettings();
 
   const [metrics, setMetrics] = useState<AccountingMetrics>({
     totalAssets: 0,
@@ -179,12 +181,6 @@ export default function AccountingDashboard() {
     };
   }, [tenantId]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
 
   const formatPercentage = (value: number, total: number) => {
     if (total === 0) return '0%';
@@ -222,7 +218,7 @@ export default function AccountingDashboard() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Assets</p>
-                <p className="text-2xl font-bold">{formatCurrency(metrics.totalAssets)}</p>
+                <p className="text-2xl font-bold">{formatAmount(metrics.totalAssets)}</p>
               </div>
             </div>
           </CardContent>
@@ -236,7 +232,7 @@ export default function AccountingDashboard() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Liabilities</p>
-                <p className="text-2xl font-bold">{formatCurrency(metrics.totalLiabilities)}</p>
+                <p className="text-2xl font-bold">{formatAmount(metrics.totalLiabilities)}</p>
               </div>
             </div>
           </CardContent>
@@ -250,7 +246,7 @@ export default function AccountingDashboard() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Equity</p>
-                <p className="text-2xl font-bold">{formatCurrency(metrics.totalEquity)}</p>
+                <p className="text-2xl font-bold">{formatAmount(metrics.totalEquity)}</p>
               </div>
             </div>
           </CardContent>
@@ -265,7 +261,7 @@ export default function AccountingDashboard() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Net Income (MTD)</p>
                 <p className={`text-2xl font-bold ${metrics.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(metrics.netIncome)}
+                  {formatAmount(metrics.netIncome)}
                 </p>
               </div>
             </div>
@@ -287,7 +283,7 @@ export default function AccountingDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Income</span>
                 <span className="text-lg font-bold text-green-600">
-                  {formatCurrency(metrics.monthlyIncome)}
+                  {formatAmount(metrics.monthlyIncome)}
                 </span>
               </div>
               <div className="w-full bg-muted rounded-full h-2">
@@ -302,7 +298,7 @@ export default function AccountingDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Expenses</span>
                 <span className="text-lg font-bold text-red-600">
-                  {formatCurrency(metrics.monthlyExpenses)}
+                  {formatAmount(metrics.monthlyExpenses)}
                 </span>
               </div>
               <div className="w-full bg-muted rounded-full h-2">
@@ -318,7 +314,7 @@ export default function AccountingDashboard() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Net Income</span>
                   <span className={`text-lg font-bold ${metrics.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(metrics.netIncome)}
+                    {formatAmount(metrics.netIncome)}
                   </span>
                 </div>
               </div>
@@ -338,7 +334,7 @@ export default function AccountingDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Assets</span>
                 <div className="text-right">
-                  <span className="text-lg font-bold">{formatCurrency(metrics.totalAssets)}</span>
+                  <span className="text-lg font-bold">{formatAmount(metrics.totalAssets)}</span>
                   <p className="text-xs text-muted-foreground">
                     {formatPercentage(metrics.totalAssets, metrics.totalAssets + metrics.totalLiabilities + metrics.totalEquity)}
                   </p>
@@ -348,7 +344,7 @@ export default function AccountingDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Liabilities</span>
                 <div className="text-right">
-                  <span className="text-lg font-bold">{formatCurrency(metrics.totalLiabilities)}</span>
+                  <span className="text-lg font-bold">{formatAmount(metrics.totalLiabilities)}</span>
                   <p className="text-xs text-muted-foreground">
                     {formatPercentage(metrics.totalLiabilities, metrics.totalAssets + metrics.totalLiabilities + metrics.totalEquity)}
                   </p>
@@ -358,7 +354,7 @@ export default function AccountingDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Equity</span>
                 <div className="text-right">
-                  <span className="text-lg font-bold">{formatCurrency(metrics.totalEquity)}</span>
+                  <span className="text-lg font-bold">{formatAmount(metrics.totalEquity)}</span>
                   <p className="text-xs text-muted-foreground">
                     {formatPercentage(metrics.totalEquity, metrics.totalAssets + metrics.totalLiabilities + metrics.totalEquity)}
                   </p>
