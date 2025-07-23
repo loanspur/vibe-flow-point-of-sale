@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { initializeDefaultChartOfAccounts } from "@/lib/default-accounts";
+import { useCurrencySettings } from "@/lib/currency";
 import { verifyAccountingIntegration, syncExistingTransactions } from "@/lib/accounting-verification";
 import { Button } from "@/components/ui/button";
 import { 
@@ -17,10 +18,11 @@ import dashboardImage from "@/assets/dashboard-preview.jpg";
 
 const Dashboard = () => {
   const { tenantId } = useAuth();
+  const { formatAmount } = useCurrencySettings();
   const [metrics, setMetrics] = useState([
     {
       title: "Today's Sales",
-      value: "$0.00",
+      value: "0",
       change: "0%",
       icon: DollarSign,
       trend: "up"
@@ -101,7 +103,7 @@ const Dashboard = () => {
       setMetrics([
         {
           title: "Today's Sales",
-          value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(todayRevenue),
+          value: formatAmount(todayRevenue),
           change: "0%", // Calculate based on yesterday's data if needed
           icon: DollarSign,
           trend: "up"
