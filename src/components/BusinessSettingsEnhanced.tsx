@@ -58,6 +58,7 @@ import { useToast } from "@/hooks/use-toast";
 import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
 import { timezones } from "@/lib/timezones";
 import { countries, popularCountries, getRegions, searchCountries, type Country } from "@/lib/countries";
+import { clearCurrencyCache } from "@/lib/currency";
 
 const businessSettingsSchema = z.object({
   company_name: z.string().optional(),
@@ -313,6 +314,9 @@ export function BusinessSettingsEnhanced() {
         throw error;
       }
 
+      // Clear currency cache to reflect new settings
+      clearCurrencyCache();
+      
       toast({
         title: "Settings saved",
         description: "Your business settings have been updated successfully.",

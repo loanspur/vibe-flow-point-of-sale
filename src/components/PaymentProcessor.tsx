@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useCurrencySettings } from "@/lib/currency";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, CreditCard, Banknote, Smartphone, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +22,8 @@ interface PaymentProcessorProps {
   isProcessing?: boolean;
 }
 
-export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }: PaymentProcessorProps) {
+export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing = false }: PaymentProcessorProps) {
+  const { formatAmount } = useCurrencySettings();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [newPayment, setNewPayment] = useState({
     method: "cash",
@@ -88,7 +90,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
     const paymentTypeText = newPayment.method === "credit" ? "Credit sale" : payment.method.toUpperCase();
     toast({
       title: "Payment Added",
-      description: `${paymentTypeText} payment of $${payment.amount.toFixed(2)} added`,
+      description: `${paymentTypeText} payment of ${formatAmount(payment.amount)} added`,
     });
   };
 
@@ -119,8 +121,8 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
 
   const getStatusText = () => {
     if (remainingBalance === 0) return "Fully Paid";
-    if (remainingBalance < 0) return `Overpaid by $${Math.abs(remainingBalance).toFixed(2)}`;
-    return `Balance Due: $${remainingBalance.toFixed(2)}`;
+    if (remainingBalance < 0) return `Overpaid by ${formatAmount(Math.abs(remainingBalance))}`;
+    return `Balance Due: ${formatAmount(remainingBalance)}`;
   };
 
   return (
@@ -135,20 +137,20 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Payment Summary */}
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-sm text-muted-foreground">Total</p>
-            <p className="font-bold">${totalAmount.toFixed(2)}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Paid</p>
-            <p className="font-bold text-green-600">${paidAmount.toFixed(2)}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Balance</p>
-            <p className={`font-bold ${getStatusColor()}`}>${remainingBalance.toFixed(2)}</p>
-          </div>
-        </div>
+         <div className="grid grid-cols-3 gap-4 text-center">
+           <div>
+             <p className="text-sm text-muted-foreground">Total</p>
+             <p className="font-bold">{formatAmount(totalAmount)}</p>
+           </div>
+           <div>
+             <p className="text-sm text-muted-foreground">Paid</p>
+             <p className="font-bold text-green-600">{formatAmount(paidAmount)}</p>
+           </div>
+           <div>
+             <p className="text-sm text-muted-foreground">Balance</p>
+             <p className={`font-bold ${getStatusColor()}`}>{formatAmount(remainingBalance)}</p>
+           </div>
+         </div>
 
         <Separator />
 
@@ -258,7 +260,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold">${payment.amount.toFixed(2)}</span>
+                  <span className="font-bold">{formatAmount(payment.amount)}</span>
                   <Button
                     variant="outline"
                     size="sm"
@@ -275,9 +277,9 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing }
 
         {/* Change Due */}
         {remainingBalance < 0 && (
-          <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-            <p className="text-center font-bold text-green-700 dark:text-green-300">
-              Change Due: ${Math.abs(remainingBalance).toFixed(2)}
+           <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+             <p className="text-center font-bold text-green-700 dark:text-green-300">
+               Change Due: {formatAmount(Math.abs(remainingBalance))}
             </p>
           </div>
         )}
