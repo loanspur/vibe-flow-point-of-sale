@@ -51,13 +51,6 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
                   <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
                 </Button>
 
-                {/* Primary Action */}
-                <Button asChild className="shadow-sm">
-                  <Link to="/pos" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    New Sale
-                  </Link>
-                </Button>
 
                 {/* User Menu */}
                 <DropdownMenu>
