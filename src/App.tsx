@@ -25,6 +25,7 @@ const ComprehensivePOS = lazy(() => import("./pages/ComprehensivePOS"));
 // Admin Pages
 const TenantManagement = lazy(() => import("./pages/TenantManagement"));
 const SuperAdminUserManagement = lazy(() => import("./pages/SuperAdminUserManagement"));
+const SuperAdminAnalytics = lazy(() => import("./pages/SuperAdminAnalytics"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Products = lazy(() => import("./pages/Products"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -173,6 +174,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
                   <SuperAdminLayout>
                     <SuperAdminUserManagement />
+                  </SuperAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/superadmin/analytics" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                  <SuperAdminLayout>
+                    <SuperAdminAnalytics />
                   </SuperAdminLayout>
                 </ProtectedRoute>
               } 
