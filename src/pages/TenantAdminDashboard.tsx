@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,11 +26,12 @@ const getTimeBasedGreeting = () => {
 
 export default function TenantAdminDashboard() {
   const { user } = useAuth();
+  const { formatCurrency } = useApp();
 
   const businessStats = [
     {
       title: "Today's Revenue",
-      value: "$2,450",
+      value: formatCurrency(2450),
       change: "+15%",
       changeType: "positive",
       icon: DollarSign,
@@ -106,7 +108,7 @@ export default function TenantAdminDashboard() {
       id: "#1234",
       type: "sale",
       customer: "John Doe",
-      amount: "$45.99",
+      amount: formatCurrency(45.99),
       time: "2 minutes ago",
       status: "completed",
       description: "Coffee & pastry"
@@ -115,7 +117,7 @@ export default function TenantAdminDashboard() {
       id: "#1233",
       type: "sale", 
       customer: "Sarah Smith",
-      amount: "$23.50",
+      amount: formatCurrency(23.50),
       time: "15 minutes ago",
       status: "completed",
       description: "Breakfast combo"
@@ -124,7 +126,7 @@ export default function TenantAdminDashboard() {
       id: "#1232",
       type: "return",
       customer: "Mike Johnson",
-      amount: "-$12.00",
+      amount: `-${formatCurrency(12.00).replace(/^[^\d-]*/, '')}`,
       time: "1 hour ago",
       status: "refunded",
       description: "Product return"
@@ -133,7 +135,7 @@ export default function TenantAdminDashboard() {
       id: "#1231",
       type: "sale",
       customer: "Emily Davis",
-      amount: "$156.00",
+      amount: formatCurrency(156.00),
       time: "2 hours ago",
       status: "completed",
       description: "Bulk order"
@@ -319,7 +321,7 @@ export default function TenantAdminDashboard() {
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                   <div>
                     <p className="text-sm text-green-700 font-medium">Total Revenue</p>
-                    <p className="text-2xl font-bold text-green-900">$12,450</p>
+                    <p className="text-2xl font-bold text-green-900">{formatCurrency(12450)}</p>
                   </div>
                   <div className="text-right">
                     <TrendingUp className="h-6 w-6 text-green-600 mb-1" />
@@ -334,7 +336,7 @@ export default function TenantAdminDashboard() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Average Order Value</span>
-                    <span className="font-semibold">$29.43</span>
+                    <span className="font-semibold">{formatCurrency(29.43)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Customer Satisfaction</span>
