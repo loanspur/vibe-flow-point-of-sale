@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText, Printer, CreditCard, RotateCcw } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useCurrencySettings } from "@/lib/currency";
 import { SaleForm } from "./SaleForm";
 import { QuoteManagement } from "./QuoteManagement";
 import SalesReturns from "./SalesReturns";
@@ -270,12 +271,7 @@ export function SalesManagement() {
     return matchesSearch && matchesStatus && matchesPayment;
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const { formatAmount } = useCurrencySettings();
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -415,7 +411,7 @@ export function SalesManagement() {
 
       toast({
         title: "Success",
-        description: `Payment of ${formatCurrency(paymentData.amount)} recorded successfully`,
+        description: `Payment of ${formatAmount(paymentData.amount)} recorded successfully`,
       });
 
       setIsPaymentDialogOpen(false);
@@ -591,7 +587,7 @@ export function SalesManagement() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats.todaySales)}</div>
+                <div className="text-2xl font-bold">{formatAmount(stats.todaySales)}</div>
               </CardContent>
             </Card>
 
@@ -601,7 +597,7 @@ export function SalesManagement() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats.totalSales)}</div>
+                <div className="text-2xl font-bold">{formatAmount(stats.totalSales)}</div>
               </CardContent>
             </Card>
 
@@ -621,7 +617,7 @@ export function SalesManagement() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats.averageSale)}</div>
+                <div className="text-2xl font-bold">{formatAmount(stats.averageSale)}</div>
               </CardContent>
             </Card>
           </div>
@@ -643,7 +639,7 @@ export function SalesManagement() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <p className="font-bold">{formatCurrency(sale.total_amount)}</p>
+                        <p className="font-bold">{formatAmount(sale.total_amount)}</p>
                         {getPaymentMethodBadge(sale.payment_method)}
                       </div>
                       <Button variant="outline" size="sm" onClick={() => handleViewReceipt(sale)}>
@@ -766,24 +762,24 @@ export function SalesManagement() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {formatCurrency(sale.total_amount - (sale.discount_amount || 0) - (sale.tax_amount || 0))}
+                          {formatAmount(sale.total_amount - (sale.discount_amount || 0) - (sale.tax_amount || 0))}
                         </TableCell>
                         <TableCell>
                           {sale.discount_amount > 0 ? (
-                            <span className="text-red-600">-{formatCurrency(sale.discount_amount)}</span>
+                            <span className="text-red-600">-{formatAmount(sale.discount_amount)}</span>
                           ) : (
-                            <span className="text-muted-foreground">$0.00</span>
+                            <span className="text-muted-foreground">{formatAmount(0)}</span>
                           )}
                         </TableCell>
-                        <TableCell>
-                          {sale.tax_amount > 0 ? (
-                            formatCurrency(sale.tax_amount)
-                          ) : (
-                            <span className="text-muted-foreground">$0.00</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-bold">
-                          {formatCurrency(sale.total_amount)}
+                         <TableCell>
+                           {sale.tax_amount > 0 ? (
+                             formatAmount(sale.tax_amount)
+                           ) : (
+                             <span className="text-muted-foreground">{formatAmount(0)}</span>
+                           )}
+                         </TableCell>
+                         <TableCell className="font-bold">
+                           {formatAmount(sale.total_amount)}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
@@ -936,7 +932,7 @@ export function SalesManagement() {
                                   </div>
                                 </TableCell>
                                 <TableCell className="font-bold">
-                                  {formatCurrency(invoice.total_amount)}
+                                  {formatAmount(invoice.total_amount)}
                                 </TableCell>
                                 <TableCell>
                                   {paymentStatus ? (
@@ -952,7 +948,7 @@ export function SalesManagement() {
                                       </Badge>
                                       {paymentStatus.status !== 'paid' && (
                                         <span className="text-xs text-muted-foreground">
-                                          {formatCurrency(paymentStatus.outstanding)} remaining
+                                          {formatAmount(paymentStatus.outstanding)} remaining
                                         </span>
                                       )}
                                     </div>
@@ -1119,7 +1115,7 @@ export function SalesManagement() {
               <div className="text-sm space-y-1">
                 <div>Receipt: {saleForReturn?.receipt_number}</div>
                 <div>Customer: {saleForReturn?.customers?.name || "Walk-in Customer"}</div>
-                <div>Amount: {saleForReturn ? formatCurrency(saleForReturn.total_amount) : "$0.00"}</div>
+                <div>Amount: {saleForReturn ? formatAmount(saleForReturn.total_amount) : formatAmount(0)}</div>
                 <div>Date: {saleForReturn ? formatDate(saleForReturn.created_at) : ""}</div>
               </div>
             </div>
