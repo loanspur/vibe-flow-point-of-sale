@@ -354,7 +354,6 @@ export default function ChartOfAccounts() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Chart of Accounts</h3>
-          <p className="text-sm text-muted-foreground">Manage your accounting structure and account balances</p>
         </div>
         <div className="flex space-x-2">
           <Dialog open={isCreateTypeOpen} onOpenChange={setIsCreateTypeOpen}>

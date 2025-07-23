@@ -448,7 +448,6 @@ export default function TransactionManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Journal Entries</h3>
-          <p className="text-sm text-muted-foreground">Manage accounting transactions and journal entries</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>

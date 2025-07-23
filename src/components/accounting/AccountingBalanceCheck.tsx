@@ -222,7 +222,6 @@ export default function AccountingBalanceCheck() {
       <Card>
         <CardHeader>
           <CardTitle>Account Category Balances</CardTitle>
-          <CardDescription>Breakdown of balances by account category</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

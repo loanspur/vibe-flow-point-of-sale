@@ -877,7 +877,6 @@ const PurchaseManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Purchase Management</h1>
-          <p className="text-muted-foreground">Manage purchase orders, receiving, and supplier relationships</p>
         </div>
       </div>
 
@@ -933,7 +932,6 @@ const PurchaseManagement = () => {
           <Card>
             <CardHeader>
               <CardTitle>Recent Purchase Orders</CardTitle>
-              <CardDescription>Latest purchase orders and their status</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -1272,7 +1270,6 @@ const PurchaseManagement = () => {
           <Card>
             <CardHeader>
               <CardTitle>Pending Receipts</CardTitle>
-              <CardDescription>Orders waiting to be received</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -1321,7 +1318,6 @@ const PurchaseManagement = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Purchase Summary</CardTitle>
-                <CardDescription>Overview of purchase activities</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -1348,7 +1344,6 @@ const PurchaseManagement = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Top Suppliers</CardTitle>
-                <CardDescription>Suppliers by order volume</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">

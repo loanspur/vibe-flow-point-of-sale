@@ -281,7 +281,6 @@ export default function AccountingDashboard() {
               <TrendingUp className="w-5 h-5 text-emerald-500" />
               <span>Monthly Income & Expenses</span>
             </CardTitle>
-            <CardDescription>Current month performance</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -333,7 +332,6 @@ export default function AccountingDashboard() {
               <BarChart3 className="w-5 h-5 text-blue-500" />
               <span>Balance Sheet Summary</span>
             </CardTitle>
-            <CardDescription>Financial position overview</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
