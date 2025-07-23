@@ -39,7 +39,11 @@ const notificationTypes = [
   { value: 'announcement', label: 'Announcement' }
 ];
 
-export const EmailTemplateManager = () => {
+interface EmailTemplateManagerProps {
+  isSystemAdmin?: boolean;
+}
+
+export const EmailTemplateManager = ({ isSystemAdmin = false }: EmailTemplateManagerProps) => {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [isCreateMode, setIsCreateMode] = useState(false);
@@ -58,10 +62,17 @@ export const EmailTemplateManager = () => {
 
   const fetchTemplates = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('email_templates')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (isSystemAdmin) {
+        // System admin sees all templates including system templates
+        query = query.or('is_system_template.eq.true,tenant_id.is.null');
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setTemplates(data || []);
@@ -130,8 +141,8 @@ export const EmailTemplateManager = () => {
         html_content: formData.html_content,
         text_content: formData.text_content || null,
         variables,
-        tenant_id: tenantId,
-        is_system_template: false,
+        tenant_id: isSystemAdmin ? null : tenantId,
+        is_system_template: isSystemAdmin,
         is_active: true
       };
 
@@ -231,9 +242,14 @@ export const EmailTemplateManager = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Email Templates</h2>
+          <h2 className="text-2xl font-bold">
+            {isSystemAdmin ? 'Platform Email Templates' : 'Email Templates'}
+          </h2>
           <p className="text-muted-foreground">
-            Manage email templates for automated communications
+            {isSystemAdmin 
+              ? 'Manage system-wide email templates for all tenants' 
+              : 'Manage email templates for automated communications'
+            }
           </p>
         </div>
         <Button onClick={handleCreateTemplate}>
@@ -398,16 +414,16 @@ export const EmailTemplateManager = () => {
                 
                 <TabsContent value="variables">
                   <div>
-                    <Label htmlFor="variables">Variables (JSON)</Label>
+                    <Label htmlFor="variables">Available Variables (JSON)</Label>
                     <Textarea
                       id="variables"
                       value={formData.variables}
                       onChange={(e) => setFormData(prev => ({ ...prev, variables: e.target.value }))}
-                      placeholder='{"variable_name": "description"}'
+                      placeholder='{"user_name": "User Name", "company_name": "Company Name", "tenant_name": "Organization Name", "order_number": "Order Number", "amount": "Amount"}'
                       className="min-h-32 font-mono text-sm"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Define variables that can be used in the template with {"{{variable_name}}"} syntax
+                      Define variables that can be inserted into templates. Use {`{{variable_name}}`} in your content.
                     </p>
                   </div>
                 </TabsContent>

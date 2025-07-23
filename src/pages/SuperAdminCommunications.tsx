@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Mail, Bell, Settings, Users, MessageSquare } from "lucide-react";
+import { EmailTemplateManager } from "@/components/EmailTemplateManager";
 
 const SuperAdminCommunications = () => {
   return (
@@ -36,46 +37,7 @@ const SuperAdminCommunications = () => {
         </TabsList>
 
         <TabsContent value="platform">
-          <Card>
-            <CardHeader>
-              <CardTitle>Platform Email Templates</CardTitle>
-              <CardDescription>
-                Manage system-wide email templates for all tenants
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Welcome Email</h3>
-                  <p className="text-sm text-muted-foreground">New tenant onboarding email</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Active</Badge>
-                  <Button variant="outline" size="sm">Edit</Button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Trial Expiry</h3>
-                  <p className="text-sm text-muted-foreground">Trial period expiration notice</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Active</Badge>
-                  <Button variant="outline" size="sm">Edit</Button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">System Maintenance</h3>
-                  <p className="text-sm text-muted-foreground">Maintenance notification template</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">Draft</Badge>
-                  <Button variant="outline" size="sm">Edit</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <EmailTemplateManager isSystemAdmin={true} />
         </TabsContent>
 
         <TabsContent value="notifications">
