@@ -116,6 +116,7 @@ const PURCHASE_STATUSES = [
 const PurchaseManagement = () => {
   const { tenantId, user } = useAuth();
   const { toast } = useToast();
+  const { canDelete, logDeletionAttempt } = useDeletionControl();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
