@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { format } from 'date-fns';
 import { Plus, FileText, Calendar, DollarSign, Trash2, Edit, Eye, CheckCircle, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +53,7 @@ interface Account {
 export default function TransactionManagement() {
   const { tenantId, user } = useAuth();
   const { toast } = useToast();
+  const { canDelete, logDeletionAttempt } = useDeletionControl();
 
   const [transactions, setTransactions] = useState<AccountingTransaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -263,6 +265,18 @@ export default function TransactionManagement() {
 
   // Delete transaction
   const deleteTransaction = async (transactionId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!canDelete('transaction')) {
+      logDeletionAttempt('transaction', transactionId, transaction?.description);
+      toast({ 
+        title: "Deletion Disabled", 
+        description: "Transaction deletion has been disabled to maintain audit trail and data integrity.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('accounting_transactions')
@@ -642,11 +656,16 @@ export default function TransactionManagement() {
                              <CheckCircle className="w-4 h-4" />
                            </Button>
                            <AlertDialog>
-                             <AlertDialogTrigger asChild>
-                               <Button size="sm" variant="outline" title="Delete transaction">
-                                 <Trash2 className="w-4 h-4" />
-                               </Button>
-                             </AlertDialogTrigger>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  title={!canDelete('transaction') ? 'Deletion disabled for audit trail' : 'Delete transaction'}
+                                  disabled={!canDelete('transaction')}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
                              <AlertDialogContent>
                                <AlertDialogHeader>
                                  <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
@@ -656,9 +675,12 @@ export default function TransactionManagement() {
                                </AlertDialogHeader>
                                <AlertDialogFooter>
                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                 <AlertDialogAction onClick={() => deleteTransaction(transaction.id)}>
-                                   Delete
-                                 </AlertDialogAction>
+                                  <AlertDialogAction 
+                                    onClick={() => deleteTransaction(transaction.id)}
+                                    disabled={!canDelete('transaction')}
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
                                </AlertDialogFooter>
                              </AlertDialogContent>
                            </AlertDialog>

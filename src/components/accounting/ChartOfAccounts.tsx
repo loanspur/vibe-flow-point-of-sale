@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { Plus, Building, TrendingUp, TrendingDown, CreditCard, Banknote, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -50,6 +51,7 @@ const categoryColors = {
 export default function ChartOfAccounts() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
+  const { canDelete, logDeletionAttempt } = useDeletionControl();
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountTypes, setAccountTypes] = useState<AccountType[]>([]);
@@ -218,6 +220,16 @@ export default function ChartOfAccounts() {
 
   // Delete account
   const deleteAccount = async (accountId: string, accountName: string) => {
+    if (!canDelete('account')) {
+      logDeletionAttempt('account', accountId, accountName);
+      toast({ 
+        title: "Deletion Disabled", 
+        description: "Account deletion has been disabled to maintain audit trail and data integrity.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete the account "${accountName}"? This action cannot be undone.`)) {
       return;
     }
@@ -611,13 +623,15 @@ export default function ChartOfAccounts() {
                                  >
                                    <Edit className="w-4 h-4" />
                                  </Button>
-                                 <Button
-                                   size="sm"
-                                   variant="outline"
-                                   onClick={() => deleteAccount(account.id, account.name)}
-                                 >
-                                   <Trash2 className="w-4 h-4" />
-                                 </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => deleteAccount(account.id, account.name)}
+                                    disabled={!canDelete('account')}
+                                    title={!canDelete('account') ? 'Deletion disabled for audit trail' : 'Delete account'}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                  <Button
                                    size="sm"
                                    variant="outline"

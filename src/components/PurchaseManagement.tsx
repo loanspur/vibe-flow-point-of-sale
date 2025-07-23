@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createPurchaseJournalEntry, createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { processPurchaseReceipt } from '@/lib/inventory-integration';
 import { useToast } from '@/hooks/use-toast';
+import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -811,6 +812,15 @@ const PurchaseManagement = () => {
 
   const removePayment = async (paymentId: string) => {
     if (!paymentId.includes('payment-')) {
+      if (!canDelete('payment')) {
+        logDeletionAttempt('payment', paymentId);
+        toast({
+          title: "Deletion Disabled",
+          description: "Payment deletion has been disabled to maintain audit trail and data integrity.",
+          variant: "destructive",
+        });
+        return;
+      }
       // This is a real payment from database, don't allow removal for now
       toast({
         title: "Error", 

@@ -16,6 +16,7 @@ import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image,
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useDeletionControl } from '@/hooks/useDeletionControl';
 import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
@@ -62,6 +63,7 @@ interface Product {
 export default function ProductManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
+  const { canDelete, logDeletionAttempt } = useDeletionControl();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,9 +121,20 @@ export default function ProductManagement() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    
+    if (!canDelete('product')) {
+      logDeletionAttempt('product', productId, product?.name);
+      toast({
+        title: "Deletion Disabled",
+        description: "Product deletion has been disabled to maintain audit trail and data integrity.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Delete product image if exists
-      const product = products.find(p => p.id === productId);
       if (product?.image_url) {
         const imagePath = product.image_url.split('/').pop();
         if (imagePath) {
@@ -302,7 +315,13 @@ export default function ProductManagement() {
                   
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-destructive">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-destructive"
+                        disabled={!canDelete('product')}
+                        title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
@@ -318,6 +337,7 @@ export default function ProductManagement() {
                         <AlertDialogAction 
                           onClick={() => handleDeleteProduct(product.id)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={!canDelete('product')}
                         >
                           Delete
                         </AlertDialogAction>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
+
 import { Users, UserPlus, Link, Edit, Trash2, Phone, Mail, MapPin, Plus, UserCheck, Building, Eye } from 'lucide-react';
 import ContactDetails from './ContactDetails';
 
@@ -48,6 +50,8 @@ const CONTACT_TYPES = [
 
 const ContactManagement = () => {
   const { tenantId, userRole, user } = useAuth();
+  const { toast } = useToast();
+  const { canDelete, logDeletionAttempt } = useDeletionControl();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +98,11 @@ const ContactManagement = () => {
       if (error) throw error;
       setContacts(data || []);
     } catch (error) {
-      toast.error('Failed to load contacts');
+      toast({
+        title: "Error",
+        description: "Failed to load contacts",
+        variant: "destructive",
+      });
     }
   };
 
@@ -134,7 +142,11 @@ const ContactManagement = () => {
 
   const createContact = async () => {
     if (!formData.name.trim() || !formData.type) {
-      toast.error('Name and type are required');
+      toast({
+        title: "Error",
+        description: "Name and type are required",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -149,7 +161,10 @@ const ContactManagement = () => {
 
       if (error) throw error;
 
-      toast.success('Contact created successfully');
+      toast({
+        title: "Success",
+        description: "Contact created successfully",
+      });
       setFormData({
         name: '',
         email: '',
@@ -165,16 +180,28 @@ const ContactManagement = () => {
     } catch (error: any) {
       console.error('Error creating contact:', error);
       if (error.code === '23505' && error.constraint === 'unique_email_per_tenant') {
-        toast.error('A contact with this email already exists');
+        toast({
+          title: "Error",
+          description: "A contact with this email already exists",
+          variant: "destructive",
+        });
       } else {
-        toast.error('Failed to create contact');
+        toast({
+          title: "Error",
+          description: "Failed to create contact",
+          variant: "destructive",
+        });
       }
     }
   };
 
   const updateContact = async () => {
     if (!editingContact || !formData.name.trim()) {
-      toast.error('Name is required');
+      toast({
+        title: "Error",
+        description: "Name is required",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -186,7 +213,10 @@ const ContactManagement = () => {
 
       if (error) throw error;
 
-      toast.success('Contact updated successfully');
+      toast({
+        title: "Success",
+        description: "Contact updated successfully",
+      });
       setIsEditOpen(false);
       setEditingContact(null);
       fetchContacts();
@@ -196,14 +226,34 @@ const ContactManagement = () => {
     } catch (error: any) {
       console.error('Error updating contact:', error);
       if (error.code === '23505' && error.constraint === 'unique_email_per_tenant') {
-        toast.error('A contact with this email already exists');
+        toast({
+          title: "Error",
+          description: "A contact with this email already exists",
+          variant: "destructive",
+        });
       } else {
-        toast.error('Failed to update contact');
+        toast({
+          title: "Error",
+          description: "Failed to update contact",
+          variant: "destructive",
+        });
       }
     }
   };
 
   const deleteContact = async (contactId: string) => {
+    const contact = contacts.find(c => c.id === contactId);
+    
+    if (!canDelete('contact')) {
+      logDeletionAttempt('contact', contactId, contact?.name);
+      toast({
+        title: "Deletion Disabled",
+        description: "Contact deletion has been disabled to maintain audit trail and data integrity.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('contacts')
@@ -212,11 +262,18 @@ const ContactManagement = () => {
 
       if (error) throw error;
 
-      toast.success('Contact deleted successfully');
+      toast({
+        title: "Contact deactivated",
+        description: "Contact has been deactivated successfully.",
+      });
       fetchContacts();
     } catch (error) {
       console.error('Error deleting contact:', error);
-      toast.error('Failed to delete contact');
+      toast({
+        title: "Error",
+        description: "Failed to deactivate contact.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -229,15 +286,26 @@ const ContactManagement = () => {
       if (error) throw error;
 
       if (data) {
-        toast.success('Successfully linked to your profile');
+        toast({
+          title: "Success",
+          description: "Successfully linked to your profile",
+        });
         fetchContacts();
         fetchUserContact();
       } else {
-        toast.error('Failed to link contact - it may already be linked to another user');
+        toast({
+          title: "Error",
+          description: "Failed to link contact - it may already be linked to another user",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error linking contact:', error);
-      toast.error('Failed to link contact to profile');
+      toast({
+        title: "Error",
+        description: "Failed to link contact to profile",
+        variant: "destructive",
+      });
     }
   };
 
@@ -251,12 +319,19 @@ const ContactManagement = () => {
 
       if (error) throw error;
 
-      toast.success('Contact unlinked from your profile');
+      toast({
+        title: "Success",
+        description: "Contact unlinked from your profile",
+      });
       fetchContacts();
       fetchUserContact();
     } catch (error) {
       console.error('Error unlinking contact:', error);
-      toast.error('Failed to unlink contact');
+      toast({
+        title: "Error",
+        description: "Failed to unlink contact",
+        variant: "destructive",
+      });
     }
   };
 
@@ -564,6 +639,8 @@ const ContactManagement = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => deleteContact(contact.id)}
+                            disabled={!canDelete('contact')}
+                            title={!canDelete('contact') ? 'Deletion disabled for audit trail' : 'Deactivate contact'}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
