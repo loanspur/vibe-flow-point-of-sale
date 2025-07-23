@@ -292,7 +292,7 @@ const PurchaseManagement = () => {
     }
 
     // Validate all items have product selected and valid quantities
-    const invalidItems = selectedItems.filter(item => 
+    const invalidItems = (selectedItems || []).filter(item => 
       !item.product_id || item.quantity <= 0 || item.unit_cost < 0
     );
     
@@ -427,7 +427,7 @@ const PurchaseManagement = () => {
       }
 
       // Prepare inventory transactions for items with received quantities
-      const receivedItems = purchaseItems
+      const receivedItems = (purchaseItems || [])
         .filter(item => item.quantity_received > 0)
         .map(item => ({
           productId: item.product_id,
@@ -555,7 +555,7 @@ const PurchaseManagement = () => {
   };
 
   const removeItem = (index: number) => {
-    const newItems = selectedItems.filter((_, i) => i !== index);
+    const newItems = (selectedItems || []).filter((_, i) => i !== index);
     setSelectedItems(newItems);
   };
 
@@ -835,7 +835,7 @@ const PurchaseManagement = () => {
       });
       return;
     }
-    setPurchasePayments(prev => prev.filter(p => p.id !== paymentId));
+    setPurchasePayments(prev => (prev || []).filter(p => p.id !== paymentId));
   };
 
   const getRemainingAmount = () => {
@@ -1035,7 +1035,7 @@ const PurchaseManagement = () => {
                                      <SelectValue placeholder="Select product" />
                                    </SelectTrigger>
                                    <SelectContent>
-                                     {products.filter(product => product.id && product.name).map((product) => (
+                                     {(products || []).filter(product => product.id && product.name).map((product) => (
                                        <SelectItem key={product.id} value={product.id}>
                                          {product.name} ({product.sku})
                                        </SelectItem>
@@ -1214,7 +1214,7 @@ const PurchaseManagement = () => {
                           {(purchase.status === 'ordered' || purchase.status === 'received') && (
                             <>
                               {(() => {
-                                const totalPaid = purchasePayments
+                                const totalPaid = (purchasePayments || [])
                                   .filter(p => p.purchase_id === purchase.id)
                                   .reduce((sum, payment) => sum + payment.amount, 0);
                                 const isPaid = totalPaid >= purchase.total_amount;
