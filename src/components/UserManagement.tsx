@@ -543,6 +543,20 @@ const UserManagement = () => {
         }
       }
 
+      // Check for existing pending invitations first
+      const { data: existingPendingInvitation } = await supabase
+        .from('user_invitations')
+        .select('id')
+        .eq('email', inviteEmail.trim())
+        .eq('tenant_id', tenantId)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (existingPendingInvitation) {
+        toast.error('A pending invitation already exists for this email');
+        return;
+      }
+
       // Create the invitation record
       const { data: invitationId, error } = await supabase.rpc('create_user_invitation', {
         tenant_id_param: tenantId,
@@ -636,13 +650,24 @@ const UserManagement = () => {
       if (invitationError) throw invitationError;
       if (!invitation) throw new Error('Invitation not found');
 
-      // Cancel the old invitation FIRST to avoid unique constraint issues
-      const { error: cancelError } = await supabase
+      // Update the existing invitation with new token and expiry instead of creating new one
+      const newToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      const newExpiryDate = new Date();
+      newExpiryDate.setHours(newExpiryDate.getHours() + 72);
+
+      const { error: updateError } = await supabase
         .from('user_invitations')
-        .update({ status: 'cancelled' })
+        .update({ 
+          invitation_token: newToken,
+          expires_at: newExpiryDate.toISOString(),
+          status: 'pending'
+        })
         .eq('id', invitationId);
 
-      if (cancelError) throw cancelError;
+      if (updateError) throw updateError;
 
       // Get role and inviter details separately with better error handling
       const [roleData, inviterData, businessSettings] = await Promise.allSettled([
@@ -674,33 +699,21 @@ const UserManagement = () => {
         ? businessSettings.value.data.company_name 
         : 'Your Company';
 
-      // Generate new invitation (now that old one is cancelled)
-      const { data: newInvitationId, error: createError } = await supabase
-        .rpc('create_user_invitation', {
-          tenant_id_param: invitation.tenant_id,
-          email_param: invitation.email,
-          role_id_param: invitation.role_id,
-          invited_by_param: invitation.invited_by,
-          expires_in_hours: 72
-        });
-
-      if (createError) throw createError;
-
-      // Get the new invitation token
-      const { data: newInvitation, error: newInvitationError } = await supabase
+      // Get the updated invitation token
+      const { data: updatedInvitation, error: invitationTokenError } = await supabase
         .from('user_invitations')
         .select('invitation_token')
-        .eq('id', newInvitationId)
+        .eq('id', invitationId)
         .maybeSingle();
 
-      if (newInvitationError) throw newInvitationError;
-      if (!newInvitation) throw new Error('Failed to retrieve new invitation token');
+      if (invitationTokenError) throw invitationTokenError;
+      if (!updatedInvitation) throw new Error('Failed to retrieve updated invitation token');
 
       // Send email via edge function
       const { data, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
         body: {
           email: invitation.email,
-          invitationToken: newInvitation.invitation_token,
+          invitationToken: updatedInvitation.invitation_token,
           inviterName,
           companyName,
           roleName

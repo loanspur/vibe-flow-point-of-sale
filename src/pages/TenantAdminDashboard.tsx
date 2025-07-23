@@ -61,10 +61,16 @@ export default function TenantAdminDashboard() {
             .eq('tenant_id', tenantId),
           supabase
             .from('products')
-            .select('id', { count: 'exact', head: true })
+            .select('id, stock_quantity, min_stock_level', { count: 'exact' })
             .eq('tenant_id', tenantId)
             .eq('is_active', true)
-            .or('stock_quantity.lte.min_stock_level,stock_quantity.eq.0')
+            .then(response => {
+              if (response.error) throw response.error;
+              const lowStockProducts = response.data.filter(product => 
+                product.stock_quantity <= product.min_stock_level || product.stock_quantity === 0
+              );
+              return { ...response, count: lowStockProducts.length };
+            })
         ]);
 
         const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
