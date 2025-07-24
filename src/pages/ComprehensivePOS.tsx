@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
-
-
 import PromotionManagement from '@/components/PromotionManagement';
-
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   BarChart3, 
   Users, 
@@ -36,7 +37,60 @@ import {
 
 export default function ComprehensivePOS() {
   const { user, tenantId, userRole } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [tenantSetupLoading, setTenantSetupLoading] = useState(false);
+  const [missingTenantForm, setMissingTenantForm] = useState({
+    businessName: '',
+    ownerName: ''
+  });
+
+  const handleSetupMissingTenant = async () => {
+    if (!missingTenantForm.businessName || !missingTenantForm.ownerName) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setTenantSetupLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('setup-missing-tenant', {
+        body: {
+          businessName: missingTenantForm.businessName,
+          ownerName: missingTenantForm.ownerName,
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to setup tenant');
+      }
+
+      toast({
+        title: "Success!",
+        description: "Your business has been set up successfully. Please refresh the page.",
+      });
+
+      // Refresh the page to reload user context
+      window.location.reload();
+
+    } catch (error: any) {
+      console.error('Tenant setup error:', error);
+      toast({
+        title: "Setup Error",
+        description: error.message || "Failed to setup your business. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setTenantSetupLoading(false);
+    }
+  };
 
   // Show setup warning if no tenant is configured
   if (!tenantId) {
@@ -50,18 +104,44 @@ export default function ComprehensivePOS() {
                 <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
                   <Building2 className="h-6 w-6 text-yellow-600" />
                 </div>
-                <CardTitle>Tenant Setup Required</CardTitle>
+                <CardTitle>Complete Your Business Setup</CardTitle>
                 <CardDescription>
-                  Your account needs to be associated with a tenant to access the POS system.
+                  Complete your business setup to access the POS system.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="text-center">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Please contact your system administrator to assign you to a tenant.
-                  </AlertDescription>
-                </Alert>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="businessName">Business Name</Label>
+                  <Input
+                    id="businessName"
+                    placeholder="Your Business Name"
+                    value={missingTenantForm.businessName}
+                    onChange={(e) => setMissingTenantForm(prev => ({ ...prev, businessName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ownerName">Your Full Name</Label>
+                  <Input
+                    id="ownerName"
+                    placeholder="John Doe"
+                    value={missingTenantForm.ownerName}
+                    onChange={(e) => setMissingTenantForm(prev => ({ ...prev, ownerName: e.target.value }))}
+                  />
+                </div>
+                <Button 
+                  onClick={handleSetupMissingTenant}
+                  disabled={tenantSetupLoading || !missingTenantForm.businessName || !missingTenantForm.ownerName}
+                  className="w-full"
+                >
+                  {tenantSetupLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Setting up...
+                    </>
+                  ) : (
+                    'Complete Setup'
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </div>

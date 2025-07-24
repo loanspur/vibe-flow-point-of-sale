@@ -139,19 +139,8 @@ export default function TrialSignup() {
         throw signUpError;
       }
 
-      console.log('Signup successful, proceeding to next step...');
+      console.log('Signup successful, checking authentication...');
 
-      // Temporarily skip tenant creation to isolate the issue
-      toast({
-        title: "Account Created Successfully!",
-        description: "Please check your email to verify your account. Tenant setup will be completed after payment.",
-        variant: "default"
-      });
-      
-      setStep(2);
-
-      // Comment out tenant creation for now
-      /*
       // Check current session immediately
       const { data: session } = await supabase.auth.getSession();
       console.log('Current session:', session);
@@ -192,7 +181,6 @@ export default function TrialSignup() {
           setStep(2);
         }
       }
-      */
 
     } catch (error: any) {
       console.error('Signup error:', error);
