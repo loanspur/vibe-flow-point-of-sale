@@ -71,7 +71,7 @@ interface PaymentHistory {
 export default function BillingManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
-  const { formatPrice, currencySymbol, currencyCode } = useCurrencyUpdate();
+  const { formatPrice, currencySymbol, currencyCode, updateCounter } = useCurrencyUpdate();
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
@@ -83,6 +83,15 @@ export default function BillingManagement() {
     fetchCurrentSubscription();
     fetchPaymentHistory();
   }, [tenantId]);
+
+  // Re-fetch data when currency changes to ensure proper formatting
+  useEffect(() => {
+    if (updateCounter > 0) {
+      fetchBillingPlans();
+      fetchCurrentSubscription();
+      fetchPaymentHistory();
+    }
+  }, [updateCounter]);
 
   const fetchBillingPlans = async () => {
     try {
@@ -319,7 +328,7 @@ export default function BillingManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div key={`billing-${currencyCode}-${updateCounter}`} className="space-y-6">{/* Add key to force re-render */}
       {currentSubscription ? (
         <Card className="border-green-200 bg-green-50">
           <CardHeader>
