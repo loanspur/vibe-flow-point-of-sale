@@ -87,7 +87,7 @@ serve(async (req) => {
         amount: 500,
         currency: 'NGN',
         started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+        expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days from now
       });
 
     if (subscriptionError) {

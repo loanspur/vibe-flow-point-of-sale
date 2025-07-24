@@ -36,12 +36,14 @@ export default function TenantAdminDashboard() {
   // Fetch subscription data
   useEffect(() => {
     if (tenantId) {
+      console.log('Fetching subscription for tenant:', tenantId);
       fetchCurrentSubscription();
     }
   }, [tenantId]);
 
   const fetchCurrentSubscription = async () => {
     try {
+      console.log('Starting subscription fetch...');
       const { data, error } = await supabase
         .from('tenant_subscriptions')
         .select(`
@@ -56,6 +58,7 @@ export default function TenantAdminDashboard() {
         .eq('status', 'active')
         .maybeSingle();
 
+      console.log('Subscription fetch result:', { data, error });
       if (error && error.code !== 'PGRST116') throw error;
       setCurrentSubscription(data);
     } catch (error) {
@@ -281,7 +284,11 @@ export default function TenantAdminDashboard() {
                     {currentSubscription.billing_plans?.name} Plan
                   </p>
                   <p className="text-sm text-blue-600">
-                    Active until {new Date(currentSubscription.expires_at).toLocaleDateString()}
+                    {new Date(currentSubscription.expires_at) > new Date() ? (
+                      <>Trial expires {new Date(currentSubscription.expires_at).toLocaleDateString()}</>
+                    ) : (
+                      <>Trial expired - Payment required</>
+                    )}
                   </p>
                 </div>
               </div>
@@ -292,7 +299,7 @@ export default function TenantAdminDashboard() {
                   </p>
                   <p className="text-sm text-blue-600">per {currentSubscription.billing_plans?.period}</p>
                 </div>
-                <Link to="/admin/settings">
+                <Link to="/admin/settings?tab=billing">
                   <Button variant="outline" size="sm" className="border-blue-200 text-blue-700 hover:bg-blue-100">
                     <Settings className="h-4 w-4 mr-2" />
                     Manage Plan
@@ -320,7 +327,7 @@ export default function TenantAdminDashboard() {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <Link to="/admin/settings">
+                <Link to="/admin/settings?tab=billing">
                   <Button className="bg-orange-600 hover:bg-orange-700 text-white">
                     <Crown className="h-4 w-4 mr-2" />
                     Choose Plan

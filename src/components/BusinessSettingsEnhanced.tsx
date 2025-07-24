@@ -131,7 +131,14 @@ export function BusinessSettingsEnhanced() {
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("company");
+  
+  // Get initial tab from URL or default to "company"
+  const getInitialTab = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    return tabParam || "company";
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [locations, setLocations] = useState<StoreLocation[]>([]);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<StoreLocation | null>(null);
