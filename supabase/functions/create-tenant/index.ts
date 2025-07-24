@@ -19,6 +19,106 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CREATE-TENANT] ${timestamp} - ${step}${details ? ` - ${JSON.stringify(details)}` : ''}`);
 };
 
+const sendWelcomeEmail = async (supabaseAdmin: any, tenant: any, ownerName: string, email: string) => {
+  const welcomeEmailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Welcome to VibePOS</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .features { background: white; padding: 20px; border-radius: 5px; margin: 20px 0; }
+            .feature-item { margin: 10px 0; padding: 10px; border-left: 4px solid #667eea; background: #f8f9ff; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🎉 Welcome to VibePOS!</h1>
+            <p>Your business account has been successfully created</p>
+        </div>
+        <div class="content">
+            <h2>Hello {{ownerName}}!</h2>
+            <p>Congratulations! Your VibePOS account for <strong>{{businessName}}</strong> is now ready.</p>
+            
+            <div class="features">
+                <h3>🚀 What's Next?</h3>
+                <div class="feature-item">
+                    <strong>📊 Complete Your Setup:</strong> Add products, set up categories, and configure your business settings
+                </div>
+                <div class="feature-item">
+                    <strong>💰 Start Selling:</strong> Use our intuitive POS system to process sales and manage customers
+                </div>
+                <div class="feature-item">
+                    <strong>📈 Track Performance:</strong> Monitor your business with real-time reports and analytics
+                </div>
+                <div class="feature-item">
+                    <strong>🔧 Customize:</strong> Set up payment methods, tax rates, and business preferences
+                </div>
+            </div>
+
+            <p style="text-align: center;">
+                <a href="https://688144f7-8c84-4c49-852f-f9a8fcd9dad6.lovableproject.com/" class="button">Access Your Dashboard</a>
+            </p>
+
+            <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p><strong>🎁 14-Day Free Trial</strong></p>
+                <p>You're on a 14-day free trial with full access to all features. No credit card required!</p>
+            </div>
+
+            <h3>📞 Need Help?</h3>
+            <p>Our support team is here to help you succeed:</p>
+            <ul>
+                <li>📧 Email: support@vibepos.com</li>
+                <li>📖 Documentation: Available in your dashboard</li>
+                <li>💬 Live Chat: Coming soon</li>
+            </ul>
+
+            <p>Thank you for choosing VibePOS. We're excited to help grow your business!</p>
+            
+            <p style="margin-top: 30px; font-size: 14px; color: #666;">
+                Best regards,<br>
+                The VibePOS Team
+            </p>
+        </div>
+    </body>
+    </html>
+  `;
+
+  // Call the send-enhanced-email function
+  const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-enhanced-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({
+      tenantId: tenant.id,
+      to: email,
+      toName: ownerName,
+      subject: `Welcome to VibePOS - Your ${tenant.name} account is ready!`,
+      htmlContent: welcomeEmailHtml,
+      variables: {
+        ownerName: ownerName,
+        businessName: tenant.name,
+        subdomain: tenant.subdomain,
+        company_name: 'VibePOS'
+      },
+      priority: 'high'
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to send welcome email: ${errorText}`);
+  }
+
+  return await response.json();
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -189,6 +289,14 @@ serve(async (req) => {
       logStep("Warning: Failed to create owner contact", { error: contactError.message });
     } else {
       logStep("Owner contact created");
+    }
+
+    // Send welcome email
+    try {
+      await sendWelcomeEmail(supabaseAdmin, tenant, ownerName, email || user.email);
+      logStep("Welcome email sent successfully");
+    } catch (emailError) {
+      logStep("Warning: Failed to send welcome email", { error: emailError });
     }
 
     logStep("Tenant setup completed successfully", { 
