@@ -4,6 +4,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 import PromotionManagement from '@/components/PromotionManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,16 @@ import {
   Building2,
   Settings
 } from 'lucide-react';
+
+interface DashboardData {
+  todaysSales: number;
+  todaysOrders: number;
+  productsCount: number;
+  lowStockCount: number;
+  customersCount: number;
+  recentSales: any[];
+  products: any[];
+}
 
 export default function ComprehensivePOS() {
   const { user, tenantId, userRole } = useAuth();
@@ -150,35 +161,161 @@ export default function ComprehensivePOS() {
     );
   }
 
+  // Fetch real dashboard data
+  const { data: dashboardData, loading: dashboardLoading } = useOptimizedQuery<DashboardData>(
+    async () => {
+      if (!tenantId) return { data: null, error: null };
+      
+      try {
+        // Get today's date
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Fetch today's sales total
+        const { data: salesData, error: salesError } = await supabase
+          .from('sales')
+          .select('total_amount')
+          .eq('tenant_id', tenantId)
+          .gte('created_at', today + 'T00:00:00')
+          .lt('created_at', today + 'T23:59:59');
+        
+        if (salesError) throw salesError;
+        
+        // Count today's orders
+        const todaysSales = salesData?.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0) || 0;
+        const todaysOrders = salesData?.length || 0;
+        
+        // Get total products count
+        const { count: productsCount, error: productsCountError } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true);
+        
+        if (productsCountError) throw productsCountError;
+        
+        // Get low stock products count  
+        const { data: lowStockProducts, error: lowStockError } = await supabase
+          .from('products')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .filter('stock_quantity', 'lte', 'min_stock_level');
+        
+        if (lowStockError) throw lowStockError;
+        const lowStockCount = lowStockProducts?.length || 0;
+        
+        // Get total customers count
+        const { count: customersCount, error: customersError } = await supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .eq('type', 'customer');
+        
+        if (customersError) throw customersError;
+        
+        // Get recent sales
+        const { data: recentSalesData, error: recentSalesError } = await supabase
+          .from('sales')
+          .select(`
+            id,
+            total_amount,
+            created_at,
+            contacts!inner (name)
+          `)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        if (recentSalesError) throw recentSalesError;
+        
+        // Get recent products
+        const { data: productsData, error: productsError } = await supabase
+          .from('products')
+          .select(`
+            id,
+            name,
+            sku,
+            price,
+            stock_quantity,
+            product_categories (name)
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        if (productsError) throw productsError;
+        
+        const result: DashboardData = {
+          todaysSales,
+          todaysOrders,
+          productsCount: productsCount || 0,
+          lowStockCount: lowStockCount || 0,
+          customersCount: customersCount || 0,
+          recentSales: recentSalesData || [],
+          products: productsData || []
+        };
+        
+        return { data: result, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+    [tenantId],
+    {
+      enabled: !!tenantId,
+      staleTime: 1000 * 60 * 2, // 2 minutes
+      cacheKey: `pos-dashboard-metrics-${tenantId}`
+    }
+  );
+
   const stats = [
-    { title: "Today's Sales", value: "$2,450", change: "+15%", icon: DollarSign, color: "text-green-600" },
-    { title: "Orders", value: "89", change: "+12", icon: ShoppingCart, color: "text-blue-600" },
-    { title: "Products", value: "156", change: "3 low stock", icon: Package, color: "text-purple-600" },
-    { title: "Customers", value: "432", change: "+8 today", icon: Users, color: "text-orange-600" }
+    { 
+      title: "Today's Sales", 
+      value: dashboardData?.todaysSales ? `$${dashboardData.todaysSales.toFixed(2)}` : "$0.00", 
+      change: dashboardData?.todaysOrders ? `${dashboardData.todaysOrders} orders` : "No orders today", 
+      icon: DollarSign, 
+      color: "text-green-600" 
+    },
+    { 
+      title: "Orders", 
+      value: dashboardData?.todaysOrders?.toString() || "0", 
+      change: "Today", 
+      icon: ShoppingCart, 
+      color: "text-blue-600" 
+    },
+    { 
+      title: "Products", 
+      value: dashboardData?.productsCount?.toString() || "0", 
+      change: dashboardData?.lowStockCount ? `${dashboardData.lowStockCount} low stock` : "All in stock", 
+      icon: Package, 
+      color: "text-purple-600" 
+    },
+    { 
+      title: "Customers", 
+      value: dashboardData?.customersCount?.toString() || "0", 
+      change: "Total customers", 
+      icon: Users, 
+      color: "text-orange-600" 
+    }
   ];
 
-  const recentSales = [
-    { id: "#001", customer: "John Doe", amount: "$45.99", time: "2 min ago", status: "completed" },
-    { id: "#002", customer: "Sarah Smith", amount: "$23.50", time: "15 min ago", status: "completed" },
-    { id: "#003", customer: "Mike Johnson", amount: "$78.25", time: "1 hour ago", status: "completed" }
-  ];
+  const recentSales = dashboardData?.recentSales?.map((sale: any, index: number) => ({
+    id: `#${String(index + 1).padStart(3, '0')}`,
+    customer: sale.contacts?.name || 'Unknown Customer',
+    amount: `$${Number(sale.total_amount || 0).toFixed(2)}`,
+    time: new Date(sale.created_at).toLocaleString(),
+    status: 'completed'
+  })) || [];
 
-  const products = [
-    { id: "1", name: "Coffee Beans (1kg)", sku: "CB001", price: "$24.99", stock: 45, category: "Beverages" },
-    { id: "2", name: "Espresso Cup", sku: "EC001", price: "$8.99", stock: 23, category: "Accessories" },
-    { id: "3", name: "Milk Frother", sku: "MF001", price: "$34.99", stock: 12, category: "Equipment" }
-  ];
-
-  const customers = [
-    { id: "1", name: "John Doe", email: "john@example.com", phone: "+1234567890", orders: 15, totalSpent: "$450" },
-    { id: "2", name: "Sarah Smith", email: "sarah@example.com", phone: "+1234567891", orders: 8, totalSpent: "$320" },
-    { id: "3", name: "Mike Johnson", email: "mike@example.com", phone: "+1234567892", orders: 22, totalSpent: "$780" }
-  ];
-
-  const purchases = [
-    { id: "P001", supplier: "Coffee Suppliers Inc", items: "Coffee Beans, Filters", amount: "$450", date: "2024-01-15", status: "received" },
-    { id: "P002", supplier: "Equipment Co", items: "Espresso Machine", amount: "$1,200", date: "2024-01-12", status: "pending" }
-  ];
+  const products = dashboardData?.products?.map((product: any) => ({
+    id: product.id,
+    name: product.name,
+    sku: product.sku || 'N/A',
+    price: `$${Number(product.price || 0).toFixed(2)}`,
+    stock: product.stock_quantity || 0,
+    category: product.product_categories?.name || 'Uncategorized'
+  })) || [];
 
   const ActionButton = ({ icon: Icon, children, onClick, variant = "outline" }: any) => (
     <Button variant={variant} size="sm" onClick={onClick} className="flex items-center gap-2">
@@ -252,21 +389,33 @@ export default function ComprehensivePOS() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentSales.map((sale, index) => (
-                      <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
-                          <div>
-                            <p className="font-medium">{sale.id}</p>
-                            <p className="text-sm text-muted-foreground">{sale.customer}</p>
+                    {dashboardLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : recentSales.length > 0 ? (
+                      recentSales.map((sale, index) => (
+                        <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            <div>
+                              <p className="font-medium">{sale.id}</p>
+                              <p className="text-sm text-muted-foreground">{sale.customer}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{sale.amount}</p>
+                            <p className="text-sm text-muted-foreground">{sale.time}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">{sale.amount}</p>
-                          <p className="text-sm text-muted-foreground">{sale.time}</p>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <ShoppingCart className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">No sales yet today</p>
+                        <p className="text-xs text-muted-foreground">Start making sales to see them here</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
