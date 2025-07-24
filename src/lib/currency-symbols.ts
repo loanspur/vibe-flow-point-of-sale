@@ -19,7 +19,7 @@ export const CURRENCY_SYMBOLS: Record<string, CurrencyInfo> = {
   
   // African Currencies
   KES: { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling', locale: 'en-KE' },
-  KSH: { code: 'KSH', symbol: 'KSh', name: 'Kenyan Shilling', locale: 'en-KE' }, // Alternative
+  
   NGN: { code: 'NGN', symbol: '₦', name: 'Nigerian Naira', locale: 'en-NG' },
   ZAR: { code: 'ZAR', symbol: 'R', name: 'South African Rand', locale: 'en-ZA' },
   UGX: { code: 'UGX', symbol: 'USh', name: 'Ugandan Shilling', locale: 'en-UG' },
@@ -93,7 +93,7 @@ export const formatAmountWithSymbol = (
   
   try {
     // Special handling for certain currencies
-    if (['KES', 'KSH', 'UGX', 'TZS'].includes(info.code)) {
+    if (['KES', 'UGX', 'TZS'].includes(info.code)) {
       return `${symbol} ${amount.toLocaleString('en-US', { 
         minimumFractionDigits: 2, 
         maximumFractionDigits: 2 

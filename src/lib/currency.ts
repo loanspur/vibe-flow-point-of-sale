@@ -71,7 +71,7 @@ export async function getCurrencySettings(): Promise<CurrencySettings> {
       const currencySymbols: { [key: string]: string } = {
         'USD': '$',
         'KES': 'KSh',
-        'KSH': 'KSh',
+        
         'EUR': '€',
         'GBP': '£',
         'JPY': '¥',
@@ -117,7 +117,7 @@ export async function formatCurrency(amount: number): Promise<string> {
   
   try {
     // For some currencies like KES, use manual formatting as Intl might not support all locales
-    if (currency_code === 'KES' || currency_code === 'KSH') {
+    if (currency_code === 'KES') {
       return `${currency_symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
     
@@ -142,7 +142,7 @@ export function formatCurrencySync(amount: number, fallbackCurrency?: string, fa
   
   try {
     // For some currencies like KES, use manual formatting as Intl might not support all locales
-    if (currency_code === 'KES' || currency_code === 'KSH') {
+    if (currency_code === 'KES') {
       return `${currency_symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
     

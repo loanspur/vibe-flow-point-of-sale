@@ -32,7 +32,7 @@ export const useCurrencyUpdate = () => {
     formatCurrency,
     updateCounter,
     triggerUpdate: triggerCurrencyUpdate,
-    isKES: currencyCode === 'KES' || currencyCode === 'KSH',
+    isKES: currencyCode === 'KES',
     currencyInfo,
     autoDetectedSymbol,
     formatAmount: (amount: number) => formatAmountWithSymbol(amount, currencyCode, currencySymbol),
