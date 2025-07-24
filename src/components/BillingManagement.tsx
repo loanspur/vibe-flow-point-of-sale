@@ -678,24 +678,40 @@ export default function BillingManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-4">
-            <input
-              type="text"
-              placeholder="Enter payment reference"
-              className="flex-1 px-3 py-2 border rounded-md"
-              id="paymentReference"
-            />
-            <Button 
-              onClick={() => {
-                const input = document.getElementById('paymentReference') as HTMLInputElement;
-                if (input?.value) {
-                  verifyPayment(input.value);
-                  input.value = '';
-                }
-              }}
-            >
-              Verify Payment
-            </Button>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4">
+              <input
+                type="text"
+                placeholder="Enter payment reference"
+                className="flex-1 px-3 py-2 border rounded-md"
+                id="paymentReference"
+              />
+              <Button 
+                onClick={() => {
+                  const input = document.getElementById('paymentReference') as HTMLInputElement;
+                  if (input?.value) {
+                    verifyPayment(input.value);
+                    input.value = '';
+                  }
+                }}
+              >
+                Verify Payment
+              </Button>
+            </div>
+            
+            {/* Quick verify for the provided reference */}
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700 mb-2">
+                <strong>Found your payment reference:</strong> TGO9E045DN
+              </p>
+              <Button 
+                onClick={() => verifyPayment('TGO9E045DN')}
+                variant="outline"
+                className="w-full"
+              >
+                Verify Payment TGO9E045DN
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
