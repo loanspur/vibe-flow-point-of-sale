@@ -12,7 +12,10 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  logStep("Request received", { method: req.method, url: req.url });
+  
   if (req.method === "OPTIONS") {
+    logStep("CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
 
