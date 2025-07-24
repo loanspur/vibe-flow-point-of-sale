@@ -105,6 +105,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [businessSettings]);
 
+  // Format currency using local conversion
+  const formatCurrencyWithConversion = useCallback(async (amount: number): Promise<string> => {
+    if (!tenantCurrency) {
+      return formatCurrency(amount);
+    }
+    
+    try {
+      const convertedAmount = await convertFromKES(amount);
+      return formatLocalCurrency(convertedAmount);
+    } catch (error) {
+      return formatCurrency(amount);
+    }
+  }, [tenantCurrency, convertFromKES, formatLocalCurrency, formatCurrency]);
+
   useEffect(() => {
     fetchBusinessSettings();
   }, [fetchBusinessSettings]);

@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { CreditCard, DollarSign, Receipt, Calendar } from 'lucide-react';
+import { CurrencyIcon } from '@/components/ui/currency-icon';
+import { useApp } from '@/contexts/AppContext';
 
 interface Payment {
   id: string;
@@ -43,6 +45,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   onRemovePayment,
   disabled = false
 }) => {
+  const { tenantCurrency, formatLocalCurrency } = useApp();
   const [newPayment, setNewPayment] = useState({
     method: '',
     amount: 0,
@@ -102,16 +105,23 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
         <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Total Amount</div>
-            <div className="text-lg font-semibold">${totalAmount.toFixed(2)}</div>
+            <div className="text-lg font-semibold flex items-center justify-center gap-1">
+              <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
+              {formatLocalCurrency(totalAmount)}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Paid Amount</div>
-            <div className="text-lg font-semibold text-green-600">${totalPaid.toFixed(2)}</div>
+            <div className="text-lg font-semibold text-green-600 flex items-center justify-center gap-1">
+              <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
+              {formatLocalCurrency(totalPaid)}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Remaining</div>
-            <div className={`text-lg font-semibold ${isFullyPaid ? 'text-green-600' : 'text-red-600'}`}>
-              ${remainingAmount.toFixed(2)}
+            <div className={`text-lg font-semibold flex items-center justify-center gap-1 ${isFullyPaid ? 'text-green-600' : 'text-red-600'}`}>
+              <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
+              {formatLocalCurrency(remainingAmount)}
             </div>
           </div>
         </div>

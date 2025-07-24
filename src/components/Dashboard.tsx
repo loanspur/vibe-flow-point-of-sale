@@ -13,13 +13,14 @@ import {
   ArrowUpRight,
   Activity
 } from "lucide-react";
+import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import dashboardImage from "@/assets/dashboard-preview.jpg";
 
 const Dashboard = () => {
   const { tenantId } = useAuth();
-  const { formatCurrency } = useApp();
+  const { formatCurrency, tenantCurrency } = useApp();
   const [initialMetrics] = useState([
     {
       title: "Today's Sales",
@@ -124,7 +125,7 @@ const Dashboard = () => {
         title: "Today's Sales",
         value: formatCurrency(dashboardData.todayRevenue),
         change: "0%",
-        icon: DollarSign,
+        icon: () => <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-5 w-5 text-primary" />,
         trend: "up"
       },
       {
