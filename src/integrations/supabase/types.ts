@@ -3182,6 +3182,66 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_subscriptions: {
+        Row: {
+          amount: number
+          billing_plan_id: string
+          cancelled_at: string | null
+          created_at: string
+          currency: string
+          expires_at: string | null
+          id: string
+          reference: string
+          started_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          billing_plan_id: string
+          cancelled_at?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          reference: string
+          started_at?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_plan_id?: string
+          cancelled_at?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          reference?: string
+          started_at?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_subscriptions_billing_plan_id_fkey"
+            columns: ["billing_plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_users: {
         Row: {
           created_at: string

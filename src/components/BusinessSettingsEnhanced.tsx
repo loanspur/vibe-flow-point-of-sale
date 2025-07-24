@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import BillingManagement from "./BillingManagement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -632,7 +633,7 @@ export function BusinessSettingsEnhanced() {
           {/* Enhanced Navigation */}
           <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-1 shadow-sm">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-9 h-auto bg-transparent gap-1 p-1">
+              <TabsList className="grid w-full grid-cols-10 h-auto bg-transparent gap-1 p-1">
                 <TabsTrigger value="company" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <Building className="h-4 w-4 mr-2" />
                   Company
@@ -668,6 +669,10 @@ export function BusinessSettingsEnhanced() {
                 <TabsTrigger value="security" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <Shield className="h-4 w-4 mr-2" />
                   Security
+                </TabsTrigger>
+                <TabsTrigger value="billing" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Billing
                 </TabsTrigger>
               </TabsList>
 
@@ -1920,6 +1925,11 @@ export function BusinessSettingsEnhanced() {
                           </div>
                         </CardContent>
                       </Card>
+                    </TabsContent>
+
+                    {/* Billing Tab */}
+                    <TabsContent value="billing" className="space-y-6 mt-6">
+                      <BillingManagement />
                     </TabsContent>
 
                   </form>

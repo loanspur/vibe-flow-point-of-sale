@@ -29,20 +29,26 @@ interface BillingPlan {
   original_price?: number;
 }
 
-interface Subscription {
-  plan_name?: string;
-  status?: string;
+interface TenantSubscription {
+  id: string;
+  billing_plan_id: string;
+  status: string;
+  amount: number;
+  currency: string;
+  reference: string;
   expires_at?: string;
-  amount?: number;
-  currency?: string;
-  reference?: string;
+  billing_plans?: {
+    name: string;
+    price: number;
+    period: string;
+  };
 }
 
 export default function BillingManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
-  const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
 
@@ -56,12 +62,21 @@ export default function BillingManagement() {
     try {
       const { data, error } = await supabase
         .from('billing_plans')
-        .select('*')
+        .select('id, name, price, period, features, badge, badge_color, popularity, original_price')
         .eq('is_active', true)
         .order('popularity', { ascending: false });
 
       if (error) throw error;
-      setBillingPlans(data || []);
+      
+      // Transform the data to match our interface
+      const transformedPlans = (data || []).map(plan => ({
+        ...plan,
+        features: Array.isArray(plan.features) 
+          ? plan.features.map(f => String(f)) 
+          : []
+      })) as BillingPlan[];
+      
+      setBillingPlans(transformedPlans);
     } catch (error) {
       console.error('Error fetching billing plans:', error);
       toast({
@@ -93,15 +108,11 @@ export default function BillingManagement() {
 
       if (error && error.code !== 'PGRST116') throw error;
       
-      if (data) {
+       if (data) {
         setCurrentSubscription({
-          plan_name: data.billing_plans?.name,
-          status: data.status,
-          expires_at: data.expires_at,
-          amount: data.billing_plans?.price,
-          currency: 'NGN',
-          reference: data.reference
-        });
+          ...data,
+          billing_plans: data.billing_plans
+        } as TenantSubscription);
       }
     } catch (error) {
       console.error('Error fetching subscription:', error);
@@ -217,7 +228,7 @@ export default function BillingManagement() {
               </Badge>
             </div>
             <CardDescription className="text-green-700">
-              You're currently subscribed to the {currentSubscription.plan_name} plan
+              You're currently subscribed to the {currentSubscription.billing_plans?.name} plan
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -227,7 +238,7 @@ export default function BillingManagement() {
                 <div>
                   <p className="text-sm font-medium text-green-800">Amount</p>
                   <p className="text-sm text-green-600">
-                    {currentSubscription.amount ? formatCurrency(currentSubscription.amount) : 'N/A'}
+                    {currentSubscription.billing_plans?.price ? formatCurrency(currentSubscription.billing_plans.price) : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -266,7 +277,7 @@ export default function BillingManagement() {
         <h3 className="text-xl font-semibold mb-4">Available Plans</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {billingPlans.map((plan) => {
-            const isCurrentPlan = currentSubscription?.plan_name === plan.name;
+            const isCurrentPlan = currentSubscription?.billing_plans?.name === plan.name;
             const isPopular = plan.popularity > 0;
             
             return (
