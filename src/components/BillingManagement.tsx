@@ -144,22 +144,30 @@ export default function BillingManagement() {
         throw new Error('No valid session found. Please log out and log back in.');
       }
       
-      const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
-        body: {
-          planId: planId,
-          isSignup: false
-        },
+      console.log('Making function call...');
+      
+      // Try direct fetch approach instead of supabase.functions.invoke
+      const response = await fetch(`https://qwtybhvdbbkbcelisuek.supabase.co/functions/v1/create-paystack-checkout`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${sessionData.session.access_token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE'
+        },
+        body: JSON.stringify({
+          planId: planId,
+          isSignup: false
+        })
       });
 
-      console.log('Response from create-paystack-checkout:', { data, error });
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const data = await response.json();
+      console.log('Response data:', data);
 
-      if (error) {
-        console.error('Edge function error details:', error);
-        throw new Error(error.message || 'Failed to create checkout session');
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       if (data?.authorization_url) {
