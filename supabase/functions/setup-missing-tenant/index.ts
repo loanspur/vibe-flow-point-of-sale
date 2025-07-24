@@ -43,16 +43,31 @@ serve(async (req) => {
     const user = userData.user;
     console.log("User authenticated:", { userId: user.id, email: user.email });
     
-    // Check if user already has a tenant
-    const { data: existingProfile } = await supabaseAdmin
+    // Check if user already has a tenant or create profile if needed
+    const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
       .from('profiles')
       .select('tenant_id')
       .eq('user_id', user.id)
       .maybeSingle(); // Use maybeSingle to handle case where no profile exists
 
-    console.log("Existing profile check:", existingProfile);
+    console.log("Existing profile check:", existingProfile, profileCheckError);
 
-    if (existingProfile?.tenant_id) {
+    // If no profile exists, create one
+    if (!existingProfile && !profileCheckError) {
+      console.log("Creating new profile for user");
+      const { error: createProfileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          user_id: user.id,
+          full_name: user.user_metadata?.full_name || '',
+          role: 'user'
+        });
+      
+      if (createProfileError) {
+        console.error("Failed to create profile:", createProfileError);
+        throw new Error(`Failed to create user profile: ${createProfileError.message}`);
+      }
+    } else if (existingProfile?.tenant_id) {
       console.log("User already has tenant:", existingProfile.tenant_id);
       return new Response(
         JSON.stringify({
