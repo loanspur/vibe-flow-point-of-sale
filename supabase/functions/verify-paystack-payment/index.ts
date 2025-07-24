@@ -166,16 +166,24 @@ serve(async (req) => {
 
       // Update billing plan statistics (optional, don't fail on error)
       try {
-        const { error: planUpdateError } = await supabaseClient
+        const { data: currentPlan } = await supabaseClient
           .from('billing_plans')
-          .update({
-            customers: supabaseClient.sql`customers + 1`,
-            mrr: supabaseClient.sql`mrr + ${transaction.amount / 100}`
-          })
-          .eq('id', plan_id);
+          .select('customers, mrr')
+          .eq('id', plan_id)
+          .single();
         
-        if (planUpdateError) {
-          logStep("Warning: Could not update plan statistics", { error: planUpdateError });
+        if (currentPlan) {
+          const { error: planUpdateError } = await supabaseClient
+            .from('billing_plans')
+            .update({
+              customers: (currentPlan.customers || 0) + 1,
+              mrr: (currentPlan.mrr || 0) + (transaction.amount / 100)
+            })
+            .eq('id', plan_id);
+          
+          if (planUpdateError) {
+            logStep("Warning: Could not update plan statistics", { error: planUpdateError });
+          }
         }
       } catch (planError) {
         logStep("Plan statistics update failed (non-critical)", { error: planError });
