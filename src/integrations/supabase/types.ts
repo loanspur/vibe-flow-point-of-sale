@@ -476,13 +476,16 @@ export type Database = {
           enable_barcode_scanning: boolean | null
           enable_brands: boolean | null
           enable_combo_products: boolean | null
+          enable_fixed_pricing: boolean | null
           enable_gift_cards: boolean | null
           enable_loyalty_program: boolean | null
           enable_multi_location: boolean | null
           enable_negative_stock: boolean | null
           enable_online_orders: boolean | null
+          enable_product_units: boolean | null
           enable_retail_pricing: boolean | null
           enable_user_roles: boolean | null
+          enable_warranty: boolean | null
           enable_wholesale_pricing: boolean | null
           id: string
           invoice_auto_number: boolean | null
@@ -513,6 +516,7 @@ export type Database = {
           receipt_footer: string | null
           receipt_header: string | null
           receipt_logo_url: string | null
+          receipt_template: string | null
           require_password_change: boolean | null
           session_timeout_minutes: number | null
           sms_api_key: string | null
@@ -566,13 +570,16 @@ export type Database = {
           enable_barcode_scanning?: boolean | null
           enable_brands?: boolean | null
           enable_combo_products?: boolean | null
+          enable_fixed_pricing?: boolean | null
           enable_gift_cards?: boolean | null
           enable_loyalty_program?: boolean | null
           enable_multi_location?: boolean | null
           enable_negative_stock?: boolean | null
           enable_online_orders?: boolean | null
+          enable_product_units?: boolean | null
           enable_retail_pricing?: boolean | null
           enable_user_roles?: boolean | null
+          enable_warranty?: boolean | null
           enable_wholesale_pricing?: boolean | null
           id?: string
           invoice_auto_number?: boolean | null
@@ -603,6 +610,7 @@ export type Database = {
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
+          receipt_template?: string | null
           require_password_change?: boolean | null
           session_timeout_minutes?: number | null
           sms_api_key?: string | null
@@ -656,13 +664,16 @@ export type Database = {
           enable_barcode_scanning?: boolean | null
           enable_brands?: boolean | null
           enable_combo_products?: boolean | null
+          enable_fixed_pricing?: boolean | null
           enable_gift_cards?: boolean | null
           enable_loyalty_program?: boolean | null
           enable_multi_location?: boolean | null
           enable_negative_stock?: boolean | null
           enable_online_orders?: boolean | null
+          enable_product_units?: boolean | null
           enable_retail_pricing?: boolean | null
           enable_user_roles?: boolean | null
+          enable_warranty?: boolean | null
           enable_wholesale_pricing?: boolean | null
           id?: string
           invoice_auto_number?: boolean | null
@@ -693,6 +704,7 @@ export type Database = {
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
+          receipt_template?: string | null
           require_password_change?: boolean | null
           session_timeout_minutes?: number | null
           sms_api_key?: string | null

@@ -66,6 +66,7 @@ import { clearCurrencyCache } from "@/lib/currency";
 import DomainManagement from '@/components/DomainManagement';
 
 const businessSettingsSchema = z.object({
+  // Basic company information
   company_name: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
@@ -81,24 +82,105 @@ const businessSettingsSchema = z.object({
   default_tax_rate: z.number().min(0).max(100).default(0),
   tax_name: z.string().default("Tax"),
   company_logo_url: z.string().optional(),
+  
+  // Business registration details
+  tax_identification_number: z.string().optional(),
+  business_registration_number: z.string().optional(),
+  
+  // Product and inventory features
   enable_brands: z.boolean().default(false),
   enable_product_units: z.boolean().default(false),
   enable_warranty: z.boolean().default(false),
-  
   enable_fixed_pricing: z.boolean().default(false),
+  auto_generate_sku: z.boolean().default(true),
+  enable_barcode_scanning: z.boolean().default(true),
+  enable_negative_stock: z.boolean().default(false),
+  stock_accounting_method: z.string().default("FIFO"),
+  default_markup_percentage: z.number().default(0.00),
+  enable_retail_pricing: z.boolean().default(true),
+  enable_wholesale_pricing: z.boolean().default(false),
+  enable_combo_products: z.boolean().default(false),
+  
+  // POS settings
   pos_auto_print_receipt: z.boolean().default(true),
   pos_ask_customer_info: z.boolean().default(false),
+  pos_enable_discounts: z.boolean().default(true),
+  pos_max_discount_percent: z.number().default(100.00),
+  pos_enable_tips: z.boolean().default(false),
+  pos_default_payment_method: z.string().default("cash"),
+  
+  // Notifications and communications
   sms_enable_notifications: z.boolean().default(false),
   whatsapp_enable_notifications: z.boolean().default(false),
   sms_provider: z.string().optional(),
+  sms_api_key: z.string().optional(),
+  sms_sender_id: z.string().optional(),
   whatsapp_api_key: z.string().optional(),
   whatsapp_phone_number: z.string().optional(),
+  whatsapp_api_url: z.string().optional(),
+  
+  // Email settings
+  email_from_address: z.string().optional(),
+  email_from_name: z.string().optional(),
+  email_smtp_host: z.string().optional(),
+  email_smtp_port: z.number().default(587),
+  email_smtp_username: z.string().optional(),
+  email_smtp_password: z.string().optional(),
+  email_enable_ssl: z.boolean().default(true),
+  
+  // Templates and documents
   invoice_template: z.string().default("standard"),
   receipt_template: z.string().default("standard"),
   quote_template: z.string().default("standard"),
+  delivery_note_template: z.string().default("standard"),
   invoice_number_prefix: z.string().default("INV-"),
   quote_number_prefix: z.string().default("QT-"),
-  invoice_terms_conditions: z.string().optional()
+  delivery_note_prefix: z.string().default("DN-"),
+  invoice_terms_conditions: z.string().optional(),
+  
+  // Receipt customization
+  receipt_header: z.string().optional(),
+  receipt_footer: z.string().optional(),
+  receipt_logo_url: z.string().optional(),
+  print_customer_copy: z.boolean().default(true),
+  print_merchant_copy: z.boolean().default(true),
+  
+  // Auto-numbering
+  invoice_auto_number: z.boolean().default(true),
+  quote_auto_number: z.boolean().default(true),
+  delivery_note_auto_number: z.boolean().default(true),
+  quote_validity_days: z.number().default(30),
+  
+  // Security settings
+  max_login_attempts: z.number().default(3),
+  account_lockout_duration: z.number().default(15),
+  session_timeout_minutes: z.number().default(60),
+  require_password_change: z.boolean().default(false),
+  password_expiry_days: z.number().default(90),
+  
+  // Business operations
+  business_hours: z.any().optional(),
+  enable_loyalty_program: z.boolean().default(false),
+  enable_gift_cards: z.boolean().default(false),
+  enable_online_orders: z.boolean().default(false),
+  enable_multi_location: z.boolean().default(false),
+  enable_user_roles: z.boolean().default(true),
+  
+  // Inventory and stock management
+  low_stock_threshold: z.number().default(10),
+  low_stock_alerts: z.boolean().default(true),
+  daily_reports: z.boolean().default(true),
+  email_notifications: z.boolean().default(true),
+  
+  // Purchase settings
+  purchase_default_tax_rate: z.number().default(0.0000),
+  purchase_auto_receive: z.boolean().default(false),
+  purchase_enable_partial_receive: z.boolean().default(true),
+  
+  // Tax settings
+  tax_inclusive: z.boolean().default(false),
+  currency_symbol: z.string().default("$"),
+  date_format: z.string().default("MM/DD/YYYY")
 });
 
 interface BusinessSettings {
@@ -179,6 +261,7 @@ export function BusinessSettingsEnhanced() {
   const form = useForm<z.infer<typeof businessSettingsSchema>>({
     resolver: zodResolver(businessSettingsSchema),
     defaultValues: {
+      // Basic company information
       company_name: "",
       email: "",
       phone: "",
@@ -187,21 +270,104 @@ export function BusinessSettingsEnhanced() {
       timezone: "America/New_York",
       default_tax_rate: 0,
       tax_name: "Tax",
+      
+      // Business registration details
+      tax_identification_number: "",
+      business_registration_number: "",
+      
+      // Product and inventory features
       enable_brands: false,
       enable_product_units: false,
       enable_warranty: false,
-      
       enable_fixed_pricing: false,
+      auto_generate_sku: true,
+      enable_barcode_scanning: true,
+      enable_negative_stock: false,
+      stock_accounting_method: "FIFO",
+      default_markup_percentage: 0.00,
+      enable_retail_pricing: true,
+      enable_wholesale_pricing: false,
+      enable_combo_products: false,
+      
+      // POS settings
       pos_auto_print_receipt: true,
       pos_ask_customer_info: false,
+      pos_enable_discounts: true,
+      pos_max_discount_percent: 100.00,
+      pos_enable_tips: false,
+      pos_default_payment_method: "cash",
+      
+      // Notifications and communications
       sms_enable_notifications: false,
       whatsapp_enable_notifications: false,
+      sms_provider: "",
+      sms_api_key: "",
+      sms_sender_id: "",
+      whatsapp_api_key: "",
+      whatsapp_phone_number: "",
+      whatsapp_api_url: "",
+      
+      // Email settings
+      email_from_address: "",
+      email_from_name: "",
+      email_smtp_host: "",
+      email_smtp_port: 587,
+      email_smtp_username: "",
+      email_smtp_password: "",
+      email_enable_ssl: true,
+      
+      // Templates and documents
       invoice_template: "standard",
       receipt_template: "standard",
       quote_template: "standard",
+      delivery_note_template: "standard",
       invoice_number_prefix: "INV-",
       quote_number_prefix: "QT-",
-      invoice_terms_conditions: ""
+      delivery_note_prefix: "DN-",
+      invoice_terms_conditions: "",
+      
+      // Receipt customization
+      receipt_header: "",
+      receipt_footer: "",
+      receipt_logo_url: "",
+      print_customer_copy: true,
+      print_merchant_copy: true,
+      
+      // Auto-numbering
+      invoice_auto_number: true,
+      quote_auto_number: true,
+      delivery_note_auto_number: true,
+      quote_validity_days: 30,
+      
+      // Security settings
+      max_login_attempts: 3,
+      account_lockout_duration: 15,
+      session_timeout_minutes: 60,
+      require_password_change: false,
+      password_expiry_days: 90,
+      
+      // Business operations
+      enable_loyalty_program: false,
+      enable_gift_cards: false,
+      enable_online_orders: false,
+      enable_multi_location: false,
+      enable_user_roles: true,
+      
+      // Inventory and stock management
+      low_stock_threshold: 10,
+      low_stock_alerts: true,
+      daily_reports: true,
+      email_notifications: true,
+      
+      // Purchase settings
+      purchase_default_tax_rate: 0.0000,
+      purchase_auto_receive: false,
+      purchase_enable_partial_receive: true,
+      
+      // Tax settings
+      tax_inclusive: false,
+      currency_symbol: "$",
+      date_format: "MM/DD/YYYY"
     },
   });
 
