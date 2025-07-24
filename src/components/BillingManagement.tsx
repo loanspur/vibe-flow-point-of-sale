@@ -135,12 +135,22 @@ export default function BillingManagement() {
       console.log('User:', user);
       console.log('Tenant ID:', tenantId);
       
+      // Get the current session to ensure we have a valid JWT token
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('Current session:', sessionData);
+      console.log('Session error:', sessionError);
+      
+      if (!sessionData?.session?.access_token) {
+        throw new Error('No valid session found. Please log out and log back in.');
+      }
+      
       const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
         body: {
           planId: planId,
           isSignup: false
         },
         headers: {
+          'Authorization': `Bearer ${sessionData.session.access_token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -148,7 +158,7 @@ export default function BillingManagement() {
       console.log('Response from create-paystack-checkout:', { data, error });
 
       if (error) {
-        console.error('Edge function error:', error);
+        console.error('Edge function error details:', error);
         throw new Error(error.message || 'Failed to create checkout session');
       }
 
