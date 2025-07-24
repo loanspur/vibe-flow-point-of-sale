@@ -243,16 +243,48 @@ export default function BillingPlansManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isTabConfigDialogOpen, setIsTabConfigDialogOpen] = useState(false);
+  const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
+  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
+  const [plans, setPlans] = useState(billingPlans); // Make plans editable
   const [tabConfig, setTabConfig] = useState(defaultTabConfig);
   const { toast } = useToast();
 
   // Get enabled tabs sorted by order
   const enabledTabs = tabConfig.filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
 
-  const handleCreatePlan = () => {
+  const handleCreatePlan = (planData: any) => {
+    const newPlan = {
+      id: planData.id || `plan-${Date.now()}`,
+      name: planData.name,
+      price: Number(planData.price),
+      originalPrice: Number(planData.originalPrice || planData.price),
+      period: "month",
+      description: planData.description,
+      badge: planData.badge || "",
+      badgeColor: "bg-blue-100 text-blue-800",
+      popularity: 0,
+      status: "active",
+      customers: 0,
+      mrr: 0,
+      arpu: Number(planData.price),
+      churnRate: 0,
+      conversionRate: 0,
+      trialConversion: 0,
+      features: planData.features || [],
+      pricing: {
+        monthly: Number(planData.price),
+        quarterly: Number(planData.price) * 3,
+        annually: Number(planData.price) * 12,
+        biannually: Number(planData.price) * 6
+      },
+      discounts: planData.discounts || [],
+      addOns: planData.addOns || []
+    };
+
+    setPlans(prev => [...prev, newPlan]);
     toast({
       title: "Plan Created",
-      description: "New billing plan has been created successfully.",
+      description: `${newPlan.name} plan has been created successfully.`,
     });
     setIsCreateDialogOpen(false);
   };
@@ -262,19 +294,49 @@ export default function BillingPlansManager() {
     setIsEditDialogOpen(true);
   };
 
+  const handleUpdatePlan = (updatedPlan: any) => {
+    setPlans(prev => prev.map(plan => 
+      plan.id === updatedPlan.id ? updatedPlan : plan
+    ));
+    toast({
+      title: "Plan Updated",
+      description: `${updatedPlan.name} plan has been updated successfully.`,
+    });
+    setIsEditDialogOpen(false);
+  };
+
   const handleDuplicatePlan = (plan: any) => {
+    const duplicatedPlan = {
+      ...plan,
+      id: `${plan.id}-copy-${Date.now()}`,
+      name: `${plan.name} (Copy)`,
+      customers: 0,
+      mrr: 0
+    };
+    
+    setPlans(prev => [...prev, duplicatedPlan]);
     toast({
       title: "Plan Duplicated",
       description: `${plan.name} plan has been duplicated successfully.`,
     });
   };
 
-  const handleDeletePlan = (plan: any) => {
+  const handleDeletePlan = (planId: string) => {
+    setPlans(prev => prev.filter(plan => plan.id !== planId));
     toast({
       title: "Plan Deleted",
-      description: `${plan.name} plan has been deleted.`,
+      description: "Plan has been deleted successfully.",
       variant: "destructive"
     });
+  };
+
+  const handleViewDetails = (plan: any) => {
+    setSelectedPlan(plan);
+    setIsViewDetailsOpen(true);
+  };
+
+  const toggleExpandPlan = (planId: string) => {
+    setExpandedPlan(prev => prev === planId ? null : planId);
   };
 
   const handleTabToggle = (tabId: string, enabled: boolean) => {
@@ -311,86 +373,170 @@ export default function BillingPlansManager() {
     setIsTabConfigDialogOpen(false);
   };
 
-  const PlanCard = ({ plan, showActions = false }: { plan: any, showActions?: boolean }) => (
-    <Card className={`relative ${plan.badge === "Most Popular" ? "border-primary shadow-lg scale-105" : ""}`}>
-      {plan.badge && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-          <Badge className={plan.badgeColor}>
-            {plan.badge === "Most Popular" && <Star className="h-3 w-3 mr-1" />}
-            {plan.badge === "Enterprise" && <Crown className="h-3 w-3 mr-1" />}
-            {plan.badge}
-          </Badge>
-        </div>
-      )}
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-xl">{plan.name}</CardTitle>
-            <CardDescription className="mt-1">{plan.description}</CardDescription>
+  const PlanCard = ({ plan, showActions = false }: { plan: any, showActions?: boolean }) => {
+    const isExpanded = expandedPlan === plan.id;
+    
+    return (
+      <Card className={`relative ${plan.badge === "Most Popular" ? "border-primary shadow-lg scale-105" : ""}`}>
+        {plan.badge && (
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+            <Badge className={plan.badgeColor}>
+              {plan.badge === "Most Popular" && <Star className="h-3 w-3 mr-1" />}
+              {plan.badge === "Enterprise" && <Crown className="h-3 w-3 mr-1" />}
+              {plan.badge}
+            </Badge>
           </div>
-          {showActions && (
-            <div className="flex gap-1">
-              <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan)}>
-                <Edit className="h-3 w-3" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => handleDuplicatePlan(plan)}>
-                <Copy className="h-3 w-3" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => handleDeletePlan(plan)}>
-                <Trash2 className="h-3 w-3" />
+        )}
+        <CardHeader className="pb-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-xl">{plan.name}</CardTitle>
+              <CardDescription className="mt-1">{plan.description}</CardDescription>
+            </div>
+            {showActions && (
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={() => handleViewDetails(plan)}>
+                  <Eye className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleEditPlan(plan)}>
+                  <Edit className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDuplicatePlan(plan)}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDeletePlan(plan.id)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-baseline gap-2 mt-4">
+            <span className="text-3xl font-bold">${plan.price}</span>
+            <span className="text-muted-foreground">/{plan.period}</span>
+            {plan.originalPrice > plan.price && (
+              <span className="text-sm line-through text-muted-foreground">${plan.originalPrice}</span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Plan Metrics */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Customers:</span>
+              <span className="font-medium">{plan.customers}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">MRR:</span>
+              <span className="font-medium">${plan.mrr.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Churn Rate:</span>
+              <span className="font-medium">{plan.churnRate}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Conversion:</span>
+              <span className="font-medium">{plan.conversionRate}%</span>
+            </div>
+          </div>
+
+          {/* Features List */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <h4 className="font-medium text-sm">Features:</h4>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => toggleExpandPlan(plan.id)}
+                className="text-xs"
+              >
+                {isExpanded ? "Show Less" : "View All"}
               </Button>
             </div>
-          )}
-        </div>
-        <div className="flex items-baseline gap-2 mt-4">
-          <span className="text-3xl font-bold">${plan.price}</span>
-          <span className="text-muted-foreground">/{plan.period}</span>
-          {plan.originalPrice > plan.price && (
-            <span className="text-sm line-through text-muted-foreground">${plan.originalPrice}</span>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Plan Metrics */}
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Customers:</span>
-            <span className="font-medium">{plan.customers}</span>
+            <ul className="space-y-1 text-sm">
+              {(isExpanded ? plan.features : plan.features.slice(0, 4)).map((feature: any, index: number) => (
+                <li key={index} className="flex items-center gap-2">
+                  {feature.included ? (
+                    <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+                  ) : (
+                    <div className="h-3 w-3 rounded-full border border-muted-foreground flex-shrink-0" />
+                  )}
+                  <span className={feature.included ? "" : "text-muted-foreground line-through"}>
+                    {feature.name}
+                    {feature.limit && <span className="text-muted-foreground"> ({feature.limit})</span>}
+                  </span>
+                </li>
+              ))}
+              {!isExpanded && plan.features.length > 4 && (
+                <li className="text-muted-foreground text-xs">
+                  +{plan.features.length - 4} more features
+                </li>
+              )}
+            </ul>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">MRR:</span>
-            <span className="font-medium">${plan.mrr.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Churn Rate:</span>
-            <span className="font-medium">{plan.churnRate}%</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Conversion:</span>
-            <span className="font-medium">{plan.conversionRate}%</span>
-          </div>
-        </div>
 
-        {/* Features List */}
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm">Key Features:</h4>
-          <ul className="space-y-1 text-sm">
-            {plan.features.slice(0, 4).map((feature: any, index: number) => (
-              <li key={index} className="flex items-center gap-2">
-                <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-                <span>{feature.name}</span>
-              </li>
-            ))}
-            {plan.features.length > 4 && (
-              <li className="text-muted-foreground text-xs">
-                +{plan.features.length - 4} more features
-              </li>
-            )}
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
-  );
+          {/* Expandable Details */}
+          {isExpanded && (
+            <div className="space-y-4 pt-4 border-t">
+              {/* Pricing Tiers */}
+              {plan.pricing && (
+                <div>
+                  <h5 className="font-medium text-sm mb-2">Pricing Options:</h5>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex justify-between">
+                      <span>Monthly:</span>
+                      <span className="font-medium">${plan.pricing.monthly}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Quarterly:</span>
+                      <span className="font-medium">${plan.pricing.quarterly}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Annually:</span>
+                      <span className="font-medium">${plan.pricing.annually}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Bi-annually:</span>
+                      <span className="font-medium">${plan.pricing.biannually}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add-ons */}
+              {plan.addOns && plan.addOns.length > 0 && (
+                <div>
+                  <h5 className="font-medium text-sm mb-2">Available Add-ons:</h5>
+                  <ul className="space-y-1 text-xs">
+                    {plan.addOns.map((addon: any, index: number) => (
+                      <li key={index} className="flex justify-between">
+                        <span>{addon.name}</span>
+                        <span className="font-medium">${addon.price} {addon.unit}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Discounts */}
+              {plan.discounts && plan.discounts.length > 0 && (
+                <div>
+                  <h5 className="font-medium text-sm mb-2">Available Discounts:</h5>
+                  <ul className="space-y-1 text-xs">
+                    {plan.discounts.map((discount: any, index: number) => (
+                      <li key={index} className="flex justify-between">
+                        <span>{discount.description}</span>
+                        <span className="font-medium">{discount.percentage}% off</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   const CreatePlanDialog = () => (
     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -573,7 +719,7 @@ export default function BillingPlansManager() {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {billingPlans.map((plan) => (
+            {plans.map((plan) => (
               <PlanCard key={plan.id} plan={plan} />
             ))}
           </div>
@@ -631,7 +777,7 @@ export default function BillingPlansManager() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {billingPlans.map((plan) => (
+            {plans.map((plan) => (
               <PlanCard key={plan.id} plan={plan} showActions={true} />
             ))}
           </div>
@@ -871,6 +1017,331 @@ export default function BillingPlansManager() {
       </Tabs>
 
       <CreatePlanDialog />
+      
+      {/* Edit Plan Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Plan: {selectedPlan?.name}</DialogTitle>
+            <DialogDescription>
+              Modify the plan details, pricing, and features.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedPlan && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editPlanName">Plan Name</Label>
+                    <Input 
+                      id="editPlanName" 
+                      defaultValue={selectedPlan.name}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, name: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editPlanBadge">Badge</Label>
+                    <Input 
+                      id="editPlanBadge" 
+                      defaultValue={selectedPlan.badge}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, badge: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="editDescription">Description</Label>
+                  <Textarea 
+                    id="editDescription" 
+                    defaultValue={selectedPlan.description}
+                    onChange={(e) => setSelectedPlan({...selectedPlan, description: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              {/* Pricing */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Pricing</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="editPrice">Monthly Price ($)</Label>
+                    <Input 
+                      id="editPrice" 
+                      type="number" 
+                      defaultValue={selectedPlan.price}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, price: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editOriginalPrice">Original Price ($)</Label>
+                    <Input 
+                      id="editOriginalPrice" 
+                      type="number" 
+                      defaultValue={selectedPlan.originalPrice}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, originalPrice: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editARPU">ARPU ($)</Label>
+                    <Input 
+                      id="editARPU" 
+                      type="number" 
+                      defaultValue={selectedPlan.arpu}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, arpu: Number(e.target.value)})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Metrics */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Performance Metrics</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editCustomers">Customers</Label>
+                    <Input 
+                      id="editCustomers" 
+                      type="number" 
+                      defaultValue={selectedPlan.customers}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, customers: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editMRR">MRR ($)</Label>
+                    <Input 
+                      id="editMRR" 
+                      type="number" 
+                      defaultValue={selectedPlan.mrr}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, mrr: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editChurnRate">Churn Rate (%)</Label>
+                    <Input 
+                      id="editChurnRate" 
+                      type="number" 
+                      step="0.1"
+                      defaultValue={selectedPlan.churnRate}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, churnRate: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editConversionRate">Conversion Rate (%)</Label>
+                    <Input 
+                      id="editConversionRate" 
+                      type="number" 
+                      step="0.1"
+                      defaultValue={selectedPlan.conversionRate}
+                      onChange={(e) => setSelectedPlan({...selectedPlan, conversionRate: Number(e.target.value)})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Features Management */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Features</h3>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {selectedPlan.features?.map((feature: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded">
+                      <div className="flex items-center gap-3 flex-1">
+                        <Switch 
+                          checked={feature.included}
+                          onCheckedChange={(included) => {
+                            const updatedFeatures = [...selectedPlan.features];
+                            updatedFeatures[index] = {...feature, included};
+                            setSelectedPlan({...selectedPlan, features: updatedFeatures});
+                          }}
+                        />
+                        <Input
+                          value={feature.name}
+                          onChange={(e) => {
+                            const updatedFeatures = [...selectedPlan.features];
+                            updatedFeatures[index] = {...feature, name: e.target.value};
+                            setSelectedPlan({...selectedPlan, features: updatedFeatures});
+                          }}
+                          className="flex-1"
+                        />
+                        <Input
+                          value={feature.limit || ""}
+                          onChange={(e) => {
+                            const updatedFeatures = [...selectedPlan.features];
+                            updatedFeatures[index] = {...feature, limit: e.target.value};
+                            setSelectedPlan({...selectedPlan, features: updatedFeatures});
+                          }}
+                          placeholder="Limit"
+                          className="w-24"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const updatedFeatures = selectedPlan.features.filter((_: any, i: number) => i !== index);
+                          setSelectedPlan({...selectedPlan, features: updatedFeatures});
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newFeature = { name: "New Feature", included: true, limit: "" };
+                    setSelectedPlan({...selectedPlan, features: [...(selectedPlan.features || []), newFeature]});
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-2" />
+                  Add Feature
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => handleUpdatePlan(selectedPlan)}>
+              Update Plan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewDetailsOpen} onOpenChange={setIsViewDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Plan Details: {selectedPlan?.name}</DialogTitle>
+            <DialogDescription>
+              Complete overview of plan configuration and performance.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedPlan && (
+            <div className="space-y-6">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="text-center p-4 border rounded">
+                  <div className="text-2xl font-bold">${selectedPlan.price}</div>
+                  <div className="text-sm text-muted-foreground">Monthly Price</div>
+                </div>
+                <div className="text-center p-4 border rounded">
+                  <div className="text-2xl font-bold">{selectedPlan.customers}</div>
+                  <div className="text-sm text-muted-foreground">Customers</div>
+                </div>
+                <div className="text-center p-4 border rounded">
+                  <div className="text-2xl font-bold">${selectedPlan.mrr.toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground">MRR</div>
+                </div>
+                <div className="text-center p-4 border rounded">
+                  <div className="text-2xl font-bold">{selectedPlan.conversionRate}%</div>
+                  <div className="text-sm text-muted-foreground">Conversion</div>
+                </div>
+              </div>
+
+              {/* All Features */}
+              <div>
+                <h3 className="font-medium mb-3">All Features</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedPlan.features?.map((feature: any, index: number) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded">
+                      {feature.included ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border border-muted-foreground" />
+                      )}
+                      <span className={feature.included ? "" : "text-muted-foreground line-through"}>
+                        {feature.name}
+                        {feature.limit && <span className="text-muted-foreground"> ({feature.limit})</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pricing Breakdown */}
+              {selectedPlan.pricing && (
+                <div>
+                  <h3 className="font-medium mb-3">Pricing Options</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between p-2 border rounded">
+                        <span>Monthly:</span>
+                        <span className="font-medium">${selectedPlan.pricing.monthly}</span>
+                      </div>
+                      <div className="flex justify-between p-2 border rounded">
+                        <span>Quarterly:</span>
+                        <span className="font-medium">${selectedPlan.pricing.quarterly}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between p-2 border rounded">
+                        <span>Annually:</span>
+                        <span className="font-medium">${selectedPlan.pricing.annually}</span>
+                      </div>
+                      <div className="flex justify-between p-2 border rounded">
+                        <span>Bi-annually:</span>
+                        <span className="font-medium">${selectedPlan.pricing.biannually}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add-ons and Discounts */}
+              <div className="grid grid-cols-2 gap-6">
+                {selectedPlan.addOns && selectedPlan.addOns.length > 0 && (
+                  <div>
+                    <h3 className="font-medium mb-3">Add-ons</h3>
+                    <div className="space-y-2">
+                      {selectedPlan.addOns.map((addon: any, index: number) => (
+                        <div key={index} className="flex justify-between p-2 border rounded">
+                          <span>{addon.name}</span>
+                          <span className="font-medium">${addon.price} {addon.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedPlan.discounts && selectedPlan.discounts.length > 0 && (
+                  <div>
+                    <h3 className="font-medium mb-3">Available Discounts</h3>
+                    <div className="space-y-2">
+                      {selectedPlan.discounts.map((discount: any, index: number) => (
+                        <div key={index} className="flex justify-between p-2 border rounded">
+                          <span>{discount.description}</span>
+                          <span className="font-medium">{discount.percentage}% off</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setIsViewDetailsOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              setIsViewDetailsOpen(false);
+              handleEditPlan(selectedPlan);
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Plan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Tab Configuration Dialog */}
       <Dialog open={isTabConfigDialogOpen} onOpenChange={setIsTabConfigDialogOpen}>
