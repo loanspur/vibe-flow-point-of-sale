@@ -43,6 +43,10 @@ interface TenantSubscription {
   trial_end?: string;
   current_period_start?: string;
   current_period_end?: string;
+  next_billing_date?: string;
+  is_prorated_period?: boolean;
+  billing_day?: number;
+  next_billing_amount?: number;
   billing_plans?: {
     id: string;
     name: string;
@@ -62,6 +66,11 @@ interface PaymentHistory {
   paid_at?: string;
   billing_period_start?: string;
   billing_period_end?: string;
+  is_prorated?: boolean;
+  full_period_amount?: number;
+  proration_start_date?: string;
+  proration_end_date?: string;
+  prorated_days?: number;
   billing_plans?: {
     name: string;
     price: number;
@@ -388,24 +397,23 @@ export default function BillingManagement() {
                       (tenantCurrency ? formatLocalCurrency(currentSubscription.billing_plans.price) : formatPrice(currentSubscription.billing_plans.price)) 
                       : 'N/A'}
                   </p>
+                  {currentSubscription.is_prorated_period && (
+                    <p className="text-xs text-orange-600">
+                      Prorated for this billing cycle
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-green-600" />
                 <div>
-                  <p className="text-sm font-medium text-green-800">
-                    {(() => {
-                      const expiryDate = new Date(currentSubscription.expires_at);
-                      const now = new Date();
-                      const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                      
-                      if (daysLeft <= 0) return "Expired";
-                      if (daysLeft <= 3) return "Expires Soon";
-                      return "Expires";
-                    })()}
-                  </p>
+                  <p className="text-sm font-medium text-green-800">Next Billing</p>
                   <p className="text-sm text-green-600">
-                    {currentSubscription.expires_at ? formatDate(currentSubscription.expires_at) : 'Never'}
+                    {currentSubscription.next_billing_date ? formatDate(currentSubscription.next_billing_date) : 
+                     currentSubscription.expires_at ? formatDate(currentSubscription.expires_at) : 'Not set'}
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    Bills on 1st of each month
                   </p>
                 </div>
               </div>
@@ -703,11 +711,19 @@ export default function BillingManagement() {
                     <div>
                       <p className="font-medium">
                         {payment.billing_plans?.name || 'Subscription Payment'}
+                        {payment.is_prorated && (
+                          <span className="ml-2 text-orange-600 text-xs">(Prorated)</span>
+                        )}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {payment.payment_type} • {formatDate(payment.created_at)}
                       </p>
-                      {payment.billing_period_start && payment.billing_period_end && (
+                      {payment.proration_start_date && payment.proration_end_date && (
+                        <p className="text-xs text-muted-foreground">
+                          Period: {formatDate(payment.proration_start_date)} - {formatDate(payment.proration_end_date)}
+                        </p>
+                      )}
+                      {payment.billing_period_start && payment.billing_period_end && !payment.proration_start_date && (
                         <p className="text-xs text-muted-foreground">
                           Billing period: {formatDate(payment.billing_period_start)} - {formatDate(payment.billing_period_end)}
                         </p>
@@ -718,6 +734,11 @@ export default function BillingManagement() {
                     <p className="font-semibold">
                       {tenantCurrency ? formatLocalCurrency(payment.amount) : formatPrice(payment.amount)}
                     </p>
+                    {payment.is_prorated && payment.full_period_amount && (
+                      <p className="text-xs text-muted-foreground line-through">
+                        Full: {tenantCurrency ? formatLocalCurrency(payment.full_period_amount) : formatPrice(payment.full_period_amount)}
+                      </p>
+                    )}
                     <Badge 
                       variant={
                         payment.payment_status === 'completed' ? 'default' :

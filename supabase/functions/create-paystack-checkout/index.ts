@@ -121,6 +121,30 @@ serve(async (req) => {
       logStep("Created new Paystack customer", { customerId: paystackCustomerId });
     }
 
+    // Calculate billing amount using the new monthly billing cycle
+    const { data: billingCycleData, error: billingError } = await supabaseService
+      .rpc('setup_monthly_billing_cycle', {
+        tenant_id_param: profile.tenant_id,
+        billing_plan_id_param: billingPlan.id,
+        start_date_param: new Date().toISOString().split('T')[0]
+      });
+
+    if (billingError || !billingCycleData?.[0]) {
+      throw new Error("Failed to calculate billing cycle");
+    }
+
+    const billingInfo = billingCycleData[0];
+    const actualAmount = billingInfo.billing_amount;
+    const isProrated = billingInfo.is_prorated;
+    const nextBillingDate = billingInfo.next_billing_date;
+
+    logStep("Billing cycle calculated", { 
+      actualAmount, 
+      isProrated, 
+      nextBillingDate,
+      fullAmount: billingPlan.price
+    });
+
     // Initialize Paystack transaction for subscription
     const transactionResponse = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -130,7 +154,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         email: user.email,
-        amount: billingPlan.price * 100, // Amount in kobo
+        amount: Math.round(actualAmount * 100), // Amount in kobo, rounded
         currency: 'KES',
         reference: `sub_${profile.tenant_id}_${Date.now()}`,
         callback_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/paystack-webhook`,
@@ -139,7 +163,12 @@ serve(async (req) => {
           billing_plan_id: billingPlan.id,
           plan_name: billingPlan.name,
           payment_type: 'subscription',
-          customer_code: paystackCustomerId
+          customer_code: paystackCustomerId,
+          is_prorated: isProrated,
+          full_plan_amount: billingPlan.price,
+          billing_period_start: billingInfo.billing_period_start,
+          billing_period_end: billingInfo.billing_period_end,
+          next_billing_date: nextBillingDate
         }
       })
     });
@@ -157,22 +186,29 @@ serve(async (req) => {
       authorizationUrl
     });
 
-    // Create payment history record
+    // Create payment history record with prorated billing information
     const { error: paymentError } = await supabaseService
       .from('payment_history')
       .insert({
         tenant_id: profile.tenant_id,
         billing_plan_id: billingPlan.id,
-        amount: billingPlan.price,
+        amount: actualAmount,
         currency: 'KES',
         payment_reference: reference,
         payment_method: 'paystack',
         payment_status: 'pending',
         payment_type: 'subscription',
         paystack_customer_id: paystackCustomerId,
+        is_prorated: isProrated,
+        full_period_amount: billingPlan.price,
+        proration_start_date: isProrated ? billingInfo.billing_period_start : null,
+        proration_end_date: isProrated ? billingInfo.billing_period_end : null,
+        prorated_days: isProrated ? (new Date(billingInfo.billing_period_end).getTime() - new Date(billingInfo.billing_period_start).getTime()) / (1000 * 60 * 60 * 24) + 1 : null,
         metadata: {
           plan_name: billingPlan.name,
-          transaction_reference: reference
+          transaction_reference: reference,
+          is_prorated: isProrated,
+          next_billing_date: nextBillingDate
         }
       });
 
@@ -180,7 +216,7 @@ serve(async (req) => {
       logStep("Warning: Could not create payment history", { error: paymentError });
     }
 
-    // Update or create subscription details
+    // Update or create subscription details with monthly billing cycle
     const { error: subscriptionDetailsError } = await supabaseService
       .from('tenant_subscription_details')
       .upsert({
@@ -188,13 +224,22 @@ serve(async (req) => {
         billing_plan_id: billingPlan.id,
         paystack_customer_id: paystackCustomerId,
         status: 'pending',
-        current_period_start: new Date().toISOString().split('T')[0],
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        trial_start: new Date().toISOString().split('T')[0],
-        trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        current_period_start: billingInfo.billing_period_start,
+        current_period_end: billingInfo.billing_period_end,
+        next_billing_date: nextBillingDate,
+        billing_day: 1, // Always bill on the 1st
+        next_billing_amount: billingPlan.price, // Next month will be full amount
+        is_prorated_period: isProrated,
+        trial_start: isProrated ? null : new Date().toISOString().split('T')[0],
+        trial_end: isProrated ? null : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         metadata: {
-          transaction_reference: reference
+          transaction_reference: reference,
+          proration_details: isProrated ? {
+            prorated_amount: actualAmount,
+            full_amount: billingPlan.price,
+            period_start: billingInfo.billing_period_start,
+            period_end: billingInfo.billing_period_end
+          } : null
         }
       }, {
         onConflict: 'tenant_id'

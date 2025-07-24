@@ -358,9 +358,11 @@ export type Database = {
       billing_plans: {
         Row: {
           add_ons: Json | null
+          allows_prorating: boolean | null
           arpu: number | null
           badge: string | null
           badge_color: string | null
+          billing_day: number | null
           churn_rate: number | null
           conversion_rate: number | null
           created_at: string
@@ -379,6 +381,7 @@ export type Database = {
           popularity: number | null
           price: number
           pricing: Json | null
+          proration_policy: string | null
           status: string
           tenant_id: string | null
           trial_conversion: number | null
@@ -386,9 +389,11 @@ export type Database = {
         }
         Insert: {
           add_ons?: Json | null
+          allows_prorating?: boolean | null
           arpu?: number | null
           badge?: string | null
           badge_color?: string | null
+          billing_day?: number | null
           churn_rate?: number | null
           conversion_rate?: number | null
           created_at?: string
@@ -407,6 +412,7 @@ export type Database = {
           popularity?: number | null
           price?: number
           pricing?: Json | null
+          proration_policy?: string | null
           status?: string
           tenant_id?: string | null
           trial_conversion?: number | null
@@ -414,9 +420,11 @@ export type Database = {
         }
         Update: {
           add_ons?: Json | null
+          allows_prorating?: boolean | null
           arpu?: number | null
           badge?: string | null
           badge_color?: string | null
+          billing_day?: number | null
           churn_rate?: number | null
           conversion_rate?: number | null
           created_at?: string
@@ -435,6 +443,7 @@ export type Database = {
           popularity?: number | null
           price?: number
           pricing?: Json | null
+          proration_policy?: string | null
           status?: string
           tenant_id?: string | null
           trial_conversion?: number | null
@@ -1467,7 +1476,9 @@ export type Database = {
           created_at: string
           currency: string
           failed_at: string | null
+          full_period_amount: number | null
           id: string
+          is_prorated: boolean | null
           metadata: Json | null
           notes: string | null
           paid_at: string | null
@@ -1478,6 +1489,9 @@ export type Database = {
           paystack_customer_id: string | null
           paystack_plan_id: string | null
           paystack_subscription_id: string | null
+          prorated_days: number | null
+          proration_end_date: string | null
+          proration_start_date: string | null
           refunded_at: string | null
           tenant_id: string
           updated_at: string
@@ -1490,7 +1504,9 @@ export type Database = {
           created_at?: string
           currency?: string
           failed_at?: string | null
+          full_period_amount?: number | null
           id?: string
+          is_prorated?: boolean | null
           metadata?: Json | null
           notes?: string | null
           paid_at?: string | null
@@ -1501,6 +1517,9 @@ export type Database = {
           paystack_customer_id?: string | null
           paystack_plan_id?: string | null
           paystack_subscription_id?: string | null
+          prorated_days?: number | null
+          proration_end_date?: string | null
+          proration_start_date?: string | null
           refunded_at?: string | null
           tenant_id: string
           updated_at?: string
@@ -1513,7 +1532,9 @@ export type Database = {
           created_at?: string
           currency?: string
           failed_at?: string | null
+          full_period_amount?: number | null
           id?: string
+          is_prorated?: boolean | null
           metadata?: Json | null
           notes?: string | null
           paid_at?: string | null
@@ -1524,6 +1545,9 @@ export type Database = {
           paystack_customer_id?: string | null
           paystack_plan_id?: string | null
           paystack_subscription_id?: string | null
+          prorated_days?: number | null
+          proration_end_date?: string | null
+          proration_start_date?: string | null
           refunded_at?: string | null
           tenant_id?: string
           updated_at?: string
@@ -3282,13 +3306,16 @@ export type Database = {
       }
       tenant_subscription_details: {
         Row: {
+          billing_day: number | null
           billing_plan_id: string | null
           cancelled_at: string | null
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          is_prorated_period: boolean | null
           metadata: Json | null
+          next_billing_amount: number | null
           next_billing_date: string | null
           paystack_customer_id: string | null
           paystack_plan_id: string | null
@@ -3300,13 +3327,16 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_day?: number | null
           billing_plan_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_prorated_period?: boolean | null
           metadata?: Json | null
+          next_billing_amount?: number | null
           next_billing_date?: string | null
           paystack_customer_id?: string | null
           paystack_plan_id?: string | null
@@ -3318,13 +3348,16 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_day?: number | null
           billing_plan_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_prorated_period?: boolean | null
           metadata?: Json | null
+          next_billing_amount?: number | null
           next_billing_date?: string | null
           paystack_customer_id?: string | null
           paystack_plan_id?: string | null
@@ -3750,6 +3783,10 @@ export type Database = {
           total_amount: number
         }[]
       }
+      calculate_next_billing_date: {
+        Args: { start_date: string }
+        Returns: string
+      }
       calculate_profit_loss: {
         Args: {
           tenant_id_param: string
@@ -3772,6 +3809,15 @@ export type Database = {
         Returns: {
           discount_amount: number
           affected_quantity: number
+        }[]
+      }
+      calculate_prorated_amount: {
+        Args: { full_amount: number; start_date: string; billing_day?: number }
+        Returns: {
+          prorated_amount: number
+          days_in_period: number
+          total_days_in_month: number
+          next_billing_date: string
         }[]
       }
       calculate_purchase_total: {
@@ -3941,6 +3987,20 @@ export type Database = {
       setup_default_accounts: {
         Args: { tenant_id_param: string }
         Returns: undefined
+      }
+      setup_monthly_billing_cycle: {
+        Args: {
+          tenant_id_param: string
+          billing_plan_id_param: string
+          start_date_param?: string
+        }
+        Returns: {
+          billing_amount: number
+          is_prorated: boolean
+          next_billing_date: string
+          billing_period_start: string
+          billing_period_end: string
+        }[]
       }
       update_account_balances_from_entries: {
         Args: Record<PropertyKey, never>
