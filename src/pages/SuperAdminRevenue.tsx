@@ -32,7 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Base currency formatting for SuperAdmin (KES)
 const formatBaseCurrency = (amount: number) => 
-  `KSh ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Monthly revenue data
 const monthlyRevenueData = [

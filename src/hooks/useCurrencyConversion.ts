@@ -129,11 +129,11 @@ export const useCurrencyConversion = () => {
   // Format currency with proper symbol and locale
   const formatLocalCurrency = useCallback(
     (amount: number): string => {
-      if (!tenantCurrency) return `KSh ${amount.toLocaleString()}`;
+      if (!tenantCurrency) return `KES ${amount.toLocaleString()}`;
 
       try {
         if (tenantCurrency.currency === 'KES') {
-          return `KSh ${amount.toLocaleString('en-US', { 
+          return `KES ${amount.toLocaleString('en-US', { 
             minimumFractionDigits: 2, 
             maximumFractionDigits: 2 
           })}`;
@@ -158,13 +158,13 @@ export const useCurrencyConversion = () => {
 
   // Get currency symbol only
   const getCurrencySymbol = useCallback((): string => {
-    if (!tenantCurrency) return 'KSh';
+    if (!tenantCurrency) return 'KES';
     
     const currencySymbols: { [key: string]: string } = {
       'USD': '$',
       'EUR': '€',
       'GBP': '£',
-      'KES': 'KSh',
+      'KES': 'KES',
       'NGN': '₦',
       'ZAR': 'R',
       'UGX': 'USh',

@@ -18,7 +18,7 @@ export const CURRENCY_SYMBOLS: Record<string, CurrencyInfo> = {
   CNY: { code: 'CNY', symbol: '¥', name: 'Chinese Yuan', locale: 'zh-CN' },
   
   // African Currencies
-  KES: { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling', locale: 'en-KE' },
+  KES: { code: 'KES', symbol: 'KES', name: 'Kenyan Shilling', locale: 'en-KE' },
   
   NGN: { code: 'NGN', symbol: '₦', name: 'Nigerian Naira', locale: 'en-NG' },
   ZAR: { code: 'ZAR', symbol: 'R', name: 'South African Rand', locale: 'en-ZA' },

@@ -24,7 +24,7 @@ export default function SuperAdminDashboard() {
   const { user, userRole } = useAuth();
   // Use base currency (KES) for all superadmin views
   const formatBaseCurrency = (amount: number) => 
-    `KSh ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const [dashboardData, setDashboardData] = useState({
     totalTenants: 0,
     activeUsers: 0,

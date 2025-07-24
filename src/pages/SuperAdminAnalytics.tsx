@@ -18,7 +18,7 @@ export default function SuperAdminAnalytics() {
   const { toast } = useToast();
   // Use base currency (KES) for all superadmin analytics
   const formatBaseCurrency = (amount: number) => 
-    `KSh ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const [analyticsData, setAnalyticsData] = useState({
     totalRevenue: 0,
     activeTenants: 0,

@@ -70,7 +70,7 @@ export async function getCurrencySettings(): Promise<CurrencySettings> {
       
       const currencySymbols: { [key: string]: string } = {
         'USD': '$',
-        'KES': 'KSh',
+        'KES': 'KES',
         
         'EUR': '€',
         'GBP': '£',

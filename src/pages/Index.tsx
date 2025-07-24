@@ -69,7 +69,7 @@ const Index = () => {
   };
 
   const formatPrice = (price: number) => {
-    return `KSh ${price.toLocaleString()}`;
+    return `KES ${price.toLocaleString()}`;
   };
 
   const formatFeatures = (features: any) => {
