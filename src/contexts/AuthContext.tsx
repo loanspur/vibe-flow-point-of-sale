@@ -14,6 +14,7 @@ interface AuthContextType {
   tenantId: string | null;
   canSwitchViews: boolean;
   switchViewMode: (mode: ViewMode) => void;
+  refreshUserInfo: () => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -81,6 +82,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole('user');
       setTenantId(null);
       setViewMode('tenant');
+    }
+  };
+
+  // Public function to refresh user info
+  const refreshUserInfo = async () => {
+    if (user) {
+      await fetchUserInfo(user.id);
     }
   };
 
@@ -242,6 +250,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     tenantId,
     canSwitchViews,
     switchViewMode,
+    refreshUserInfo,
     signUp,
     signIn,
     signOut

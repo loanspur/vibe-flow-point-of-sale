@@ -5,6 +5,7 @@ import PromotionManagement from '@/components/PromotionManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
+import { useNavigate } from 'react-router-dom';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,8 +48,9 @@ interface DashboardData {
 }
 
 export default function ComprehensivePOS() {
-  const { user, tenantId, userRole } = useAuth();
+  const { user, tenantId, userRole, refreshUserInfo } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tenantSetupLoading, setTenantSetupLoading] = useState(false);
   const [missingTenantForm, setMissingTenantForm] = useState({
@@ -85,11 +87,16 @@ export default function ComprehensivePOS() {
 
       toast({
         title: "Success!",
-        description: "Your business has been set up successfully. Please refresh the page.",
+        description: "Your business has been set up successfully. Redirecting to admin dashboard...",
       });
 
-      // Refresh the page to reload user context
-      window.location.reload();
+      // Refresh user info to get the new role and tenant_id, then redirect
+      await refreshUserInfo();
+      
+      // Navigate to admin dashboard
+      setTimeout(() => {
+        navigate('/admin');
+      }, 500);
 
     } catch (error: any) {
       console.error('Tenant setup error:', error);
