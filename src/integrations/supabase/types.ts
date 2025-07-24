@@ -474,6 +474,7 @@ export type Database = {
           email_smtp_port: number | null
           email_smtp_username: string | null
           enable_barcode_scanning: boolean | null
+          enable_brands: boolean | null
           enable_combo_products: boolean | null
           enable_gift_cards: boolean | null
           enable_loyalty_program: boolean | null
@@ -563,6 +564,7 @@ export type Database = {
           email_smtp_port?: number | null
           email_smtp_username?: string | null
           enable_barcode_scanning?: boolean | null
+          enable_brands?: boolean | null
           enable_combo_products?: boolean | null
           enable_gift_cards?: boolean | null
           enable_loyalty_program?: boolean | null
@@ -652,6 +654,7 @@ export type Database = {
           email_smtp_port?: number | null
           email_smtp_username?: string | null
           enable_barcode_scanning?: boolean | null
+          enable_brands?: boolean | null
           enable_combo_products?: boolean | null
           enable_gift_cards?: boolean | null
           enable_loyalty_program?: boolean | null

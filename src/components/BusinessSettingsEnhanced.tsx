@@ -81,6 +81,7 @@ const businessSettingsSchema = z.object({
   default_tax_rate: z.number().min(0).max(100).default(0),
   tax_name: z.string().default("Tax"),
   company_logo_url: z.string().optional(),
+  enable_brands: z.boolean().default(false),
   enable_product_units: z.boolean().default(false),
   enable_warranty: z.boolean().default(false),
   
@@ -186,6 +187,7 @@ export function BusinessSettingsEnhanced() {
       timezone: "America/New_York",
       default_tax_rate: 0,
       tax_name: "Tax",
+      enable_brands: false,
       enable_product_units: false,
       enable_warranty: false,
       
@@ -1445,6 +1447,22 @@ export function BusinessSettingsEnhanced() {
                         <CardContent>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
+                              <FormField
+                                control={form.control}
+                                name="enable_brands"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+                                    <div>
+                                      <FormLabel className="font-medium">Enable Brands</FormLabel>
+                                      <FormDescription>Allow products to have brand associations</FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              
                               <FormField
                                 control={form.control}
                                 name="enable_product_units"
