@@ -199,6 +199,11 @@ export default function TrialSignup() {
   const createTenant = async () => {
     try {
       console.log('Creating tenant...');
+      console.log('Form data:', {
+        businessName: formData.businessName,
+        ownerName: formData.ownerName,
+        email: formData.email
+      });
       
       const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant', {
         body: {
@@ -207,6 +212,8 @@ export default function TrialSignup() {
           email: formData.email,
         }
       });
+
+      console.log('Tenant creation response:', { tenantData, tenantError });
 
       if (tenantError) {
         console.error('Tenant creation error:', tenantError);

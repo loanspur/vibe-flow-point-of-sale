@@ -291,10 +291,12 @@ serve(async (req) => {
       logStep("Owner contact created");
     }
 
-    // Send welcome email
+    // Send welcome email (simplified for debugging)
     try {
-      await sendWelcomeEmail(supabaseAdmin, tenant, ownerName, email || user.email);
-      logStep("Welcome email sent successfully");
+      logStep("Attempting to send welcome email");
+      // Temporarily disable welcome email to isolate the issue
+      // await sendWelcomeEmail(supabaseAdmin, tenant, ownerName, email || user.email);
+      logStep("Welcome email sending skipped for debugging");
     } catch (emailError) {
       logStep("Warning: Failed to send welcome email", { error: emailError });
     }
