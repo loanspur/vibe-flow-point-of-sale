@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
+import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
 
 interface BusinessSettings {
   currency_code: string;
@@ -81,28 +82,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const formatCurrency = useCallback((amount: number): string => {
-    if (!businessSettings) return `$${amount.toFixed(2)}`;
+    if (!businessSettings) return formatAmountWithSymbol(amount, 'USD');
     
-    try {
-      if (businessSettings.currency_code === 'KES' || businessSettings.currency_code === 'KSH') {
-        return `${businessSettings.currency_symbol} ${amount.toLocaleString('en-US', { 
-          minimumFractionDigits: 2, 
-          maximumFractionDigits: 2 
-        })}`;
-      }
-      
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: businessSettings.currency_code,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(amount);
-    } catch (error) {
-      return `${businessSettings.currency_symbol} ${amount.toLocaleString('en-US', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
-      })}`;
-    }
+    return formatAmountWithSymbol(
+      amount, 
+      businessSettings.currency_code, 
+      businessSettings.currency_symbol
+    );
   }, [businessSettings]);
 
   // Format currency using local conversion
@@ -142,14 +128,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Immediately update with new data if available
           if (payload.new && typeof payload.new === 'object') {
             const newSettings = payload.new as any;
-            setBusinessSettings({
+            
+            // Auto-detect currency symbol if only currency code was changed
+            let currencySymbol = newSettings.currency_symbol;
+            if (newSettings.currency_code && !currencySymbol) {
+              const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
+              currencySymbol = autoDetected.symbol;
+            }
+            
+            const updatedSettings = {
               currency_code: newSettings.currency_code || 'USD',
-              currency_symbol: newSettings.currency_symbol || '$',
+              currency_symbol: currencySymbol || '$',
               company_name: newSettings.company_name || 'Your Business',
               timezone: newSettings.timezone || 'UTC',
               tax_inclusive: newSettings.tax_inclusive || false,
               default_tax_rate: newSettings.default_tax_rate || 0
-            });
+            };
+            
+            setBusinessSettings(updatedSettings);
+            
+            // Auto-update symbol in database if it was auto-detected
+            if (newSettings.currency_code && !newSettings.currency_symbol && currencySymbol !== '$') {
+              supabase
+                .from('business_settings')
+                .update({ currency_symbol: currencySymbol })
+                .eq('tenant_id', tenantId)
+                .then(() => console.log('Auto-updated currency symbol:', currencySymbol));
+            }
           }
           // Also refresh to ensure consistency
           refreshBusinessSettings();
