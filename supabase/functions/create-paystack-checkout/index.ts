@@ -70,7 +70,7 @@ serve(async (req) => {
     logStep("Billing plan found", { plan: billingPlan });
 
     // Get tenant information
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await supabaseService
       .from('profiles')
       .select('tenant_id')
       .eq('user_id', user.id)
