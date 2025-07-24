@@ -76,62 +76,216 @@ async function handleSuccessfulPayment(supabaseClient: any, data: any) {
   logStep("Processing successful payment", { reference: data.reference });
   
   const metadata = data.metadata;
-  if (!metadata?.user_id) {
-    logStep("No user_id in metadata, skipping");
+  const tenantId = metadata?.tenant_id;
+  const billingPlanId = metadata?.billing_plan_id;
+  
+  if (!tenantId) {
+    logStep("No tenant_id in metadata, skipping");
     return;
   }
 
-  // Update subscriber status
-  const { error } = await supabaseClient
-    .from('subscribers')
-    .update({
-      subscribed: true,
-      subscription_tier: metadata.plan_name,
-      subscription_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', metadata.user_id);
+  try {
+    // Update payment history
+    const { error: paymentError } = await supabaseClient
+      .from('payment_history')
+      .update({
+        payment_status: 'completed',
+        paid_at: new Date().toISOString(),
+        metadata: data
+      })
+      .eq('payment_reference', data.reference);
 
-  if (error) {
-    logStep("Error updating subscriber", { error });
-  } else {
-    logStep("Subscriber updated successfully", { userId: metadata.user_id });
+    if (paymentError) {
+      logStep("Warning: Could not update payment history", { error: paymentError });
+    }
+
+    // Update subscription details
+    if (billingPlanId) {
+      const { error: subscriptionError } = await supabaseClient
+        .from('tenant_subscription_details')
+        .update({
+          status: 'active',
+          current_period_start: new Date().toISOString().split('T')[0],
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        })
+        .eq('tenant_id', tenantId);
+
+      if (subscriptionError) {
+        logStep("Warning: Could not update subscription details", { error: subscriptionError });
+      }
+
+      // Update tenant subscription table for backward compatibility
+      const { error: tenantSubError } = await supabaseClient
+        .from('tenant_subscriptions')
+        .upsert({
+          tenant_id: tenantId,
+          billing_plan_id: billingPlanId,
+          status: 'active',
+          amount: data.amount / 100,
+          currency: 'KES',
+          reference: data.reference,
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        }, {
+          onConflict: 'tenant_id'
+        });
+
+      if (tenantSubError) {
+        logStep("Warning: Could not update tenant subscription", { error: tenantSubError });
+      }
+    }
+
+    logStep("Payment processed successfully", { reference: data.reference, tenantId, amount: data.amount });
+  } catch (error) {
+    logStep("Error processing successful payment", error);
+    throw error;
   }
 }
 
 async function handleSubscriptionCreated(supabaseClient: any, data: any) {
   logStep("Processing subscription created", { customer: data.customer });
   
-  // Handle subscription creation if needed
-  // This would typically involve setting up recurring billing
+  try {
+    const metadata = data.metadata;
+    const tenantId = metadata?.tenant_id;
+    const billingPlanId = metadata?.billing_plan_id;
+    
+    if (!tenantId) {
+      logStep("Warning: No tenant_id in subscription metadata");
+      return;
+    }
+
+    // Create payment history record for subscription
+    const { error: paymentError } = await supabaseClient
+      .from('payment_history')
+      .insert({
+        tenant_id: tenantId,
+        billing_plan_id: billingPlanId,
+        amount: data.amount / 100,
+        currency: 'KES',
+        payment_reference: data.subscription_code,
+        payment_status: 'completed',
+        payment_type: 'subscription',
+        paystack_subscription_id: data.subscription_code,
+        paid_at: new Date().toISOString(),
+        billing_period_start: new Date().toISOString().split('T')[0],
+        billing_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        metadata: data
+      });
+
+    if (paymentError) {
+      logStep("Warning: Could not create payment history for subscription", { error: paymentError });
+    }
+
+    logStep("Subscription creation processed", { subscription_code: data.subscription_code, tenantId });
+  } catch (error) {
+    logStep("Error processing subscription creation", error);
+    throw error;
+  }
 }
 
 async function handleSubscriptionCancelled(supabaseClient: any, data: any) {
   logStep("Processing subscription cancelled", { customer: data.customer });
   
-  // Find and update subscriber
-  const { error } = await supabaseClient
-    .from('subscribers')
-    .update({
-      subscribed: false,
-      subscription_end: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('stripe_customer_id', data.customer.customer_code);
+  try {
+    const subscriptionCode = data.subscription_code;
+    
+    // Update subscription details
+    const { error: subscriptionError } = await supabaseClient
+      .from('tenant_subscription_details')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString()
+      })
+      .eq('paystack_subscription_id', subscriptionCode);
 
-  if (error) {
-    logStep("Error cancelling subscription", { error });
-  } else {
-    logStep("Subscription cancelled successfully");
+    if (subscriptionError) {
+      logStep("Warning: Could not update subscription details", { error: subscriptionError });
+    }
+
+    // Update tenant subscription
+    const { error: tenantSubError } = await supabaseClient
+      .from('tenant_subscriptions')
+      .update({
+        status: 'cancelled'
+      })
+      .eq('reference', subscriptionCode);
+
+    if (tenantSubError) {
+      logStep("Warning: Could not update tenant subscription", { error: tenantSubError });
+    }
+
+    logStep("Subscription cancellation processed", { subscription_code: subscriptionCode });
+  } catch (error) {
+    logStep("Error processing subscription cancellation", error);
+    throw error;
   }
 }
 
 async function handleInvoiceEvent(supabaseClient: any, event: any) {
   logStep("Processing invoice event", { event: event.event });
   
-  // Handle invoice events for subscription renewals
-  if (event.event === 'invoice.payment_failed') {
-    // You might want to notify the user or update subscription status
-    logStep("Payment failed for invoice", { invoice: event.data });
+  try {
+    const data = event.data;
+    const metadata = data.metadata;
+    const tenantId = metadata?.tenant_id;
+    const billingPlanId = metadata?.billing_plan_id;
+
+    if (event.event === 'invoice.payment_failed') {
+      logStep("Payment failed for invoice", { invoice_code: data.invoice_code, amount: data.amount });
+      
+      // Update payment history if exists
+      const { error: paymentError } = await supabaseClient
+        .from('payment_history')
+        .update({
+          payment_status: 'failed',
+          failed_at: new Date().toISOString(),
+          metadata: data
+        })
+        .eq('payment_reference', data.invoice_code);
+
+      if (paymentError) {
+        logStep("Warning: Could not update payment history", { error: paymentError });
+      }
+
+      // Update subscription status to past_due
+      if (tenantId) {
+        const { error: subscriptionError } = await supabaseClient
+          .from('tenant_subscription_details')
+          .update({
+            status: 'past_due'
+          })
+          .eq('tenant_id', tenantId);
+
+        if (subscriptionError) {
+          logStep("Warning: Could not update subscription status", { error: subscriptionError });
+        }
+      }
+    } else if (event.event === 'invoice.create') {
+      // Record the invoice creation
+      if (tenantId && billingPlanId) {
+        const { error: paymentError } = await supabaseClient
+          .from('payment_history')
+          .insert({
+            tenant_id: tenantId,
+            billing_plan_id: billingPlanId,
+            amount: data.amount / 100,
+            currency: 'KES',
+            payment_reference: data.invoice_code,
+            payment_status: 'pending',
+            payment_type: 'subscription',
+            metadata: data
+          });
+
+        if (paymentError) {
+          logStep("Warning: Could not create payment history for invoice", { error: paymentError });
+        }
+      }
+    }
+
+    logStep("Invoice event processed", { invoice_code: data.invoice_code, eventType: event.event });
+  } catch (error) {
+    logStep("Error processing invoice event", error);
+    throw error;
   }
 }

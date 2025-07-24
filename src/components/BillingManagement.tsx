@@ -44,17 +44,37 @@ interface TenantSubscription {
   };
 }
 
+interface PaymentHistory {
+  id: string;
+  amount: number;
+  currency: string;
+  payment_reference: string;
+  payment_status: string;
+  payment_type: string;
+  created_at: string;
+  paid_at?: string;
+  billing_period_start?: string;
+  billing_period_end?: string;
+  billing_plans?: {
+    name: string;
+    price: number;
+    period: string;
+  };
+}
+
 export default function BillingManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBillingPlans();
     fetchCurrentSubscription();
+    fetchPaymentHistory();
   }, [tenantId]);
 
   const fetchBillingPlans = async () => {
@@ -115,6 +135,34 @@ export default function BillingManagement() {
       console.error('Error fetching subscription:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentHistory = async () => {
+    try {
+      if (!tenantId) return;
+      
+      const { data, error } = await supabase
+        .from('payment_history')
+        .select(`
+          *,
+          billing_plans (
+            name,
+            price,
+            period
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      if (data) {
+        setPaymentHistory(data as PaymentHistory[]);
+      }
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
     }
   };
 
@@ -206,6 +254,7 @@ export default function BillingManagement() {
           description: "Your subscription has been updated successfully"
         });
         fetchCurrentSubscription();
+        fetchPaymentHistory();
       }
     } catch (error: any) {
       console.error('Payment verification error:', error);
@@ -506,6 +555,84 @@ export default function BillingManagement() {
               Verify Payment
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Payment History Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <CreditCard className="h-5 w-5" />
+            <span>Payment History</span>
+          </CardTitle>
+          <CardDescription>
+            View your recent payment transactions and billing history.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {paymentHistory.length > 0 ? (
+            <div className="space-y-4">
+              {paymentHistory.map((payment) => (
+                <div 
+                  key={payment.id} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className={`p-2 rounded-full ${
+                      payment.payment_status === 'completed' ? 'bg-green-100' :
+                      payment.payment_status === 'failed' ? 'bg-red-100' :
+                      'bg-yellow-100'
+                    }`}>
+                      {payment.payment_status === 'completed' ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : payment.payment_status === 'failed' ? (
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-yellow-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {payment.billing_plans?.name || 'Subscription Payment'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {payment.payment_type} • {formatDate(payment.created_at)}
+                      </p>
+                      {payment.billing_period_start && payment.billing_period_end && (
+                        <p className="text-xs text-muted-foreground">
+                          Billing period: {formatDate(payment.billing_period_start)} - {formatDate(payment.billing_period_end)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">
+                      {formatCurrency(payment.amount * 100)} {payment.currency}
+                    </p>
+                    <Badge 
+                      variant={
+                        payment.payment_status === 'completed' ? 'default' :
+                        payment.payment_status === 'failed' ? 'destructive' :
+                        'secondary'
+                      }
+                      className="text-xs"
+                    >
+                      {payment.payment_status}
+                    </Badge>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Ref: {payment.payment_reference.slice(-8)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              <CreditCard className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No payment history available</p>
+              <p className="text-sm">Your payment transactions will appear here</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

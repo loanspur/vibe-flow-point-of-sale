@@ -1440,6 +1440,86 @@ export type Database = {
           },
         ]
       }
+      payment_history: {
+        Row: {
+          amount: number
+          billing_period_end: string | null
+          billing_period_start: string | null
+          billing_plan_id: string | null
+          created_at: string
+          currency: string
+          failed_at: string | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string
+          payment_status: string
+          payment_type: string
+          paystack_customer_id: string | null
+          paystack_plan_id: string | null
+          paystack_subscription_id: string | null
+          refunded_at: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          billing_plan_id?: string | null
+          created_at?: string
+          currency?: string
+          failed_at?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference: string
+          payment_status?: string
+          payment_type?: string
+          paystack_customer_id?: string | null
+          paystack_plan_id?: string | null
+          paystack_subscription_id?: string | null
+          refunded_at?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          billing_plan_id?: string | null
+          created_at?: string
+          currency?: string
+          failed_at?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string
+          payment_status?: string
+          payment_type?: string
+          paystack_customer_id?: string | null
+          paystack_plan_id?: string | null
+          paystack_subscription_id?: string | null
+          refunded_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_billing_plan_id_fkey"
+            columns: ["billing_plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_methods: {
         Row: {
           created_at: string
@@ -3182,6 +3262,71 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_subscription_details: {
+        Row: {
+          billing_plan_id: string | null
+          cancelled_at: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          metadata: Json | null
+          next_billing_date: string | null
+          paystack_customer_id: string | null
+          paystack_plan_id: string | null
+          paystack_subscription_id: string | null
+          status: string
+          tenant_id: string
+          trial_end: string | null
+          trial_start: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_plan_id?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          metadata?: Json | null
+          next_billing_date?: string | null
+          paystack_customer_id?: string | null
+          paystack_plan_id?: string | null
+          paystack_subscription_id?: string | null
+          status?: string
+          tenant_id: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_plan_id?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          metadata?: Json | null
+          next_billing_date?: string | null
+          paystack_customer_id?: string | null
+          paystack_plan_id?: string | null
+          paystack_subscription_id?: string | null
+          status?: string
+          tenant_id?: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_subscription_details_billing_plan_id_fkey"
+            columns: ["billing_plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_subscriptions: {
         Row: {
           amount: number
@@ -3657,6 +3802,17 @@ export type Database = {
         }
         Returns: string
       }
+      create_payment_record: {
+        Args: {
+          tenant_id_param: string
+          billing_plan_id_param: string
+          amount_param: number
+          reference_param: string
+          currency_param?: string
+          payment_type_param?: string
+        }
+        Returns: string
+      }
       create_superadmin_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -3771,6 +3927,14 @@ export type Database = {
       update_account_balances_from_entries: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      update_payment_status: {
+        Args: {
+          reference_param: string
+          status_param: string
+          metadata_param?: Json
+        }
+        Returns: boolean
       }
       update_product_stock: {
         Args: { product_id: string; quantity_sold: number }

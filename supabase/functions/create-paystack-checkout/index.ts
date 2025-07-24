@@ -21,6 +21,13 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
   );
 
+  // Service role client for bypassing RLS
+  const supabaseService = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
+  );
+
   try {
     logStep("Function started");
 
@@ -52,7 +59,7 @@ serve(async (req) => {
     const { data: billingPlan, error: planError } = await supabaseClient
       .from('billing_plans')
       .select('*')
-      .eq('id', planId) // Search by ID instead of name
+      .eq('id', planId)
       .eq('is_active', true)
       .single();
 
@@ -69,78 +76,141 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
-    // Create or get customer record
-    let customerId: string;
-    const { data: existingCustomer } = await supabaseClient
-      .from('subscribers')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (existingCustomer?.stripe_customer_id) {
-      customerId = existingCustomer.stripe_customer_id;
-    } else {
-      customerId = `ps_${user.id.slice(0, 8)}_${Date.now()}`;
+    if (!profile?.tenant_id) {
+      throw new Error("No tenant associated with user");
     }
 
-    // Initialize Paystack transaction
-    const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
+    logStep("Tenant found", { tenantId: profile.tenant_id });
+
+    // Check for existing Paystack customer
+    let paystackCustomerId: string;
+    const { data: existingSubscription } = await supabaseService
+      .from('tenant_subscription_details')
+      .select('paystack_customer_id')
+      .eq('tenant_id', profile.tenant_id)
+      .single();
+
+    if (existingSubscription?.paystack_customer_id) {
+      paystackCustomerId = existingSubscription.paystack_customer_id;
+      logStep("Using existing Paystack customer", { customerId: paystackCustomerId });
+    } else {
+      // Create customer in Paystack first
+      const customerResponse = await fetch('https://api.paystack.co/customer', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get("PAYSTACK_SECRET_KEY")}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
+          first_name: profile.tenant_id, // You might want to get actual user name
+          last_name: 'Tenant',
+          metadata: {
+            tenant_id: profile.tenant_id,
+            user_id: user.id
+          }
+        })
+      });
+
+      const customerData = await customerResponse.json();
+      if (!customerData.status) {
+        throw new Error(`Paystack customer creation error: ${customerData.message}`);
+      }
+
+      paystackCustomerId = customerData.data.customer_code;
+      logStep("Created new Paystack customer", { customerId: paystackCustomerId });
+    }
+
+    // Create Paystack subscription
+    const subscriptionResponse = await fetch('https://api.paystack.co/subscription', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get("PAYSTACK_SECRET_KEY")}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email: user.email,
-        amount: billingPlan.price * 100, // Paystack expects amount in kobo (smallest currency unit)
-        currency: 'KES',
-        customer: customerId,
+        customer: paystackCustomerId,
+        plan: 'monthly', // You'll need to create plans in Paystack dashboard
+        amount: billingPlan.price * 100, // Amount in kobo
         metadata: {
-          user_id: user.id,
-          plan_id: billingPlan.id,
-          plan_name: billingPlan.name,
-          tenant_id: profile?.tenant_id,
-          is_subscription: true,
-          trial_days: 14
-        },
-        callback_url: `${req.headers.get("origin")}/success`,
-        channels: ['card', 'bank', 'ussd', 'mobile_money'], // Enable local payment methods
-      }),
+          tenant_id: profile.tenant_id,
+          billing_plan_id: billingPlan.id,
+          plan_name: billingPlan.name
+        }
+      })
     });
 
-    const paystackData = await paystackResponse.json();
-
-    if (!paystackData.status) {
-      throw new Error(`Paystack error: ${paystackData.message}`);
+    const subscriptionData = await subscriptionResponse.json();
+    if (!subscriptionData.status) {
+      throw new Error(`Paystack subscription error: ${subscriptionData.message}`);
     }
 
-    logStep("Paystack transaction initialized", { 
-      reference: paystackData.data.reference,
-      authorizationUrl: paystackData.data.authorization_url 
+    const subscriptionCode = subscriptionData.data.subscription_code;
+    const emailToken = subscriptionData.data.email_token;
+
+    logStep("Paystack subscription created", { 
+      subscriptionCode,
+      emailToken
     });
 
-    // Store transaction reference in database for tracking
-    const { error: insertError } = await supabaseClient
-      .from('subscribers')
-      .upsert({
-        user_id: user.id,
-        email: user.email,
-        stripe_customer_id: customerId,
-        subscription_tier: billingPlan.name,
-        is_trial: true,
-        trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        subscribed: false, // Will be updated on successful payment
-      }, {
-        onConflict: 'user_id'
+    // Create payment history record
+    const { error: paymentError } = await supabaseService
+      .from('payment_history')
+      .insert({
+        tenant_id: profile.tenant_id,
+        billing_plan_id: billingPlan.id,
+        amount: billingPlan.price,
+        currency: 'KES',
+        payment_reference: subscriptionCode,
+        payment_method: 'paystack',
+        payment_status: 'pending',
+        payment_type: 'subscription',
+        paystack_customer_id: paystackCustomerId,
+        paystack_subscription_id: subscriptionCode,
+        metadata: {
+          email_token: emailToken,
+          plan_name: billingPlan.name
+        }
       });
 
-    if (insertError) {
-      logStep("Warning: Could not update subscriber record", { error: insertError });
+    if (paymentError) {
+      logStep("Warning: Could not create payment history", { error: paymentError });
     }
 
+    // Update or create subscription details
+    const { error: subscriptionDetailsError } = await supabaseService
+      .from('tenant_subscription_details')
+      .upsert({
+        tenant_id: profile.tenant_id,
+        billing_plan_id: billingPlan.id,
+        paystack_customer_id: paystackCustomerId,
+        paystack_subscription_id: subscriptionCode,
+        status: 'active',
+        current_period_start: new Date().toISOString().split('T')[0],
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        trial_start: new Date().toISOString().split('T')[0],
+        trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        metadata: {
+          subscription_code: subscriptionCode,
+          email_token: emailToken
+        }
+      }, {
+        onConflict: 'tenant_id'
+      });
+
+    if (subscriptionDetailsError) {
+      logStep("Warning: Could not update subscription details", { error: subscriptionDetailsError });
+    }
+
+    // Initialize the subscription using email token
+    const initializeUrl = `https://checkout.paystack.com/${emailToken}`;
+
     return new Response(JSON.stringify({ 
-      authorization_url: paystackData.data.authorization_url,
-      reference: paystackData.data.reference 
+      authorization_url: initializeUrl,
+      reference: subscriptionCode,
+      email_token: emailToken,
+      subscription_id: subscriptionCode
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
