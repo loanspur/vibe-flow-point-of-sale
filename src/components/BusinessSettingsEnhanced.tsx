@@ -286,25 +286,38 @@ export function BusinessSettingsEnhanced() {
   const onSubmit = async (values: z.infer<typeof businessSettingsSchema>) => {
     setIsSaving(true);
     try {
+      console.log('Starting settings save process...');
+      console.log('Form values:', values);
+      
       // Get the current user's tenant ID
       const { data: user } = await supabase.auth.getUser();
+      console.log('Current user:', user?.user?.id);
+      
       if (!user?.user?.id) {
         throw new Error('User not authenticated');
       }
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('tenant_id')
+        .select('tenant_id, role')
         .eq('user_id', user.user.id)
         .single();
 
+      console.log('Profile data:', profile);
+      console.log('Profile error:', profileError);
+
       if (profileError) {
         console.error('Profile error:', profileError);
-        throw new Error('Failed to get user profile');
+        throw new Error('Failed to get user profile: ' + profileError.message);
       }
 
       if (!profile?.tenant_id) {
         throw new Error('No tenant associated with user');
+      }
+
+      // Check if user has permission to modify settings
+      if (profile.role !== 'superadmin' && profile.role !== 'admin') {
+        throw new Error('Insufficient permissions to modify business settings');
       }
 
       console.log('Saving settings with tenant_id:', profile.tenant_id);
@@ -319,13 +332,25 @@ export function BusinessSettingsEnhanced() {
         delete (settingsData as any).id;
       }
       
-      console.log('Saving settings data:', settingsData);
+      console.log('Final settings data to save:', settingsData);
 
-      const { error } = await supabase
+      // First check if settings exist for this tenant
+      const { data: existingSettings, error: checkError } = await supabase
+        .from('business_settings')
+        .select('id')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+
+      console.log('Existing settings check:', { existingSettings, checkError });
+
+      const { error, data } = await supabase
         .from('business_settings')
         .upsert(settingsData, {
           onConflict: 'tenant_id'
-        });
+        })
+        .select();
+
+      console.log('Upsert result:', { data, error });
 
       if (error) {
         console.error('Database error details:', {
@@ -334,7 +359,7 @@ export function BusinessSettingsEnhanced() {
           hint: error.hint,
           code: error.code
         });
-        throw error;
+        throw new Error(`Database error: ${error.message}${error.details ? ' - ' + error.details : ''}`);
       }
 
       // Clear currency cache to reflect new settings
@@ -344,6 +369,8 @@ export function BusinessSettingsEnhanced() {
         title: "Settings saved",
         description: "Your business settings have been updated successfully.",
       });
+      
+      console.log('Settings saved successfully');
     } catch (error) {
       console.error('Settings save error:', error);
       toast({
