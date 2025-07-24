@@ -37,18 +37,21 @@ async function getExchangeRate(fromCurrency: string, toCurrency: string): Promis
       return rate;
     }
     
-    // Fallback to approximate rates if API fails
+    // Fallback to more accurate current rates if API fails (updated December 2024)
     const fallbackRates: { [key: string]: number } = {
-      'KES_USD': 0.0062,
-      'KES_EUR': 0.0058,
-      'KES_GBP': 0.0050,
-      'KES_NGN': 11.5,
-      'KES_ZAR': 0.12,
-      'KES_UGX': 23.0,
-      'KES_TZS': 19.2,
+      'KES_USD': 0.0077,  // 1 KES = 0.0077 USD (1 USD = ~130 KES)
+      'KES_EUR': 0.0073,  // 1 KES = 0.0073 EUR
+      'KES_GBP': 0.0061,  // 1 KES = 0.0061 GBP
+      'KES_NGN': 12.5,    // 1 KES = 12.5 NGN
+      'KES_ZAR': 0.14,    // 1 KES = 0.14 ZAR
+      'KES_UGX': 28.5,    // 1 KES = 28.5 UGX
+      'KES_TZS': 18.2,    // 1 KES = 18.2 TZS
+      'USD_KES': 130.0,   // 1 USD = 130 KES
+      'EUR_KES': 137.0,   // 1 EUR = 137 KES
+      'GBP_KES': 164.0,   // 1 GBP = 164 KES
     };
     
-    return fallbackRates[cacheKey] || 1;
+    return fallbackRates[cacheKey] || fallbackRates[`${toCurrency}_${fromCurrency}`] ? (1 / fallbackRates[`${toCurrency}_${fromCurrency}`]) : 1;
   } catch (error) {
     console.error('Currency conversion error:', error);
     return 1; // Fallback to 1:1 rate
