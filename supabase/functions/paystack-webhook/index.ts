@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createHash } from "https://deno.land/std@0.190.0/crypto/mod.ts";
+import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,10 +28,13 @@ serve(async (req) => {
     const signature = req.headers.get("x-paystack-signature");
     const body = await req.text();
     
-    // Verify webhook signature
-    const hash = createHash("sha512");
-    hash.update(Deno.env.get("PAYSTACK_SECRET_KEY") + body);
-    const expectedSignature = hash.toString("hex");
+    // Verify webhook signature using Web Crypto API
+    const encoder = new TextEncoder();
+    const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY") + body;
+    const keyData = encoder.encode(secretKey);
+    const hashBuffer = await crypto.subtle.digest("SHA-512", keyData);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const expectedSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
     if (signature !== expectedSignature) {
       logStep("Invalid webhook signature");
