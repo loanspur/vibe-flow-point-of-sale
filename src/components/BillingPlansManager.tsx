@@ -191,6 +191,50 @@ const planPerformanceData = [
   { month: "Dec", basic: 102, professional: 175, enterprise: 61 }
 ];
 
+// Default tab configuration - editable by superadmin
+const defaultTabConfig = [
+  { 
+    id: "overview", 
+    label: "Overview", 
+    enabled: true, 
+    icon: "BarChart3",
+    description: "Plan overview and comparison",
+    order: 1
+  },
+  { 
+    id: "plans", 
+    label: "Plan Management", 
+    enabled: true, 
+    icon: "Package",
+    description: "Create and manage billing plans",
+    order: 2
+  },
+  { 
+    id: "performance", 
+    label: "Performance", 
+    enabled: true, 
+    icon: "TrendingUp",
+    description: "Analytics and conversion metrics",
+    order: 3
+  },
+  { 
+    id: "pricing", 
+    label: "Pricing Rules", 
+    enabled: true, 
+    icon: "DollarSign",
+    description: "Configure pricing and discounts",
+    order: 4
+  },
+  { 
+    id: "analytics", 
+    label: "Analytics", 
+    enabled: true, 
+    icon: "Target",
+    description: "Advanced analytics and reporting",
+    order: 5
+  }
+];
+
 export default function BillingPlansManager() {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
@@ -198,7 +242,12 @@ export default function BillingPlansManager() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isTabConfigDialogOpen, setIsTabConfigDialogOpen] = useState(false);
+  const [tabConfig, setTabConfig] = useState(defaultTabConfig);
   const { toast } = useToast();
+
+  // Get enabled tabs sorted by order
+  const enabledTabs = tabConfig.filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
 
   const handleCreatePlan = () => {
     toast({
@@ -226,6 +275,40 @@ export default function BillingPlansManager() {
       description: `${plan.name} plan has been deleted.`,
       variant: "destructive"
     });
+  };
+
+  const handleTabToggle = (tabId: string, enabled: boolean) => {
+    setTabConfig(prev => prev.map(tab => 
+      tab.id === tabId ? { ...tab, enabled } : tab
+    ));
+  };
+
+  const handleTabOrderChange = (tabId: string, newOrder: number) => {
+    setTabConfig(prev => prev.map(tab => 
+      tab.id === tabId ? { ...tab, order: newOrder } : tab
+    ));
+  };
+
+  const handleTabLabelChange = (tabId: string, newLabel: string) => {
+    setTabConfig(prev => prev.map(tab => 
+      tab.id === tabId ? { ...tab, label: newLabel } : tab
+    ));
+  };
+
+  const resetTabConfig = () => {
+    setTabConfig(defaultTabConfig);
+    toast({
+      title: "Tab Configuration Reset",
+      description: "Tab settings have been reset to default.",
+    });
+  };
+
+  const saveTabConfig = () => {
+    toast({
+      title: "Configuration Saved",
+      description: "Tab configuration has been saved successfully.",
+    });
+    setIsTabConfigDialogOpen(false);
   };
 
   const PlanCard = ({ plan, showActions = false }: { plan: any, showActions?: boolean }) => (
@@ -418,6 +501,10 @@ export default function BillingPlansManager() {
             <Download className="h-4 w-4 mr-2" />
             Export Plans
           </Button>
+          <Button variant="outline" onClick={() => setIsTabConfigDialogOpen(true)}>
+            <Settings className="h-4 w-4 mr-2" />
+            Configure Tabs
+          </Button>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Plan
@@ -475,12 +562,12 @@ export default function BillingPlansManager() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="plans">Plan Management</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing Rules</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        <TabsList className={`grid w-full grid-cols-${enabledTabs.length}`}>
+          {enabledTabs.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* Overview Tab */}
@@ -784,6 +871,100 @@ export default function BillingPlansManager() {
       </Tabs>
 
       <CreatePlanDialog />
+      
+      {/* Tab Configuration Dialog */}
+      <Dialog open={isTabConfigDialogOpen} onOpenChange={setIsTabConfigDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configure Tab Management</DialogTitle>
+            <DialogDescription>
+              Customize which tabs are visible and their display order in the billing plans interface.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-medium">Tab Configuration</h3>
+              <div className="space-y-3">
+                {tabConfig.sort((a, b) => a.order - b.order).map((tab) => (
+                  <div key={tab.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium w-8 text-center">{tab.order}</span>
+                        <Switch 
+                          checked={tab.enabled}
+                          onCheckedChange={(enabled) => handleTabToggle(tab.id, enabled)}
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={tab.label}
+                            onChange={(e) => handleTabLabelChange(tab.id, e.target.value)}
+                            className="w-48"
+                          />
+                          <Badge variant="outline" className="text-xs">
+                            {tab.id}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{tab.description}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleTabOrderChange(tab.id, Math.max(1, tab.order - 1))}
+                        disabled={tab.order === 1}
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleTabOrderChange(tab.id, Math.min(tabConfig.length, tab.order + 1))}
+                        disabled={tab.order === tabConfig.length}
+                      >
+                        ↓
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-medium">Preview</h3>
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <div className="flex gap-2 flex-wrap">
+                  {enabledTabs.map((tab) => (
+                    <Badge key={tab.id} variant="secondary">
+                      {tab.label}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {enabledTabs.length} of {tabConfig.length} tabs enabled
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between pt-4">
+            <Button variant="outline" onClick={resetTabConfig}>
+              Reset to Default
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsTabConfigDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveTabConfig}>
+                Save Configuration
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
