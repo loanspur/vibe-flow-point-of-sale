@@ -1066,7 +1066,14 @@ export function BusinessSettingsEnhanced() {
                                       <CurrencyIcon currency={form.watch("currency_code")} className="h-4 w-4" />
                                       Currency
                                     </FormLabel>
-                                   <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={(value) => {
+                                      field.onChange(value);
+                                      // Auto-update currency symbol when currency code changes
+                                      const selectedCurrency = currencies.find(c => c.code === value);
+                                      if (selectedCurrency) {
+                                        form.setValue('currency_symbol', selectedCurrency.symbol);
+                                      }
+                                    }} value={field.value}>
                                      <FormControl>
                                        <SelectTrigger className="bg-background border hover:border-primary/50 transition-colors">
                                          <SelectValue placeholder="Select currency" />
@@ -1117,7 +1124,31 @@ export function BusinessSettingsEnhanced() {
                                    )}
                                  </FormItem>
                                )}
-                             />
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="currency_symbol"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="flex items-center gap-2">
+                                      <span className="text-lg">{field.value}</span>
+                                      Currency Symbol
+                                    </FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        {...field} 
+                                        placeholder="KES"
+                                        className="bg-background border hover:border-primary/50 transition-colors"
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Symbol used to display currency amounts (e.g., KES, $, €)
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
                              
                              <FormField
                                control={form.control}
