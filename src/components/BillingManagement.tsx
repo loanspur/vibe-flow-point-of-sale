@@ -71,7 +71,7 @@ interface PaymentHistory {
 export default function BillingManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
-  const { formatPrice } = useCurrencyUpdate();
+  const { formatPrice, currencySymbol, currencyCode } = useCurrencyUpdate();
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
