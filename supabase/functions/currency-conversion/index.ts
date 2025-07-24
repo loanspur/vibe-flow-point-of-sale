@@ -110,11 +110,13 @@ serve(async (req) => {
 
     if (action === 'get-tenant-currency') {
       // Get tenant's business settings to determine their country/currency
-      const { data: settings } = await supabase
+      const { data: settings, error } = await supabase
         .from('business_settings')
         .select('country, currency_code')
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle();
+
+      console.log('Tenant currency lookup:', { tenantId, settings, error });
 
       let targetCurrency = 'USD'; // Default fallback
       

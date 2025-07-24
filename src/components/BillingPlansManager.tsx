@@ -116,7 +116,23 @@ export default function BillingPlansManager() {
   const [loading, setLoading] = useState(true);
   const [tabConfig, setTabConfig] = useState(defaultTabConfig);
   const { toast } = useToast();
-  const { convertFromKES, formatLocalCurrency } = useCurrencyConversion();
+  const { convertFromKES, formatLocalCurrency, loading: currencyLoading, error: currencyError } = useCurrencyConversion();
+
+  // Fallback currency formatting when conversion fails
+  const formatCurrencyFallback = (amount: number): string => {
+    return `KSh ${amount.toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })}`;
+  };
+
+  // Use local currency formatting with fallback
+  const formatPlanCurrency = (amount: number): string => {
+    if (currencyError || currencyLoading) {
+      return formatCurrencyFallback(amount);
+    }
+    return formatLocalCurrency(amount);
+  };
 
   // Get enabled tabs sorted by order
   const enabledTabs = tabConfig.filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
@@ -434,10 +450,10 @@ export default function BillingPlansManager() {
             )}
           </div>
           <div className="flex items-baseline gap-2 mt-4">
-            <span className="text-3xl font-bold">{formatLocalCurrency(plan.price)}</span>
+            <span className="text-3xl font-bold">{formatPlanCurrency(plan.price)}</span>
             <span className="text-muted-foreground">/{plan.period}</span>
             {plan.original_price && plan.original_price > plan.price && (
-              <span className="text-sm line-through text-muted-foreground">{formatLocalCurrency(plan.original_price)}</span>
+              <span className="text-sm line-through text-muted-foreground">{formatPlanCurrency(plan.original_price)}</span>
             )}
           </div>
         </CardHeader>
@@ -450,7 +466,7 @@ export default function BillingPlansManager() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">MRR:</span>
-              <span className="font-medium">{formatLocalCurrency(plan.mrr || 0)}</span>
+              <span className="font-medium">{formatPlanCurrency(plan.mrr || 0)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Churn Rate:</span>
