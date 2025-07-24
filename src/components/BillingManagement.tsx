@@ -234,7 +234,7 @@ export default function BillingManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-4 w-4 text-green-600" />
                 <div>
@@ -261,6 +261,32 @@ export default function BillingManagement() {
                     {currentSubscription.reference || 'N/A'}
                   </p>
                 </div>
+              </div>
+              <div className="flex items-center justify-end">
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => {
+                    // Find a higher tier plan to upgrade to
+                    const currentPrice = currentSubscription.billing_plans?.price || 0;
+                    const upgradePlan = billingPlans.find(plan => plan.price > currentPrice);
+                    if (upgradePlan) {
+                      handleUpgrade(upgradePlan.id);
+                    }
+                  }}
+                  disabled={upgrading !== null || !billingPlans.some(plan => plan.price > (currentSubscription.billing_plans?.price || 0))}
+                >
+                  {upgrading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Upgrade Plan
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </CardContent>
