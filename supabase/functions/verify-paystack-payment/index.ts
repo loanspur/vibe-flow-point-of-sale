@@ -24,8 +24,11 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { reference } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { reference } = body;
+    
     if (!reference) {
+      logStep("ERROR: Missing payment reference", { body });
       throw new Error("Payment reference is required");
     }
 
@@ -41,6 +44,15 @@ serve(async (req) => {
     });
 
     const verifyData = await verifyResponse.json();
+    logStep("Paystack response received", { 
+      status: verifyData.status, 
+      statusCode: verifyResponse.status,
+      hasData: !!verifyData.data 
+    });
+
+    if (!verifyResponse.ok) {
+      throw new Error(`Paystack API error: ${verifyResponse.status} - ${verifyData.message || 'Unknown error'}`);
+    }
 
     if (!verifyData.status) {
       throw new Error(`Payment verification failed: ${verifyData.message}`);
@@ -69,23 +81,36 @@ serve(async (req) => {
         }
       }
       
-      // Get plan_id from existing payment record if not in metadata
       if (!plan_id) {
-        const { data: paymentRecord } = await supabaseClient
+        logStep("Looking up payment record", { reference });
+        const { data: paymentRecord, error: lookupError } = await supabaseClient
           .from('payment_history')
           .select('billing_plan_id, tenant_id')
           .eq('payment_reference', reference)
           .single();
         
+        if (lookupError) {
+          logStep("Error looking up payment record", { error: lookupError });
+        }
+        
         if (paymentRecord) {
           plan_id = paymentRecord.billing_plan_id;
           tenant_id = tenant_id || paymentRecord.tenant_id;
+          logStep("Found payment record", { plan_id, tenant_id });
         }
       }
       
       if (!tenant_id || !plan_id) {
+        logStep("ERROR: Missing required data", { 
+          tenant_id, 
+          plan_id, 
+          reference, 
+          extractedFromRef: reference.startsWith('sub_') ? reference.split('_')[1] : null 
+        });
         throw new Error(`Missing required data: tenant_id=${tenant_id}, plan_id=${plan_id}`);
       }
+
+      logStep("Payment data validation successful", { tenant_id, plan_id });
 
       // Update payment record status
       const { error: paymentUpdateError } = await supabaseClient

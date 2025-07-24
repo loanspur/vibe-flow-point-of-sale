@@ -346,14 +346,50 @@ export default function PaystackTestingInterface() {
                 </Button>
 
                 {checkoutUrl && (
-                  <Button 
-                    variant="outline"
-                    onClick={() => window.open(checkoutUrl, '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open Paystack
-                  </Button>
+                  <>
+                    <Button 
+                      variant="outline"
+                      onClick={() => window.open(checkoutUrl, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open Paystack
+                    </Button>
+                    
+                    <Button 
+                      variant="secondary"
+                      onClick={() => {
+                        const lastResult = testResults.find(r => r.reference);
+                        if (lastResult?.reference) {
+                          verifyPayment(lastResult.reference);
+                        }
+                      }}
+                      disabled={!testResults.find(r => r.reference)}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Test Verification
+                    </Button>
+                  </>
                 )}
+              </div>
+
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">Quick Test References:</h4>
+                <div className="grid grid-cols-1 gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => verifyPayment('sub_11111111-1111-1111-1111-111111111111_1753389130340')}
+                  >
+                    Test Enterprise Plan Verification
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => verifyPayment('sub_11111111-1111-1111-1111-111111111111_1753388914291')}
+                  >
+                    Test Professional Plan Verification
+                  </Button>
+                </div>
               </div>
 
               <Alert>
