@@ -166,7 +166,7 @@ serve(async (req) => {
         company_name: businessName,
         email: user.email,
         currency_code: 'KES',
-        currency_symbol: 'KSh',
+        currency_symbol: 'KES',
         country: 'Kenya',
         timezone: 'Africa/Nairobi',
         tax_name: 'VAT',
