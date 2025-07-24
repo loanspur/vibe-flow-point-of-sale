@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -39,149 +39,15 @@ import {
   Copy,
   Eye,
   FileText,
-  Package
+  Package,
+  Loader2
 } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-// Enhanced billing plans data
-const billingPlans = [
-  {
-    id: "basic",
-    name: "Starter",
-    price: 29,
-    originalPrice: 39,
-    period: "month",
-    description: "Perfect for small businesses just getting started",
-    badge: "Popular",
-    badgeColor: "bg-blue-100 text-blue-800",
-    popularity: 85,
-    status: "active",
-    customers: 420,
-    mrr: 12180,
-    arpu: 29,
-    churnRate: 2.3,
-    conversionRate: 18.5,
-    trialConversion: 72,
-    features: [
-      { name: "1 Location", included: true, limit: "1" },
-      { name: "Up to 3 Staff Users", included: true, limit: "3" },
-      { name: "Basic Inventory Management", included: true },
-      { name: "Standard Reports", included: true },
-      { name: "Email Support", included: true },
-      { name: "Mobile App Access", included: true },
-      { name: "API Access", included: false },
-      { name: "Custom Integrations", included: false }
-    ],
-    pricing: {
-      monthly: 29,
-      quarterly: 87, // 3 months
-      annually: 290, // 12 months (save ~17%)
-      biannually: 174 // 6 months
-    },
-    discounts: [
-      { type: "annual", percentage: 17, description: "Save 17% with annual billing" },
-      { type: "student", percentage: 20, description: "Student discount" }
-    ],
-    addOns: [
-      { name: "Extra User Seats", price: 5, unit: "per user/month" },
-      { name: "Additional Storage", price: 10, unit: "per 10GB/month" }
-    ]
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    price: 79,
-    originalPrice: 99,
-    period: "month",
-    description: "Ideal for growing businesses with multiple needs",
-    badge: "Most Popular",
-    badgeColor: "bg-green-100 text-green-800",
-    popularity: 95,
-    status: "active",
-    customers: 580,
-    mrr: 45820,
-    arpu: 79,
-    churnRate: 1.8,
-    conversionRate: 24.7,
-    trialConversion: 84,
-    features: [
-      { name: "Up to 5 Locations", included: true, limit: "5" },
-      { name: "Unlimited Staff Users", included: true },
-      { name: "Advanced Inventory & Analytics", included: true },
-      { name: "Custom Reports & Dashboards", included: true },
-      { name: "Priority Support", included: true },
-      { name: "API Access", included: true },
-      { name: "Customer Loyalty Programs", included: true },
-      { name: "Multi-tenant Management", included: true },
-      { name: "Custom Integrations", included: false },
-      { name: "White-label Solutions", included: false }
-    ],
-    pricing: {
-      monthly: 79,
-      quarterly: 237,
-      annually: 790,
-      biannually: 474
-    },
-    discounts: [
-      { type: "annual", percentage: 17, description: "Save 17% with annual billing" },
-      { type: "enterprise", percentage: 15, description: "Volume discount for 10+ seats" }
-    ],
-    addOns: [
-      { name: "Extra Locations", price: 15, unit: "per location/month" },
-      { name: "Advanced Analytics", price: 25, unit: "per month" },
-      { name: "Custom Integrations", price: 100, unit: "per integration" }
-    ]
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: 199,
-    originalPrice: 249,
-    period: "month",
-    description: "For large businesses requiring advanced features",
-    badge: "Enterprise",
-    badgeColor: "bg-purple-100 text-purple-800",
-    popularity: 78,
-    status: "active",
-    customers: 247,
-    mrr: 49153,
-    arpu: 199,
-    churnRate: 1.2,
-    conversionRate: 31.2,
-    trialConversion: 91,
-    features: [
-      { name: "Unlimited Locations", included: true },
-      { name: "Unlimited Staff Users", included: true },
-      { name: "White-label Solutions", included: true },
-      { name: "Custom Integrations", included: true },
-      { name: "24/7 Phone Support", included: true },
-      { name: "Dedicated Account Manager", included: true },
-      { name: "Advanced Security Features", included: true },
-      { name: "Custom Training", included: true },
-      { name: "SLA Guarantee", included: true },
-      { name: "Priority Feature Requests", included: true }
-    ],
-    pricing: {
-      monthly: 199,
-      quarterly: 597,
-      annually: 1990,
-      biannually: 1194
-    },
-    discounts: [
-      { type: "annual", percentage: 17, description: "Save 17% with annual billing" },
-      { type: "custom", percentage: 25, description: "Custom enterprise pricing" }
-    ],
-    addOns: [
-      { name: "Custom Development", price: 500, unit: "per hour" },
-      { name: "Dedicated Support", price: 1000, unit: "per month" },
-      { name: "Training Sessions", price: 200, unit: "per session" }
-    ]
-  }
-];
-
-// Plan performance metrics
+// Plan performance metrics (mock data for charts)
 const planPerformanceData = [
   { month: "Jul", basic: 85, professional: 142, enterprise: 45 },
   { month: "Aug", basic: 89, professional: 148, enterprise: 48 },
@@ -245,48 +111,112 @@ export default function BillingPlansManager() {
   const [isTabConfigDialogOpen, setIsTabConfigDialogOpen] = useState(false);
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
-  const [plans, setPlans] = useState(billingPlans); // Make plans editable
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tabConfig, setTabConfig] = useState(defaultTabConfig);
   const { toast } = useToast();
 
   // Get enabled tabs sorted by order
   const enabledTabs = tabConfig.filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
 
-  const handleCreatePlan = (planData: any) => {
-    const newPlan = {
-      id: planData.id || `plan-${Date.now()}`,
-      name: planData.name,
-      price: Number(planData.price),
-      originalPrice: Number(planData.originalPrice || planData.price),
-      period: "month",
-      description: planData.description,
-      badge: planData.badge || "",
-      badgeColor: "bg-blue-100 text-blue-800",
-      popularity: 0,
-      status: "active",
-      customers: 0,
-      mrr: 0,
-      arpu: Number(planData.price),
-      churnRate: 0,
-      conversionRate: 0,
-      trialConversion: 0,
-      features: planData.features || [],
-      pricing: {
-        monthly: Number(planData.price),
-        quarterly: Number(planData.price) * 3,
-        annually: Number(planData.price) * 12,
-        biannually: Number(planData.price) * 6
-      },
-      discounts: planData.discounts || [],
-      addOns: planData.addOns || []
-    };
+  // Fetch plans from Supabase
+  const fetchPlans = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-    setPlans(prev => [...prev, newPlan]);
-    toast({
-      title: "Plan Created",
-      description: `${newPlan.name} plan has been created successfully.`,
-    });
-    setIsCreateDialogOpen(false);
+      if (error) {
+        console.error('Error fetching plans:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch billing plans.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPlans(data || []);
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load plans on component mount
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const handleCreatePlan = async (planData: any) => {
+    try {
+      const newPlan = {
+        name: planData.name,
+        price: Number(planData.price),
+        original_price: Number(planData.originalPrice || planData.price),
+        period: "month",
+        description: planData.description,
+        badge: planData.badge || "",
+        badge_color: "bg-blue-100 text-blue-800",
+        popularity: 0,
+        status: "active",
+        customers: 0,
+        mrr: 0,
+        arpu: Number(planData.price),
+        churn_rate: 0,
+        conversion_rate: 0,
+        trial_conversion: 0,
+        features: planData.features || [],
+        pricing: {
+          monthly: Number(planData.price),
+          quarterly: Number(planData.price) * 3,
+          annually: Number(planData.price) * 12,
+          biannually: Number(planData.price) * 6
+        },
+        discounts: planData.discounts || [],
+        add_ons: planData.addOns || [],
+        display_order: plans.length + 1
+      };
+
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .insert([newPlan])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating plan:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create billing plan.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPlans(prev => [...prev, data]);
+      toast({
+        title: "Plan Created",
+        description: `${data.name} plan has been created successfully.`,
+      });
+      setIsCreateDialogOpen(false);
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleEditPlan = (plan: any) => {
@@ -294,40 +224,131 @@ export default function BillingPlansManager() {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdatePlan = (updatedPlan: any) => {
-    setPlans(prev => prev.map(plan => 
-      plan.id === updatedPlan.id ? updatedPlan : plan
-    ));
-    toast({
-      title: "Plan Updated",
-      description: `${updatedPlan.name} plan has been updated successfully.`,
-    });
-    setIsEditDialogOpen(false);
+  const handleUpdatePlan = async (updatedPlan: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .update({
+          name: updatedPlan.name,
+          price: updatedPlan.price,
+          original_price: updatedPlan.original_price,
+          description: updatedPlan.description,
+          badge: updatedPlan.badge,
+          customers: updatedPlan.customers,
+          mrr: updatedPlan.mrr,
+          arpu: updatedPlan.arpu,
+          churn_rate: updatedPlan.churn_rate,
+          conversion_rate: updatedPlan.conversion_rate,
+          features: updatedPlan.features,
+          pricing: updatedPlan.pricing,
+          discounts: updatedPlan.discounts,
+          add_ons: updatedPlan.add_ons
+        })
+        .eq('id', updatedPlan.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating plan:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update billing plan.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPlans(prev => prev.map(plan => 
+        plan.id === updatedPlan.id ? data : plan
+      ));
+      toast({
+        title: "Plan Updated",
+        description: `${data.name} plan has been updated successfully.`,
+      });
+      setIsEditDialogOpen(false);
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDuplicatePlan = (plan: any) => {
-    const duplicatedPlan = {
-      ...plan,
-      id: `${plan.id}-copy-${Date.now()}`,
-      name: `${plan.name} (Copy)`,
-      customers: 0,
-      mrr: 0
-    };
-    
-    setPlans(prev => [...prev, duplicatedPlan]);
-    toast({
-      title: "Plan Duplicated",
-      description: `${plan.name} plan has been duplicated successfully.`,
-    });
+  const handleDuplicatePlan = async (plan: any) => {
+    try {
+      const duplicatedPlan = {
+        ...plan,
+        id: undefined, // Let database generate new ID
+        name: `${plan.name} (Copy)`,
+        customers: 0,
+        mrr: 0,
+        display_order: plans.length + 1
+      };
+      
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .insert([duplicatedPlan])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error duplicating plan:', error);
+        toast({
+          title: "Error",
+          description: "Failed to duplicate billing plan.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPlans(prev => [...prev, data]);
+      toast({
+        title: "Plan Duplicated",
+        description: `${plan.name} plan has been duplicated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeletePlan = (planId: string) => {
-    setPlans(prev => prev.filter(plan => plan.id !== planId));
-    toast({
-      title: "Plan Deleted",
-      description: "Plan has been deleted successfully.",
-      variant: "destructive"
-    });
+  const handleDeletePlan = async (planId: string) => {
+    try {
+      const { error } = await supabase
+        .from('billing_plans')
+        .delete()
+        .eq('id', planId);
+
+      if (error) {
+        console.error('Error deleting plan:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete billing plan.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPlans(prev => prev.filter(plan => plan.id !== planId));
+      toast({
+        title: "Plan Deleted",
+        description: "Plan has been deleted successfully.",
+        variant: "destructive"
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleViewDetails = (plan: any) => {
@@ -666,7 +687,7 @@ export default function BillingPlansManager() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{billingPlans.length}</div>
+            <div className="text-2xl font-bold">{plans.length}</div>
             <p className="text-xs text-muted-foreground">Active plans</p>
           </CardContent>
         </Card>
@@ -677,7 +698,7 @@ export default function BillingPlansManager() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${billingPlans.reduce((sum, plan) => sum + plan.mrr, 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">${plans.reduce((sum, plan) => sum + plan.mrr, 0).toLocaleString()}</div>
             <p className="text-xs text-green-600">+12.5% from last month</p>
           </CardContent>
         </Card>
@@ -689,7 +710,7 @@ export default function BillingPlansManager() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(billingPlans.reduce((sum, plan) => sum + plan.conversionRate, 0) / billingPlans.length).toFixed(1)}%
+              {plans.length > 0 ? (plans.reduce((sum, plan) => sum + plan.conversion_rate, 0) / plans.length).toFixed(1) : 0}%
             </div>
             <p className="text-xs text-green-600">+2.3% improvement</p>
           </CardContent>
@@ -701,7 +722,7 @@ export default function BillingPlansManager() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{billingPlans.reduce((sum, plan) => sum + plan.customers, 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">{plans.reduce((sum, plan) => sum + plan.customers, 0).toLocaleString()}</div>
             <p className="text-xs text-green-600">+156 this month</p>
           </CardContent>
         </Card>
@@ -793,7 +814,7 @@ export default function BillingPlansManager() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {billingPlans.map((plan) => (
+                  {plans.map((plan) => (
                     <div key={plan.id} className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>{plan.name}</span>
@@ -818,7 +839,7 @@ export default function BillingPlansManager() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {billingPlans.map((plan) => (
+                  {plans.map((plan) => (
                     <div key={plan.id} className="flex justify-between items-center p-3 border rounded">
                       <div>
                         <div className="font-medium">{plan.name}</div>
@@ -861,7 +882,7 @@ export default function BillingPlansManager() {
               <div className="space-y-4">
                 <h4 className="font-medium">Annual Billing Incentives</h4>
                 <div className="space-y-3">
-                  {billingPlans.map((plan) => (
+                  {plans.map((plan) => (
                     <div key={plan.id} className="flex justify-between items-center p-3 border rounded">
                       <span className="font-medium">{plan.name}</span>
                       <div className="flex items-center gap-2">
@@ -912,14 +933,14 @@ export default function BillingPlansManager() {
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={billingPlans}
+                        data={plans}
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
                         dataKey="mrr"
                         label={({ name, mrr }) => `${name}: $${mrr.toLocaleString()}`}
                       >
-                        {billingPlans.map((entry, index) => (
+                        {plans.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={["#8884d8", "#82ca9d", "#ffc658"][index]} />
                         ))}
                       </Pie>
@@ -978,7 +999,7 @@ export default function BillingPlansManager() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {billingPlans.map((plan) => (
+                  {plans.map((plan) => (
                     <TableRow key={plan.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">

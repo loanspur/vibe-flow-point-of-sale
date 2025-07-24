@@ -355,6 +355,93 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_plans: {
+        Row: {
+          add_ons: Json | null
+          arpu: number | null
+          badge: string | null
+          badge_color: string | null
+          churn_rate: number | null
+          conversion_rate: number | null
+          created_at: string
+          created_by: string | null
+          customers: number | null
+          description: string | null
+          discounts: Json | null
+          display_order: number | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          mrr: number | null
+          name: string
+          original_price: number | null
+          period: string
+          popularity: number | null
+          price: number
+          pricing: Json | null
+          status: string
+          tenant_id: string | null
+          trial_conversion: number | null
+          updated_at: string
+        }
+        Insert: {
+          add_ons?: Json | null
+          arpu?: number | null
+          badge?: string | null
+          badge_color?: string | null
+          churn_rate?: number | null
+          conversion_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          customers?: number | null
+          description?: string | null
+          discounts?: Json | null
+          display_order?: number | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          mrr?: number | null
+          name: string
+          original_price?: number | null
+          period?: string
+          popularity?: number | null
+          price?: number
+          pricing?: Json | null
+          status?: string
+          tenant_id?: string | null
+          trial_conversion?: number | null
+          updated_at?: string
+        }
+        Update: {
+          add_ons?: Json | null
+          arpu?: number | null
+          badge?: string | null
+          badge_color?: string | null
+          churn_rate?: number | null
+          conversion_rate?: number | null
+          created_at?: string
+          created_by?: string | null
+          customers?: number | null
+          description?: string | null
+          discounts?: Json | null
+          display_order?: number | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          mrr?: number | null
+          name?: string
+          original_price?: number | null
+          period?: string
+          popularity?: number | null
+          price?: number
+          pricing?: Json | null
+          status?: string
+          tenant_id?: string | null
+          trial_conversion?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       business_settings: {
         Row: {
           account_lockout_duration: number | null
