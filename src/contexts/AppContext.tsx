@@ -29,7 +29,20 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { tenantId } = useAuth();
+  // Handle case when AuthContext might not be ready
+  let authContext;
+  try {
+    authContext = useAuth();
+  } catch (error) {
+    // Return loading state if AuthContext is not available
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  const { tenantId } = authContext || {};
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
