@@ -5,77 +5,88 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Check, Building2, Users, Zap, ArrowLeft, Shield, Clock, CreditCard } from 'lucide-react';
+import { Check, Building2, Users, Zap, ArrowLeft, Shield, Clock, CreditCard, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
-const plans = {
-  basic: {
-    id: 'basic',
-    name: 'Basic',
-    price: '$29',
-    period: '/month',
-    description: 'Perfect for small businesses just getting started',
-    maxUsers: 5,
-    features: [
-      'Up to 5 users',
-      'Basic POS functionality',
-      'Sales reporting',
-      'Customer management',
-      'Email support'
-    ]
-  },
-  premium: {
-    id: 'premium',
-    name: 'Premium',
-    price: '$79',
-    period: '/month',
-    description: 'Ideal for growing businesses with advanced needs',
-    maxUsers: 25,
-    features: [
-      'Up to 25 users',
-      'Advanced POS features',
-      'Advanced analytics',
-      'Inventory management',
-      'Multi-location support',
-      'Priority support'
-    ]
-  },
-  enterprise: {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: '$199',
-    period: '/month',
-    description: 'For large businesses with complex requirements',
-    maxUsers: 100,
-    features: [
-      'Unlimited users',
-      'All premium features',
-      'Custom integrations',
-      'Advanced reporting',
-      'Dedicated account manager',
-      '24/7 phone support'
-    ]
-  }
-};
+interface BillingPlan {
+  id: string;
+  name: string;
+  price: number;
+  period: string;
+  description: string;
+  features: any;
+  badge?: string;
+  badge_color?: string;
+  customers: number;
+  pricing?: any;
+}
 
 export default function TrialSignup() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, signUp } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState(searchParams.get('plan') || 'premium');
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState(searchParams.get('plan') || '');
   const [loading, setLoading] = useState(false);
+  const [plansLoading, setPlansLoading] = useState(true);
   const [step, setStep] = useState(1); // 1: Account creation, 2: Payment setup
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
-    businessName: 'Sunrise Coffee Co',
-    ownerName: 'John Smith',
-    email: 'john.smith@sunrisecoffee.com',
-    password: 'TestPassword123!',
-    confirmPassword: 'TestPassword123!'
+    businessName: '',
+    ownerName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
   });
+
+  const fetchPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setPlans(data);
+        // Set default plan if none selected
+        if (!selectedPlan) {
+          setSelectedPlan(data[0].id);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to load billing plans: " + error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const formatPrice = (price: number) => {
+    return `KSh ${price.toLocaleString()}`;
+  };
+
+  const formatFeatures = (features: any) => {
+    if (Array.isArray(features)) {
+      return features;
+    }
+    if (typeof features === 'object' && features !== null) {
+      return Object.values(features).flat();
+    }
+    return [];
+  };
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
 
   useEffect(() => {
     // If user is already authenticated, go to step 2
@@ -175,7 +186,7 @@ export default function TrialSignup() {
     }
   };
 
-  const selectedPlanData = plans[selectedPlan as keyof typeof plans];
+  const selectedPlanData = plans.find(p => p.id === selectedPlan);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 py-12">
@@ -215,7 +226,7 @@ export default function TrialSignup() {
             </div>
             <div className="flex items-center">
               <CreditCard className="h-4 w-4 mr-2 text-orange-500" />
-              Card or PayPal
+              Paystack or M-Pesa
             </div>
           </div>
         </div>
@@ -225,54 +236,77 @@ export default function TrialSignup() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold mb-4">Choose Your Plan</h2>
-              <div className="space-y-4">
-                {Object.values(plans).map((plan) => (
-                  <Card 
-                    key={plan.id}
-                    className={`cursor-pointer transition-all ${
-                      selectedPlan === plan.id 
-                        ? 'ring-2 ring-primary border-primary' 
-                        : 'hover:shadow-md'
-                    }`}
-                    onClick={() => setSelectedPlan(plan.id)}
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-xl">{plan.name}</CardTitle>
+              {plansLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">Loading plans...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {plans.map((plan) => {
+                    const features = formatFeatures(plan.features);
+                    const isPopular = plan.badge?.toLowerCase().includes('popular') || plan.name === 'Professional';
+                    
+                    return (
+                      <Card 
+                        key={plan.id}
+                        className={`cursor-pointer transition-all ${
+                          selectedPlan === plan.id 
+                            ? 'ring-2 ring-primary border-primary' 
+                            : 'hover:shadow-md'
+                        }`}
+                        onClick={() => setSelectedPlan(plan.id)}
+                      >
+                        <CardHeader className="pb-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-xl">{plan.name}</CardTitle>
+                              {plan.badge && (
+                                <Badge className={plan.badge_color || 'bg-primary'}>
+                                  <Star className="h-3 w-3 mr-1 fill-current" />
+                                  {plan.badge}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold">
+                                {formatPrice(plan.price)}
+                                <span className="text-sm text-muted-foreground font-normal">
+                                  /{plan.period}
+                                </span>
+                              </div>
+                              <div className="text-sm text-green-600">
+                                Free for 14 days
+                              </div>
+                            </div>
+                          </div>
                           <CardDescription>{plan.description}</CardDescription>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold">
-                            {plan.price}
-                            <span className="text-sm text-muted-foreground font-normal">
-                              {plan.period}
-                            </span>
-                          </div>
-                          <div className="text-sm text-green-600">
-                            Free for 14 days
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2">
-                        {plan.features.slice(0, 3).map((feature, index) => (
-                          <li key={index} className="flex items-center space-x-2 text-sm">
-                            <Check className="h-4 w-4 text-green-500" />
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                        {plan.features.length > 3 && (
-                          <li className="text-sm text-muted-foreground">
-                            +{plan.features.length - 3} more features
-                          </li>
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                          {plan.customers > 0 && (
+                            <div className="text-sm text-muted-foreground">
+                              {plan.customers} businesses using this plan
+                            </div>
+                          )}
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {features.slice(0, 3).map((feature: any, index: number) => (
+                              <li key={index} className="flex items-center space-x-2 text-sm">
+                                <Check className="h-4 w-4 text-green-500" />
+                                <span>{typeof feature === 'string' ? feature : feature?.name || feature?.feature || 'Feature'}</span>
+                              </li>
+                            ))}
+                            {features.length > 3 && (
+                              <li className="text-sm text-muted-foreground">
+                                +{features.length - 3} more features
+                              </li>
+                            )}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -371,17 +405,17 @@ export default function TrialSignup() {
                     Start Your Free Trial
                   </CardTitle>
                   <CardDescription>
-                    Step 2 of 2: Set up your {selectedPlanData.name} plan
+                    Step 2 of 2: Set up your {selectedPlanData?.name} plan
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="bg-muted/50 p-4 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{selectedPlanData.name} Plan</span>
-                      <span className="font-bold">{selectedPlanData.price}/month</span>
+                      <span className="font-medium">{selectedPlanData?.name}</span>
+                      <span className="font-bold">{selectedPlanData ? formatPrice(selectedPlanData.price) : 'Loading...'}/${selectedPlanData?.period}</span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
-                      {selectedPlanData.description}
+                      {selectedPlanData?.description}
                     </p>
                     <div className="text-sm">
                       <div className="flex items-center justify-between">
@@ -390,7 +424,7 @@ export default function TrialSignup() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span>Then:</span>
-                        <span>{selectedPlanData.price}/month</span>
+                        <span>{selectedPlanData ? formatPrice(selectedPlanData.price) : 'Loading...'}/${selectedPlanData?.period}</span>
                       </div>
                     </div>
                   </div>
@@ -398,10 +432,10 @@ export default function TrialSignup() {
                   <div className="space-y-3">
                     <h4 className="font-medium">What's included:</h4>
                     <ul className="space-y-2">
-                      {selectedPlanData.features.map((feature, index) => (
+                      {selectedPlanData && formatFeatures(selectedPlanData.features).map((feature: any, index: number) => (
                         <li key={index} className="flex items-center space-x-2 text-sm">
                           <Check className="h-4 w-4 text-green-500" />
-                          <span>{feature}</span>
+                          <span>{typeof feature === 'string' ? feature : feature?.name || feature?.feature || 'Feature'}</span>
                         </li>
                       ))}
                     </ul>
@@ -429,7 +463,7 @@ export default function TrialSignup() {
                   <p className="text-xs text-muted-foreground text-center">
                     You won't be charged until your 14-day trial ends. 
                     Cancel anytime during the trial period. 
-                    Pay with credit card or PayPal.
+                    Pay with Paystack or M-Pesa.
                   </p>
                 </CardContent>
               </Card>
