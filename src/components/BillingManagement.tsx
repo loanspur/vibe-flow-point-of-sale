@@ -353,9 +353,23 @@ export default function BillingManagement() {
       });
       
       const paystackData = await paystackResponse.json();
-      console.log("Paystack verification response:", paystackData);
+      console.log("Full Paystack verification response:", paystackData);
       
-      if (paystackData.status && paystackData.data.status === 'success') {
+      if (!paystackResponse.ok) {
+        throw new Error(`Paystack API error: ${paystackResponse.status} - ${paystackData.message || 'Unknown error'}`);
+      }
+      
+      if (!paystackData.status) {
+        console.error("Paystack verification failed:", paystackData.message);
+        throw new Error(`Paystack verification failed: ${paystackData.message || 'Unknown error'}`);
+      }
+      
+      const transaction = paystackData.data;
+      console.log("Transaction details:", transaction);
+      
+      if (transaction.status === 'success') {
+        console.log("Payment successful, updating subscription...");
+        
         // Update subscription status directly in database
         const { error: updateError } = await supabase
           .from('tenant_subscription_details')
@@ -364,7 +378,12 @@ export default function BillingManagement() {
             current_period_start: new Date().toISOString().split('T')[0],
             current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            metadata: {
+              last_payment_reference: reference,
+              last_payment_amount: transaction.amount / 100,
+              payment_verified_at: new Date().toISOString()
+            }
           })
           .eq('tenant_id', tenantId);
         
@@ -379,13 +398,24 @@ export default function BillingManagement() {
           .update({
             payment_status: 'completed',
             paid_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            metadata: {
+              paystack_response: {
+                reference: transaction.reference,
+                status: transaction.status,
+                amount: transaction.amount,
+                currency: transaction.currency,
+                paid_at: transaction.paid_at
+              }
+            }
           })
           .eq('payment_reference', reference);
         
         if (paymentError) {
           console.warn("Warning: Could not update payment history:", paymentError);
         }
+        
+        console.log("Payment verification completed successfully");
         
         toast({
           title: "Payment Verified!",
@@ -394,7 +424,8 @@ export default function BillingManagement() {
         fetchCurrentSubscription();
         fetchPaymentHistory();
       } else {
-        throw new Error("Payment verification failed - transaction not successful");
+        console.error("Transaction status not successful:", transaction.status);
+        throw new Error(`Payment verification failed - transaction status: ${transaction.status}`);
       }
     } catch (error: any) {
       console.error('Payment verification error:', error);
