@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { 
   CreditCard, 
   Calendar, 
-  DollarSign, 
   CheckCircle, 
   Clock, 
   AlertTriangle,
@@ -72,6 +72,14 @@ export default function BillingManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currencySymbol, currencyCode, updateCounter } = useCurrencyUpdate();
+  
+  // Debug logging to check currency values
+  console.log('BillingManagement - Currency Debug:', { 
+    currencySymbol, 
+    currencyCode, 
+    updateCounter,
+    sampleFormat: formatPrice(120)
+  });
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
@@ -348,7 +356,7 @@ export default function BillingManagement() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
-                <DollarSign className="h-4 w-4 text-green-600" />
+                <CurrencyIcon currency={currencyCode} className="h-4 w-4 text-green-600" />
                 <div>
                   <p className="text-sm font-medium text-green-800">Amount</p>
                   <p className="text-sm text-green-600">
