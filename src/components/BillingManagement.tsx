@@ -247,7 +247,17 @@ export default function BillingManagement() {
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-green-600" />
                 <div>
-                  <p className="text-sm font-medium text-green-800">Expires</p>
+                  <p className="text-sm font-medium text-green-800">
+                    {(() => {
+                      const expiryDate = new Date(currentSubscription.expires_at);
+                      const now = new Date();
+                      const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                      
+                      if (daysLeft <= 0) return "Expired";
+                      if (daysLeft <= 3) return "Expires Soon";
+                      return "Expires";
+                    })()}
+                  </p>
                   <p className="text-sm text-green-600">
                     {currentSubscription.expires_at ? formatDate(currentSubscription.expires_at) : 'Never'}
                   </p>
@@ -262,31 +272,74 @@ export default function BillingManagement() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center justify-end">
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => {
-                    // Find a higher tier plan to upgrade to
-                    const currentPrice = currentSubscription.billing_plans?.price || 0;
-                    const upgradePlan = billingPlans.find(plan => plan.price > currentPrice);
-                    if (upgradePlan) {
-                      handleUpgrade(upgradePlan.id);
-                    }
-                  }}
-                  disabled={upgrading !== null || !billingPlans.some(plan => plan.price > (currentSubscription.billing_plans?.price || 0))}
-                >
-                  {upgrading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      Upgrade Plan
-                      <ExternalLink className="h-4 w-4 ml-2" />
-                    </>
-                  )}
-                </Button>
+              <div className="flex flex-col items-end space-y-2">
+                {(() => {
+                  const expiryDate = new Date(currentSubscription.expires_at);
+                  const now = new Date();
+                  const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                  const isTrialEnding = daysLeft <= 7;
+                  const isExpired = daysLeft <= 0;
+                  
+                  if (isExpired || isTrialEnding) {
+                    return (
+                      <>
+                        <Button 
+                          className="bg-green-600 hover:bg-green-700 text-white w-full"
+                          onClick={() => handleUpgrade(currentSubscription.billing_plan_id)}
+                          disabled={upgrading === currentSubscription.billing_plan_id}
+                        >
+                          {upgrading === currentSubscription.billing_plan_id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              {isExpired ? 'Renew Plan' : 'Pay Now'}
+                              <ExternalLink className="h-4 w-4 ml-2" />
+                            </>
+                          )}
+                        </Button>
+                        {!isExpired && (
+                          <p className="text-xs text-orange-600 text-center">
+                            Trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                        {isExpired && (
+                          <p className="text-xs text-red-600 text-center">
+                            Trial expired - Renew to continue
+                          </p>
+                        )}
+                      </>
+                    );
+                  }
+                  
+                  return (
+                    <Button 
+                      variant="outline"
+                      className="border-blue-200 text-blue-700 hover:bg-blue-100"
+                      onClick={() => {
+                        const upgradePlan = billingPlans.find(plan => plan.price > (currentSubscription.billing_plans?.price || 0));
+                        if (upgradePlan) {
+                          handleUpgrade(upgradePlan.id);
+                        }
+                      }}
+                      disabled={upgrading !== null || !billingPlans.some(plan => plan.price > (currentSubscription.billing_plans?.price || 0))}
+                    >
+                      {upgrading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          Upgrade Plan
+                          <ExternalLink className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
               </div>
             </div>
           </CardContent>
