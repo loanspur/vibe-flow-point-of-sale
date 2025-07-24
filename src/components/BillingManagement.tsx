@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +73,7 @@ export default function BillingManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const { formatPrice, currencySymbol, currencyCode, updateCounter } = useCurrencyUpdate();
+  const { convertFromKES, formatLocalCurrency, tenantCurrency } = useCurrencyConversion();
   
   // Debug logging to check currency values
   console.log('BillingManagement - Currency Debug:', { 
@@ -81,6 +83,7 @@ export default function BillingManagement() {
     sampleFormat: formatPrice(120)
   });
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
+  const [convertedPlans, setConvertedPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,6 +122,27 @@ export default function BillingManagement() {
       })) as BillingPlan[];
       
       setBillingPlans(transformedPlans);
+      
+      // Convert prices to tenant's local currency
+      if (tenantCurrency && convertFromKES) {
+        const converted = await Promise.all(
+          transformedPlans.map(async (plan) => {
+            const convertedPrice = await convertFromKES(plan.price);
+            const convertedOriginalPrice = plan.original_price 
+              ? await convertFromKES(plan.original_price) 
+              : undefined;
+            
+            return {
+              ...plan,
+              price: convertedPrice,
+              original_price: convertedOriginalPrice
+            };
+          })
+        );
+        setConvertedPlans(converted);
+      } else {
+        setConvertedPlans(transformedPlans);
+      }
     } catch (error) {
       console.error('Error fetching billing plans:', error);
       toast({
@@ -360,7 +384,9 @@ export default function BillingManagement() {
                 <div>
                   <p className="text-sm font-medium text-green-800">Amount</p>
                   <p className="text-sm text-green-600">
-                    {currentSubscription.billing_plans?.price ? formatPrice(currentSubscription.billing_plans.price) : 'N/A'}
+                    {currentSubscription.billing_plans?.price ? 
+                      (tenantCurrency ? formatLocalCurrency(currentSubscription.billing_plans.price) : formatPrice(currentSubscription.billing_plans.price)) 
+                      : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -422,11 +448,13 @@ export default function BillingManagement() {
                               Processing...
                             </>
                           ) : (
-                            <>
-                             Pay {currentSubscription.billing_plans?.price ? formatPrice(currentSubscription.billing_plans.price) : 'Current Plan'}
-                              <ExternalLink className="h-4 w-4 ml-2" />
-                            </>
-                          )}
+                             <>
+                              Pay {currentSubscription.billing_plans?.price ? 
+                                (tenantCurrency ? formatLocalCurrency(currentSubscription.billing_plans.price) : formatPrice(currentSubscription.billing_plans.price)) 
+                                : 'Current Plan'}
+                               <ExternalLink className="h-4 w-4 ml-2" />
+                             </>
+                           )}
                         </Button>
                         {isOnTrial && (
                           <p className="text-xs text-orange-600 text-center">
@@ -477,12 +505,12 @@ export default function BillingManagement() {
                       variant="outline"
                       className="border-blue-200 text-blue-700 hover:bg-blue-100"
                       onClick={() => {
-                        const upgradePlan = billingPlans.find(plan => plan.price > (currentSubscription.billing_plans?.price || 0));
+                        const upgradePlan = convertedPlans.find(plan => plan.price > (currentSubscription.billing_plans?.price || 0));
                         if (upgradePlan) {
                           handleUpgrade(upgradePlan.id);
                         }
                       }}
-                      disabled={upgrading !== null || !billingPlans.some(plan => plan.price > (currentSubscription.billing_plans?.price || 0))}
+                      disabled={upgrading !== null || !convertedPlans.some(plan => plan.price > (currentSubscription.billing_plans?.price || 0))}
                     >
                       {upgrading ? (
                         <>
@@ -514,7 +542,7 @@ export default function BillingManagement() {
       <div>
         <h3 className="text-xl font-semibold mb-4">Available Plans</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {billingPlans.map((plan) => {
+          {convertedPlans.map((plan) => {
             const isCurrentPlan = currentSubscription?.billing_plans?.name === plan.name;
             const isPopular = plan.popularity > 0;
             const currentPlanPrice = currentSubscription?.billing_plans?.price || 0;
@@ -540,14 +568,14 @@ export default function BillingManagement() {
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <div className="space-y-1">
                     <div className="text-3xl font-bold">
-                      {formatPrice(plan.price)}
+                      {tenantCurrency ? formatLocalCurrency(plan.price) : formatPrice(plan.price)}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       per {plan.period}
                     </div>
                     {plan.original_price && plan.original_price > plan.price && (
                       <div className="text-sm text-muted-foreground line-through">
-                        {formatPrice(plan.original_price)}
+                        {tenantCurrency ? formatLocalCurrency(plan.original_price) : formatPrice(plan.original_price)}
                       </div>
                     )}
                   </div>
@@ -688,7 +716,7 @@ export default function BillingManagement() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">
-                      {formatPrice(payment.amount)}
+                      {tenantCurrency ? formatLocalCurrency(payment.amount) : formatPrice(payment.amount)}
                     </p>
                     <Badge 
                       variant={
