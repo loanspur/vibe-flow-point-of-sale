@@ -132,14 +132,13 @@ export default function BillingManagement() {
     
     try {
       console.log('Calling create-paystack-checkout with planId:', planId);
+      console.log('User:', user);
+      console.log('Tenant ID:', tenantId);
       
       const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
-        body: JSON.stringify({
+        body: {
           planId: planId,
           isSignup: false
-        }),
-        headers: {
-          'Content-Type': 'application/json',
         }
       });
 
