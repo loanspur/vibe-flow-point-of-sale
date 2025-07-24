@@ -12,6 +12,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Setup missing tenant function started");
+
     // Initialize Supabase client with service role for admin operations
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -19,29 +21,39 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
+    console.log("Supabase admin client initialized");
+
     // Get authenticated user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.error("No authorization header provided");
       throw new Error("No authorization header provided");
     }
+
+    console.log("Authorization header found");
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
     
     if (userError || !userData.user) {
+      console.error("Authentication failed:", userError);
       throw new Error(`Authentication failed: ${userError?.message}`);
     }
 
     const user = userData.user;
+    console.log("User authenticated:", { userId: user.id, email: user.email });
     
     // Check if user already has a tenant
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
       .select('tenant_id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle(); // Use maybeSingle to handle case where no profile exists
+
+    console.log("Existing profile check:", existingProfile);
 
     if (existingProfile?.tenant_id) {
+      console.log("User already has tenant:", existingProfile.tenant_id);
       return new Response(
         JSON.stringify({
           success: false,
@@ -54,7 +66,10 @@ serve(async (req) => {
       );
     }
 
-    const { businessName, ownerName } = await req.json();
+    const requestBody = await req.json();
+    console.log("Request body:", requestBody);
+
+    const { businessName, ownerName } = requestBody;
     
     if (!businessName || !ownerName) {
       throw new Error("Business name and owner name are required");
