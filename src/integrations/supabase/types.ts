@@ -482,6 +482,7 @@ export type Database = {
           enable_multi_location: boolean | null
           enable_negative_stock: boolean | null
           enable_online_orders: boolean | null
+          enable_overselling: boolean | null
           enable_product_units: boolean | null
           enable_retail_pricing: boolean | null
           enable_user_roles: boolean | null
@@ -576,6 +577,7 @@ export type Database = {
           enable_multi_location?: boolean | null
           enable_negative_stock?: boolean | null
           enable_online_orders?: boolean | null
+          enable_overselling?: boolean | null
           enable_product_units?: boolean | null
           enable_retail_pricing?: boolean | null
           enable_user_roles?: boolean | null
@@ -670,6 +672,7 @@ export type Database = {
           enable_multi_location?: boolean | null
           enable_negative_stock?: boolean | null
           enable_online_orders?: boolean | null
+          enable_overselling?: boolean | null
           enable_product_units?: boolean | null
           enable_retail_pricing?: boolean | null
           enable_user_roles?: boolean | null

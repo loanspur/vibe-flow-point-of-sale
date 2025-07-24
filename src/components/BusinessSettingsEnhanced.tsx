@@ -89,6 +89,7 @@ const businessSettingsSchema = z.object({
   
   // Product and inventory features
   enable_brands: z.boolean().default(false),
+  enable_overselling: z.boolean().default(false),
   enable_product_units: z.boolean().default(false),
   enable_warranty: z.boolean().default(false),
   enable_fixed_pricing: z.boolean().default(false),
@@ -277,6 +278,7 @@ export function BusinessSettingsEnhanced() {
       
       // Product and inventory features
       enable_brands: false,
+      enable_overselling: false,
       enable_product_units: false,
       enable_warranty: false,
       enable_fixed_pricing: false,
@@ -1621,6 +1623,22 @@ export function BusinessSettingsEnhanced() {
                                     <div>
                                       <FormLabel className="font-medium">Enable Brands</FormLabel>
                                       <FormDescription>Allow products to have brand associations</FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="enable_overselling"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+                                    <div>
+                                      <FormLabel className="font-medium">Allow Over-selling</FormLabel>
+                                      <FormDescription>Allow sales when stock quantity is zero or negative</FormDescription>
                                     </div>
                                     <FormControl>
                                       <Switch checked={field.value} onCheckedChange={field.onChange} />
