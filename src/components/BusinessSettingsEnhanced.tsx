@@ -64,6 +64,8 @@ import { timezones } from "@/lib/timezones";
 import { countries, popularCountries, getRegions, searchCountries, type Country } from "@/lib/countries";
 import { clearCurrencyCache } from "@/lib/currency";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { RestrictedSetting } from "@/components/FeatureRestriction";
 import DomainManagement from '@/components/DomainManagement';
 
 const businessSettingsSchema = z.object({
@@ -260,6 +262,7 @@ export function BusinessSettingsEnhanced() {
   const { toast } = useToast();
   const { formatCurrency } = useApp();
   const { formatPrice } = useCurrencyUpdate();
+  const { hasFeature, isSettingRestricted, getFeatureUpgradeMessage } = useFeatureAccess();
 
   const form = useForm<z.infer<typeof businessSettingsSchema>>({
     resolver: zodResolver(businessSettingsSchema),
@@ -1617,21 +1620,31 @@ export function BusinessSettingsEnhanced() {
                         <CardContent>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
-                              <FormField
-                                control={form.control}
-                                name="enable_brands"
-                                render={({ field }) => (
-                                  <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
-                                    <div>
-                                      <FormLabel className="font-medium">Enable Brands</FormLabel>
-                                      <FormDescription>Allow products to have brand associations</FormDescription>
-                                    </div>
-                                    <FormControl>
-                                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
+                              <RestrictedSetting
+                                settingName="Product Brands"
+                                upgradeMessage={getFeatureUpgradeMessage('advanced_inventory')}
+                                isRestricted={isSettingRestricted('enable_brands')}
+                              >
+                                <FormField
+                                  control={form.control}
+                                  name="enable_brands"
+                                  render={({ field }) => (
+                                    <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+                                      <div>
+                                        <FormLabel className="font-medium">Enable Brands</FormLabel>
+                                        <FormDescription>Allow products to have brand associations</FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch 
+                                          checked={field.value} 
+                                          onCheckedChange={field.onChange}
+                                          disabled={isSettingRestricted('enable_brands')}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              </RestrictedSetting>
                               
                               <FormField
                                 control={form.control}
@@ -1649,21 +1662,31 @@ export function BusinessSettingsEnhanced() {
                                 )}
                               />
                               
-                              <FormField
-                                control={form.control}
-                                name="enable_product_units"
-                                render={({ field }) => (
-                                  <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
-                                    <div>
-                                      <FormLabel className="font-medium">Product Units</FormLabel>
-                                      <FormDescription>Enable unit of measure for products (kg, lbs, pcs, etc.)</FormDescription>
-                                    </div>
-                                    <FormControl>
-                                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
+                              <RestrictedSetting
+                                settingName="Product Units"
+                                upgradeMessage={getFeatureUpgradeMessage('advanced_inventory')}
+                                isRestricted={isSettingRestricted('enable_product_units')}
+                              >
+                                <FormField
+                                  control={form.control}
+                                  name="enable_product_units"
+                                  render={({ field }) => (
+                                    <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+                                      <div>
+                                        <FormLabel className="font-medium">Product Units</FormLabel>
+                                        <FormDescription>Enable unit of measure for products (kg, lbs, pcs, etc.)</FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch 
+                                          checked={field.value} 
+                                          onCheckedChange={field.onChange}
+                                          disabled={isSettingRestricted('enable_product_units')}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              </RestrictedSetting>
                             </div>
                             
                             <div className="space-y-4">

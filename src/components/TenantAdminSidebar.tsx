@@ -26,6 +26,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import RoleSwitcher from './RoleSwitcher';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { Badge } from '@/components/ui/badge';
 
 const mainItems = [
   { title: "Dashboard", url: "/admin", icon: Home },
@@ -36,9 +38,9 @@ const businessItems = [
   { title: "Sales", url: "/admin/sales", icon: TrendingUp },
   { title: "Purchases", url: "/admin/purchases", icon: ShoppingCart },
   { title: "Contacts", url: "/admin/customers", icon: Users },
-  { title: "Accounting", url: "/admin/accounting", icon: Calculator },
-  { title: "Reports", url: "/admin/reports", icon: BarChart3 },
-  { title: "Team", url: "/admin/team", icon: Users },
+  { title: "Accounting", url: "/admin/accounting", icon: Calculator, featureRequired: "advanced_accounting" },
+  { title: "Reports", url: "/admin/reports", icon: BarChart3, featureRequired: "advanced_reporting" },
+  { title: "Team", url: "/admin/team", icon: Users, featureRequired: "user_roles" },
 ];
 
 const systemItems = [
@@ -48,6 +50,7 @@ const systemItems = [
 
 export function TenantAdminSidebar() {
   const { state } = useSidebar();
+  const { hasFeature } = useFeatureAccess();
   const location = useLocation();
   const { user } = useAuth();
   const currentPath = location.pathname;
@@ -117,19 +120,33 @@ export function TenantAdminSidebar() {
           <SidebarGroupLabel>Business</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {businessItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url}
-                      className={({ isActive: navActive }) => getNavCls(navActive)}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {businessItems.map((item) => {
+                const hasAccess = !item.featureRequired || hasFeature(item.featureRequired);
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={hasAccess ? item.url : "/admin/settings?tab=billing"}
+                        className={({ isActive: navActive }) => 
+                          `${getNavCls(navActive)} ${!hasAccess ? 'opacity-60' : ''}`
+                        }
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && (
+                          <div className="flex items-center justify-between w-full">
+                            <span>{item.title}</span>
+                            {!hasAccess && (
+                              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                                Pro
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
