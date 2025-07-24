@@ -120,10 +120,13 @@ export default function TrialSignup() {
 
     setLoading(true);
     try {
+      console.log('Starting signup process...');
+      
       // Step 1: Create user account
       const { error: signUpError } = await signUp(formData.email, formData.password, formData.ownerName);
 
       if (signUpError) {
+        console.error('Signup error:', signUpError);
         if (signUpError.message.includes('already registered')) {
           toast({
             title: "Account exists",
@@ -136,68 +139,103 @@ export default function TrialSignup() {
         throw signUpError;
       }
 
-      // Wait for authentication to complete
-      let retries = 0;
-      const maxRetries = 10;
-      
-      while (retries < maxRetries && !user) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        retries++;
-      }
+      console.log('Signup successful, checking authentication...');
 
-      if (!user) {
-        throw new Error('Authentication failed - please try signing in manually');
-      }
+      // Check current session immediately
+      const { data: session } = await supabase.auth.getSession();
+      console.log('Current session:', session);
 
-      // Step 2: Create tenant/business with proper error handling
-      try {
-        const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant', {
-          body: {
-            businessName: formData.businessName,
-            ownerName: formData.ownerName,
-            email: formData.email,
-          }
-        });
-
-        if (tenantError) {
-          console.error('Tenant creation error:', tenantError);
-          throw new Error(`Failed to set up business: ${tenantError.message}`);
+      if (session.session?.user) {
+        console.log('User authenticated immediately');
+        // User is authenticated, proceed with tenant creation
+        await createTenant();
+      } else {
+        console.log('Waiting for authentication...');
+        // Wait for authentication with better retry logic
+        let retries = 0;
+        const maxRetries = 8; // 4 seconds total
+        let authenticated = false;
+        
+        while (retries < maxRetries && !authenticated) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check both the auth context user and session
+          const { data: currentSession } = await supabase.auth.getSession();
+          authenticated = !!(currentSession.session?.user || user);
+          
+          retries++;
+          console.log(`Retry ${retries}/${maxRetries}, authenticated:`, authenticated);
         }
 
-        if (!tenantData?.success) {
-          console.error('Tenant creation failed:', tenantData);
-          throw new Error(tenantData?.error || 'Failed to create business account');
+        if (authenticated) {
+          console.log('Authentication successful after retries');
+          await createTenant();
+        } else {
+          console.log('Authentication timeout, proceeding without tenant setup');
+          // Show user they can complete setup later
+          toast({
+            title: "Account Created Successfully!",
+            description: "Please check your email to verify your account, then you can complete the business setup.",
+            variant: "default"
+          });
+          setStep(2);
         }
-
-        setStep(2);
-        toast({
-          title: "Business account created!",
-          description: `Welcome to VibePOS, ${formData.businessName}! Now let's set up your subscription.`
-        });
-
-      } catch (tenantError: any) {
-        console.error('Tenant setup error:', tenantError);
-        
-        // If tenant creation fails, still allow user to proceed to payment
-        // They can complete setup later in the dashboard
-        toast({
-          title: "Account created with limited setup",
-          description: "Your account was created but business setup needs to be completed. You can finish this in your dashboard.",
-          variant: "destructive"
-        });
-        
-        setStep(2);
       }
 
     } catch (error: any) {
       console.error('Signup error:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Signup Error",
+        description: error.message.includes('Invalid login credentials') 
+          ? "Please check your email and password and try again."
+          : error.message,
         variant: "destructive"
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createTenant = async () => {
+    try {
+      console.log('Creating tenant...');
+      
+      const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant', {
+        body: {
+          businessName: formData.businessName,
+          ownerName: formData.ownerName,
+          email: formData.email,
+        }
+      });
+
+      if (tenantError) {
+        console.error('Tenant creation error:', tenantError);
+        throw new Error(`Failed to set up business: ${tenantError.message}`);
+      }
+
+      if (!tenantData?.success) {
+        console.error('Tenant creation failed:', tenantData);
+        throw new Error(tenantData?.error || 'Failed to create business account');
+      }
+
+      console.log('Tenant created successfully:', tenantData);
+      setStep(2);
+      toast({
+        title: "Business account created!",
+        description: `Welcome to VibePOS, ${formData.businessName}! Now let's set up your subscription.`
+      });
+
+    } catch (tenantError: any) {
+      console.error('Tenant setup error:', tenantError);
+      
+      // Allow user to proceed to payment even if tenant setup fails
+      toast({
+        title: "Account created - Setup incomplete",
+        description: "Your account was created but business setup needs to be completed in your dashboard.",
+        variant: "destructive"
+      });
+      
+      setStep(2);
     }
   };
 
