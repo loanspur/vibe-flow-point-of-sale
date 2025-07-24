@@ -16,7 +16,9 @@ export default function SuperAdminAnalytics() {
   const [timeRange, setTimeRange] = useState("30d");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { formatLocalCurrency, tenantCurrency } = useCurrencyConversion();
+  // Use base currency (KES) for all superadmin analytics
+  const formatBaseCurrency = (amount: number) => 
+    `KSh ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const [analyticsData, setAnalyticsData] = useState({
     totalRevenue: 0,
     activeTenants: 0,
@@ -83,10 +85,10 @@ export default function SuperAdminAnalytics() {
   const platformMetrics = [
     { 
       metric: "Total Revenue", 
-      value: loading ? "..." : formatLocalCurrency(analyticsData.totalRevenue), 
+      value: loading ? "..." : formatBaseCurrency(analyticsData.totalRevenue), 
       change: "+12.5%", 
       trend: "up",
-      icon: () => <CurrencyIcon currency={tenantCurrency?.currency || 'USD'} className="h-4 w-4" />
+      icon: () => <CurrencyIcon currency="KES" className="h-4 w-4" />
     },
     { 
       metric: "Active Tenants", 
@@ -198,7 +200,7 @@ export default function SuperAdminAnalytics() {
                   <CardContent>
                     <div className="text-3xl font-bold mb-2">{plan.customers || 0}</div>
                     <p className="text-sm text-muted-foreground mb-4">Active customers</p>
-                    <div className="text-lg font-semibold">{formatLocalCurrency(plan.mrr || 0)}</div>
+                    <div className="text-lg font-semibold">{formatBaseCurrency(plan.mrr || 0)}</div>
                     <p className="text-sm text-muted-foreground">Monthly revenue</p>
                   </CardContent>
                 </Card>

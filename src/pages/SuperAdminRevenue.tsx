@@ -29,6 +29,10 @@ import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
 import { supabase } from "@/integrations/supabase/client";
 
+// Base currency formatting for SuperAdmin (KES)
+const formatBaseCurrency = (amount: number) => 
+  `KSh ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 // Revenue overview metrics
 const revenueMetrics = [
   { metric: "Monthly Recurring Revenue", value: "$284,500", change: "+15.2%", trend: "up", icon: DollarSign },
@@ -81,7 +85,7 @@ export default function SuperAdminRevenue() {
   const [transactionFilter, setTransactionFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
-  const { formatLocalCurrency, tenantCurrency } = useCurrencyConversion();
+  // Use base currency (KES) for all superadmin revenue views
   const [revenueData, setRevenueData] = useState({
     totalMRR: 0,
     totalARR: 0,
@@ -184,11 +188,11 @@ export default function SuperAdminRevenue() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Monthly Recurring Revenue</CardTitle>
-            <CurrencyIcon currency={tenantCurrency?.currency || 'USD'} className="h-4 w-4 text-muted-foreground" />
+            <CurrencyIcon currency="KES" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {loading ? "..." : formatLocalCurrency(revenueData.totalMRR)}
+              {loading ? "..." : formatBaseCurrency(revenueData.totalMRR)}
             </div>
             <div className="flex items-center gap-1">
               <TrendingUp className="h-3 w-3 text-green-600" />
@@ -204,7 +208,7 @@ export default function SuperAdminRevenue() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {loading ? "..." : formatLocalCurrency(revenueData.totalARR)}
+              {loading ? "..." : formatBaseCurrency(revenueData.totalARR)}
             </div>
             <div className="flex items-center gap-1">
               <TrendingUp className="h-3 w-3 text-green-600" />
@@ -220,7 +224,7 @@ export default function SuperAdminRevenue() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {loading ? "..." : formatLocalCurrency(revenueData.averageARPU)}
+              {loading ? "..." : formatBaseCurrency(revenueData.averageARPU)}
             </div>
             <div className="flex items-center gap-1">
               <TrendingUp className="h-3 w-3 text-green-600" />
@@ -358,7 +362,7 @@ export default function SuperAdminRevenue() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <div className="text-2xl font-bold">{formatLocalCurrency(plan.mrr || 0)}</div>
+                      <div className="text-2xl font-bold">{formatBaseCurrency(plan.mrr || 0)}</div>
                       <p className="text-sm text-muted-foreground">Monthly Recurring Revenue</p>
                     </div>
                     <div>
@@ -366,7 +370,7 @@ export default function SuperAdminRevenue() {
                       <p className="text-sm text-muted-foreground">Active Customers</p>
                     </div>
                     <div>
-                      <div className="text-lg font-semibold">{formatLocalCurrency(plan.price || 0)}</div>
+                      <div className="text-lg font-semibold">{formatBaseCurrency(plan.price || 0)}</div>
                       <p className="text-sm text-muted-foreground">Price per month</p>
                     </div>
                   </CardContent>

@@ -22,7 +22,9 @@ import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 
 export default function SuperAdminDashboard() {
   const { user, userRole } = useAuth();
-  const { formatLocalCurrency, tenantCurrency } = useCurrencyConversion();
+  // Use base currency (KES) for all superadmin views
+  const formatBaseCurrency = (amount: number) => 
+    `KSh ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const [dashboardData, setDashboardData] = useState({
     totalTenants: 0,
     activeUsers: 0,
@@ -103,9 +105,9 @@ export default function SuperAdminDashboard() {
     },
     {
       title: "Monthly Revenue",
-      value: loading ? "..." : formatLocalCurrency(dashboardData.monthlyRevenue),
+      value: loading ? "..." : formatBaseCurrency(dashboardData.monthlyRevenue),
       change: "+8.2% from last month",
-      icon: () => <CurrencyIcon currency={tenantCurrency?.currency || 'USD'} className="h-4 w-4" />,
+      icon: () => <CurrencyIcon currency="KES" className="h-4 w-4" />,
       color: "text-purple-600"
     },
     {
@@ -178,7 +180,7 @@ export default function SuperAdminDashboard() {
                     {stat.title}
                   </CardTitle>
                   {stat.title === "Monthly Revenue" ? (
-                    <CurrencyIcon currency={tenantCurrency?.currency || 'USD'} className={`h-4 w-4 ${stat.color}`} />
+                    <CurrencyIcon currency="KES" className={`h-4 w-4 ${stat.color}`} />
                   ) : (
                     <Icon className={`h-4 w-4 ${stat.color}`} />
                   )}
