@@ -23,7 +23,7 @@ interface BillingPlan {
   name: string;
   price: number;
   period: string;
-  features: string[];
+  features: Array<{ name: string; included: boolean }>;
   badge?: string;
   badge_color?: string;
   popularity: number;
@@ -97,7 +97,7 @@ export default function BillingManagement() {
       const transformedPlans = (data || []).map(plan => ({
         ...plan,
         features: Array.isArray(plan.features) 
-          ? plan.features.map(f => String(f)) 
+          ? plan.features 
           : []
       })) as BillingPlan[];
       
@@ -541,7 +541,7 @@ export default function BillingManagement() {
                     {plan.features?.map((feature, index) => (
                       <div key={index} className="flex items-center space-x-2">
                         <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                        <span className="text-sm">{feature}</span>
+                        <span className="text-sm">{feature.name}</span>
                       </div>
                     ))}
                   </div>
