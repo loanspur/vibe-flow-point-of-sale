@@ -38,7 +38,7 @@ serve(async (req) => {
     const { data: billingPlan, error: planError } = await supabaseClient
       .from('billing_plans')
       .select('*')
-      .eq('name', planId)
+      .eq('id', planId) // Search by ID instead of name
       .eq('is_active', true)
       .single();
 
