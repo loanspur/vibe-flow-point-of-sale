@@ -153,6 +153,15 @@ export default function PaystackTestingInterface() {
   };
 
   const verifyPayment = async (reference: string) => {
+    setLoading(true);
+    const verifyResult: PaymentTestResult = {
+      status: 'pending',
+      message: 'Verifying payment with Paystack...',
+      reference,
+      timestamp: new Date().toISOString()
+    };
+    setTestResults(prev => [verifyResult, ...prev]);
+
     try {
       const { data, error } = await supabase.functions.invoke('verify-paystack-payment', {
         body: { reference }
@@ -160,17 +169,37 @@ export default function PaystackTestingInterface() {
 
       if (error) throw error;
 
+      const successResult: PaymentTestResult = {
+        status: 'success',
+        message: data.message || 'Payment verified successfully!',
+        reference,
+        timestamp: new Date().toISOString(),
+        amount: data.subscription?.amount,
+        plan: data.subscription?.plan_name
+      };
+      setTestResults(prev => [successResult, ...prev.slice(1)]);
+
       toast({
         title: "Payment Verified",
-        description: `Payment status: ${data.status}`,
-        variant: data.status === 'success' ? 'default' : 'destructive'
+        description: `${data.message} - Status: ${data.subscription?.status}`,
+        variant: "default"
       });
     } catch (error: any) {
+      const failResult: PaymentTestResult = {
+        status: 'failed',
+        message: `Verification failed: ${error.message}`,
+        reference,
+        timestamp: new Date().toISOString()
+      };
+      setTestResults(prev => [failResult, ...prev.slice(1)]);
+      
       toast({
         title: "Verification Error",
-        description: error.message,
+        description: error.message || "Failed to verify payment",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 

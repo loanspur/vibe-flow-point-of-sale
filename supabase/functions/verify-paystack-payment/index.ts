@@ -55,49 +55,97 @@ serve(async (req) => {
 
     if (transaction.status === 'success') {
       const metadata = transaction.metadata;
+      logStep("Processing successful payment", { metadata });
       
-      // Update subscriber record
-      const { error: updateError } = await supabaseClient
-        .from('subscribers')
-        .update({
-          subscribed: true,
-          subscription_tier: metadata.plan_name,
-          subscription_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-          trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days trial
-          is_trial: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', metadata.user_id);
+      if (!metadata || !metadata.tenant_id || !metadata.plan_id) {
+        throw new Error("Missing required metadata in transaction");
+      }
 
-      if (updateError) {
-        logStep("Error updating subscriber", { error: updateError });
+      // Update payment record status
+      const { error: paymentUpdateError } = await supabaseClient
+        .from('payment_history')
+        .update({
+          payment_status: 'completed',
+          paid_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          metadata: {
+            ...metadata,
+            paystack_response: {
+              reference: transaction.reference,
+              status: transaction.status,
+              amount: transaction.amount,
+              currency: transaction.currency,
+              paid_at: transaction.paid_at
+            }
+          }
+        })
+        .eq('payment_reference', reference);
+
+      if (paymentUpdateError) {
+        logStep("Error updating payment history", { error: paymentUpdateError });
+      }
+
+      // Update tenant subscription details
+      const { error: subscriptionError } = await supabaseClient
+        .from('tenant_subscription_details')
+        .update({
+          status: 'active',
+          paystack_subscription_id: transaction.subscription?.subscription_code || null,
+          current_period_start: new Date().toISOString().split('T')[0],
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          updated_at: new Date().toISOString(),
+          metadata: {
+            ...metadata,
+            last_payment_reference: reference,
+            last_payment_amount: transaction.amount / 100, // Convert from kobo
+            payment_verified_at: new Date().toISOString()
+          }
+        })
+        .eq('tenant_id', metadata.tenant_id)
+        .eq('billing_plan_id', metadata.plan_id);
+
+      if (subscriptionError) {
+        logStep("Error updating subscription details", { error: subscriptionError });
         throw new Error("Failed to update subscription status");
       }
 
-      // Update billing plan statistics
-      const { error: planUpdateError } = await supabaseClient
-        .from('billing_plans')
-        .update({
-          customers: supabaseClient.sql`customers + 1`,
-          mrr: supabaseClient.sql`mrr + ${transaction.amount / 100}`, // Convert from kobo to KES
-        })
-        .eq('id', metadata.plan_id);
-
-      if (planUpdateError) {
-        logStep("Warning: Could not update plan statistics", { error: planUpdateError });
+      // Update billing plan statistics (optional, don't fail on error)
+      try {
+        const { error: planUpdateError } = await supabaseClient.rpc(
+          'increment_plan_stats',
+          { 
+            plan_id: metadata.plan_id,
+            revenue_amount: transaction.amount / 100 // Convert from kobo
+          }
+        );
+        
+        if (planUpdateError) {
+          logStep("Warning: Could not update plan statistics", { error: planUpdateError });
+        }
+      } catch (planError) {
+        logStep("Plan statistics update failed (non-critical)", { error: planError });
       }
 
-      logStep("Subscription activated successfully", { 
-        userId: metadata.user_id, 
-        planName: metadata.plan_name 
+      logStep("Payment verification completed successfully", { 
+        tenantId: metadata.tenant_id,
+        planId: metadata.plan_id,
+        amount: transaction.amount / 100
       });
 
       return new Response(JSON.stringify({ 
-        success: true, 
+        success: true,
+        status: 'verified',
+        message: 'Payment verified and subscription activated',
         subscription: {
-          plan: metadata.plan_name,
+          tenant_id: metadata.tenant_id,
+          plan_id: metadata.plan_id,
+          plan_name: metadata.plan_name,
           status: 'active',
-          trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+          amount: transaction.amount / 100,
+          currency: transaction.currency,
+          reference: reference,
+          verified_at: new Date().toISOString()
         }
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
