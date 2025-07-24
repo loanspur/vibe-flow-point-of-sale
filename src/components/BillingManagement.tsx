@@ -189,10 +189,12 @@ export default function BillingManagement() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'NGN'
-    }).format(amount);
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(amount / 100); // Convert kobo to main currency
   };
 
   const formatDate = (dateString: string) => {
@@ -279,6 +281,9 @@ export default function BillingManagement() {
           {billingPlans.map((plan) => {
             const isCurrentPlan = currentSubscription?.billing_plans?.name === plan.name;
             const isPopular = plan.popularity > 0;
+            const currentPlanPrice = currentSubscription?.billing_plans?.price || 0;
+            const isUpgrade = plan.price > currentPlanPrice;
+            const isDowngrade = plan.price < currentPlanPrice && currentSubscription;
             
             return (
               <Card 
@@ -324,7 +329,7 @@ export default function BillingManagement() {
                   
                   <Button 
                     className="w-full" 
-                    variant={isCurrentPlan ? "outline" : "default"}
+                    variant={isCurrentPlan ? "outline" : isUpgrade ? "default" : "secondary"}
                     disabled={isCurrentPlan || upgrading === plan.id}
                     onClick={() => handleUpgrade(plan.id)}
                   >
@@ -337,11 +342,27 @@ export default function BillingManagement() {
                       'Current Plan'
                     ) : (
                       <>
-                        {currentSubscription ? 'Upgrade' : 'Subscribe'}
+                        {isUpgrade ? (
+                          <>Upgrade to {plan.name}</>
+                        ) : isDowngrade ? (
+                          <>Downgrade to {plan.name}</>
+                        ) : (
+                          <>Switch to {plan.name}</>
+                        )}
                         <ExternalLink className="h-4 w-4 ml-2" />
                       </>
                     )}
                   </Button>
+                  
+                  {isCurrentPlan && (
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">
+                        {currentSubscription?.expires_at && (
+                          <>Next billing: {formatDate(currentSubscription.expires_at)}</>
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

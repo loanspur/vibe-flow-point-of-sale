@@ -15,7 +15,9 @@ import {
   TrendingUp,
   ArrowUpRight,
   Eye,
-  AlertTriangle
+  AlertTriangle,
+  Crown,
+  Settings
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -29,6 +31,37 @@ const getTimeBasedGreeting = () => {
 export default function TenantAdminDashboard() {
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
+  const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+
+  // Fetch subscription data
+  useEffect(() => {
+    if (tenantId) {
+      fetchCurrentSubscription();
+    }
+  }, [tenantId]);
+
+  const fetchCurrentSubscription = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tenant_subscriptions')
+        .select(`
+          *,
+          billing_plans (
+            name,
+            price,
+            period
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setCurrentSubscription(data);
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    }
+  };
 
   // Fetch real dashboard data
   const { data: dashboardData, loading } = useOptimizedQuery(
@@ -233,6 +266,44 @@ export default function TenantAdminDashboard() {
           Here's what's happening with your business today.
         </p>
       </div>
+
+      {/* Billing Plan Display */}
+      {currentSubscription && (
+        <Card className="mb-6 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Crown className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-blue-900">
+                    {currentSubscription.billing_plans?.name} Plan
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    Active until {new Date(currentSubscription.expires_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-blue-900">
+                    ${(currentSubscription.billing_plans?.price / 100).toFixed(0)}
+                  </p>
+                  <p className="text-sm text-blue-600">per {currentSubscription.billing_plans?.period}</p>
+                </div>
+                <Link to="/admin/settings">
+                  <Button variant="outline" size="sm" className="border-blue-200 text-blue-700 hover:bg-blue-100">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Manage Plan
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
         {/* Alerts Bar */}
         {alerts.length > 0 && (
           <div className="mb-6 space-y-2">
