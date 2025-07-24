@@ -3,12 +3,14 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle, Star } from "lucide-react";
 import BillingPlansManager from "./BillingPlansManager";
 import PaystackTestingInterface from "./PaystackTestingInterface";
+import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 
 const Pricing = () => {
+  const { formatPrice } = useCurrencyUpdate();
   const plans = [
     {
       name: "Starter",
-      price: "$29",
+      price: formatPrice(29),
       period: "/month",
       description: "Perfect for small businesses just getting started",
       features: [
@@ -24,7 +26,7 @@ const Pricing = () => {
     },
     {
       name: "Professional",
-      price: "$79",
+      price: formatPrice(79),
       period: "/month",
       description: "Ideal for growing businesses with multiple needs",
       features: [
@@ -42,7 +44,7 @@ const Pricing = () => {
     },
     {
       name: "Enterprise",
-      price: "$199",
+      price: formatPrice(199),
       period: "/month",
       description: "For large businesses requiring advanced features",
       features: [
