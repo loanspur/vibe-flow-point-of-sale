@@ -291,7 +291,7 @@ serve(async (req) => {
       logStep("Owner contact created");
     }
 
-    // Send welcome email (simplified for debugging)
+    // Send welcome email (temporarily disabled for debugging)
     try {
       logStep("Attempting to send welcome email");
       // Temporarily disable welcome email to isolate the issue
