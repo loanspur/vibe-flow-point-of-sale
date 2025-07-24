@@ -20,6 +20,9 @@ interface AppContextType {
   formatLocalCurrency: (amount: number) => string;
   convertFromKES: (amount: number) => Promise<number>;
   tenantCurrency: string | null;
+  currencySymbol: string;
+  currencyCode: string;
+  triggerCurrencyUpdate: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -28,6 +31,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { tenantId } = useAuth();
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
   const { formatLocalCurrency, convertFromKES, tenantCurrency } = useCurrencyConversion();
 
   const fetchBusinessSettings = useCallback(async () => {
@@ -69,7 +73,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshBusinessSettings = useCallback(async () => {
     await fetchBusinessSettings();
+    setCurrencyUpdateTrigger(prev => prev + 1);
   }, [fetchBusinessSettings]);
+
+  const triggerCurrencyUpdate = useCallback(() => {
+    setCurrencyUpdateTrigger(prev => prev + 1);
+  }, []);
 
   const formatCurrency = useCallback((amount: number): string => {
     if (!businessSettings) return `$${amount.toFixed(2)}`;
@@ -128,7 +137,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           table: 'business_settings',
           filter: `tenant_id=eq.${tenantId}`
         },
-        () => {
+        (payload) => {
+          console.log('Business settings changed:', payload);
+          // Immediately update with new data if available
+          if (payload.new && typeof payload.new === 'object') {
+            const newSettings = payload.new as any;
+            setBusinessSettings({
+              currency_code: newSettings.currency_code || 'USD',
+              currency_symbol: newSettings.currency_symbol || '$',
+              company_name: newSettings.company_name || 'Your Business',
+              timezone: newSettings.timezone || 'UTC',
+              tax_inclusive: newSettings.tax_inclusive || false,
+              default_tax_rate: newSettings.default_tax_rate || 0
+            });
+          }
+          // Also refresh to ensure consistency
           refreshBusinessSettings();
         }
       )
@@ -147,7 +170,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       formatCurrency,
       formatLocalCurrency,
       convertFromKES,
-      tenantCurrency: tenantCurrency?.currency || null
+      tenantCurrency: tenantCurrency?.currency || null,
+      currencySymbol: businessSettings?.currency_symbol || '$',
+      currencyCode: businessSettings?.currency_code || 'USD',
+      triggerCurrencyUpdate
     }}>
       {children}
     </AppContext.Provider>
