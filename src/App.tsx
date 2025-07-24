@@ -375,7 +375,9 @@ const App = () => (
               path="/pos" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-                  <ComprehensivePOS />
+                  <TenantAdminLayout>
+                    <ComprehensivePOS />
+                  </TenantAdminLayout>
                 </ProtectedRoute>
               } 
             />
