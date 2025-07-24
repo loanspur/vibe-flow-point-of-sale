@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle, Star } from "lucide-react";
 import BillingPlansManager from "./BillingPlansManager";
+import PaystackTestingInterface from "./PaystackTestingInterface";
 
 const Pricing = () => {
   const plans = [
@@ -140,6 +141,19 @@ const Pricing = () => {
       <section className="py-20 bg-background">
         <div className="container mx-auto px-4">
           <BillingPlansManager />
+        </div>
+      </section>
+
+      {/* Paystack Testing Interface */}
+      <section className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Payment Testing</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Test the complete Paystack payment flow with Kenyan Shilling pricing
+            </p>
+          </div>
+          <PaystackTestingInterface />
         </div>
       </section>
     </>

@@ -153,15 +153,15 @@ export default function TrialSignup() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
+      const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
         body: { planId: selectedPlan, isSignup: true }
       });
 
       if (error) throw error;
 
-      if (data.url) {
-        // Open Stripe checkout in a new tab
-        window.open(data.url, '_blank');
+      if (data.authorization_url) {
+        // Open Paystack checkout in a new tab
+        window.open(data.authorization_url, '_blank');
       }
 
     } catch (error: any) {
