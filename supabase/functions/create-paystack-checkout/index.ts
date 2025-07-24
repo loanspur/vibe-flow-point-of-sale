@@ -121,36 +121,40 @@ serve(async (req) => {
       logStep("Created new Paystack customer", { customerId: paystackCustomerId });
     }
 
-    // Create Paystack subscription
-    const subscriptionResponse = await fetch('https://api.paystack.co/subscription', {
+    // Initialize Paystack transaction for subscription
+    const transactionResponse = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get("PAYSTACK_SECRET_KEY")}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        customer: paystackCustomerId,
-        plan: 'monthly', // You'll need to create plans in Paystack dashboard
+        email: user.email,
         amount: billingPlan.price * 100, // Amount in kobo
+        currency: 'KES',
+        reference: `sub_${profile.tenant_id}_${Date.now()}`,
+        callback_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/paystack-webhook`,
         metadata: {
           tenant_id: profile.tenant_id,
           billing_plan_id: billingPlan.id,
-          plan_name: billingPlan.name
+          plan_name: billingPlan.name,
+          payment_type: 'subscription',
+          customer_code: paystackCustomerId
         }
       })
     });
 
-    const subscriptionData = await subscriptionResponse.json();
-    if (!subscriptionData.status) {
-      throw new Error(`Paystack subscription error: ${subscriptionData.message}`);
+    const transactionData = await transactionResponse.json();
+    if (!transactionData.status) {
+      throw new Error(`Paystack transaction error: ${transactionData.message}`);
     }
 
-    const subscriptionCode = subscriptionData.data.subscription_code;
-    const emailToken = subscriptionData.data.email_token;
+    const reference = transactionData.data.reference;
+    const authorizationUrl = transactionData.data.authorization_url;
 
-    logStep("Paystack subscription created", { 
-      subscriptionCode,
-      emailToken
+    logStep("Paystack transaction initialized", { 
+      reference,
+      authorizationUrl
     });
 
     // Create payment history record
@@ -161,15 +165,14 @@ serve(async (req) => {
         billing_plan_id: billingPlan.id,
         amount: billingPlan.price,
         currency: 'KES',
-        payment_reference: subscriptionCode,
+        payment_reference: reference,
         payment_method: 'paystack',
         payment_status: 'pending',
         payment_type: 'subscription',
         paystack_customer_id: paystackCustomerId,
-        paystack_subscription_id: subscriptionCode,
         metadata: {
-          email_token: emailToken,
-          plan_name: billingPlan.name
+          plan_name: billingPlan.name,
+          transaction_reference: reference
         }
       });
 
@@ -184,16 +187,14 @@ serve(async (req) => {
         tenant_id: profile.tenant_id,
         billing_plan_id: billingPlan.id,
         paystack_customer_id: paystackCustomerId,
-        paystack_subscription_id: subscriptionCode,
-        status: 'active',
+        status: 'pending',
         current_period_start: new Date().toISOString().split('T')[0],
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         trial_start: new Date().toISOString().split('T')[0],
         trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         metadata: {
-          subscription_code: subscriptionCode,
-          email_token: emailToken
+          transaction_reference: reference
         }
       }, {
         onConflict: 'tenant_id'
@@ -203,14 +204,10 @@ serve(async (req) => {
       logStep("Warning: Could not update subscription details", { error: subscriptionDetailsError });
     }
 
-    // Initialize the subscription using email token
-    const initializeUrl = `https://checkout.paystack.com/${emailToken}`;
-
     return new Response(JSON.stringify({ 
-      authorization_url: initializeUrl,
-      reference: subscriptionCode,
-      email_token: emailToken,
-      subscription_id: subscriptionCode
+      authorization_url: authorizationUrl,
+      reference: reference,
+      transaction_id: reference
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
