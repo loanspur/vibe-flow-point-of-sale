@@ -52,7 +52,6 @@ export default function BillingManagement() {
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
 
-  // Fetch billing plans
   useEffect(() => {
     fetchBillingPlans();
     fetchCurrentSubscription();
@@ -68,7 +67,6 @@ export default function BillingManagement() {
 
       if (error) throw error;
       
-      // Transform the data to match our interface
       const transformedPlans = (data || []).map(plan => ({
         ...plan,
         features: Array.isArray(plan.features) 
@@ -91,7 +89,6 @@ export default function BillingManagement() {
     try {
       if (!tenantId) return;
       
-      // Check if tenant has an active subscription from tenant_subscriptions table
       const { data, error } = await supabase
         .from('tenant_subscriptions')
         .select(`
@@ -132,24 +129,36 @@ export default function BillingManagement() {
     }
 
     setUpgrading(planId);
+    
     try {
+      console.log('Calling create-paystack-checkout with planId:', planId);
+      
       const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
-        body: {
+        body: JSON.stringify({
           planId: planId,
           isUpgrade: true
+        }),
+        headers: {
+          'Content-Type': 'application/json',
         }
       });
 
-      if (error) throw error;
+      console.log('Response from create-paystack-checkout:', { data, error });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to create checkout session');
+      }
 
       if (data?.authorization_url) {
-        // Open Paystack checkout in a new tab
         window.open(data.authorization_url, '_blank');
         
         toast({
           title: "Redirecting to Payment",
           description: "Complete your payment in the new tab to upgrade your plan"
         });
+      } else {
+        throw new Error('No authorization URL received from payment processor');
       }
     } catch (error: any) {
       console.error('Upgrade error:', error);
@@ -216,7 +225,6 @@ export default function BillingManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Current Subscription Status */}
       {currentSubscription ? (
         <Card className="border-green-200 bg-green-50">
           <CardHeader>
@@ -353,7 +361,6 @@ export default function BillingManagement() {
         </Alert>
       )}
 
-      {/* Available Plans */}
       <div>
         <h3 className="text-xl font-semibold mb-4">Available Plans</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -449,7 +456,6 @@ export default function BillingManagement() {
         </div>
       </div>
 
-      {/* Payment Verification Help */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
