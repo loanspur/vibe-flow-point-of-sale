@@ -7,7 +7,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-paystack-checkout]
-verify_jwt = false
+verify_jwt = true
 
 [functions.verify-paystack-payment]
 verify_jwt = false
