@@ -24,13 +24,27 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { planId } = await req.json();
+    const requestBody = await req.json();
+    logStep("Request body received", requestBody);
+
+    const { planId, isSignup } = requestBody;
     
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("No authorization header provided");
+    }
+    
     const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    const { data, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError) {
+      throw new Error(`Authentication error: ${authError.message}`);
+    }
+    
     const user = data.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
+    if (!user?.email) {
+      throw new Error("User not authenticated or email not available");
+    }
 
     logStep("User authenticated", { userId: user.id, email: user.email, planId });
 
@@ -126,7 +140,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ 
-      url: paystackData.data.authorization_url,
+      authorization_url: paystackData.data.authorization_url,
       reference: paystackData.data.reference 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
