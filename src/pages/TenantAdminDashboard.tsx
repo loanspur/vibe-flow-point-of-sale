@@ -268,7 +268,7 @@ export default function TenantAdminDashboard() {
       </div>
 
       {/* Billing Plan Display */}
-      {currentSubscription && (
+      {currentSubscription ? (
         <Card className="mb-6 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -296,6 +296,34 @@ export default function TenantAdminDashboard() {
                   <Button variant="outline" size="sm" className="border-blue-200 text-blue-700 hover:bg-blue-100">
                     <Settings className="h-4 w-4 mr-2" />
                     Manage Plan
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="mb-6 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-orange-900">
+                    No Active Subscription
+                  </p>
+                  <p className="text-sm text-orange-600">
+                    Choose a plan to unlock all features
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Link to="/admin/settings">
+                  <Button className="bg-orange-600 hover:bg-orange-700 text-white">
+                    <Crown className="h-4 w-4 mr-2" />
+                    Choose Plan
                   </Button>
                 </Link>
               </div>
