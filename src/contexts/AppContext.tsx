@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrencySettings, clearCurrencyCache } from '@/lib/currency';
+import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 
 interface BusinessSettings {
   currency_code: string;
@@ -17,6 +18,9 @@ interface AppContextType {
   loading: boolean;
   refreshBusinessSettings: () => Promise<void>;
   formatCurrency: (amount: number) => string;
+  formatLocalCurrency: (amount: number) => string;
+  convertFromKES: (amount: number) => Promise<number>;
+  tenantCurrency: string | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -25,6 +29,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { tenantId } = useAuth();
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const { formatLocalCurrency, convertFromKES, tenantCurrency } = useCurrencyConversion();
 
   const fetchBusinessSettings = useCallback(async () => {
     if (!tenantId) {
@@ -134,7 +139,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       businessSettings,
       loading,
       refreshBusinessSettings,
-      formatCurrency
+      formatCurrency,
+      formatLocalCurrency,
+      convertFromKES,
+      tenantCurrency: tenantCurrency?.currency || null
     }}>
       {children}
     </AppContext.Provider>
