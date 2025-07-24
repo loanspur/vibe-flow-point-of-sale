@@ -136,7 +136,7 @@ export default function BillingManagement() {
       const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
         body: JSON.stringify({
           planId: planId,
-          isUpgrade: true
+          isSignup: false
         }),
         headers: {
           'Content-Type': 'application/json',
