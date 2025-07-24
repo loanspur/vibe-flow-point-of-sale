@@ -136,33 +136,61 @@ export default function TrialSignup() {
         throw signUpError;
       }
 
-      // Wait a moment for user to be fully authenticated
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for authentication to complete
+      let retries = 0;
+      const maxRetries = 10;
+      
+      while (retries < maxRetries && !user) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries++;
+      }
 
-      // Step 2: Create tenant/business
-      const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant', {
-        body: {
-          businessName: formData.businessName,
-          ownerName: formData.ownerName,
-          email: formData.email,
+      if (!user) {
+        throw new Error('Authentication failed - please try signing in manually');
+      }
+
+      // Step 2: Create tenant/business with proper error handling
+      try {
+        const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant', {
+          body: {
+            businessName: formData.businessName,
+            ownerName: formData.ownerName,
+            email: formData.email,
+          }
+        });
+
+        if (tenantError) {
+          console.error('Tenant creation error:', tenantError);
+          throw new Error(`Failed to set up business: ${tenantError.message}`);
         }
-      });
 
-      if (tenantError) {
-        throw new Error(`Failed to set up business: ${tenantError.message}`);
+        if (!tenantData?.success) {
+          console.error('Tenant creation failed:', tenantData);
+          throw new Error(tenantData?.error || 'Failed to create business account');
+        }
+
+        setStep(2);
+        toast({
+          title: "Business account created!",
+          description: `Welcome to VibePOS, ${formData.businessName}! Now let's set up your subscription.`
+        });
+
+      } catch (tenantError: any) {
+        console.error('Tenant setup error:', tenantError);
+        
+        // If tenant creation fails, still allow user to proceed to payment
+        // They can complete setup later in the dashboard
+        toast({
+          title: "Account created with limited setup",
+          description: "Your account was created but business setup needs to be completed. You can finish this in your dashboard.",
+          variant: "destructive"
+        });
+        
+        setStep(2);
       }
-
-      if (!tenantData?.success) {
-        throw new Error(tenantData?.error || 'Failed to create business account');
-      }
-
-      setStep(2);
-      toast({
-        title: "Business account created!",
-        description: `Welcome to VibePOS, ${formData.businessName}! Now let's set up your subscription.`
-      });
 
     } catch (error: any) {
+      console.error('Signup error:', error);
       toast({
         title: "Error",
         description: error.message,
