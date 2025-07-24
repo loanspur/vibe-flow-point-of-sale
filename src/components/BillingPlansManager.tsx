@@ -710,7 +710,7 @@ export default function BillingPlansManager() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {plans.length > 0 ? (plans.reduce((sum, plan) => sum + plan.conversion_rate, 0) / plans.length).toFixed(1) : 0}%
+              {plans.length > 0 ? (plans.reduce((sum, plan) => sum + (plan.conversion_rate || 0), 0) / plans.length).toFixed(1) : 0}%
             </div>
             <p className="text-xs text-green-600">+2.3% improvement</p>
           </CardContent>
