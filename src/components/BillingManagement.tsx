@@ -422,7 +422,7 @@ export default function BillingManagement() {
                             </>
                           ) : (
                             <>
-                              Pay for Current Plan
+                              Pay {currentSubscription.billing_plans?.price ? formatCurrency(currentSubscription.billing_plans.price) : 'Current Plan'}
                               <ExternalLink className="h-4 w-4 ml-2" />
                             </>
                           )}
