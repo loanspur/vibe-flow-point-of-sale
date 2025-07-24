@@ -30,9 +30,19 @@ serve(async (req) => {
     
     // Verify webhook signature using Web Crypto API
     const encoder = new TextEncoder();
-    const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY") + body;
+    const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     const keyData = encoder.encode(secretKey);
-    const hashBuffer = await crypto.subtle.digest("SHA-512", keyData);
+    const bodyData = encoder.encode(body);
+    
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-512' },
+      false,
+      ['sign']
+    );
+    
+    const hashBuffer = await crypto.subtle.sign('HMAC', key, bodyData);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const expectedSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
