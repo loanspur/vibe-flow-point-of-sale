@@ -183,7 +183,7 @@ const businessSettingsSchema = z.object({
   
   // Tax settings
   tax_inclusive: z.boolean().default(false),
-  currency_symbol: z.string().default("$"),
+  currency_symbol: z.string().default("KES"),
   date_format: z.string().default("MM/DD/YYYY")
 });
 
@@ -373,7 +373,7 @@ export function BusinessSettingsEnhanced() {
       
       // Tax settings
       tax_inclusive: false,
-      currency_symbol: "$",
+      currency_symbol: "KES",
       date_format: "MM/DD/YYYY"
     },
   });

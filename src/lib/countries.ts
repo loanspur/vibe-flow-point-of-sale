@@ -84,7 +84,7 @@ export const countries: Country[] = [
   { code: 'ZA', name: 'South Africa', currency: 'ZAR', currencySymbol: 'R', currencyName: 'South African Rand', timezone: 'Africa/Johannesburg', region: 'Africa', flag: '🇿🇦' },
   { code: 'NG', name: 'Nigeria', currency: 'NGN', currencySymbol: '₦', currencyName: 'Nigerian Naira', timezone: 'Africa/Lagos', region: 'Africa', flag: '🇳🇬' },
   { code: 'EG', name: 'Egypt', currency: 'EGP', currencySymbol: '£', currencyName: 'Egyptian Pound', timezone: 'Africa/Cairo', region: 'Africa', flag: '🇪🇬' },
-  { code: 'KE', name: 'Kenya', currency: 'KES', currencySymbol: 'Sh', currencyName: 'Kenyan Shilling', timezone: 'Africa/Nairobi', region: 'Africa', flag: '🇰🇪' },
+  { code: 'KE', name: 'Kenya', currency: 'KES', currencySymbol: 'KES', currencyName: 'Kenyan Shilling', timezone: 'Africa/Nairobi', region: 'Africa', flag: '🇰🇪' },
   { code: 'GH', name: 'Ghana', currency: 'GHS', currencySymbol: '₵', currencyName: 'Ghanaian Cedi', timezone: 'Africa/Accra', region: 'Africa', flag: '🇬🇭' },
   { code: 'UG', name: 'Uganda', currency: 'UGX', currencySymbol: 'USh', currencyName: 'Ugandan Shilling', timezone: 'Africa/Kampala', region: 'Africa', flag: '🇺🇬' },
   { code: 'TZ', name: 'Tanzania', currency: 'TZS', currencySymbol: 'TSh', currencyName: 'Tanzanian Shilling', timezone: 'Africa/Dar_es_Salaam', region: 'Africa', flag: '🇹🇿' },
