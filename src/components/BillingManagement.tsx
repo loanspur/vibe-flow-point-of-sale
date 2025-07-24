@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,6 +71,7 @@ interface PaymentHistory {
 export default function BillingManagement() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
+  const { formatPrice } = useCurrencyUpdate();
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
@@ -298,14 +300,6 @@ export default function BillingManagement() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(amount / 100); // Convert kobo to main currency
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -349,7 +343,7 @@ export default function BillingManagement() {
                 <div>
                   <p className="text-sm font-medium text-green-800">Amount</p>
                   <p className="text-sm text-green-600">
-                    {currentSubscription.billing_plans?.price ? formatCurrency(currentSubscription.billing_plans.price) : 'N/A'}
+                    {currentSubscription.billing_plans?.price ? formatPrice(currentSubscription.billing_plans.price) : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -412,7 +406,7 @@ export default function BillingManagement() {
                             </>
                           ) : (
                             <>
-                              Pay {currentSubscription.billing_plans?.price ? formatCurrency(currentSubscription.billing_plans.price) : 'Current Plan'}
+                              Pay {currentSubscription.billing_plans?.price ? formatPrice(currentSubscription.billing_plans.price) : 'Current Plan'}
                               <ExternalLink className="h-4 w-4 ml-2" />
                             </>
                           )}
@@ -529,14 +523,14 @@ export default function BillingManagement() {
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <div className="space-y-1">
                     <div className="text-3xl font-bold">
-                      {formatCurrency(plan.price)}
+                      {formatPrice(plan.price)}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       per {plan.period}
                     </div>
                     {plan.original_price && plan.original_price > plan.price && (
                       <div className="text-sm text-muted-foreground line-through">
-                        {formatCurrency(plan.original_price)}
+                        {formatPrice(plan.original_price)}
                       </div>
                     )}
                   </div>
@@ -677,7 +671,7 @@ export default function BillingManagement() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">
-                      {formatCurrency(payment.amount)}
+                      {formatPrice(payment.amount)}
                     </p>
                     <Badge 
                       variant={

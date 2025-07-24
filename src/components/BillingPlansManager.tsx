@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
+import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -116,22 +116,16 @@ export default function BillingPlansManager() {
   const [loading, setLoading] = useState(true);
   const [tabConfig, setTabConfig] = useState(defaultTabConfig);
   const { toast } = useToast();
-  const { convertFromKES, formatLocalCurrency, loading: currencyLoading, error: currencyError } = useCurrencyConversion();
+  const { formatPrice, currencySymbol, currencyCode } = useCurrencyUpdate();
 
-  // Fallback currency formatting when conversion fails
-  const formatCurrencyFallback = (amount: number): string => {
-    return `KSh ${amount.toLocaleString('en-US', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    })}`;
+  // Format currency with current business settings
+  const formatCurrency = (amount: number): string => {
+    return formatPrice(amount);
   };
 
-  // Use local currency formatting with fallback
+  // Use business settings currency formatting
   const formatPlanCurrency = (amount: number): string => {
-    if (currencyError || currencyLoading) {
-      return formatCurrencyFallback(amount);
-    }
-    return formatLocalCurrency(amount);
+    return formatPrice(amount);
   };
 
   // Get enabled tabs sorted by order
