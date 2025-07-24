@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -115,6 +116,7 @@ export default function BillingPlansManager() {
   const [loading, setLoading] = useState(true);
   const [tabConfig, setTabConfig] = useState(defaultTabConfig);
   const { toast } = useToast();
+  const { convertFromKES, formatLocalCurrency } = useCurrencyConversion();
 
   // Get enabled tabs sorted by order
   const enabledTabs = tabConfig.filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
@@ -432,10 +434,10 @@ export default function BillingPlansManager() {
             )}
           </div>
           <div className="flex items-baseline gap-2 mt-4">
-            <span className="text-3xl font-bold">${plan.price}</span>
+            <span className="text-3xl font-bold">KSh {plan.price.toLocaleString()}</span>
             <span className="text-muted-foreground">/{plan.period}</span>
-            {plan.originalPrice > plan.price && (
-              <span className="text-sm line-through text-muted-foreground">${plan.originalPrice}</span>
+            {plan.original_price && plan.original_price > plan.price && (
+              <span className="text-sm line-through text-muted-foreground">KSh {plan.original_price.toLocaleString()}</span>
             )}
           </div>
         </CardHeader>
@@ -448,15 +450,15 @@ export default function BillingPlansManager() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">MRR:</span>
-              <span className="font-medium">${plan.mrr.toLocaleString()}</span>
+              <span className="font-medium">KSh {plan.mrr.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Churn Rate:</span>
-              <span className="font-medium">{plan.churnRate}%</span>
+              <span className="font-medium">{plan.churn_rate || 0}%</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Conversion:</span>
-              <span className="font-medium">{plan.conversionRate}%</span>
+              <span className="font-medium">{plan.conversion_rate || 0}%</span>
             </div>
           </div>
 
@@ -503,22 +505,22 @@ export default function BillingPlansManager() {
                 <div>
                   <h5 className="font-medium text-sm mb-2">Pricing Options:</h5>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex justify-between">
-                      <span>Monthly:</span>
-                      <span className="font-medium">${plan.pricing.monthly}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Quarterly:</span>
-                      <span className="font-medium">${plan.pricing.quarterly}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Annually:</span>
-                      <span className="font-medium">${plan.pricing.annually}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Bi-annually:</span>
-                      <span className="font-medium">${plan.pricing.biannually}</span>
-                    </div>
+                     <div className="flex justify-between">
+                       <span>Monthly:</span>
+                       <span className="font-medium">KSh {plan.pricing.monthly?.toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between">
+                       <span>Quarterly:</span>
+                       <span className="font-medium">KSh {plan.pricing.quarterly?.toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between">
+                       <span>Annually:</span>
+                       <span className="font-medium">KSh {plan.pricing.annually?.toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between">
+                       <span>Bi-annually:</span>
+                       <span className="font-medium">KSh {plan.pricing.biannually?.toLocaleString()}</span>
+                     </div>
                   </div>
                 </div>
               )}
@@ -529,10 +531,10 @@ export default function BillingPlansManager() {
                   <h5 className="font-medium text-sm mb-2">Available Add-ons:</h5>
                   <ul className="space-y-1 text-xs">
                     {plan.addOns.map((addon: any, index: number) => (
-                      <li key={index} className="flex justify-between">
-                        <span>{addon.name}</span>
-                        <span className="font-medium">${addon.price} {addon.unit}</span>
-                      </li>
+                       <li key={index} className="flex justify-between">
+                         <span>{addon.name}</span>
+                         <span className="font-medium">KSh {addon.price?.toLocaleString()} {addon.unit}</span>
+                       </li>
                     ))}
                   </ul>
                 </div>
@@ -594,7 +596,7 @@ export default function BillingPlansManager() {
             <h3 className="font-medium">Pricing</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="monthlyPrice">Monthly Price ($)</Label>
+                <Label htmlFor="monthlyPrice">Monthly Price (KSh)</Label>
                 <Input id="monthlyPrice" type="number" placeholder="79" />
               </div>
               <div>
@@ -698,7 +700,7 @@ export default function BillingPlansManager() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${plans.reduce((sum, plan) => sum + plan.mrr, 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">KSh {plans.reduce((sum, plan) => sum + plan.mrr, 0).toLocaleString()}</div>
             <p className="text-xs text-green-600">+12.5% from last month</p>
           </CardContent>
         </Card>
@@ -938,7 +940,7 @@ export default function BillingPlansManager() {
                         cy="50%"
                         outerRadius={100}
                         dataKey="mrr"
-                        label={({ name, mrr }) => `${name}: $${mrr.toLocaleString()}`}
+                        label={({ name, mrr }) => `${name}: KSh ${mrr.toLocaleString()}`}
                       >
                         {plans.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={["#8884d8", "#82ca9d", "#ffc658"][index]} />
@@ -1009,12 +1011,12 @@ export default function BillingPlansManager() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>${plan.price}/{plan.period}</TableCell>
-                      <TableCell>{plan.customers.toLocaleString()}</TableCell>
-                      <TableCell>${plan.mrr.toLocaleString()}</TableCell>
-                      <TableCell>${plan.arpu}</TableCell>
-                      <TableCell>{plan.conversionRate}%</TableCell>
-                      <TableCell>{plan.churnRate}%</TableCell>
+                       <TableCell>KSh {plan.price.toLocaleString()}/{plan.period}</TableCell>
+                       <TableCell>{plan.customers.toLocaleString()}</TableCell>
+                       <TableCell>KSh {plan.mrr.toLocaleString()}</TableCell>
+                       <TableCell>KSh {plan.arpu?.toLocaleString()}</TableCell>
+                       <TableCell>{plan.conversion_rate || 0}%</TableCell>
+                       <TableCell>{plan.churn_rate || 0}%</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button variant="ghost" size="sm">
@@ -1087,7 +1089,7 @@ export default function BillingPlansManager() {
                 <h3 className="font-medium">Pricing</h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="editPrice">Monthly Price ($)</Label>
+                    <Label htmlFor="editPrice">Monthly Price (KSh)</Label>
                     <Input 
                       id="editPrice" 
                       type="number" 
@@ -1096,7 +1098,7 @@ export default function BillingPlansManager() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="editOriginalPrice">Original Price ($)</Label>
+                    <Label htmlFor="editOriginalPrice">Original Price (KSh)</Label>
                     <Input 
                       id="editOriginalPrice" 
                       type="number" 
@@ -1105,7 +1107,7 @@ export default function BillingPlansManager() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="editARPU">ARPU ($)</Label>
+                    <Label htmlFor="editARPU">ARPU (KSh)</Label>
                     <Input 
                       id="editARPU" 
                       type="number" 
@@ -1130,7 +1132,7 @@ export default function BillingPlansManager() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="editMRR">MRR ($)</Label>
+                    <Label htmlFor="editMRR">MRR (KSh)</Label>
                     <Input 
                       id="editMRR" 
                       type="number" 
@@ -1249,22 +1251,22 @@ export default function BillingPlansManager() {
             <div className="space-y-6">
               {/* Quick Stats */}
               <div className="grid grid-cols-4 gap-4">
-                <div className="text-center p-4 border rounded">
-                  <div className="text-2xl font-bold">${selectedPlan.price}</div>
-                  <div className="text-sm text-muted-foreground">Monthly Price</div>
-                </div>
-                <div className="text-center p-4 border rounded">
-                  <div className="text-2xl font-bold">{selectedPlan.customers}</div>
-                  <div className="text-sm text-muted-foreground">Customers</div>
-                </div>
-                <div className="text-center p-4 border rounded">
-                  <div className="text-2xl font-bold">${selectedPlan.mrr.toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground">MRR</div>
-                </div>
-                <div className="text-center p-4 border rounded">
-                  <div className="text-2xl font-bold">{selectedPlan.conversionRate}%</div>
-                  <div className="text-sm text-muted-foreground">Conversion</div>
-                </div>
+                 <div className="text-center p-4 border rounded">
+                   <div className="text-2xl font-bold">KSh {selectedPlan.price?.toLocaleString()}</div>
+                   <div className="text-sm text-muted-foreground">Monthly Price</div>
+                 </div>
+                 <div className="text-center p-4 border rounded">
+                   <div className="text-2xl font-bold">{selectedPlan.customers}</div>
+                   <div className="text-sm text-muted-foreground">Customers</div>
+                 </div>
+                 <div className="text-center p-4 border rounded">
+                   <div className="text-2xl font-bold">KSh {selectedPlan.mrr?.toLocaleString()}</div>
+                   <div className="text-sm text-muted-foreground">MRR</div>
+                 </div>
+                 <div className="text-center p-4 border rounded">
+                   <div className="text-2xl font-bold">{selectedPlan.conversion_rate || 0}%</div>
+                   <div className="text-sm text-muted-foreground">Conversion</div>
+                 </div>
               </div>
 
               {/* All Features */}
@@ -1295,22 +1297,22 @@ export default function BillingPlansManager() {
                     <div className="space-y-2">
                       <div className="flex justify-between p-2 border rounded">
                         <span>Monthly:</span>
-                        <span className="font-medium">${selectedPlan.pricing.monthly}</span>
-                      </div>
-                      <div className="flex justify-between p-2 border rounded">
-                        <span>Quarterly:</span>
-                        <span className="font-medium">${selectedPlan.pricing.quarterly}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between p-2 border rounded">
-                        <span>Annually:</span>
-                        <span className="font-medium">${selectedPlan.pricing.annually}</span>
-                      </div>
-                      <div className="flex justify-between p-2 border rounded">
-                        <span>Bi-annually:</span>
-                        <span className="font-medium">${selectedPlan.pricing.biannually}</span>
-                      </div>
+                         <span className="font-medium">KSh {selectedPlan.pricing?.monthly?.toLocaleString()}</span>
+                       </div>
+                       <div className="flex justify-between p-2 border rounded">
+                         <span>Quarterly:</span>
+                         <span className="font-medium">KSh {selectedPlan.pricing?.quarterly?.toLocaleString()}</span>
+                       </div>
+                     </div>
+                     <div className="space-y-2">
+                       <div className="flex justify-between p-2 border rounded">
+                         <span>Annually:</span>
+                         <span className="font-medium">KSh {selectedPlan.pricing?.annually?.toLocaleString()}</span>
+                       </div>
+                       <div className="flex justify-between p-2 border rounded">
+                         <span>Bi-annually:</span>
+                         <span className="font-medium">KSh {selectedPlan.pricing?.biannually?.toLocaleString()}</span>
+                       </div>
                     </div>
                   </div>
                 </div>
@@ -1325,7 +1327,7 @@ export default function BillingPlansManager() {
                       {selectedPlan.addOns.map((addon: any, index: number) => (
                         <div key={index} className="flex justify-between p-2 border rounded">
                           <span>{addon.name}</span>
-                          <span className="font-medium">${addon.price} {addon.unit}</span>
+                          <span className="font-medium">KSh {addon.price?.toLocaleString()} {addon.unit}</span>
                         </div>
                       ))}
                     </div>
