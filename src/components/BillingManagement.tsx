@@ -33,11 +33,16 @@ interface TenantSubscription {
   id: string;
   billing_plan_id: string;
   status: string;
-  amount: number;
-  currency: string;
-  reference: string;
+  amount?: number;
+  currency?: string;
+  reference?: string;
   expires_at?: string;
+  trial_start?: string;
+  trial_end?: string;
+  current_period_start?: string;
+  current_period_end?: string;
   billing_plans?: {
+    id: string;
     name: string;
     price: number;
     period: string;
@@ -109,27 +114,53 @@ export default function BillingManagement() {
     try {
       if (!tenantId) return;
       
-      const { data, error } = await supabase
-        .from('tenant_subscriptions')
+      // First check tenant_subscription_details for current subscription info
+      const { data: subscriptionDetails, error: detailsError } = await supabase
+        .from('tenant_subscription_details')
         .select(`
           *,
           billing_plans (
+            id,
             name,
             price,
             period
           )
         `)
         .eq('tenant_id', tenantId)
-        .eq('status', 'active')
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (detailsError && detailsError.code !== 'PGRST116') throw detailsError;
       
-       if (data) {
+      if (subscriptionDetails) {
         setCurrentSubscription({
-          ...data,
-          billing_plans: data.billing_plans
+          ...subscriptionDetails,
+          billing_plans: subscriptionDetails.billing_plans
         } as TenantSubscription);
+      } else {
+        // Fallback to tenant_subscriptions for backward compatibility
+        const { data, error } = await supabase
+          .from('tenant_subscriptions')
+          .select(`
+            *,
+            billing_plans (
+              id,
+              name,
+              price,
+              period
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        
+        if (data) {
+          setCurrentSubscription({
+            ...data,
+            billing_plans: data.billing_plans
+          } as TenantSubscription);
+        }
       }
     } catch (error) {
       console.error('Error fetching subscription:', error);
@@ -362,13 +393,21 @@ export default function BillingManagement() {
               </div>
               <div className="flex flex-col items-end space-y-2">
                 {(() => {
-                  const expiryDate = new Date(currentSubscription.expires_at);
+                  // Check if user is on trial
+                  const trialEnd = currentSubscription.trial_end ? new Date(currentSubscription.trial_end) : null;
                   const now = new Date();
-                  const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                  const isTrialEnding = daysLeft <= 7;
-                  const isExpired = daysLeft <= 0;
+                  const isOnTrial = trialEnd && now < trialEnd;
+                  const daysLeftInTrial = trialEnd ? Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                  const isTrialEnding = isOnTrial && daysLeftInTrial <= 7;
                   
-                  if (isExpired || isTrialEnding) {
+                  // Check subscription expiry
+                  const expiryDate = currentSubscription.expires_at ? new Date(currentSubscription.expires_at) : 
+                                   currentSubscription.current_period_end ? new Date(currentSubscription.current_period_end) : null;
+                  const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                  const isExpired = expiryDate && daysLeft <= 0;
+                  const isPending = currentSubscription.status === 'pending';
+                  
+                  if (isOnTrial || isPending) {
                     return (
                       <>
                         <Button 
@@ -383,21 +422,51 @@ export default function BillingManagement() {
                             </>
                           ) : (
                             <>
-                              {isExpired ? 'Renew Plan' : 'Pay Now'}
+                              Pay for Current Plan
                               <ExternalLink className="h-4 w-4 ml-2" />
                             </>
                           )}
                         </Button>
-                        {!isExpired && (
+                        {isOnTrial && (
                           <p className="text-xs text-orange-600 text-center">
-                            Trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                            {isTrialEnding ? 
+                              `Trial ends in ${daysLeftInTrial} day${daysLeftInTrial !== 1 ? 's' : ''}` :
+                              `${daysLeftInTrial} days left in trial`
+                            }
                           </p>
                         )}
-                        {isExpired && (
-                          <p className="text-xs text-red-600 text-center">
-                            Trial expired - Renew to continue
+                        {isPending && (
+                          <p className="text-xs text-blue-600 text-center">
+                            Subscription pending payment
                           </p>
                         )}
+                      </>
+                    );
+                  }
+                  
+                  if (isExpired) {
+                    return (
+                      <>
+                        <Button 
+                          className="bg-red-600 hover:bg-red-700 text-white w-full"
+                          onClick={() => handleUpgrade(currentSubscription.billing_plan_id)}
+                          disabled={upgrading === currentSubscription.billing_plan_id}
+                        >
+                          {upgrading === currentSubscription.billing_plan_id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              Renew Plan
+                              <ExternalLink className="h-4 w-4 ml-2" />
+                            </>
+                          )}
+                        </Button>
+                        <p className="text-xs text-red-600 text-center">
+                          Subscription expired - Renew to continue
+                        </p>
                       </>
                     );
                   }
