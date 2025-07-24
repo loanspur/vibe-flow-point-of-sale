@@ -101,26 +101,29 @@ serve(async (req) => {
 
     logStep("Tenant created", { tenantId: tenant.id, subdomain: finalSubdomain });
 
-    // Update user profile with tenant_id
+    // Update user profile with tenant_id and admin role
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({ 
         tenant_id: tenant.id,
-        full_name: ownerName 
+        full_name: ownerName,
+        role: 'admin' // Set as tenant admin
       })
       .eq('user_id', user.id);
 
     if (profileError) {
       logStep("Warning: Failed to update profile", { error: profileError.message });
+    } else {
+      logStep("Profile updated with admin role");
     }
 
-    // Create tenant_users association
+    // Create tenant_users association with admin role
     const { error: tenantUserError } = await supabaseAdmin
       .from('tenant_users')
       .insert({
         tenant_id: tenant.id,
         user_id: user.id,
-        role: 'owner',
+        role: 'admin', // Set as tenant admin, not just owner
         is_active: true,
       });
 
@@ -128,7 +131,7 @@ serve(async (req) => {
       throw new Error(`Failed to create tenant user association: ${tenantUserError.message}`);
     }
 
-    logStep("User associated with tenant as owner");
+    logStep("User associated with tenant as admin");
 
     // Create business settings
     const { error: settingsError } = await supabaseAdmin
