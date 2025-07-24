@@ -63,6 +63,7 @@ import { currencies, stockAccountingMethods, smsProviders, templateOptions } fro
 import { timezones } from "@/lib/timezones";
 import { countries, popularCountries, getRegions, searchCountries, type Country } from "@/lib/countries";
 import { clearCurrencyCache } from "@/lib/currency";
+import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import DomainManagement from '@/components/DomainManagement';
 
 const businessSettingsSchema = z.object({
@@ -258,6 +259,7 @@ export function BusinessSettingsEnhanced() {
   const [templateEditType, setTemplateEditType] = useState<"invoice" | "receipt" | "quote">("invoice");
   const { toast } = useToast();
   const { formatCurrency } = useApp();
+  const { formatPrice } = useCurrencyUpdate();
 
   const form = useForm<z.infer<typeof businessSettingsSchema>>({
     resolver: zodResolver(businessSettingsSchema),
@@ -2251,7 +2253,7 @@ export function BusinessSettingsEnhanced() {
                       )}
                       <div>
                         <span className="text-sm font-medium text-gray-600">Currency:</span>
-                        <p className="font-semibold">{settings?.currency_code || "USD"}</p>
+                        <p className="font-semibold">{settings?.currency_code || "USD"} ({settings?.currency_symbol || "$"})</p>
                       </div>
                       <div>
                         <span className="text-sm font-medium text-gray-600">Payment Terms:</span>
@@ -2284,10 +2286,10 @@ export function BusinessSettingsEnhanced() {
                       </td>
                       <td className="text-center py-4 px-4 text-gray-900 font-medium">2</td>
                       <td className="text-right py-4 px-4 text-gray-900 font-medium">
-                        {formatCurrency ? formatCurrency(50) : `${settings?.currency_symbol || '$'}50.00`}
+                        {formatPrice(50)}
                       </td>
                       <td className="text-right py-4 px-4 text-gray-900 font-semibold">
-                        {formatCurrency ? formatCurrency(100) : `${settings?.currency_symbol || '$'}100.00`}
+                        {formatPrice(100)}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-100 hover:bg-gray-50">
@@ -2300,10 +2302,10 @@ export function BusinessSettingsEnhanced() {
                       </td>
                       <td className="text-center py-4 px-4 text-gray-900 font-medium">1</td>
                       <td className="text-right py-4 px-4 text-gray-900 font-medium">
-                        {formatCurrency ? formatCurrency(75) : `${settings?.currency_symbol || '$'}75.00`}
+                        {formatPrice(75)}
                       </td>
                       <td className="text-right py-4 px-4 text-gray-900 font-semibold">
-                        {formatCurrency ? formatCurrency(75) : `${settings?.currency_symbol || '$'}75.00`}
+                        {formatPrice(75)}
                       </td>
                     </tr>
                   </tbody>
@@ -2317,14 +2319,14 @@ export function BusinessSettingsEnhanced() {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subtotal:</span>
                       <span className="font-medium text-gray-900">
-                        {formatCurrency ? formatCurrency(175) : `${settings?.currency_symbol || '$'}175.00`}
+                        {formatPrice(175)}
                       </span>
                     </div>
                     {settings?.default_tax_rate && settings.default_tax_rate > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">{settings.tax_name || "Tax"} ({settings.default_tax_rate}%):</span>
                         <span className="font-medium text-gray-900">
-                          {formatCurrency ? formatCurrency(175 * (settings.default_tax_rate / 100)) : `${settings?.currency_symbol || '$'}${(175 * (settings.default_tax_rate / 100)).toFixed(2)}`}
+                          {formatPrice(175 * ((settings?.default_tax_rate || 0) / 100))}
                         </span>
                       </div>
                     )}
@@ -2332,7 +2334,7 @@ export function BusinessSettingsEnhanced() {
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-bold text-gray-900">Total:</span>
                         <span className="text-2xl font-bold text-primary">
-                          {formatCurrency ? formatCurrency(settings?.default_tax_rate ? 175 * (1 + (settings.default_tax_rate / 100)) : 175) : `${settings?.currency_symbol || '$'}${settings?.default_tax_rate ? (175 * (1 + (settings.default_tax_rate / 100))).toFixed(2) : "175.00"}`}
+                          {formatPrice(settings?.default_tax_rate ? 175 * (1 + ((settings.default_tax_rate || 0) / 100)) : 175)}
                         </span>
                       </div>
                     </div>
