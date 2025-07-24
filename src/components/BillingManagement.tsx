@@ -1,0 +1,376 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  CreditCard, 
+  Calendar, 
+  DollarSign, 
+  CheckCircle, 
+  Clock, 
+  AlertTriangle,
+  Loader2,
+  ExternalLink
+} from 'lucide-react';
+
+interface BillingPlan {
+  id: string;
+  name: string;
+  price: number;
+  period: string;
+  features: string[];
+  badge?: string;
+  badge_color?: string;
+  popularity: number;
+  original_price?: number;
+}
+
+interface Subscription {
+  plan_name?: string;
+  status?: string;
+  expires_at?: string;
+  amount?: number;
+  currency?: string;
+  reference?: string;
+}
+
+export default function BillingManagement() {
+  const { user, tenantId } = useAuth();
+  const { toast } = useToast();
+  const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
+  const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [upgrading, setUpgrading] = useState<string | null>(null);
+
+  // Fetch billing plans
+  useEffect(() => {
+    fetchBillingPlans();
+    fetchCurrentSubscription();
+  }, [tenantId]);
+
+  const fetchBillingPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('billing_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('popularity', { ascending: false });
+
+      if (error) throw error;
+      setBillingPlans(data || []);
+    } catch (error) {
+      console.error('Error fetching billing plans:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load billing plans",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchCurrentSubscription = async () => {
+    try {
+      if (!tenantId) return;
+      
+      // Check if tenant has an active subscription from tenant_subscriptions table
+      const { data, error } = await supabase
+        .from('tenant_subscriptions')
+        .select(`
+          *,
+          billing_plans (
+            name,
+            price,
+            period
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data) {
+        setCurrentSubscription({
+          plan_name: data.billing_plans?.name,
+          status: data.status,
+          expires_at: data.expires_at,
+          amount: data.billing_plans?.price,
+          currency: 'NGN',
+          reference: data.reference
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpgrade = async (planId: string) => {
+    if (!user?.email) {
+      toast({
+        title: "Error",
+        description: "Please ensure you're logged in",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUpgrading(planId);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
+        body: {
+          planId: planId,
+          isUpgrade: true
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.authorization_url) {
+        // Open Paystack checkout in a new tab
+        window.open(data.authorization_url, '_blank');
+        
+        toast({
+          title: "Redirecting to Payment",
+          description: "Complete your payment in the new tab to upgrade your plan"
+        });
+      }
+    } catch (error: any) {
+      console.error('Upgrade error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate upgrade",
+        variant: "destructive"
+      });
+    } finally {
+      setUpgrading(null);
+    }
+  };
+
+  const verifyPayment = async (reference: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-paystack-payment', {
+        body: { reference }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Payment Verified!",
+          description: "Your subscription has been updated successfully"
+        });
+        fetchCurrentSubscription();
+      }
+    } catch (error: any) {
+      console.error('Payment verification error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify payment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading billing information...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Current Subscription Status */}
+      {currentSubscription ? (
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <CardTitle className="text-green-800">Active Subscription</CardTitle>
+              </div>
+              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                {currentSubscription.status?.toUpperCase()}
+              </Badge>
+            </div>
+            <CardDescription className="text-green-700">
+              You're currently subscribed to the {currentSubscription.plan_name} plan
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-green-800">Amount</p>
+                  <p className="text-sm text-green-600">
+                    {currentSubscription.amount ? formatCurrency(currentSubscription.amount) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-green-800">Expires</p>
+                  <p className="text-sm text-green-600">
+                    {currentSubscription.expires_at ? formatDate(currentSubscription.expires_at) : 'Never'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CreditCard className="h-4 w-4 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-green-800">Reference</p>
+                  <p className="text-sm text-green-600 font-mono">
+                    {currentSubscription.reference || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have an active subscription. Choose a plan below to get started.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Available Plans */}
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Available Plans</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {billingPlans.map((plan) => {
+            const isCurrentPlan = currentSubscription?.plan_name === plan.name;
+            const isPopular = plan.popularity > 0;
+            
+            return (
+              <Card 
+                key={plan.id} 
+                className={`relative transition-all duration-200 hover:shadow-lg ${
+                  isCurrentPlan ? 'ring-2 ring-green-500 bg-green-50' : ''
+                } ${isPopular ? 'border-primary' : ''}`}
+              >
+                {isPopular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-primary text-primary-foreground">
+                      {plan.badge || 'Popular'}
+                    </Badge>
+                  </div>
+                )}
+                
+                <CardHeader className="text-center pb-2">
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold">
+                      {formatCurrency(plan.price)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      per {plan.period}
+                    </div>
+                    {plan.original_price && plan.original_price > plan.price && (
+                      <div className="text-sm text-muted-foreground line-through">
+                        {formatCurrency(plan.original_price)}
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    {plan.features?.map((feature, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        <span className="text-sm">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    className="w-full" 
+                    variant={isCurrentPlan ? "outline" : "default"}
+                    disabled={isCurrentPlan || upgrading === plan.id}
+                    onClick={() => handleUpgrade(plan.id)}
+                  >
+                    {upgrading === plan.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : isCurrentPlan ? (
+                      'Current Plan'
+                    ) : (
+                      <>
+                        {currentSubscription ? 'Upgrade' : 'Subscribe'}
+                        <ExternalLink className="h-4 w-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Payment Verification Help */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Clock className="h-5 w-5" />
+            <span>Payment Verification</span>
+          </CardTitle>
+          <CardDescription>
+            If you've completed a payment but don't see your subscription updated, you can verify it manually.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-4">
+            <input
+              type="text"
+              placeholder="Enter payment reference"
+              className="flex-1 px-3 py-2 border rounded-md"
+              id="paymentReference"
+            />
+            <Button 
+              onClick={() => {
+                const input = document.getElementById('paymentReference') as HTMLInputElement;
+                if (input?.value) {
+                  verifyPayment(input.value);
+                  input.value = '';
+                }
+              }}
+            >
+              Verify Payment
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
