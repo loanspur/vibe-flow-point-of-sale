@@ -35,6 +35,7 @@ const TenantSettings = lazy(() => import("./pages/TenantSettings"));
 const TenantCommunications = lazy(() => import("./pages/TenantCommunications"));
 const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
 const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunications"));
+const SuperAdminPlanManagement = lazy(() => import("./pages/SuperAdminPlanManagement"));
 const Products = lazy(() => import("./pages/Products"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Team = lazy(() => import("./pages/Team"));
@@ -242,6 +243,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
                   <SuperAdminLayout>
                     <SuperAdminCommunications />
+                  </SuperAdminLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/superadmin/plans" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                  <SuperAdminLayout>
+                    <SuperAdminPlanManagement />
                   </SuperAdminLayout>
                 </ProtectedRoute>
               } 

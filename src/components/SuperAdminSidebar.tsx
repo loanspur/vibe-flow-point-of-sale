@@ -9,7 +9,8 @@ import {
   Activity,
   Database,
   Shield,
-  Mail
+  Mail,
+  CreditCard
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -55,6 +56,12 @@ const navigationItems = [
     url: "/superadmin/revenue", 
     icon: DollarSign,
     description: "Revenue tracking"
+  },
+  { 
+    title: "Plan Management", 
+    url: "/superadmin/plans", 
+    icon: CreditCard,
+    description: "Manage billing plans"
   },
 ];
 
