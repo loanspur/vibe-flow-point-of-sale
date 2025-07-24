@@ -177,7 +177,7 @@ export default function BillingPlansManager() {
         churn_rate: 0,
         conversion_rate: 0,
         trial_conversion: 0,
-        features: planData.features || [],
+        features: Array.isArray(planData.features) ? planData.features : [],
         pricing: {
           monthly: Number(planData.price),
           quarterly: Number(planData.price) * 3,
@@ -434,10 +434,10 @@ export default function BillingPlansManager() {
             )}
           </div>
           <div className="flex items-baseline gap-2 mt-4">
-            <span className="text-3xl font-bold">KSh {plan.price.toLocaleString()}</span>
+            <span className="text-3xl font-bold">{formatLocalCurrency(plan.price)}</span>
             <span className="text-muted-foreground">/{plan.period}</span>
             {plan.original_price && plan.original_price > plan.price && (
-              <span className="text-sm line-through text-muted-foreground">KSh {plan.original_price.toLocaleString()}</span>
+              <span className="text-sm line-through text-muted-foreground">{formatLocalCurrency(plan.original_price)}</span>
             )}
           </div>
         </CardHeader>
@@ -450,7 +450,7 @@ export default function BillingPlansManager() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">MRR:</span>
-              <span className="font-medium">KSh {plan.mrr.toLocaleString()}</span>
+              <span className="font-medium">{formatLocalCurrency(plan.mrr || 0)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Churn Rate:</span>
@@ -476,7 +476,7 @@ export default function BillingPlansManager() {
               </Button>
             </div>
             <ul className="space-y-1 text-sm">
-              {(isExpanded ? plan.features : plan.features.slice(0, 4)).map((feature: any, index: number) => (
+              {(isExpanded ? (plan.features || []) : (plan.features || []).slice(0, 4)).map((feature: any, index: number) => (
                 <li key={index} className="flex items-center gap-2">
                   {feature.included ? (
                     <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
@@ -484,14 +484,14 @@ export default function BillingPlansManager() {
                     <div className="h-3 w-3 rounded-full border border-muted-foreground flex-shrink-0" />
                   )}
                   <span className={feature.included ? "" : "text-muted-foreground line-through"}>
-                    {feature.name}
+                    {typeof feature === 'string' ? feature : feature.name || 'Unnamed Feature'}
                     {feature.limit && <span className="text-muted-foreground"> ({feature.limit})</span>}
                   </span>
                 </li>
               ))}
-              {!isExpanded && plan.features.length > 4 && (
+              {!isExpanded && (plan.features || []).length > 4 && (
                 <li className="text-muted-foreground text-xs">
-                  +{plan.features.length - 4} more features
+                  +{(plan.features || []).length - 4} more features
                 </li>
               )}
             </ul>
@@ -1167,31 +1167,35 @@ export default function BillingPlansManager() {
               <div className="space-y-4">
                 <h3 className="font-medium">Features</h3>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {selectedPlan.features?.map((feature: any, index: number) => (
+                  {(selectedPlan.features || []).map((feature: any, index: number) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded">
                       <div className="flex items-center gap-3 flex-1">
                         <Switch 
                           checked={feature.included}
                           onCheckedChange={(included) => {
-                            const updatedFeatures = [...selectedPlan.features];
+                            const updatedFeatures = [...(selectedPlan.features || [])];
                             updatedFeatures[index] = {...feature, included};
                             setSelectedPlan({...selectedPlan, features: updatedFeatures});
                           }}
                         />
                         <Input
-                          value={feature.name}
+                          value={typeof feature === 'string' ? feature : feature.name || ''}
                           onChange={(e) => {
-                            const updatedFeatures = [...selectedPlan.features];
-                            updatedFeatures[index] = {...feature, name: e.target.value};
+                            const updatedFeatures = [...(selectedPlan.features || [])];
+                            updatedFeatures[index] = typeof feature === 'string' 
+                              ? { name: e.target.value, included: true, limit: '' }
+                              : {...feature, name: e.target.value};
                             setSelectedPlan({...selectedPlan, features: updatedFeatures});
                           }}
                           className="flex-1"
                         />
                         <Input
-                          value={feature.limit || ""}
+                          value={typeof feature === 'string' ? '' : (feature.limit || "")}
                           onChange={(e) => {
-                            const updatedFeatures = [...selectedPlan.features];
-                            updatedFeatures[index] = {...feature, limit: e.target.value};
+                            const updatedFeatures = [...(selectedPlan.features || [])];
+                            updatedFeatures[index] = typeof feature === 'string'
+                              ? { name: feature, included: true, limit: e.target.value }
+                              : {...feature, limit: e.target.value};
                             setSelectedPlan({...selectedPlan, features: updatedFeatures});
                           }}
                           placeholder="Limit"
@@ -1202,7 +1206,7 @@ export default function BillingPlansManager() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          const updatedFeatures = selectedPlan.features.filter((_: any, i: number) => i !== index);
+                          const updatedFeatures = (selectedPlan.features || []).filter((_: any, i: number) => i !== index);
                           setSelectedPlan({...selectedPlan, features: updatedFeatures});
                         }}
                       >
@@ -1273,7 +1277,7 @@ export default function BillingPlansManager() {
               <div>
                 <h3 className="font-medium mb-3">All Features</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {selectedPlan.features?.map((feature: any, index: number) => (
+                  {(selectedPlan.features || []).map((feature: any, index: number) => (
                     <div key={index} className="flex items-center gap-2 p-2 border rounded">
                       {feature.included ? (
                         <CheckCircle className="h-4 w-4 text-green-600" />

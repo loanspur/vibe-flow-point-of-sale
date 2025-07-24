@@ -677,7 +677,7 @@ export default function BillingManagement() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">
-                      {formatCurrency(payment.amount * 100)} {payment.currency}
+                      {formatCurrency(payment.amount)}
                     </p>
                     <Badge 
                       variant={
