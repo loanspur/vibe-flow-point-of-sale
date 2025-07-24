@@ -57,8 +57,34 @@ serve(async (req) => {
       const metadata = transaction.metadata;
       logStep("Processing successful payment", { metadata });
       
-      if (!metadata || !metadata.tenant_id || !metadata.plan_id) {
-        throw new Error("Missing required metadata in transaction");
+      // Extract tenant_id and plan_id from metadata or payment reference
+      let tenant_id = metadata?.tenant_id;
+      let plan_id = metadata?.plan_id;
+      
+      // If not in metadata, try to extract from payment reference format: sub_{tenant_id}_{timestamp}
+      if (!tenant_id && reference.startsWith('sub_')) {
+        const referenceParts = reference.split('_');
+        if (referenceParts.length >= 2) {
+          tenant_id = referenceParts[1];
+        }
+      }
+      
+      // Get plan_id from existing payment record if not in metadata
+      if (!plan_id) {
+        const { data: paymentRecord } = await supabaseClient
+          .from('payment_history')
+          .select('billing_plan_id, tenant_id')
+          .eq('payment_reference', reference)
+          .single();
+        
+        if (paymentRecord) {
+          plan_id = paymentRecord.billing_plan_id;
+          tenant_id = tenant_id || paymentRecord.tenant_id;
+        }
+      }
+      
+      if (!tenant_id || !plan_id) {
+        throw new Error(`Missing required data: tenant_id=${tenant_id}, plan_id=${plan_id}`);
       }
 
       // Update payment record status
@@ -102,8 +128,8 @@ serve(async (req) => {
             payment_verified_at: new Date().toISOString()
           }
         })
-        .eq('tenant_id', metadata.tenant_id)
-        .eq('billing_plan_id', metadata.plan_id);
+        .eq('tenant_id', tenant_id)
+        .eq('billing_plan_id', plan_id);
 
       if (subscriptionError) {
         logStep("Error updating subscription details", { error: subscriptionError });
@@ -118,7 +144,7 @@ serve(async (req) => {
             customers: supabaseClient.sql`customers + 1`,
             mrr: supabaseClient.sql`mrr + ${transaction.amount / 100}`
           })
-          .eq('id', metadata.plan_id);
+          .eq('id', plan_id);
         
         if (planUpdateError) {
           logStep("Warning: Could not update plan statistics", { error: planUpdateError });
@@ -128,8 +154,8 @@ serve(async (req) => {
       }
 
       logStep("Payment verification completed successfully", { 
-        tenantId: metadata.tenant_id,
-        planId: metadata.plan_id,
+        tenantId: tenant_id,
+        planId: plan_id,
         amount: transaction.amount / 100
       });
 
@@ -138,9 +164,9 @@ serve(async (req) => {
         status: 'verified',
         message: 'Payment verified and subscription activated',
         subscription: {
-          tenant_id: metadata.tenant_id,
-          plan_id: metadata.plan_id,
-          plan_name: metadata.plan_name,
+          tenant_id: tenant_id,
+          plan_id: plan_id,
+          plan_name: metadata?.plan_name || 'Unknown Plan',
           status: 'active',
           amount: transaction.amount / 100,
           currency: transaction.currency,
