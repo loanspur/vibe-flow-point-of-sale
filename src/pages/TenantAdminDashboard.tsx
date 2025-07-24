@@ -20,6 +20,7 @@ import {
   Settings
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 
 const getTimeBasedGreeting = () => {
   const hour = new Date().getHours();
@@ -31,6 +32,7 @@ const getTimeBasedGreeting = () => {
 export default function TenantAdminDashboard() {
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
+  const { formatPrice } = useCurrencyUpdate();
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
 
   // Fetch subscription data
@@ -295,7 +297,7 @@ export default function TenantAdminDashboard() {
               <div className="flex items-center space-x-3">
                 <div className="text-right">
                   <p className="text-2xl font-bold text-blue-900">
-                    ${(currentSubscription.billing_plans?.price / 100).toFixed(0)}
+                    {formatPrice((currentSubscription.billing_plans?.price || 0) / 100)}
                   </p>
                   <p className="text-sm text-blue-600">per {currentSubscription.billing_plans?.period}</p>
                 </div>
