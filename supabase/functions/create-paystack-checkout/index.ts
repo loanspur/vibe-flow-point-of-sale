@@ -94,7 +94,6 @@ serve(async (req) => {
         email: user.email,
         amount: billingPlan.price * 100, // Paystack expects amount in kobo (smallest currency unit)
         currency: 'KES',
-        plan: billingPlan.id,
         customer: customerId,
         metadata: {
           user_id: user.id,
