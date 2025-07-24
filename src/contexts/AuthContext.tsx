@@ -56,6 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
+        console.log('User profile loaded:', profile);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
         
@@ -68,6 +69,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setViewMode('tenant');
         }
       } else {
+        console.log('No profile found, setting default role');
         // Fallback if no profile found
         setUserRole('user');
         setTenantId(null);
