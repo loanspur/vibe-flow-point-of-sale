@@ -2,15 +2,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Star, ArrowRight, Zap, Shield, Users, BarChart3, CreditCard, Clock, Building2 } from "lucide-react";
+import { Check, Star, ArrowRight, Zap, Shield, Users, BarChart3, CreditCard, Clock, Building2, ShoppingCart, Package, Receipt, Smartphone, Globe, Settings, HeadphonesIcon, TrendingUp, Database, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
-import Features from "@/components/Features";
 import Dashboard from "@/components/Dashboard";
-import Pricing from "@/components/Pricing";
 import Footer from "@/components/Footer";
 
 interface BillingPlan {
@@ -289,7 +287,371 @@ const Index = () => {
         </div>
       </section>
 
-      <Features />
+      {/* Comprehensive POS Features Section */}
+      <section className="py-20 bg-muted/20">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <Badge variant="outline" className="text-sm px-4 py-2">
+              <Package className="h-4 w-4 mr-2" />
+              Complete POS Solution
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold">
+              Everything You Need to Run Your Business
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              From point-of-sale to inventory management, accounting to customer management - 
+              VibePOS has all the tools your business needs in one powerful platform.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+            {/* Core POS Features */}
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <ShoppingCart className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-xl">Point of Sale</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Fast checkout process</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Barcode scanning</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Multiple payment methods</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Receipt printing</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Discount management</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <Package className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <CardTitle className="text-xl">Inventory Management</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Real-time stock tracking</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Low stock alerts</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Product variants & categories</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Purchase order management</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Stock adjustments</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <BarChart3 className="h-6 w-6 text-green-500" />
+                  </div>
+                  <CardTitle className="text-xl">Financial Management</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Complete accounting system</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Accounts receivable/payable</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Tax management (VAT ready)</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Financial statements</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Profit & loss tracking</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-500/10 rounded-lg">
+                    <Users className="h-6 w-6 text-purple-500" />
+                  </div>
+                  <CardTitle className="text-xl">Customer Management</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Customer database</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Purchase history tracking</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Customer statements</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Loyalty programs</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Communication tools</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <TrendingUp className="h-6 w-6 text-orange-500" />
+                  </div>
+                  <CardTitle className="text-xl">Reports & Analytics</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Sales reports & analytics</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Inventory reports</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Financial reporting</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Custom dashboards</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Performance insights</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-500/10 rounded-lg">
+                    <Smartphone className="h-6 w-6 text-red-500" />
+                  </div>
+                  <CardTitle className="text-xl">Multi-Platform Access</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Web-based application</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Mobile app access</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Offline mode support</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Multi-location support</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Cloud synchronization</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Additional Features Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Receipt className="h-6 w-6 text-primary" />
+              </div>
+              <h4 className="font-semibold">Quotes & Invoicing</h4>
+              <p className="text-sm text-muted-foreground">Generate professional quotes and invoices</p>
+            </div>
+            
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                <Settings className="h-6 w-6 text-blue-500" />
+              </div>
+              <h4 className="font-semibold">Role Management</h4>
+              <p className="text-sm text-muted-foreground">User roles and permissions control</p>
+            </div>
+            
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center">
+                <Globe className="h-6 w-6 text-green-500" />
+              </div>
+              <h4 className="font-semibold">API Integration</h4>
+              <p className="text-sm text-muted-foreground">Connect with external systems</p>
+            </div>
+            
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                <Lock className="h-6 w-6 text-purple-500" />
+              </div>
+              <h4 className="font-semibold">Data Security</h4>
+              <p className="text-sm text-muted-foreground">Enterprise-grade security & backups</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Detailed Plan Comparison */}
+      <section className="py-20 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <Badge variant="outline" className="text-sm px-4 py-2">
+              Plan Comparison
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold">
+              Compare All Features Across Plans
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              See exactly what's included in each plan to choose the perfect fit for your business
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading feature comparison...</p>
+            </div>
+          ) : plans.length > 0 && (
+            <div className="max-w-7xl mx-auto">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-4 font-semibold">Features</th>
+                      {plans.map((plan) => (
+                        <th key={plan.id} className="text-center p-4">
+                          <div className="space-y-2">
+                            <div className="font-bold text-lg">{plan.name}</div>
+                            <div className="text-2xl font-bold text-primary">
+                              {formatPrice(plan.price)}<span className="text-sm text-muted-foreground">/{plan.period}</span>
+                            </div>
+                            {plan.badge && (
+                              <Badge className={`${plan.badge_color || 'bg-primary'} text-xs`}>
+                                {plan.badge}
+                              </Badge>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Extract all unique features */}
+                    {Array.from(
+                      new Set(
+                        plans.flatMap(plan => 
+                          formatFeatures(plan.features).map((f: any) => 
+                            typeof f === 'string' ? f : f?.name || f?.feature || 'Feature'
+                          )
+                        )
+                      )
+                    ).map((featureName, index) => (
+                      <tr key={index} className="border-b hover:bg-muted/50">
+                        <td className="p-4 font-medium">{featureName}</td>
+                        {plans.map((plan) => {
+                          const planFeatures = formatFeatures(plan.features);
+                          const hasFeature = planFeatures.some((f: any) => {
+                            const name = typeof f === 'string' ? f : f?.name || f?.feature || 'Feature';
+                            return name === featureName;
+                          });
+                          
+                          return (
+                            <td key={plan.id} className="p-4 text-center">
+                              {hasFeature ? (
+                                <Check className="h-5 w-5 text-green-500 mx-auto" />
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td className="p-4"></td>
+                      {plans.map((plan) => (
+                        <td key={plan.id} className="p-4 text-center">
+                          <Button className="w-full" asChild>
+                            <Link to={`/signup?plan=${plan.id}`}>
+                              Choose {plan.name}
+                            </Link>
+                          </Button>
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
       <Dashboard />
       
       {/* CTA Section */}
