@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.send-enhanced-email]
 verify_jwt = false
+
+[functions.create-paystack-checkout]
+verify_jwt = false
+
+[functions.verify-paystack-payment]
+verify_jwt = false
+
+[functions.paystack-webhook]
+verify_jwt = false
