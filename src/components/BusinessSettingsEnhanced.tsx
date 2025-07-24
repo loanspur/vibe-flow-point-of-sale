@@ -88,7 +88,8 @@ const businessSettingsSchema = z.object({
   enable_fixed_pricing: z.boolean().default(false),
   pos_auto_print_receipt: z.boolean().default(true),
   pos_ask_customer_info: z.boolean().default(false),
-  
+  sms_enable_notifications: z.boolean().default(false),
+  whatsapp_enable_notifications: z.boolean().default(false),
   sms_provider: z.string().optional(),
   whatsapp_api_key: z.string().optional(),
   whatsapp_phone_number: z.string().optional(),
@@ -193,7 +194,8 @@ export function BusinessSettingsEnhanced() {
       enable_fixed_pricing: false,
       pos_auto_print_receipt: true,
       pos_ask_customer_info: false,
-      
+      sms_enable_notifications: false,
+      whatsapp_enable_notifications: false,
       invoice_template: "standard",
       receipt_template: "standard",
       quote_template: "standard",
@@ -1621,6 +1623,18 @@ export function BusinessSettingsEnhanced() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-4">
+                            <FormField
+                              control={form.control}
+                              name="sms_enable_notifications"
+                              render={({ field }) => (
+                                <FormItem className="flex items-center justify-between">
+                                  <FormLabel>Enable SMS</FormLabel>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
                           </CardContent>
                         </Card>
 
@@ -1667,6 +1681,18 @@ export function BusinessSettingsEnhanced() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-4">
+                            <FormField
+                              control={form.control}
+                              name="whatsapp_enable_notifications"
+                              render={({ field }) => (
+                                <FormItem className="flex items-center justify-between">
+                                  <FormLabel>Enable WhatsApp</FormLabel>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
                             <FormField
                               control={form.control}
                               name="whatsapp_api_key"
