@@ -250,23 +250,13 @@ export default function BillingManagement() {
       }
 
       if (data?.authorization_url) {
-        // Try to open in new tab, fallback to same window if blocked
-        const newWindow = window.open(data.authorization_url, '_blank', 'noopener,noreferrer');
+        // Open in new tab only
+        window.open(data.authorization_url, '_blank', 'noopener,noreferrer');
         
-        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-          // Popup was blocked, redirect in the same window
-          toast({
-            title: "Redirecting to Payment",
-            description: "Popup blocked. Redirecting to payment page...",
-            variant: "default"
-          });
-          window.location.href = data.authorization_url;
-        } else {
-          toast({
-            title: "Redirecting to Payment",
-            description: "Complete your payment in the new tab to upgrade your plan"
-          });
-        }
+        toast({
+          title: "Redirecting to Payment",
+          description: "Complete your payment in the new tab to upgrade your plan"
+        });
       } else {
         throw new Error('No authorization URL received from payment processor');
       }
