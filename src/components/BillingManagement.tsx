@@ -139,6 +139,9 @@ export default function BillingManagement() {
         body: {
           planId: planId,
           isSignup: false
+        },
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
 
