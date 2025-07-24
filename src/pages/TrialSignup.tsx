@@ -120,10 +120,11 @@ export default function TrialSignup() {
 
     setLoading(true);
     try {
-      const { error } = await signUp(formData.email, formData.password, formData.ownerName);
+      // Step 1: Create user account
+      const { error: signUpError } = await signUp(formData.email, formData.password, formData.ownerName);
 
-      if (error) {
-        if (error.message.includes('already registered')) {
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
           toast({
             title: "Account exists",
             description: "This email is already registered. Please sign in instead.",
@@ -132,13 +133,33 @@ export default function TrialSignup() {
           navigate('/auth');
           return;
         }
-        throw error;
+        throw signUpError;
+      }
+
+      // Wait a moment for user to be fully authenticated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Step 2: Create tenant/business
+      const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant', {
+        body: {
+          businessName: formData.businessName,
+          ownerName: formData.ownerName,
+          email: formData.email,
+        }
+      });
+
+      if (tenantError) {
+        throw new Error(`Failed to set up business: ${tenantError.message}`);
+      }
+
+      if (!tenantData?.success) {
+        throw new Error(tenantData?.error || 'Failed to create business account');
       }
 
       setStep(2);
       toast({
-        title: "Account created!",
-        description: "Now let's set up your subscription"
+        title: "Business account created!",
+        description: `Welcome to VibePOS, ${formData.businessName}! Now let's set up your subscription.`
       });
 
     } catch (error: any) {
