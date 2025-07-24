@@ -203,6 +203,72 @@ export default function PaystackTestingInterface() {
     }
   };
 
+  const simulatePaymentSuccess = async (reference: string) => {
+    setLoading(true);
+    const simulateResult: PaymentTestResult = {
+      status: 'pending',
+      message: 'Simulating Paystack payment success webhook...',
+      reference,
+      timestamp: new Date().toISOString()
+    };
+    setTestResults(prev => [simulateResult, ...prev]);
+
+    try {
+      // Simulate webhook payload
+      const webhookPayload = {
+        event: "charge.success",
+        data: {
+          reference: reference,
+          amount: reference.includes('1753389130340') ? 516.13 : 309.68, // Enterprise vs Professional (in kobo)
+          currency: "KES",
+          status: "success",
+          paid_at: new Date().toISOString(),
+          channel: "card",
+          metadata: {},
+          customer: {
+            email: user?.email || "test@example.com"
+          }
+        }
+      };
+
+      const { data, error } = await supabase.functions.invoke('paystack-webhook', {
+        body: webhookPayload
+      });
+
+      if (error) throw error;
+
+      const successResult: PaymentTestResult = {
+        status: 'success',
+        message: 'Payment success webhook processed successfully!',
+        reference,
+        timestamp: new Date().toISOString()
+      };
+      setTestResults(prev => [successResult, ...prev.slice(1)]);
+
+      toast({
+        title: "Payment Processed",
+        description: "Webhook simulation completed successfully",
+        variant: "default"
+      });
+    } catch (error: any) {
+      const failResult: PaymentTestResult = {
+        status: 'failed',
+        message: `Webhook simulation failed: ${error.message}`,
+        reference,
+        timestamp: new Date().toISOString()
+      };
+      setTestResults(prev => [failResult, ...prev.slice(1)]);
+      
+      toast({
+        title: "Simulation Error",
+        description: error.message || "Failed to simulate webhook",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const selectedPlanData = billingPlans.find(p => p.id === selectedPlan);
 
   return (
@@ -373,21 +439,28 @@ export default function PaystackTestingInterface() {
               </div>
 
               <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Quick Test References:</h4>
+                <h4 className="text-sm font-medium mb-2">Test Payment Processing:</h4>
                 <div className="grid grid-cols-1 gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => simulatePaymentSuccess('sub_11111111-1111-1111-1111-111111111111_1753389130340')}
+                  >
+                    Simulate Enterprise Payment Success
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => simulatePaymentSuccess('sub_11111111-1111-1111-1111-111111111111_1753388914291')}
+                  >
+                    Simulate Professional Payment Success
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => verifyPayment('sub_11111111-1111-1111-1111-111111111111_1753389130340')}
                   >
-                    Test Enterprise Plan Verification
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => verifyPayment('sub_11111111-1111-1111-1111-111111111111_1753388914291')}
-                  >
-                    Test Professional Plan Verification
+                    Manual Verification Test
                   </Button>
                 </div>
               </div>
@@ -402,7 +475,7 @@ export default function PaystackTestingInterface() {
                     <li>Use any of the test card numbers above</li>
                     <li>Use any future date for expiry (e.g., 12/25)</li>
                     <li>Use any 3-digit CVV (e.g., 123)</li>
-                    <li>Check the webhook will update the subscription status</li>
+                    <li>OR use the "Simulate Payment Success" buttons to test webhook processing</li>
                   </ol>
                 </AlertDescription>
               </Alert>

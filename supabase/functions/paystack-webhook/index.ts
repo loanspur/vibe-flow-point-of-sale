@@ -79,11 +79,33 @@ async function handleSuccessfulPayment(supabaseClient: any, data: any) {
   logStep("Processing successful payment", { reference: data.reference });
   
   const metadata = data.metadata;
-  const tenantId = metadata?.tenant_id;
-  const billingPlanId = metadata?.billing_plan_id;
+  let tenantId = metadata?.tenant_id;
+  let billingPlanId = metadata?.billing_plan_id;
+  
+  // If not in metadata, extract from payment reference format: sub_{tenant_id}_{timestamp}
+  if (!tenantId && data.reference.startsWith('sub_')) {
+    const referenceParts = data.reference.split('_');
+    if (referenceParts.length >= 2) {
+      tenantId = referenceParts[1];
+    }
+  }
+  
+  // Get plan_id from existing payment record if not in metadata
+  if (!billingPlanId) {
+    const { data: paymentRecord } = await supabaseClient
+      .from('payment_history')
+      .select('billing_plan_id, tenant_id')
+      .eq('payment_reference', data.reference)
+      .single();
+    
+    if (paymentRecord) {
+      billingPlanId = paymentRecord.billing_plan_id;
+      tenantId = tenantId || paymentRecord.tenant_id;
+    }
+  }
   
   if (!tenantId) {
-    logStep("No tenant_id in metadata, skipping");
+    logStep("No tenant_id found, skipping", { reference: data.reference });
     return;
   }
 
@@ -110,9 +132,16 @@ async function handleSuccessfulPayment(supabaseClient: any, data: any) {
           status: 'active',
           current_period_start: new Date().toISOString().split('T')[0],
           current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          updated_at: new Date().toISOString(),
+          metadata: {
+            last_payment_reference: data.reference,
+            last_payment_amount: data.amount / 100,
+            payment_verified_at: new Date().toISOString()
+          }
         })
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .eq('billing_plan_id', billingPlanId);
 
       if (subscriptionError) {
         logStep("Warning: Could not update subscription details", { error: subscriptionError });
