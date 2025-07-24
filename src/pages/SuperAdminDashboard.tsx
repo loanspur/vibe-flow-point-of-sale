@@ -177,7 +177,11 @@ export default function SuperAdminDashboard() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {stat.title}
                   </CardTitle>
-                  {typeof stat.icon === 'function' ? stat.icon() : <Icon className={`h-4 w-4 ${stat.color}`} />}
+                  {stat.title === "Monthly Revenue" ? (
+                    <CurrencyIcon currency={tenantCurrency?.currency || 'USD'} className={`h-4 w-4 ${stat.color}`} />
+                  ) : (
+                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stat.value}</div>
