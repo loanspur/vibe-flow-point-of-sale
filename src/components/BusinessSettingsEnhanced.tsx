@@ -21,7 +21,6 @@ import {
   Phone, 
   Mail, 
   Globe, 
-  DollarSign, 
   Clock, 
   Receipt, 
   Bell, 
@@ -67,6 +66,7 @@ import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { RestrictedSetting } from "@/components/FeatureRestriction";
 import DomainManagement from '@/components/DomainManagement';
+import { CurrencyIcon } from '@/components/ui/currency-icon';
 
 const businessSettingsSchema = z.object({
   // Basic company information
@@ -1062,10 +1062,10 @@ export function BusinessSettingsEnhanced() {
                                name="currency_code"
                                render={({ field }) => (
                                  <FormItem>
-                                   <FormLabel className="flex items-center gap-2">
-                                     <DollarSign className="h-4 w-4" />
-                                     Currency
-                                   </FormLabel>
+                                    <FormLabel className="flex items-center gap-2">
+                                      <CurrencyIcon currency={form.watch("currency_code")} className="h-4 w-4" />
+                                      Currency
+                                    </FormLabel>
                                    <Select onValueChange={field.onChange} value={field.value}>
                                      <FormControl>
                                        <SelectTrigger className="bg-background border hover:border-primary/50 transition-colors">
