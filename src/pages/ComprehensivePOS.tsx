@@ -5,6 +5,7 @@ import PromotionManagement from '@/components/PromotionManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
+import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { useNavigate } from 'react-router-dom';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +49,7 @@ interface DashboardData {
 }
 
 export default function ComprehensivePOS() {
+  const { formatPrice } = useCurrencyUpdate();
   const { user, tenantId, userRole, refreshUserInfo } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -279,7 +281,7 @@ export default function ComprehensivePOS() {
   const stats = [
     { 
       title: "Today's Sales", 
-      value: dashboardData?.todaysSales ? `$${dashboardData.todaysSales.toFixed(2)}` : "$0.00", 
+      value: dashboardData?.todaysSales ? formatPrice(dashboardData.todaysSales) : formatPrice(0), 
       change: dashboardData?.todaysOrders ? `${dashboardData.todaysOrders} orders` : "No orders today", 
       icon: DollarSign, 
       color: "text-green-600" 
@@ -310,7 +312,7 @@ export default function ComprehensivePOS() {
   const recentSales = dashboardData?.recentSales?.map((sale: any, index: number) => ({
     id: `#${String(index + 1).padStart(3, '0')}`,
     customer: sale.contacts?.name || 'Unknown Customer',
-    amount: `$${Number(sale.total_amount || 0).toFixed(2)}`,
+    amount: formatPrice(Number(sale.total_amount || 0)),
     time: new Date(sale.created_at).toLocaleString(),
     status: 'completed'
   })) || [];
@@ -319,7 +321,7 @@ export default function ComprehensivePOS() {
     id: product.id,
     name: product.name,
     sku: product.sku || 'N/A',
-    price: `$${Number(product.price || 0).toFixed(2)}`,
+    price: formatPrice(Number(product.price || 0)),
     stock: product.stock_quantity || 0,
     category: product.product_categories?.name || 'Uncategorized'
   })) || [];

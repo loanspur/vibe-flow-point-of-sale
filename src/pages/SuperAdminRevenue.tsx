@@ -27,19 +27,12 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContaine
 import { useToast } from "@/hooks/use-toast";
 import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
+import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { supabase } from "@/integrations/supabase/client";
 
 // Base currency formatting for SuperAdmin (KES)
 const formatBaseCurrency = (amount: number) => 
   `KSh ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-// Revenue overview metrics
-const revenueMetrics = [
-  { metric: "Monthly Recurring Revenue", value: "$284,500", change: "+15.2%", trend: "up", icon: DollarSign },
-  { metric: "Annual Recurring Revenue", value: "$3.4M", change: "+18.7%", trend: "up", icon: TrendingUp },
-  { metric: "Average Revenue Per User", value: "$228", change: "+3.4%", trend: "up", icon: Users },
-  { metric: "Customer Lifetime Value", value: "$2,840", change: "+8.9%", trend: "up", icon: Building2 }
-];
 
 // Monthly revenue data
 const monthlyRevenueData = [
@@ -85,6 +78,8 @@ export default function SuperAdminRevenue() {
   const [transactionFilter, setTransactionFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  const { formatPrice } = useCurrencyUpdate();
+  
   // Use base currency (KES) for all superadmin revenue views
   const [revenueData, setRevenueData] = useState({
     totalMRR: 0,
@@ -94,6 +89,16 @@ export default function SuperAdminRevenue() {
     billingPlans: []
   });
   const [loading, setLoading] = useState(true);
+
+  // Revenue overview metrics (function to generate with dynamic currency)
+  const getRevenueMetrics = (formatPrice: (amount: number) => string) => [
+    { metric: "Monthly Recurring Revenue", value: formatPrice(284500), change: "+15.2%", trend: "up", icon: DollarSign },
+    { metric: "Annual Recurring Revenue", value: formatPrice(3400000), change: "+18.7%", trend: "up", icon: TrendingUp },
+    { metric: "Average Revenue Per User", value: formatPrice(228), change: "+3.4%", trend: "up", icon: Users },
+    { metric: "Customer Lifetime Value", value: formatPrice(2840), change: "+8.9%", trend: "up", icon: Building2 }
+  ];
+
+  const revenueMetrics = getRevenueMetrics(formatPrice);
 
   useEffect(() => {
     const fetchRevenueData = async () => {
@@ -305,7 +310,7 @@ export default function SuperAdminRevenue() {
                         cy="50%"
                         outerRadius={100}
                         dataKey="mrr"
-                        label={({ plan, mrr }) => `${plan}: $${mrr.toLocaleString()}`}
+                        label={({ plan, mrr }) => `${plan}: ${formatPrice(mrr)}`}
                       >
                         {revenueByPlan.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -431,7 +436,7 @@ export default function SuperAdminRevenue() {
                     <TableRow key={transaction.id}>
                       <TableCell className="font-mono text-sm">{transaction.id}</TableCell>
                       <TableCell className="font-medium">{transaction.tenant}</TableCell>
-                      <TableCell>${transaction.amount.toLocaleString()}</TableCell>
+                      <TableCell>{formatPrice(transaction.amount)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{transaction.plan}</Badge>
                       </TableCell>
