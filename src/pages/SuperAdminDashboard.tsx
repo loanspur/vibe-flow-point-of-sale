@@ -14,36 +14,103 @@ import {
   Activity,
   Crown
 } from 'lucide-react';
+import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 
 export default function SuperAdminDashboard() {
   const { user, userRole } = useAuth();
+  const { formatLocalCurrency, tenantCurrency } = useCurrencyConversion();
+  const [dashboardData, setDashboardData] = useState({
+    totalTenants: 0,
+    activeUsers: 0,
+    monthlyRevenue: 0,
+    systemHealth: 99.9
+  });
+  const [loading, setLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch total tenants
+        const { data: tenants, error: tenantsError } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('is_active', true);
+
+        // Fetch total users across all tenants
+        const { data: users, error: usersError } = await supabase
+          .from('profiles')
+          .select('id');
+
+        // Fetch revenue data from billing plans
+        const { data: billingPlans, error: plansError } = await supabase
+          .from('billing_plans')
+          .select('mrr, customers');
+
+        // Calculate total monthly revenue
+        const totalMRR = billingPlans?.reduce((sum, plan) => sum + (plan.mrr || 0), 0) || 0;
+
+        // Fetch recent user activity logs
+        const { data: activityLogs, error: activityError } = await supabase
+          .from('user_activity_logs')
+          .select('action_type, details, created_at, tenant_id')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!tenantsError && !usersError && !plansError) {
+          setDashboardData({
+            totalTenants: tenants?.length || 0,
+            activeUsers: users?.length || 0,
+            monthlyRevenue: totalMRR,
+            systemHealth: 99.9
+          });
+        }
+
+        if (!activityError && activityLogs) {
+          setRecentActivity(activityLogs);
+        }
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const adminStats = [
     {
       title: "Total Tenants",
-      value: "24",
+      value: loading ? "..." : dashboardData.totalTenants.toString(),
       change: "+3 this month",
       icon: Building2,
       color: "text-blue-600"
     },
     {
       title: "Active Users",
-      value: "1,247",
+      value: loading ? "..." : dashboardData.activeUsers.toLocaleString(),
       change: "+12% this month", 
       icon: Users,
       color: "text-green-600"
     },
     {
       title: "Monthly Revenue",
-      value: "$18,950",
+      value: loading ? "..." : formatLocalCurrency(dashboardData.monthlyRevenue),
       change: "+8.2% from last month",
-      icon: DollarSign,
+      icon: () => <CurrencyIcon currency={tenantCurrency?.currency || 'USD'} className="h-4 w-4" />,
       color: "text-purple-600"
     },
     {
       title: "System Health",
-      value: "99.9%",
+      value: `${dashboardData.systemHealth}%`,
       change: "Uptime this month",
       icon: Activity,
       color: "text-emerald-600"
@@ -153,26 +220,30 @@ export default function SuperAdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { action: "New tenant signup", tenant: "Sunrise Coffee Co", time: "2 minutes ago", type: "success" },
-                  { action: "Payment processed", tenant: "TechFlow Solutions", time: "15 minutes ago", type: "success" },
-                  { action: "Trial started", tenant: "Urban Style Boutique", time: "1 hour ago", type: "info" },
-                  { action: "Support ticket", tenant: "Mountain View Deli", time: "2 hours ago", type: "warning" }
-                ].map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-2 h-2 rounded-full ${
-                        activity.type === 'success' ? 'bg-green-500' :
-                        activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
-                      }`} />
-                      <div>
-                        <p className="font-medium">{activity.action}</p>
-                        <p className="text-sm text-muted-foreground">{activity.tenant}</p>
+                {loading ? (
+                  <p className="text-muted-foreground">Loading recent activity...</p>
+                ) : recentActivity.length > 0 ? (
+                  recentActivity.map((activity: any, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          activity.action_type === 'login' ? 'bg-green-500' :
+                          activity.action_type === 'create' ? 'bg-blue-500' :
+                          activity.action_type === 'update' ? 'bg-yellow-500' : 'bg-gray-500'
+                        }`} />
+                        <div>
+                          <p className="font-medium">{activity.action_type}</p>
+                          <p className="text-sm text-muted-foreground">Tenant: {activity.tenant_id}</p>
+                        </div>
                       </div>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(activity.created_at).toLocaleString()}
+                      </span>
                     </div>
-                    <span className="text-sm text-muted-foreground">{activity.time}</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-muted-foreground">No recent activity found.</p>
+                )}
               </div>
             </CardContent>
           </Card>

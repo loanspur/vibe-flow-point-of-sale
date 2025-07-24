@@ -25,6 +25,9 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { CurrencyIcon } from "@/components/ui/currency-icon";
+import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
+import { supabase } from "@/integrations/supabase/client";
 
 // Revenue overview metrics
 const revenueMetrics = [
@@ -78,6 +81,49 @@ export default function SuperAdminRevenue() {
   const [transactionFilter, setTransactionFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  const { formatLocalCurrency, tenantCurrency } = useCurrencyConversion();
+  const [revenueData, setRevenueData] = useState({
+    totalMRR: 0,
+    totalARR: 0,
+    averageARPU: 0,
+    totalCustomers: 0,
+    billingPlans: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRevenueData = async () => {
+      try {
+        setLoading(true);
+        
+        const { data: billingPlans, error } = await supabase
+          .from('billing_plans')
+          .select('*')
+          .eq('is_active', true);
+
+        if (!error && billingPlans) {
+          const totalMRR = billingPlans.reduce((sum, plan) => sum + (plan.mrr || 0), 0);
+          const totalCustomers = billingPlans.reduce((sum, plan) => sum + (plan.customers || 0), 0);
+          const totalARR = totalMRR * 12;
+          const averageARPU = totalCustomers > 0 ? totalMRR / totalCustomers : 0;
+
+          setRevenueData({
+            totalMRR,
+            totalARR,
+            averageARPU,
+            totalCustomers,
+            billingPlans
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching revenue data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRevenueData();
+  }, []);
 
   const handleExportRevenue = () => {
     toast({
@@ -135,27 +181,69 @@ export default function SuperAdminRevenue() {
 
       {/* Key Revenue Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {revenueMetrics.map((metric, index) => (
-          <Card key={index}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{metric.metric}</CardTitle>
-              <metric.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metric.value}</div>
-              <div className="flex items-center gap-1">
-                {metric.trend === "up" ? (
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                )}
-                <p className={`text-xs ${metric.trend === "up" ? "text-green-600" : "text-red-600"}`}>
-                  {metric.change} from last period
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Recurring Revenue</CardTitle>
+            <CurrencyIcon currency={tenantCurrency?.currency || 'USD'} className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {loading ? "..." : formatLocalCurrency(revenueData.totalMRR)}
+            </div>
+            <div className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <p className="text-xs text-green-600">+15.2% from last period</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Annual Recurring Revenue</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {loading ? "..." : formatLocalCurrency(revenueData.totalARR)}
+            </div>
+            <div className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <p className="text-xs text-green-600">+18.7% from last period</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Revenue Per User</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {loading ? "..." : formatLocalCurrency(revenueData.averageARPU)}
+            </div>
+            <div className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <p className="text-xs text-green-600">+3.4% from last period</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {loading ? "..." : revenueData.totalCustomers.toLocaleString()}
+            </div>
+            <div className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-green-600" />
+              <p className="text-xs text-green-600">+8.9% from last period</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
@@ -257,30 +345,36 @@ export default function SuperAdminRevenue() {
         {/* Subscription Analytics */}
         <TabsContent value="subscriptions" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {revenueByPlan.map((plan, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded" style={{ backgroundColor: plan.color }}></div>
-                    {plan.plan} Plan
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <div className="text-2xl font-bold">${plan.mrr.toLocaleString()}</div>
-                    <p className="text-sm text-muted-foreground">Monthly Recurring Revenue</p>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold">{plan.customers}</div>
-                    <p className="text-sm text-muted-foreground">Active Customers</p>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold">${plan.arpu}</div>
-                    <p className="text-sm text-muted-foreground">ARPU</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {loading ? (
+              <p className="text-muted-foreground col-span-3">Loading billing plans...</p>
+            ) : revenueData.billingPlans.length > 0 ? (
+              revenueData.billingPlans.map((plan: any, index) => (
+                <Card key={index}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded bg-primary"></div>
+                      {plan.name} Plan
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <div className="text-2xl font-bold">{formatLocalCurrency(plan.mrr || 0)}</div>
+                      <p className="text-sm text-muted-foreground">Monthly Recurring Revenue</p>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{plan.customers || 0}</div>
+                      <p className="text-sm text-muted-foreground">Active Customers</p>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{formatLocalCurrency(plan.price || 0)}</div>
+                      <p className="text-sm text-muted-foreground">Price per month</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <p className="text-muted-foreground col-span-3">No billing plans found.</p>
+            )}
           </div>
         </TabsContent>
 
