@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrencySettings, clearCurrencyCache } from '@/lib/currency';
 import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 
 interface BusinessSettings {
@@ -40,33 +39,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setLoading(true);
       
-      // Fetch business settings and currency settings in parallel
-      const [settingsResponse, currencySettings] = await Promise.all([
-        supabase
-          .from('business_settings')
-          .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
-          .eq('tenant_id', tenantId)
-          .single(),
-        getCurrencySettings()
-      ]);
+      const settingsResponse = await supabase
+        .from('business_settings')
+        .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
+        .eq('tenant_id', tenantId)
+        .single();
 
       if (settingsResponse.error) {
         console.error('Error fetching business settings:', settingsResponse.error);
-        // Use currency settings as fallback
+        // Use default fallback settings
         setBusinessSettings({
-          currency_code: currencySettings.currency_code,
-          currency_symbol: currencySettings.currency_symbol,
+          currency_code: 'USD',
+          currency_symbol: '$',
           company_name: 'Your Business',
           timezone: 'UTC',
           tax_inclusive: false,
           default_tax_rate: 0
         });
       } else {
-        setBusinessSettings({
-          ...settingsResponse.data,
-          currency_code: currencySettings.currency_code,
-          currency_symbol: currencySettings.currency_symbol,
-        });
+        // Use the actual business settings from the database
+        setBusinessSettings(settingsResponse.data);
       }
     } catch (error) {
       console.error('Error in fetchBusinessSettings:', error);
@@ -76,7 +68,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [tenantId]);
 
   const refreshBusinessSettings = useCallback(async () => {
-    clearCurrencyCache();
     await fetchBusinessSettings();
   }, [fetchBusinessSettings]);
 
