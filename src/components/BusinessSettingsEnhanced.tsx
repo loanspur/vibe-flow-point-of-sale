@@ -84,7 +84,7 @@ const businessSettingsSchema = z.object({
   enable_brands: z.boolean().default(false),
   enable_product_units: z.boolean().default(false),
   enable_warranty: z.boolean().default(false),
-  allow_overselling: z.boolean().default(false),
+  
   enable_fixed_pricing: z.boolean().default(false),
   pos_auto_print_receipt: z.boolean().default(true),
   pos_ask_customer_info: z.boolean().default(false),
@@ -191,7 +191,7 @@ export function BusinessSettingsEnhanced() {
       enable_brands: false,
       enable_product_units: false,
       enable_warranty: false,
-      allow_overselling: false,
+      
       enable_fixed_pricing: false,
       pos_auto_print_receipt: true,
       pos_ask_customer_info: false,
@@ -1515,22 +1515,6 @@ export function BusinessSettingsEnhanced() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-4">
-                            <FormField
-                              control={form.control}
-                              name="allow_overselling"
-                              render={({ field }) => (
-                                <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
-                                  <div>
-                                    <FormLabel className="font-medium">Allow Overselling</FormLabel>
-                                    <FormDescription>Allow sales beyond available stock</FormDescription>
-                                  </div>
-                                  <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            
                             <FormField
                               control={form.control}
                               name="enable_fixed_pricing"
