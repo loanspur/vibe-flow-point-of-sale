@@ -454,7 +454,7 @@ export const DataMigration: React.FC = () => {
         headers.join(','),
         ...data.map(row => 
           headers.map(header => {
-            const value = row[header] || '';
+            const value = row[header] != null ? row[header] : '';
             return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
           }).join(',')
         )
