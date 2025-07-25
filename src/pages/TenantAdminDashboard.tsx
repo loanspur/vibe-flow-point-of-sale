@@ -105,7 +105,7 @@ export default function TenantAdminDashboard() {
             .then(response => {
               if (response.error) throw response.error;
               const lowStockProducts = response.data.filter(product => 
-                product.stock_quantity <= product.min_stock_level || product.stock_quantity === 0
+                product.stock_quantity <= product.min_stock_level && product.min_stock_level > 0
               );
               return { ...response, count: lowStockProducts.length };
             })

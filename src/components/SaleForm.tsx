@@ -50,12 +50,9 @@ interface SaleFormProps {
 }
 
 export function SaleForm({ onSaleCompleted }: SaleFormProps) {
-  const { tenantId, user } = useAuth();
+  const { tenantId } = useAuth();
   const { toast } = useToast();
   const { formatAmount } = useCurrencySettings();
-  
-  // Debug logging for authentication state
-  console.log('SaleForm - User:', user?.id, 'Tenant:', tenantId);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -118,8 +115,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   }, [products, searchTerm]);
 
   const fetchProducts = async () => {
-    console.log('fetchProducts called - User:', user?.id, 'Tenant:', tenantId);
-    
     if (!tenantId) {
       console.warn('No tenant ID available for fetching products');
       toast({
@@ -134,7 +129,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     }
     
     setIsLoadingProducts(true);
-    console.log('Fetching products for tenant:', tenantId);
     
     try {
       // Fetch products with a simpler, more efficient query
