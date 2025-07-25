@@ -7,6 +7,7 @@ import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { TenantAdminLayout } from "./components/TenantAdminLayout";
 import { SuperAdminLayout } from "./components/SuperAdminLayout";
 import PerformanceMonitor from "./components/PerformanceMonitor";
@@ -273,9 +274,11 @@ const App = () => (
               path="/admin" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <TenantAdminDashboard />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <TenantAdminDashboard />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -283,9 +286,11 @@ const App = () => (
               path="/admin/products" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <Products />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <Products />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -293,9 +298,11 @@ const App = () => (
               path="/admin/reports" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <Reports />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <Reports />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -303,9 +310,11 @@ const App = () => (
               path="/admin/team" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <Team />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <Team />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -313,9 +322,11 @@ const App = () => (
               path="/admin/customers" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <Customers />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <Customers />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -323,9 +334,11 @@ const App = () => (
               path="/admin/settings" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <TenantSettings />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <TenantSettings />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -333,9 +346,11 @@ const App = () => (
               path="/admin/communications" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <TenantCommunications />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <TenantCommunications />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -343,9 +358,11 @@ const App = () => (
               path="/admin/sales" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier']}>
-                  <TenantAdminLayout>
-                    <Sales />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <Sales />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -353,9 +370,11 @@ const App = () => (
               path="/admin/purchases" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <Purchases />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <Purchases />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -363,9 +382,11 @@ const App = () => (
               path="/admin/accounting" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <TenantAdminLayout>
-                    <Accounting />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <Accounting />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
@@ -375,9 +396,11 @@ const App = () => (
               path="/pos" 
               element={
                 <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-                  <TenantAdminLayout>
-                    <ComprehensivePOS />
-                  </TenantAdminLayout>
+                  <SubscriptionGuard>
+                    <TenantAdminLayout>
+                      <ComprehensivePOS />
+                    </TenantAdminLayout>
+                  </SubscriptionGuard>
                 </ProtectedRoute>
               } 
             />
