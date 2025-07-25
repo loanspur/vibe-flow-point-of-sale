@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,38 +75,47 @@ const Index = () => {
     return `KES ${price.toLocaleString()}`;
   };
 
-  const getDisplayPrice = (plan: BillingPlan) => {
-    // Create pricing configuration from database plan
-    const pricing = usePricingCalculation({
-      monthlyPrice: plan.price,
-      annualDiscountMonths: (plan as any).annual_discount_months || 2,
-      annualDiscountPercentage: (plan as any).annual_discount_percentage,
-      currency: (plan as any).currency || 'KES'
+  // Calculate pricing for all plans at component level
+  const planPricingMap = useMemo(() => {
+    const map = new Map();
+    plans.forEach(plan => {
+      const pricing = {
+        monthlyPrice: plan.price,
+        annualDiscountMonths: (plan as any).annual_discount_months || 2,
+        annualDiscountPercentage: (plan as any).annual_discount_percentage,
+        currency: (plan as any).currency || 'KES'
+      };
+      map.set(plan.id, pricing);
     });
+    return map;
+  }, [plans]);
+
+  const getDisplayPrice = (plan: BillingPlan) => {
+    const pricingConfig = planPricingMap.get(plan.id);
+    if (!pricingConfig) return `KES ${plan.price.toLocaleString()}`;
     
-    return pricing.getDisplayPriceFormatted(isAnnual);
+    if (isAnnual) {
+      const annualPrice = pricingConfig.monthlyPrice * 12;
+      const discountMonths = pricingConfig.annualDiscountMonths || 2;
+      const discountAmount = pricingConfig.monthlyPrice * discountMonths;
+      const finalPrice = annualPrice - discountAmount;
+      return `${pricingConfig.currency} ${finalPrice.toLocaleString()}`;
+    }
+    
+    return `${pricingConfig.currency} ${pricingConfig.monthlyPrice.toLocaleString()}`;
   };
 
   const getDisplayPeriod = (plan: BillingPlan) => {
-    const pricing = usePricingCalculation({
-      monthlyPrice: plan.price,
-      annualDiscountMonths: (plan as any).annual_discount_months || 2,
-      annualDiscountPercentage: (plan as any).annual_discount_percentage,
-      currency: (plan as any).currency || 'KES'
-    });
-    
-    return pricing.getPeriod(isAnnual);
+    return isAnnual ? '/year' : '/month';
   };
 
   const getDynamicSavings = (plan: BillingPlan) => {
-    const pricing = usePricingCalculation({
-      monthlyPrice: plan.price,
-      annualDiscountMonths: (plan as any).annual_discount_months || 2,
-      annualDiscountPercentage: (plan as any).annual_discount_percentage,
-      currency: (plan as any).currency || 'KES'
-    });
+    const pricingConfig = planPricingMap.get(plan.id);
+    if (!pricingConfig || !isAnnual) return '';
     
-    return pricing.getSavings();
+    const discountMonths = pricingConfig.annualDiscountMonths || 2;
+    const savingsAmount = pricingConfig.monthlyPrice * discountMonths;
+    return `Save ${pricingConfig.currency} ${savingsAmount.toLocaleString()} annually`;
   };
 
   const formatFeatures = (features: any) => {
@@ -232,9 +241,9 @@ const Index = () => {
               <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
                 Annual
               </span>
-              {isAnnual && plans.length > 0 && (
+              {isAnnual && plans.length > 0 && getDynamicSavings(plans[0]) && (
                 <span className="ml-2 text-sm font-medium text-pos-success bg-pos-success/10 px-2 py-1 rounded-full">
-                  Save {getDynamicSavings(plans[0]).display}
+                  {getDynamicSavings(plans[0])}
                 </span>
               )}
             </div>
