@@ -228,17 +228,24 @@ export const getInventoryLevels = async (tenantId: string, productId?: string) =
         const totalSold = saleItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
         const totalReturned = returnItems?.reduce((sum, item) => sum + (item.quantity_returned || 0), 0) || 0;
 
-        const calculatedStock = totalReceived + totalReturned - totalSold;
+        // If there are any transactions, use calculated stock
+        // Otherwise, use the database stock as initial/baseline stock
+        const hasTransactions = totalReceived > 0 || totalSold > 0 || totalReturned > 0;
+        const calculatedStock = hasTransactions 
+          ? totalReceived + totalReturned - totalSold
+          : product.stock_quantity || 0;
 
         console.log(`Product: ${product.name} (${product.sku})`);
         console.log(`  Database stock: ${product.stock_quantity}`);
         console.log(`  Received: ${totalReceived}, Sold: ${totalSold}, Returned: ${totalReturned}`);
-        console.log(`  Calculated stock: ${calculatedStock}`);
+        console.log(`  Has transactions: ${hasTransactions}`);
+        console.log(`  Final stock: ${calculatedStock}`);
 
         return {
           ...product,
           calculated_stock: calculatedStock,
           database_stock: product.stock_quantity,
+          has_transactions: hasTransactions,
           // Use calculated stock for display
           stock_quantity: calculatedStock
         };
@@ -304,7 +311,11 @@ export const getLowStockItems = async (tenantId: string) => {
       const totalSold = saleItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
       const totalReturned = returnItems?.reduce((sum, item) => sum + (item.quantity_returned || 0), 0) || 0;
 
-      const calculatedStock = totalReceived + totalReturned - totalSold;
+      // Use same logic as getInventoryLevels - preserve database stock if no transactions
+      const hasTransactions = totalReceived > 0 || totalSold > 0 || totalReturned > 0;
+      const calculatedStock = hasTransactions 
+        ? totalReceived + totalReturned - totalSold
+        : product.stock_quantity || 0;
 
       // Check main product stock using calculated values
       if (calculatedStock <= (product.min_stock_level || 0) && (product.min_stock_level || 0) > 0) {
