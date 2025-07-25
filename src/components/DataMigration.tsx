@@ -178,6 +178,18 @@ export const DataMigration: React.FC = () => {
 
     switch (type) {
       case 'contacts':
+        // Check for duplicate contact names
+        const { data: existingContact } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('name', data.name)
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (existingContact) {
+          throw new Error(`Contact "${data.name}" already exists`);
+        }
+
         return await supabase.from('contacts').insert({
           tenant_id: profile.tenant_id,
           name: data.name,
@@ -190,6 +202,18 @@ export const DataMigration: React.FC = () => {
         });
 
       case 'categories':
+        // Check for duplicate category names
+        const { data: existingCategory } = await supabase
+          .from('product_categories')
+          .select('id')
+          .eq('name', data.name)
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (existingCategory) {
+          throw new Error(`Category "${data.name}" already exists`);
+        }
+
         return await supabase.from('product_categories').insert({
           tenant_id: profile.tenant_id,
           name: data.name,
@@ -198,6 +222,32 @@ export const DataMigration: React.FC = () => {
         });
 
       case 'products':
+        // Check for duplicate product names
+        const { data: existingProduct } = await supabase
+          .from('products')
+          .select('id')
+          .eq('name', data.name)
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (existingProduct) {
+          throw new Error(`Product "${data.name}" already exists`);
+        }
+
+        // Check for duplicate SKU if provided
+        if (data.sku) {
+          const { data: existingSKU } = await supabase
+            .from('products')
+            .select('id')
+            .eq('sku', data.sku)
+            .eq('tenant_id', profile.tenant_id)
+            .maybeSingle();
+
+          if (existingSKU) {
+            throw new Error(`Product SKU "${data.sku}" already exists`);
+          }
+        }
+
         // Get or create category if specified
         let categoryId = null;
         if (data.category) {
@@ -206,7 +256,7 @@ export const DataMigration: React.FC = () => {
             .select('id')
             .eq('name', data.category)
             .eq('tenant_id', profile.tenant_id)
-            .single();
+            .maybeSingle();
           
           if (category) {
             categoryId = category.id;
@@ -239,7 +289,7 @@ export const DataMigration: React.FC = () => {
           query = query.eq('name', data.product_name);
         }
 
-        const { data: product } = await query.single();
+        const { data: product } = await query.maybeSingle();
         
         if (!product) throw new Error(`Product not found: ${data.product_name || data.sku}`);
 
