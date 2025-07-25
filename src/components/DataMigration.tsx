@@ -291,6 +291,97 @@ export const DataMigration: React.FC = () => {
           console.error('Error code:', result.error.code);
           throw new Error(`Failed to insert product: ${result.error.message} - ${result.error.details || result.error.hint || 'No additional details'}`);
         }
+
+        // Get the inserted product ID  
+        if (!result.data || !Array.isArray(result.data) || (result.data as any[]).length === 0) {
+          throw new Error('Product inserted but no data returned');
+        }
+        
+        const insertedProduct = (result.data as any[])[0];
+        if (!insertedProduct?.id) {
+          throw new Error('Product inserted but no ID returned');
+        }
+
+        // Create inventory transaction if stock quantity is provided
+        const stockQuantity = data.stock_quantity ? parseInt(data.stock_quantity.toString()) : 0;
+        const costPrice = data.cost_price ? parseFloat(data.cost_price.toString()) : 0;
+        
+        if (stockQuantity > 0) {
+          console.log('Creating inventory transaction for product:', data.name);
+          
+          // Import the inventory integration function
+          const { updateProductInventory } = await import('@/lib/inventory-integration');
+          
+          await updateProductInventory(profile.tenant_id, [{
+            productId: insertedProduct.id,
+            quantity: stockQuantity,
+            type: 'purchase',
+            referenceId: insertedProduct.id,
+            referenceType: 'product_import',
+            unitCost: costPrice,
+            notes: `Initial stock from product import: ${data.name}`
+          }]);
+
+          // Create accounting entry for inventory valuation if cost price is provided
+          if (costPrice > 0) {
+            console.log('Creating accounting entry for inventory valuation');
+            
+            // Import the accounting integration function  
+            const { createJournalEntry } = await import('@/lib/accounting-integration');
+            
+            try {
+              // Get accounts directly from the database
+              const { data: accounts, error } = await supabase
+                .from('accounts')
+                .select(`
+                  id,
+                  code,
+                  name,
+                  account_types!inner(category)
+                `)
+                .eq('tenant_id', profile.tenant_id)
+                .eq('is_active', true);
+
+              if (error) throw error;
+
+              const inventoryAccount = accounts?.find((acc: any) => acc.name === 'Inventory' || acc.code === '1020');
+              const equityAccount = accounts?.find((acc: any) => acc.name === 'Owner Equity' || acc.code === '3010');
+              
+              if (inventoryAccount && equityAccount) {
+                const totalValue = stockQuantity * costPrice;
+                
+                // Get current user ID for the accounting entry
+                const { data: userData } = await supabase.auth.getUser();
+                const userId = userData?.user?.id || 'system';
+                
+                await createJournalEntry(profile.tenant_id, {
+                  description: `Initial inventory valuation - ${data.name}`,
+                  reference_id: insertedProduct.id,
+                  reference_type: 'product_import',
+                  entries: [
+                    {
+                      account_id: inventoryAccount.id,
+                      debit_amount: totalValue,
+                      description: `Inventory asset - ${data.name}`
+                    },
+                    {
+                      account_id: equityAccount.id,
+                      credit_amount: totalValue,
+                      description: `Owner investment in inventory - ${data.name}`
+                    }
+                  ]
+                }, userId);
+                
+                console.log('Accounting entry created for inventory valuation:', totalValue);
+              } else {
+                console.warn('Required accounts not found for inventory valuation');
+              }
+            } catch (accountingError) {
+              console.error('Failed to create accounting entry:', accountingError);
+              // Don't throw error as product was successfully created
+            }
+          }
+        }
         
         return result;
         break;
