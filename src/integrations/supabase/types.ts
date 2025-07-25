@@ -2876,6 +2876,366 @@ export type Database = {
           },
         ]
       }
+      stock_adjustment_items: {
+        Row: {
+          adjustment_id: string
+          adjustment_quantity: number
+          created_at: string
+          id: string
+          location_id: string | null
+          physical_quantity: number
+          product_id: string
+          reason: string | null
+          system_quantity: number
+          total_cost: number
+          unit_cost: number
+          variant_id: string | null
+        }
+        Insert: {
+          adjustment_id: string
+          adjustment_quantity: number
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          physical_quantity?: number
+          product_id: string
+          reason?: string | null
+          system_quantity?: number
+          total_cost?: number
+          unit_cost?: number
+          variant_id?: string | null
+        }
+        Update: {
+          adjustment_id?: string
+          adjustment_quantity?: number
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          physical_quantity?: number
+          product_id?: string
+          reason?: string | null
+          system_quantity?: number
+          total_cost?: number
+          unit_cost?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustment_items_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "stock_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustment_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_adjustments: {
+        Row: {
+          adjustment_date: string
+          adjustment_number: string
+          adjustment_type: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          reason: string
+          reference_document: string | null
+          status: string
+          tenant_id: string
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          adjustment_date?: string
+          adjustment_number: string
+          adjustment_type: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          reason: string
+          reference_document?: string | null
+          status?: string
+          tenant_id: string
+          total_value?: number
+          updated_at?: string
+        }
+        Update: {
+          adjustment_date?: string
+          adjustment_number?: string
+          adjustment_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          reason?: string
+          reference_document?: string | null
+          status?: string
+          tenant_id?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stock_taking_items: {
+        Row: {
+          counted_at: string | null
+          counted_by: string | null
+          counted_quantity: number | null
+          created_at: string
+          id: string
+          is_counted: boolean
+          notes: string | null
+          product_id: string
+          session_id: string
+          system_quantity: number
+          unit_cost: number
+          variance_quantity: number | null
+          variance_value: number
+          variant_id: string | null
+        }
+        Insert: {
+          counted_at?: string | null
+          counted_by?: string | null
+          counted_quantity?: number | null
+          created_at?: string
+          id?: string
+          is_counted?: boolean
+          notes?: string | null
+          product_id: string
+          session_id: string
+          system_quantity?: number
+          unit_cost?: number
+          variance_quantity?: number | null
+          variance_value?: number
+          variant_id?: string | null
+        }
+        Update: {
+          counted_at?: string | null
+          counted_by?: string | null
+          counted_quantity?: number | null
+          created_at?: string
+          id?: string
+          is_counted?: boolean
+          notes?: string | null
+          product_id?: string
+          session_id?: string
+          system_quantity?: number
+          unit_cost?: number
+          variance_quantity?: number | null
+          variance_value?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_taking_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "stock_taking_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_taking_sessions: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          discrepancies_found: number
+          id: string
+          location_id: string | null
+          notes: string | null
+          products_counted: number
+          session_date: string
+          session_number: string
+          status: string
+          tenant_id: string
+          total_products: number
+          total_variance_value: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by: string
+          discrepancies_found?: number
+          id?: string
+          location_id?: string | null
+          notes?: string | null
+          products_counted?: number
+          session_date?: string
+          session_number: string
+          status?: string
+          tenant_id: string
+          total_products?: number
+          total_variance_value?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          discrepancies_found?: number
+          id?: string
+          location_id?: string | null
+          notes?: string | null
+          products_counted?: number
+          session_date?: string
+          session_number?: string
+          status?: string
+          tenant_id?: string
+          total_products?: number
+          total_variance_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_taking_sessions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_transfer_items: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          product_id: string
+          quantity_received: number
+          quantity_requested: number
+          quantity_shipped: number
+          total_cost: number
+          transfer_id: string
+          unit_cost: number
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          quantity_received?: number
+          quantity_requested: number
+          quantity_shipped?: number
+          total_cost?: number
+          transfer_id: string
+          unit_cost?: number
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          quantity_received?: number
+          quantity_requested?: number
+          quantity_shipped?: number
+          total_cost?: number
+          transfer_id?: string
+          unit_cost?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transfer_items_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "stock_transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_transfers: {
+        Row: {
+          created_at: string
+          created_by: string
+          from_location_id: string
+          id: string
+          notes: string | null
+          received_at: string | null
+          received_by: string | null
+          shipped_at: string | null
+          status: string
+          tenant_id: string
+          to_location_id: string
+          total_items: number
+          total_value: number
+          transfer_date: string
+          transfer_number: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          from_location_id: string
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          shipped_at?: string | null
+          status?: string
+          tenant_id: string
+          to_location_id: string
+          total_items?: number
+          total_value?: number
+          transfer_date?: string
+          transfer_number: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          from_location_id?: string
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          shipped_at?: string | null
+          status?: string
+          tenant_id?: string
+          to_location_id?: string
+          total_items?: number
+          total_value?: number
+          transfer_date?: string
+          transfer_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transfers_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfers_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_locations: {
         Row: {
           address_line_1: string | null

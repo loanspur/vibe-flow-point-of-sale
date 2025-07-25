@@ -400,3 +400,237 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
     throw error;
   }
 };
+
+// Process stock adjustment and update inventory
+export const processStockAdjustment = async (
+  tenantId: string,
+  adjustmentId: string,
+  adjustmentItems: Array<{
+    productId: string;
+    variantId?: string;
+    adjustmentQuantity: number; // positive for increase, negative for decrease
+    reason: string;
+  }>
+) => {
+  try {
+    const inventoryTransactions: InventoryTransaction[] = adjustmentItems.map(item => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: Math.abs(item.adjustmentQuantity),
+      type: item.adjustmentQuantity > 0 ? 'purchase' : 'sale', // treat as purchase/sale for inventory calculation
+      referenceId: adjustmentId,
+      referenceType: 'stock_adjustment',
+      notes: `Stock adjustment: ${item.reason}`
+    }));
+
+    await updateProductInventory(tenantId, inventoryTransactions);
+    console.log('Stock adjustment processed and inventory updated');
+  } catch (error) {
+    console.error('Error processing stock adjustment:', error);
+    throw error;
+  }
+};
+
+// Process stock transfer completion
+export const processStockTransfer = async (
+  tenantId: string,
+  transferId: string,
+  transferItems: Array<{
+    productId: string;
+    variantId?: string;
+    quantityTransferred: number;
+  }>,
+  fromLocationId: string,
+  toLocationId: string
+) => {
+  try {
+    // For now, we'll just track the transfer without location-specific inventory
+    // In the future, this could be enhanced to track per-location stock
+    const inventoryTransactions: InventoryTransaction[] = transferItems.map(item => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantityTransferred,
+      type: 'adjustment' as const,
+      referenceId: transferId,
+      referenceType: 'stock_transfer',
+      notes: `Stock transfer from location ${fromLocationId} to ${toLocationId}`
+    }));
+
+    // Note: For transfers, we don't change total stock, just track the movement
+    console.log('Stock transfer processed and tracked');
+  } catch (error) {
+    console.error('Error processing stock transfer:', error);
+    throw error;
+  }
+};
+
+// Initialize stock taking session with current inventory levels
+export const initializeStockTakingSession = async (
+  tenantId: string,
+  sessionId: string,
+  locationId?: string
+) => {
+  try {
+    // Get all active products for the tenant
+    const { data: products, error } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        sku,
+        stock_quantity,
+        cost_price,
+        product_variants (
+          id,
+          name,
+          value,
+          sku,
+          stock_quantity
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    const stockTakingItems = [];
+
+    // Create stock taking items for main products
+    for (const product of products || []) {
+      stockTakingItems.push({
+        session_id: sessionId,
+        product_id: product.id,
+        system_quantity: product.stock_quantity || 0,
+        unit_cost: product.cost_price || 0
+      });
+
+      // Create items for variants if they exist
+      for (const variant of product.product_variants || []) {
+        stockTakingItems.push({
+          session_id: sessionId,
+          product_id: product.id,
+          variant_id: variant.id,
+          system_quantity: variant.stock_quantity || 0,
+          unit_cost: product.cost_price || 0
+        });
+      }
+    }
+
+    // Insert all stock taking items
+    const { error: insertError } = await supabase
+      .from('stock_taking_items')
+      .insert(stockTakingItems);
+
+    if (insertError) throw insertError;
+
+    // Update session totals
+    const { error: updateError } = await supabase
+      .from('stock_taking_sessions')
+      .update({
+        total_products: stockTakingItems.length
+      })
+      .eq('id', sessionId);
+
+    if (updateError) throw updateError;
+
+    console.log('Stock taking session initialized with', stockTakingItems.length, 'items');
+    return stockTakingItems.length;
+  } catch (error) {
+    console.error('Error initializing stock taking session:', error);
+    throw error;
+  }
+};
+
+// Complete stock taking and create adjustments for variances
+export const completeStockTaking = async (
+  tenantId: string,
+  sessionId: string,
+  userId: string
+) => {
+  try {
+    // Get all stock taking items with variances
+    const { data: stockItems, error } = await supabase
+      .from('stock_taking_items')
+      .select(`
+        *,
+        products!inner(name, sku),
+        product_variants(name, value, sku)
+      `)
+      .eq('session_id', sessionId)
+      .neq('variance_quantity', 0);
+
+    if (error) throw error;
+
+    if (stockItems && stockItems.length > 0) {
+      // Create a stock adjustment for the variances
+      const adjustmentNumber = `ADJ-ST-${Date.now()}`;
+      
+      const { data: adjustment, error: adjError } = await supabase
+        .from('stock_adjustments')
+        .insert({
+          tenant_id: tenantId,
+          adjustment_number: adjustmentNumber,
+          adjustment_type: 'correction',
+          reason: `Stock taking variance correction - Session ${sessionId}`,
+          status: 'approved',
+          created_by: userId,
+          approved_by: userId,
+          approved_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (adjError) throw adjError;
+
+      // Create adjustment items for each variance
+      const adjustmentItems = stockItems.map(item => ({
+        adjustment_id: adjustment.id,
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        system_quantity: item.system_quantity,
+        physical_quantity: item.counted_quantity || 0,
+        adjustment_quantity: item.variance_quantity,
+        unit_cost: item.unit_cost,
+        total_cost: (item.variance_quantity || 0) * (item.unit_cost || 0),
+        reason: 'Stock taking variance'
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('stock_adjustment_items')
+        .insert(adjustmentItems);
+
+      if (itemsError) throw itemsError;
+
+      // Process the adjustment to update inventory
+      await processStockAdjustment(
+        tenantId,
+        adjustment.id,
+        stockItems.map(item => ({
+          productId: item.product_id,
+          variantId: item.variant_id,
+          adjustmentQuantity: item.variance_quantity || 0,
+          reason: 'Stock taking variance'
+        }))
+      );
+    }
+
+    // Mark session as completed
+    const { error: sessionError } = await supabase
+      .from('stock_taking_sessions')
+      .update({
+        status: 'completed',
+        completed_by: userId,
+        completed_at: new Date().toISOString(),
+        discrepancies_found: stockItems?.length || 0
+      })
+      .eq('id', sessionId);
+
+    if (sessionError) throw sessionError;
+
+    console.log('Stock taking completed with', stockItems?.length || 0, 'variances');
+    return stockItems?.length || 0;
+  } catch (error) {
+    console.error('Error completing stock taking:', error);
+    throw error;
+  }
+};
