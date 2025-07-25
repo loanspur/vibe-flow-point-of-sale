@@ -50,7 +50,7 @@ interface SalesStats {
   averageSale: number;
 }
 
-export function SalesManagement() {
+export default function SalesManagement() {
   const { tenantId, user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [stats, setStats] = useState<SalesStats>({
