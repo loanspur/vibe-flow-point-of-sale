@@ -190,6 +190,18 @@ export const useFeatureAccess = () => {
           // Map billing plan features to system features
           const planName = finalSubscription.billing_plans.name.toLowerCase();
           
+          // For Enterprise plan, enable all features by default
+          if (planName === 'enterprise') {
+            // Enable all boolean features for Enterprise
+            Object.keys(accessibleFeatures).forEach(key => {
+              if (typeof accessibleFeatures[key] === 'boolean') {
+                accessibleFeatures[key] = true;
+              } else if (key === 'max_locations' || key === 'max_staff_users') {
+                accessibleFeatures[key] = 999999; // Unlimited
+              }
+            });
+          }
+          
           planFeatures.forEach((feature: { name: string; included: boolean; limit?: number | string }) => {
             if (feature.included) {
               // Handle location limits

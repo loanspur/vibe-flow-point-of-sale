@@ -143,21 +143,23 @@ export const SubscriptionFeatureSummary = () => {
           </div>
         ))}
         
-        <div className="pt-4 border-t">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Need more features?</p>
-              <p className="text-xs text-muted-foreground">
-                Upgrade your plan to unlock additional capabilities
-              </p>
+        {planName.toLowerCase() !== 'enterprise' && (
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Need more features?</p>
+                <p className="text-xs text-muted-foreground">
+                  Upgrade your plan to unlock additional capabilities
+                </p>
+              </div>
+              <Button asChild>
+                <Link to="/billing">
+                  Upgrade Plan
+                </Link>
+              </Button>
             </div>
-            <Button asChild>
-              <Link to="/billing">
-                Upgrade Plan
-              </Link>
-            </Button>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
