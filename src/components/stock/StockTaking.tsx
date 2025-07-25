@@ -7,7 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ClipboardCheck, Plus, Eye, CheckCircle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ClipboardCheck, Plus, Eye, CheckCircle, Calculator, AlertCircle, BarChart3, FileText, Scan, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -18,8 +22,16 @@ export const StockTaking: React.FC = () => {
   const [locations, setLocations] = useState<any[]>([]);
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [stockItems, setStockItems] = useState<any[]>([]);
+  const [filteredItems, setFilteredItems] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterVariance, setFilterVariance] = useState('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [batchCount, setBatchCount] = useState('');
+  const [sessionNotes, setSessionNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -27,6 +39,42 @@ export const StockTaking: React.FC = () => {
     fetchSessions();
     fetchLocations();
   }, [user]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [stockItems, searchTerm, filterStatus, filterVariance]);
+
+  const applyFilters = () => {
+    let filtered = stockItems;
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(item => 
+        item.products?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.products?.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.product_variants?.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Status filter
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(item => 
+        filterStatus === 'counted' ? item.is_counted : !item.is_counted
+      );
+    }
+
+    // Variance filter
+    if (filterVariance !== 'all') {
+      filtered = filtered.filter(item => {
+        if (filterVariance === 'no-variance') return item.variance_quantity === 0;
+        if (filterVariance === 'positive') return item.variance_quantity > 0;
+        if (filterVariance === 'negative') return item.variance_quantity < 0;
+        return true;
+      });
+    }
+
+    setFilteredItems(filtered);
+  };
 
   const fetchSessions = async () => {
     try {
@@ -143,6 +191,15 @@ export const StockTaking: React.FC = () => {
       setStockItems(data || []);
       const session = sessions.find(s => s.id === sessionId);
       setSelectedSession(session);
+
+      // Load session notes
+      const { data: sessionData } = await supabase
+        .from('stock_taking_sessions')
+        .select('notes')
+        .eq('id', sessionId)
+        .single();
+      
+      setSessionNotes(sessionData?.notes || '');
     } catch (error) {
       console.error('Error fetching stock items:', error);
     }
@@ -182,8 +239,67 @@ export const StockTaking: React.FC = () => {
             }
           : item
       ));
+
+      toast({
+        title: 'Count Updated',
+        description: `Stock count updated for ${item.products?.name || 'item'}.`
+      });
     } catch (error) {
       console.error('Error updating count:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update stock count.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const batchUpdateCount = async () => {
+    if (!batchCount || selectedItems.size === 0) return;
+
+    const count = parseInt(batchCount);
+    if (isNaN(count)) return;
+
+    setLoading(true);
+    try {
+      for (const itemId of selectedItems) {
+        await updateCount(itemId, count);
+      }
+      setSelectedItems(new Set());
+      setBatchCount('');
+      toast({
+        title: 'Batch Update Complete',
+        description: `Updated ${selectedItems.size} items with count ${count}.`
+      });
+    } catch (error) {
+      console.error('Error batch updating:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSessionNotes = async () => {
+    if (!selectedSession) return;
+
+    try {
+      const { error } = await supabase
+        .from('stock_taking_sessions')
+        .update({ notes: sessionNotes })
+        .eq('id', selectedSession.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Notes Saved',
+        description: 'Session notes have been saved successfully.'
+      });
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save session notes.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -229,6 +345,31 @@ export const StockTaking: React.FC = () => {
       case 'cancelled': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
+  };
+
+  const getVarianceColor = (variance: number) => {
+    if (variance === 0) return 'text-green-600';
+    if (variance > 0) return 'text-blue-600';
+    return 'text-red-600';
+  };
+
+  const calculateSummary = () => {
+    const totalItems = stockItems.length;
+    const countedItems = stockItems.filter(item => item.is_counted).length;
+    const positiveVariances = stockItems.filter(item => item.variance_quantity > 0).length;
+    const negativeVariances = stockItems.filter(item => item.variance_quantity < 0).length;
+    const noVariances = stockItems.filter(item => item.variance_quantity === 0).length;
+    const totalVarianceValue = stockItems.reduce((sum, item) => sum + (item.variance_value || 0), 0);
+    
+    return {
+      totalItems,
+      countedItems,
+      positiveVariances,
+      negativeVariances,
+      noVariances,
+      totalVarianceValue,
+      progress: totalItems > 0 ? (countedItems / totalItems) * 100 : 0
+    };
   };
 
   return (
@@ -348,104 +489,370 @@ export const StockTaking: React.FC = () => {
 
       {/* Session Details */}
       {selectedSession && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-xl font-semibold">
-                Session: {selectedSession.session_number}
-              </h3>
-              <p className="text-muted-foreground">
-                Location: {selectedSession.store_locations?.name || 'All Locations'}
-              </p>
+        <div className="space-y-6">
+          {/* Session Header with Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold">
+                    Session: {selectedSession.session_number}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Location: {selectedSession.store_locations?.name || 'All Locations'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setSelectedSession(null);
+                      setStockItems([]);
+                      setSelectedItems(new Set());
+                      setSearchTerm('');
+                      setFilterStatus('all');
+                      setFilterVariance('all');
+                    }}
+                  >
+                    Back to List
+                  </Button>
+                  {selectedSession.status === 'active' && (
+                    <Button 
+                      onClick={completeSession}
+                      disabled={loading}
+                      className="flex items-center gap-2"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Complete Session
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Progress</span>
+                  <span>{calculateSummary().countedItems} / {calculateSummary().totalItems} items</span>
+                </div>
+                <Progress value={calculateSummary().progress} className="w-full" />
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSelectedSession(null);
-                  setStockItems([]);
-                }}
-              >
-                Back to List
-              </Button>
-              {selectedSession.status === 'active' && (
-                <Button 
-                  onClick={completeSession}
-                  disabled={loading}
-                  className="flex items-center gap-2"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Complete Session
-                </Button>
-              )}
-            </div>
+
+            {/* Summary Card */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>Total Items:</div>
+                  <div className="font-medium">{calculateSummary().totalItems}</div>
+                  
+                  <div>Counted:</div>
+                  <div className="font-medium text-green-600">{calculateSummary().countedItems}</div>
+                  
+                  <div>No Variance:</div>
+                  <div className="font-medium text-green-600">{calculateSummary().noVariances}</div>
+                  
+                  <div>Over Count:</div>
+                  <div className="font-medium text-blue-600">{calculateSummary().positiveVariances}</div>
+                  
+                  <div>Under Count:</div>
+                  <div className="font-medium text-red-600">{calculateSummary().negativeVariances}</div>
+                  
+                  <div>Total Variance:</div>
+                  <div className={`font-medium ${getVarianceColor(calculateSummary().totalVarianceValue)}`}>
+                    ${Math.abs(calculateSummary().totalVarianceValue).toFixed(2)}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Stock Count Items</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>System Qty</TableHead>
-                    <TableHead>Counted Qty</TableHead>
-                    <TableHead>Variance</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stockItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.products?.name}
-                        {item.product_variants?.name && (
-                          <span className="text-sm text-muted-foreground">
-                            - {item.product_variants.name}: {item.product_variants.value}
-                          </span>
+          <Tabs defaultValue="count" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="count" className="flex items-center gap-2">
+                <Calculator className="h-4 w-4" />
+                Stock Count
+              </TabsTrigger>
+              <TabsTrigger value="analysis" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Analysis
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Notes
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="count" className="space-y-4">
+              {/* Filters and Batch Actions */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor="search">Search Products</Label>
+                      <Input
+                        id="search"
+                        placeholder="Search by name or SKU..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="status-filter">Status</Label>
+                      <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Items</SelectItem>
+                          <SelectItem value="counted">Counted</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="variance-filter">Variance</Label>
+                      <Select value={filterVariance} onValueChange={setFilterVariance}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Variances</SelectItem>
+                          <SelectItem value="no-variance">No Variance</SelectItem>
+                          <SelectItem value="positive">Over Count</SelectItem>
+                          <SelectItem value="negative">Under Count</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label htmlFor="batch-count">Batch Count</Label>
+                        <Input
+                          id="batch-count"
+                          type="number"
+                          placeholder="Count"
+                          value={batchCount}
+                          onChange={(e) => setBatchCount(e.target.value)}
+                          disabled={selectedItems.size === 0}
+                        />
+                      </div>
+                      <Button
+                        onClick={batchUpdateCount}
+                        disabled={!batchCount || selectedItems.size === 0 || loading}
+                        size="sm"
+                      >
+                        Apply to {selectedItems.size}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {selectedItems.size > 0 && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {selectedItems.size} item(s) selected for batch counting.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Stock Items Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Stock Count Items ({filteredItems.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {selectedSession.status === 'active' && (
+                          <TableHead className="w-12">
+                            <input
+                              type="checkbox"
+                              checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedItems(new Set(filteredItems.map(item => item.id)));
+                                } else {
+                                  setSelectedItems(new Set());
+                                }
+                              }}
+                            />
+                          </TableHead>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        {item.products?.sku || item.product_variants?.sku}
-                      </TableCell>
-                      <TableCell>{item.system_quantity}</TableCell>
-                      <TableCell>
-                        {selectedSession.status === 'active' ? (
-                          <Input
-                            type="number"
-                            value={item.counted_quantity || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              updateCount(item.id, value);
-                            }}
-                            className="w-20"
-                          />
-                        ) : (
-                          item.counted_quantity || '-'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {item.variance_quantity !== null ? (
-                          <span className={item.variance_quantity === 0 ? 'text-green-600' : 
-                                         item.variance_quantity > 0 ? 'text-blue-600' : 'text-red-600'}>
-                            {item.variance_quantity > 0 ? '+' : ''}{item.variance_quantity}
+                        <TableHead>Product</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>System Qty</TableHead>
+                        <TableHead>Counted Qty</TableHead>
+                        <TableHead>Variance</TableHead>
+                        <TableHead>Value Impact</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredItems.map((item) => (
+                        <TableRow key={item.id}>
+                          {selectedSession.status === 'active' && (
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={selectedItems.has(item.id)}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedItems);
+                                  if (e.target.checked) {
+                                    newSelected.add(item.id);
+                                  } else {
+                                    newSelected.delete(item.id);
+                                  }
+                                  setSelectedItems(newSelected);
+                                }}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell className="font-medium">
+                            {item.products?.name}
+                            {item.product_variants?.name && (
+                              <div className="text-sm text-muted-foreground">
+                                {item.product_variants.name}: {item.product_variants.value}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {item.products?.sku || item.product_variants?.sku}
+                          </TableCell>
+                          <TableCell className="font-medium">{item.system_quantity}</TableCell>
+                          <TableCell>
+                            {selectedSession.status === 'active' ? (
+                              <Input
+                                type="number"
+                                value={item.counted_quantity || ''}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 0;
+                                  updateCount(item.id, value);
+                                }}
+                                className="w-20"
+                                min="0"
+                              />
+                            ) : (
+                              <span className="font-medium">{item.counted_quantity || '-'}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {item.variance_quantity !== null ? (
+                              <span className={`font-medium ${getVarianceColor(item.variance_quantity)}`}>
+                                {item.variance_quantity > 0 ? '+' : ''}{item.variance_quantity}
+                              </span>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {item.variance_value !== null ? (
+                              <span className={`font-medium ${getVarianceColor(item.variance_value)}`}>
+                                {item.variance_value > 0 ? '+' : ''}${item.variance_value.toFixed(2)}
+                              </span>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={item.is_counted ? 'default' : 'secondary'}>
+                              {item.is_counted ? 'Counted' : 'Pending'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="analysis" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Variance Analysis</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between">
+                        <span>Items with No Variance:</span>
+                        <span className="font-medium text-green-600">{calculateSummary().noVariances}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Items Over Counted:</span>
+                        <span className="font-medium text-blue-600">{calculateSummary().positiveVariances}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Items Under Counted:</span>
+                        <span className="font-medium text-red-600">{calculateSummary().negativeVariances}</span>
+                      </div>
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between">
+                          <span className="font-medium">Total Value Impact:</span>
+                          <span className={`font-bold ${getVarianceColor(calculateSummary().totalVarianceValue)}`}>
+                            ${Math.abs(calculateSummary().totalVarianceValue).toFixed(2)}
                           </span>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={item.is_counted ? 'default' : 'secondary'}>
-                          {item.is_counted ? 'Counted' : 'Pending'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Count Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold">
+                          {calculateSummary().progress.toFixed(1)}%
+                        </div>
+                        <div className="text-muted-foreground">Complete</div>
+                      </div>
+                      <Progress value={calculateSummary().progress} className="w-full" />
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>{calculateSummary().countedItems} counted</span>
+                        <span>{calculateSummary().totalItems - calculateSummary().countedItems} remaining</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="notes" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    Session Notes
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={saveSessionNotes}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      Save Notes
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Add notes about this stock taking session, any issues encountered, or observations..."
+                    value={sessionNotes}
+                    onChange={(e) => setSessionNotes(e.target.value)}
+                    rows={8}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       )}
     </div>
