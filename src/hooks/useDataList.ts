@@ -112,7 +112,7 @@ export function useDataList<T = any>(
   ]);
 
   // Use optimized query
-  const { data, loading, error, refetch } = useOptimizedQuery<T[]>(
+  const { data: queryResult, loading, error, refetch } = useOptimizedQuery(
     queryFn,
     [tenantId, debouncedSearchTerm, currentPage, JSON.stringify(filters)],
     {
@@ -121,6 +121,8 @@ export function useDataList<T = any>(
       cacheKey: `${tableName}-${tenantId}-${debouncedSearchTerm}-${currentPage}-${JSON.stringify(filters)}`
     }
   );
+
+  const data = queryResult?.data || [];
 
   // Memoized filtered data for client-side filtering when pagination is disabled
   const filteredData = useMemo(() => {
@@ -145,7 +147,7 @@ export function useDataList<T = any>(
   }, [totalPages]);
 
   return {
-    data: data || [],
+    data,
     loading,
     error,
     searchTerm,
