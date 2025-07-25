@@ -17,7 +17,8 @@ import {
   Database,
   CheckCircle,
   AlertCircle,
-  Info
+  Info,
+  FileDown
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -356,6 +357,67 @@ export const DataMigration: React.FC = () => {
     }
   };
 
+  const downloadSampleTemplate = () => {
+    const templates = {
+      contacts: {
+        headers: ['name', 'type', 'email', 'phone', 'company', 'address', 'notes'],
+        samples: [
+          ['John Doe', 'customer', 'john@example.com', '+1234567890', 'ABC Corp', '123 Main St, City', 'VIP customer'],
+          ['Jane Smith', 'supplier', 'jane@supplier.com', '+0987654321', 'XYZ Supplies', '456 Business Ave, Town', 'Reliable supplier'],
+          ['Bob Wilson', 'customer', 'bob@email.com', '+1122334455', '', '789 Customer Blvd', '']
+        ]
+      },
+      categories: {
+        headers: ['name', 'description', 'color'],
+        samples: [
+          ['Electronics', 'Electronic devices and accessories', '#3B82F6'],
+          ['Clothing', 'Fashion and apparel items', '#10B981'],
+          ['Food & Beverages', 'Consumable items and drinks', '#F59E0B']
+        ]
+      },
+      products: {
+        headers: ['name', 'description', 'price', 'cost_price', 'sku', 'barcode', 'stock_quantity', 'category'],
+        samples: [
+          ['Wireless Headphones', 'High-quality bluetooth headphones', '99.99', '45.00', 'WH001', '1234567890123', '50', 'Electronics'],
+          ['Cotton T-Shirt', 'Comfortable cotton t-shirt', '19.99', '8.50', 'TS001', '2345678901234', '100', 'Clothing'],
+          ['Coffee Beans', 'Premium arabica coffee beans', '12.99', '6.00', 'CB001', '3456789012345', '25', 'Food & Beverages']
+        ]
+      },
+      inventory: {
+        headers: ['product_name', 'sku', 'quantity'],
+        samples: [
+          ['Wireless Headphones', 'WH001', '75'],
+          ['Cotton T-Shirt', 'TS001', '120'],
+          ['Coffee Beans', 'CB001', '30']
+        ]
+      }
+    };
+
+    const template = templates[importType];
+    const csvContent = [
+      template.headers.join(','),
+      ...template.samples.map(row => 
+        row.map(cell => 
+          typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+        ).join(',')
+      )
+    ].join('\n');
+
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${importType}_template.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Template Downloaded",
+      description: `Sample ${importType} template has been downloaded successfully.`,
+    });
+  };
+
   const getValidationStatus = () => {
     if (!preview) return null;
 
@@ -442,18 +504,41 @@ export const DataMigration: React.FC = () => {
                   />
                 </div>
 
-                {/* Required Fields Info */}
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Required fields for {importType}:</strong>
-                    <br />
-                    {importType === 'contacts' && 'name, type (customer/supplier)'}
-                    {importType === 'products' && 'name, price'}
-                    {importType === 'categories' && 'name'}
-                    {importType === 'inventory' && 'product_name (or sku), quantity'}
-                  </AlertDescription>
-                </Alert>
+                {/* Required Fields Info & Sample Template */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Required fields for {importType}:</strong>
+                      <br />
+                      {importType === 'contacts' && 'name, type (customer/supplier)'}
+                      {importType === 'products' && 'name, price'}
+                      {importType === 'categories' && 'name'}
+                      {importType === 'inventory' && 'product_name (or sku), quantity'}
+                    </AlertDescription>
+                  </Alert>
+
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileDown className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Need help with formatting?</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Download a sample template with correct headers and sample data.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={downloadSampleTemplate}
+                        className="w-full"
+                      >
+                        <FileDown className="h-3 w-3 mr-2" />
+                        Download {importType.charAt(0).toUpperCase() + importType.slice(1)} Template
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
 
                 {/* Preview */}
                 {preview && (
