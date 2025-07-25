@@ -15,11 +15,21 @@ export default function RoleSwitcher() {
   const { userRole, viewMode, canSwitchViews, switchViewMode } = useAuth();
   const navigate = useNavigate();
 
-  if (!canSwitchViews) {
+  // Don't allow switching when in superadmin view mode
+  if (!canSwitchViews || viewMode === 'superadmin') {
     return (
       <Badge variant="outline" className="text-primary">
-        <Building2 className="h-3 w-3 mr-1" />
-        Tenant Admin
+        {viewMode === 'superadmin' ? (
+          <>
+            <Crown className="h-3 w-3 mr-1 text-yellow-500" />
+            Super Admin
+          </>
+        ) : (
+          <>
+            <Building2 className="h-3 w-3 mr-1" />
+            Tenant Admin
+          </>
+        )}
       </Badge>
     );
   }
@@ -28,17 +38,8 @@ export default function RoleSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="flex items-center gap-2">
-          {viewMode === 'superadmin' ? (
-            <>
-              <Crown className="h-4 w-4 text-yellow-500" />
-              <span>Super Admin View</span>
-            </>
-          ) : (
-            <>
-              <Building2 className="h-4 w-4 text-primary" />
-              <span>Tenant View</span>
-            </>
-          )}
+          <Building2 className="h-4 w-4 text-primary" />
+          <span>Tenant View</span>
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
@@ -54,7 +55,6 @@ export default function RoleSwitcher() {
             switchViewMode('superadmin');
             navigate('/superadmin');
           }}
-          className={viewMode === 'superadmin' ? 'bg-muted' : ''}
         >
           <Crown className="h-4 w-4 mr-2 text-yellow-500" />
           <div className="flex flex-col">
@@ -63,9 +63,6 @@ export default function RoleSwitcher() {
               Manage all tenants and system settings
             </span>
           </div>
-          {viewMode === 'superadmin' && (
-            <Eye className="h-4 w-4 ml-auto text-muted-foreground" />
-          )}
         </DropdownMenuItem>
         
         <DropdownMenuItem 
@@ -73,7 +70,7 @@ export default function RoleSwitcher() {
             switchViewMode('tenant');
             navigate('/admin');
           }}
-          className={viewMode === 'tenant' ? 'bg-muted' : ''}
+          className="bg-muted"
         >
           <Building2 className="h-4 w-4 mr-2 text-primary" />
           <div className="flex flex-col">
@@ -82,9 +79,7 @@ export default function RoleSwitcher() {
               Manage your business operations
             </span>
           </div>
-          {viewMode === 'tenant' && (
-            <Eye className="h-4 w-4 ml-auto text-muted-foreground" />
-          )}
+          <Eye className="h-4 w-4 ml-auto text-muted-foreground" />
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
