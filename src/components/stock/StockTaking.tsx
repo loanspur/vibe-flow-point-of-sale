@@ -626,7 +626,11 @@ export const StockTaking: React.FC = () => {
                           >
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem 
-                              onClick={() => viewSession(session.id)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                console.log('Viewing session:', session.id);
+                                viewSession(session.id);
+                              }}
                               className="cursor-pointer"
                             >
                               <Eye className="mr-2 h-4 w-4" />
@@ -636,9 +640,13 @@ export const StockTaking: React.FC = () => {
                             {session.status === 'active' && (
                               <>
                                 <DropdownMenuItem 
-                                  onClick={async () => {
-                                    await viewSession(session.id);
-                                    setTimeout(() => completeSession(), 100);
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    console.log('Completing session:', session.id);
+                                    // First view the session to load it, then complete it
+                                    viewSession(session.id).then(() => {
+                                      setTimeout(() => completeSession(), 100);
+                                    });
                                   }}
                                   className="cursor-pointer"
                                 >
@@ -646,7 +654,11 @@ export const StockTaking: React.FC = () => {
                                   Complete Session
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  onClick={() => cancelSession(session.id)}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    console.log('Cancelling session:', session.id);
+                                    cancelSession(session.id);
+                                  }}
                                   className="text-red-600 cursor-pointer"
                                 >
                                   <XCircle className="mr-2 h-4 w-4" />
@@ -658,7 +670,11 @@ export const StockTaking: React.FC = () => {
                             <DropdownMenuSeparator />
                             
                             <DropdownMenuItem 
-                              onClick={() => duplicateSession(session.id)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                console.log('Duplicating session:', session.id);
+                                duplicateSession(session.id);
+                              }}
                               className="cursor-pointer"
                             >
                               <Copy className="mr-2 h-4 w-4" />
@@ -666,7 +682,11 @@ export const StockTaking: React.FC = () => {
                             </DropdownMenuItem>
                             
                             <DropdownMenuItem 
-                              onClick={() => exportSessionData(session.id, 'csv')}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                console.log('Exporting CSV for session:', session.id);
+                                exportSessionData(session.id, 'csv');
+                              }}
                               className="cursor-pointer"
                             >
                               <Download className="mr-2 h-4 w-4" />
@@ -674,7 +694,11 @@ export const StockTaking: React.FC = () => {
                             </DropdownMenuItem>
                             
                             <DropdownMenuItem 
-                              onClick={() => printSessionReport(session.id)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                console.log('Printing report for session:', session.id);
+                                printSessionReport(session.id);
+                              }}
                               className="cursor-pointer"
                             >
                               <Printer className="mr-2 h-4 w-4" />
@@ -683,7 +707,11 @@ export const StockTaking: React.FC = () => {
                             
                             {session.status === 'completed' && (
                               <DropdownMenuItem 
-                                onClick={() => exportSessionData(session.id, 'pdf')}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  console.log('Exporting PDF for session:', session.id);
+                                  exportSessionData(session.id, 'pdf');
+                                }}
                                 className="cursor-pointer"
                               >
                                 <FileDown className="mr-2 h-4 w-4" />
