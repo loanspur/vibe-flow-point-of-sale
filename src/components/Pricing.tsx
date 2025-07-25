@@ -4,14 +4,25 @@ import { CheckCircle, Star } from "lucide-react";
 import BillingPlansManager from "./BillingPlansManager";
 import PaystackTestingInterface from "./PaystackTestingInterface";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { useState } from "react";
 
 const Pricing = () => {
   const { formatPrice } = useCurrencyUpdate();
+  const [isAnnual, setIsAnnual] = useState(false);
+  const getPrice = (monthlyPrice: number) => {
+    return isAnnual ? formatPrice(monthlyPrice * 10) : formatPrice(monthlyPrice);
+  };
+
+  const getPeriod = () => {
+    return isAnnual ? "/year" : "/month";
+  };
+
   const plans = [
     {
       name: "Starter",
-      price: formatPrice(29),
-      period: "/month",
+      monthlyPrice: 29,
+      price: getPrice(29),
+      period: getPeriod(),
       description: "Perfect for small businesses just getting started",
       features: [
         "1 Location",
@@ -27,8 +38,9 @@ const Pricing = () => {
     },
     {
       name: "Professional",
-      price: formatPrice(79),
-      period: "/month",
+      monthlyPrice: 79,
+      price: getPrice(79),
+      period: getPeriod(),
       description: "Ideal for growing businesses with multiple needs",
       features: [
         "Up to 5 Locations",
@@ -46,8 +58,9 @@ const Pricing = () => {
     },
     {
       name: "Enterprise",
-      price: formatPrice(199),
-      period: "/month",
+      monthlyPrice: 199,
+      price: getPrice(199),
+      period: getPeriod(),
       description: "For large businesses requiring advanced features",
       features: [
         "Unlimited Locations",
@@ -78,6 +91,33 @@ const Pricing = () => {
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
               Choose the perfect plan for your business. Start with a 14-day free trial, no credit card required.
             </p>
+            
+            {/* Billing Toggle */}
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <span className={`text-sm font-medium ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Monthly
+              </span>
+              <button
+                onClick={() => setIsAnnual(!isAnnual)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isAnnual ? 'bg-primary' : 'bg-muted'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isAnnual ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Annual
+              </span>
+              {isAnnual && (
+                <span className="ml-2 text-sm font-medium text-pos-success bg-pos-success/10 px-2 py-1 rounded-full">
+                  Save 2 months
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
