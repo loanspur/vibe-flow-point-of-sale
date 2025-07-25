@@ -620,22 +620,34 @@ export const StockTaking: React.FC = () => {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuContent 
+                            align="end" 
+                            className="w-48 bg-background border shadow-md z-50"
+                          >
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => viewSession(session.id)}>
+                            <DropdownMenuItem 
+                              onClick={() => viewSession(session.id)}
+                              className="cursor-pointer"
+                            >
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
                             
                             {session.status === 'active' && (
                               <>
-                                <DropdownMenuItem onClick={() => completeSession()}>
+                                <DropdownMenuItem 
+                                  onClick={async () => {
+                                    await viewSession(session.id);
+                                    setTimeout(() => completeSession(), 100);
+                                  }}
+                                  className="cursor-pointer"
+                                >
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Complete Session
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   onClick={() => cancelSession(session.id)}
-                                  className="text-red-600"
+                                  className="text-red-600 cursor-pointer"
                                 >
                                   <XCircle className="mr-2 h-4 w-4" />
                                   Cancel Session
@@ -645,23 +657,35 @@ export const StockTaking: React.FC = () => {
                             
                             <DropdownMenuSeparator />
                             
-                            <DropdownMenuItem onClick={() => duplicateSession(session.id)}>
+                            <DropdownMenuItem 
+                              onClick={() => duplicateSession(session.id)}
+                              className="cursor-pointer"
+                            >
                               <Copy className="mr-2 h-4 w-4" />
                               Duplicate Session
                             </DropdownMenuItem>
                             
-                            <DropdownMenuItem onClick={() => exportSessionData(session.id, 'csv')}>
+                            <DropdownMenuItem 
+                              onClick={() => exportSessionData(session.id, 'csv')}
+                              className="cursor-pointer"
+                            >
                               <Download className="mr-2 h-4 w-4" />
                               Export CSV
                             </DropdownMenuItem>
                             
-                            <DropdownMenuItem onClick={() => printSessionReport(session.id)}>
+                            <DropdownMenuItem 
+                              onClick={() => printSessionReport(session.id)}
+                              className="cursor-pointer"
+                            >
                               <Printer className="mr-2 h-4 w-4" />
                               Print Report
                             </DropdownMenuItem>
                             
                             {session.status === 'completed' && (
-                              <DropdownMenuItem onClick={() => exportSessionData(session.id, 'pdf')}>
+                              <DropdownMenuItem 
+                                onClick={() => exportSessionData(session.id, 'pdf')}
+                                className="cursor-pointer"
+                              >
                                 <FileDown className="mr-2 h-4 w-4" />
                                 Export PDF
                               </DropdownMenuItem>
