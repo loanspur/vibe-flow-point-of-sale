@@ -96,6 +96,9 @@ Change:  {{change_amount}}
 {{receipt_footer}}
 
 Thank you for your business!
+
+--------------------------------
+Powered by vibePOS - 0727638940
 `,
   invoice: `{{company_logo}}
 
@@ -127,6 +130,9 @@ Total: {{total_amount}}
 {{terms_conditions}}
 
 {{notes}}
+
+--------------------------------
+Powered by vibePOS - 0727638940
 `,
   quote: `{{company_logo}}
 
@@ -158,6 +164,9 @@ Total: {{total_amount}}
 {{terms_conditions}}
 
 {{notes}}
+
+--------------------------------
+Powered by vibePOS - 0727638940
 `,
   delivery_note: `{{company_name}}
 {{company_address}}
@@ -184,6 +193,9 @@ Driver: {{driver_name}}
 Vehicle: {{vehicle_number}}
 
 {{notes}}
+
+--------------------------------
+Powered by vibePOS - 0727638940
 `
 };
 
