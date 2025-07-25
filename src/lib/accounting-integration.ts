@@ -196,6 +196,25 @@ export const createSalesJournalEntry = async (
   }
 ) => {
   try {
+    // Fetch customer name for better transaction description
+    let customerName = 'Walk-in Customer';
+    if (saleData.customerId) {
+      try {
+        const { data: customerData, error: customerError } = await supabase
+          .from('contacts')
+          .select('name, company')
+          .eq('id', saleData.customerId)
+          .eq('tenant_id', tenantId)
+          .single();
+        
+        if (!customerError && customerData) {
+          customerName = customerData.company || customerData.name;
+        }
+      } catch (error) {
+        console.warn('Could not fetch customer name:', error);
+      }
+    }
+    
     const accounts = await getDefaultAccounts(tenantId);
     const { totalAmount, discountAmount, taxAmount, payments } = saleData;
     
@@ -300,7 +319,7 @@ export const createSalesJournalEntry = async (
     }
 
     const transaction: AccountingTransaction = {
-      description: `Sale transaction${totalCreditAmount > 0 ? ' (Partial Credit Sale)' : ''}`,
+      description: `Sale to ${customerName}${totalCreditAmount > 0 ? ' (Partial Credit Sale)' : ''}`,
       reference_id: saleData.saleId,
       reference_type: 'sale',
       entries
@@ -340,9 +359,26 @@ export const createPurchaseJournalEntry = async (
   try {
     const accounts = await getDefaultAccounts(tenantId);
     
+    // Fetch supplier name for better transaction description
+    let supplierName = 'Unknown Supplier';
+    try {
+      const { data: supplierData, error: supplierError } = await supabase
+        .from('contacts')
+        .select('name, company')
+        .eq('id', purchaseData.supplierId)
+        .eq('tenant_id', tenantId)
+        .single();
+      
+      if (!supplierError && supplierData) {
+        supplierName = supplierData.company || supplierData.name;
+      }
+    } catch (error) {
+      console.warn('Could not fetch supplier name:', error);
+    }
+    
     // Use existing accounting module structure for purchase transactions
     const transaction = {
-      description: `Purchase from supplier (PO: ${purchaseData.purchaseId})`,
+      description: `Purchase from ${supplierName} (PO: ${purchaseData.purchaseId})`,
       reference_id: purchaseData.purchaseId,
       reference_type: 'purchase',
       entries: [

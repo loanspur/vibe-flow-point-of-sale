@@ -523,13 +523,13 @@ const AccountsReceivablePayable: React.FC = () => {
     
     if (referenceType === 'sale') {
       const sale = sales.find(s => s.id === referenceId);
-      return sale ? sale.receipt_number : '-';
+      return sale ? `${sale.receipt_number} (Customer: ${sale.customer_name || 'Unknown'})` : `Sale: ${referenceId}`;
     } else if (referenceType === 'purchase') {
       const purchase = purchases.find(p => p.id === referenceId);
-      return purchase ? purchase.purchase_number : '-';
+      return purchase ? `${purchase.purchase_number} (Supplier: ${purchase.supplier_name || 'Unknown'})` : `Purchase: ${referenceId}`;
     }
     
-    return '-';
+    return referenceId;
   };
 
   const filteredReceivables = receivables.filter(receivable => {
