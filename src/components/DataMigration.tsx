@@ -38,7 +38,7 @@ interface ImportPreview {
 
 export const DataMigration: React.FC = () => {
   const [activeTab, setActiveTab] = useState('import');
-  const [importType, setImportType] = useState<'contacts' | 'products' | 'categories' | 'inventory'>('contacts');
+  const [importType, setImportType] = useState<'contacts' | 'products' | 'categories'>('contacts');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<MigrationResult | null>(null);
@@ -97,11 +97,6 @@ export const DataMigration: React.FC = () => {
     return validateHeaders(headers, requiredFields, optionalFields);
   };
 
-  const validateInventoryData = (headers: string[]) => {
-    const requiredFields = ['product_name', 'quantity'];
-    const optionalFields = ['sku', 'location', 'notes'];
-    return validateHeaders(headers, requiredFields, optionalFields);
-  };
 
   const validateHeaders = (headers: string[], required: string[], optional: string[]) => {
     const lowerHeaders = headers.map(h => h.toLowerCase());
@@ -386,30 +381,6 @@ export const DataMigration: React.FC = () => {
         return result;
         break;
 
-      case 'inventory':
-        // Find product by name or SKU
-        let query = supabase
-          .from('products')
-          .select('id')
-          .eq('tenant_id', profile.tenant_id);
-
-        if (data.sku) {
-          query = query.eq('sku', data.sku);
-        } else {
-          query = query.eq('name', data.product_name);
-        }
-
-        const { data: product } = await query.maybeSingle();
-        
-        if (!product) throw new Error(`Product not found: ${data.product_name || data.sku}`);
-
-        // Update stock quantity
-        return await supabase
-          .from('products')
-          .update({ 
-            stock_quantity: parseInt(data.quantity) || 0 
-          })
-          .eq('id', product.id);
 
       default:
         throw new Error('Invalid import type');
@@ -467,20 +438,6 @@ export const DataMigration: React.FC = () => {
           filename = 'products_export.csv';
           break;
 
-        case 'inventory':
-          const { data: inventory } = await supabase
-            .from('products')
-            .select('name, sku, stock_quantity')
-            .eq('tenant_id', profile.tenant_id);
-          
-          data = (inventory || []).map(p => ({
-            product_name: p.name,
-            sku: p.sku || '',
-            quantity: p.stock_quantity
-          }));
-          headers = ['product_name', 'sku', 'quantity'];
-          filename = 'inventory_export.csv';
-          break;
       }
 
       // Generate CSV
@@ -543,14 +500,6 @@ export const DataMigration: React.FC = () => {
           ['Coffee Beans', 'Premium arabica coffee beans', '12.99', '6.00', 'CB001', '3456789012345', '25', 'Food & Beverages']
         ]
       },
-      inventory: {
-        headers: ['product_name', 'sku', 'quantity'],
-        samples: [
-          ['Wireless Headphones', 'WH001', '75'],
-          ['Cotton T-Shirt', 'TS001', '120'],
-          ['Coffee Beans', 'CB001', '30']
-        ]
-      }
     };
 
     const template = templates[importType];
@@ -592,9 +541,6 @@ export const DataMigration: React.FC = () => {
       case 'categories':
         validation = validateCategoriesData(preview.headers);
         break;
-      case 'inventory':
-        validation = validateInventoryData(preview.headers);
-        break;
       default:
         return null;
     }
@@ -626,7 +572,7 @@ export const DataMigration: React.FC = () => {
                 { type: 'contacts', icon: Users, label: 'Contacts', desc: 'Customers & Suppliers' },
                 { type: 'categories', icon: FolderOpen, label: 'Categories', desc: 'Product Categories' },
                 { type: 'products', icon: Package, label: 'Products', desc: 'Product Catalog' },
-                { type: 'inventory', icon: Database, label: 'Inventory', desc: 'Stock Quantities' },
+                
               ].map(({ type, icon: Icon, label, desc }) => (
                 <Card 
                   key={type}
@@ -674,7 +620,7 @@ export const DataMigration: React.FC = () => {
                       {importType === 'contacts' && 'name, type (customer/supplier)'}
                       {importType === 'products' && 'name, price'}
                       {importType === 'categories' && 'name'}
-                      {importType === 'inventory' && 'product_name (or sku), quantity'}
+                      
                     </AlertDescription>
                   </Alert>
 
@@ -828,7 +774,7 @@ export const DataMigration: React.FC = () => {
                 { type: 'contacts', icon: Users, label: 'Contacts', desc: 'Export all contacts' },
                 { type: 'categories', icon: FolderOpen, label: 'Categories', desc: 'Export categories' },
                 { type: 'products', icon: Package, label: 'Products', desc: 'Export product catalog' },
-                { type: 'inventory', icon: Database, label: 'Inventory', desc: 'Export stock levels' },
+                
               ].map(({ type, icon: Icon, label, desc }) => (
                 <Card 
                   key={type}
