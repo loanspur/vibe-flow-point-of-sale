@@ -200,6 +200,7 @@ export const DataMigration: React.FC = () => {
           address: data.address || null,
           notes: data.notes || null,
         });
+        break;
 
       case 'categories':
         // Check for duplicate category names
@@ -220,6 +221,7 @@ export const DataMigration: React.FC = () => {
           description: data.description || null,
           color: data.color || null,
         });
+        break;
 
       case 'products':
         // Check for duplicate product names
@@ -275,6 +277,7 @@ export const DataMigration: React.FC = () => {
           category_id: categoryId,
           is_active: true,
         });
+        break;
 
       case 'inventory':
         // Find product by name or SKU
