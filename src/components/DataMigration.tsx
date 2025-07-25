@@ -604,24 +604,35 @@ export const DataMigration: React.FC = () => {
                     </div>
 
                     {/* Progress */}
-                    {isProcessing && (
+                    {(isProcessing || result) && (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Import Progress</span>
                           <span>{Math.round(progress)}%</span>
                         </div>
-                        <Progress value={progress} />
+                        <Progress 
+                          value={progress} 
+                          className={result ? (result.failed > 0 ? "bg-yellow-100" : "bg-green-100") : ""} 
+                        />
                       </div>
                     )}
 
                     {/* Results */}
                     {result && (
-                      <Alert className={result.failed > 0 ? "border-yellow-500" : "border-green-500"}>
-                        <CheckCircle className="h-4 w-4" />
+                      <Alert className={result.failed > 0 ? "border-yellow-500 bg-yellow-50" : "border-green-500 bg-green-50"}>
+                        {result.failed > 0 ? (
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        )}
                         <AlertDescription>
                           <div className="space-y-2">
-                            <div>
-                              Import completed: {result.success} successful, {result.failed} failed
+                            <div className="font-medium">
+                              Import Summary: 
+                              <span className="text-green-600 ml-2">{result.success} successful</span>
+                              {result.failed > 0 && (
+                                <span className="text-yellow-600 ml-2">{result.failed} failed</span>
+                              )}
                             </div>
                             {result.errors.length > 0 && (
                               <details className="mt-2">
