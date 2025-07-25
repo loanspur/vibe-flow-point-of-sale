@@ -274,23 +274,50 @@ export const getLowStockItems = async (tenantId: string) => {
 
     const lowStockItems = [];
 
+    // Calculate actual stock based on transactions for each product (same as getInventoryLevels)
     for (const product of products || []) {
-      // Check main product stock
-      if (product.stock_quantity <= (product.min_stock_level || 0)) {
+      // Get purchase receipts (received items)
+      const { data: purchaseItems } = await supabase
+        .from('purchase_items')
+        .select('quantity_received')
+        .eq('product_id', product.id);
+
+      // Get sales
+      const { data: saleItems } = await supabase
+        .from('sale_items')
+        .select('quantity')
+        .eq('product_id', product.id);
+
+      // Get returns that were restocked
+      const { data: returnItems } = await supabase
+        .from('return_items')
+        .select('quantity_returned')
+        .eq('product_id', product.id)
+        .eq('restock', true);
+
+      const totalReceived = purchaseItems?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0;
+      const totalSold = saleItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+      const totalReturned = returnItems?.reduce((sum, item) => sum + (item.quantity_returned || 0), 0) || 0;
+
+      const calculatedStock = totalReceived + totalReturned - totalSold;
+
+      // Check main product stock using calculated values
+      if (calculatedStock <= (product.min_stock_level || 0) && (product.min_stock_level || 0) > 0) {
         lowStockItems.push({
           type: 'product',
           id: product.id,
           name: product.name,
           sku: product.sku,
-          currentStock: product.stock_quantity,
+          currentStock: calculatedStock,
           minLevel: product.min_stock_level || 0
         });
       }
 
-      // Check variant stock
+      // Check variant stock - for now, variants will use the same calculated stock logic
+      // In a more advanced system, variants would have their own transaction tracking
       for (const variant of product.product_variants || []) {
         // Assuming variants inherit min stock level from parent product
-        if (variant.stock_quantity <= (product.min_stock_level || 0)) {
+        if (variant.stock_quantity <= (product.min_stock_level || 0) && (product.min_stock_level || 0) > 0) {
           lowStockItems.push({
             type: 'variant',
             id: variant.id,
