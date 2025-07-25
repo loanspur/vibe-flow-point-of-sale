@@ -211,16 +211,59 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
             <head>
               <title>${type === "receipt" ? "Receipt" : type === "quote" ? "Quote" : "Invoice"} - ${documentNumber}</title>
               <style>
-                body { font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
-                .receipt { max-width: 400px; margin: 0 auto; }
+                @page { margin: 0; size: 80mm auto; }
+                body { 
+                  font-family: 'Courier New', monospace; 
+                  font-size: 12px;
+                  margin: 0; 
+                  padding: 2mm;
+                  width: 76mm;
+                  line-height: 1.2;
+                }
+                .thermal-receipt { width: 100%; }
                 .center { text-align: center; }
                 .right { text-align: right; }
+                .left { text-align: left; }
                 .bold { font-weight: bold; }
-                .separator { border-top: 1px dashed #000; margin: 10px 0; }
-                .item-row { display: flex; justify-content: space-between; margin: 2px 0; }
-                .no-print { display: none; }
+                .large { font-size: 14px; }
+                .small { font-size: 10px; }
+                .separator { 
+                  border-top: 1px dashed #000; 
+                  margin: 3px 0; 
+                  width: 100%;
+                }
+                .item-line { 
+                  display: flex; 
+                  justify-content: space-between; 
+                  margin: 1px 0; 
+                }
+                .item-name { 
+                  flex: 1; 
+                  white-space: nowrap; 
+                  overflow: hidden; 
+                  text-overflow: ellipsis; 
+                  margin-right: 8px;
+                }
+                .qty-price { 
+                  white-space: nowrap; 
+                  text-align: right; 
+                  min-width: 60px;
+                }
+                .total-line { 
+                  display: flex; 
+                  justify-content: space-between; 
+                  font-weight: bold; 
+                }
+                .company-info { margin-bottom: 8px; }
+                .document-info { margin: 8px 0; }
+                .items-section { margin: 8px 0; }
+                .totals-section { margin: 8px 0; }
+                .footer-section { margin-top: 8px; }
                 @media print {
-                  body { padding: 0; }
+                  body { 
+                    width: 76mm;
+                    font-size: 12px;
+                  }
                   .no-print { display: none !important; }
                 }
               </style>
@@ -316,178 +359,160 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           </div>
         </DialogHeader>
 
-        <div ref={receiptRef} className="receipt bg-white p-6 border rounded-lg">
+        <div ref={receiptRef} className="thermal-receipt bg-white p-6 border rounded-lg">
           {/* Custom Header */}
           {businessSettings.receipt_header && (
-            <div className="center mb-4">
-              <div className="text-sm whitespace-pre-wrap">{businessSettings.receipt_header}</div>
+            <div className="company-info center">
+              <div className="small">{businessSettings.receipt_header}</div>
             </div>
           )}
 
           {/* Logo */}
           {businessSettings.receipt_logo_url && (
-            <div className="center mb-4">
-              <img src={businessSettings.receipt_logo_url} alt="Company Logo" className="h-16 mx-auto" />
+            <div className="company-info center">
+              <img src={businessSettings.receipt_logo_url} alt="Logo" style={{ height: '40px', margin: '0 auto' }} />
             </div>
           )}
 
           {/* Company Header */}
-          <div className="center mb-6">
-            <h1 className="text-2xl font-bold text-primary">{businessSettings.company_name || "VibePOS"}</h1>
+          <div className="company-info center">
+            <div className="bold large">{businessSettings.company_name || "VibePOS"}</div>
             {businessSettings.address_line_1 && (
-              <p className="text-sm text-muted-foreground">{businessSettings.address_line_1}</p>
+              <div className="small">{businessSettings.address_line_1}</div>
             )}
             {businessSettings.address_line_2 && (
-              <p className="text-sm text-muted-foreground">{businessSettings.address_line_2}</p>
+              <div className="small">{businessSettings.address_line_2}</div>
             )}
-            <p className="text-sm text-muted-foreground">
+            <div className="small">
               {[businessSettings.city, businessSettings.state_province, businessSettings.postal_code].filter(Boolean).join(', ')}
               {businessSettings.country && `, ${businessSettings.country}`}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {businessSettings.phone} {businessSettings.email && `| ${businessSettings.email}`}
-            </p>
-            {businessSettings.website && (
-              <p className="text-sm text-muted-foreground">{businessSettings.website}</p>
+            </div>
+            {businessSettings.phone && <div className="small">{businessSettings.phone}</div>}
+            {businessSettings.email && <div className="small">{businessSettings.email}</div>}
+            {businessSettings.website && <div className="small">{businessSettings.website}</div>}
+          </div>
+
+          <div className="separator"></div>
+
+          {/* Document Type and Number */}
+          <div className="document-info center">
+            <div className="bold large">{getTitle().toUpperCase()}</div>
+            <div className="bold">{sale?.receipt_number || quote?.quote_number}</div>
+            <div className="small">{document.status.toUpperCase()}</div>
+          </div>
+
+          <div className="separator"></div>
+
+          {/* Document Details */}
+          <div className="document-info small">
+            <div>Date: {formatDate(document.created_at)}</div>
+            <div>Customer: {document.customers?.name || "Walk-in Customer"}</div>
+            {document.customers?.phone && (
+              <div>Phone: {document.customers.phone}</div>
+            )}
+            {type === "receipt" && sale?.payment_method && (
+              <div>Payment: {sale.payment_method.toUpperCase()}</div>
+            )}
+            {document.profiles?.full_name && (
+              <div>Cashier: {document.profiles.full_name}</div>
+            )}
+            {type === "quote" && quote?.valid_until && (
+              <div>Valid Until: {formatDate(quote.valid_until)}</div>
             )}
           </div>
 
-          <Separator className="my-4" />
-
-          {/* Document Type and Number */}
-          <div className="center mb-4">
-            <h2 className="text-xl font-bold">{getTitle().toUpperCase()}</h2>
-            <p className="text-lg font-mono">{sale?.receipt_number || quote?.quote_number}</p>
-            <Badge className={getStatusColor(document.status)}>
-              {document.status.toUpperCase()}
-            </Badge>
-          </div>
-
-          {/* Document Details */}
-          <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-            <div>
-              <p><span className="font-semibold">Date:</span> {formatDate(document.created_at)}</p>
-              <p><span className="font-semibold">Customer:</span> {document.customers?.name || "Walk-in Customer"}</p>
-              {document.customers?.email && (
-                <p><span className="font-semibold">Email:</span> {document.customers.email}</p>
-              )}
-              {document.customers?.phone && (
-                <p><span className="font-semibold">Phone:</span> {document.customers.phone}</p>
-              )}
-            </div>
-            <div>
-              {type === "receipt" && sale?.payment_method && (
-                <p><span className="font-semibold">Payment:</span> {sale.payment_method.toUpperCase()}</p>
-              )}
-              {document.profiles?.full_name && (
-                <p><span className="font-semibold">Cashier:</span> {document.profiles.full_name}</p>
-              )}
-              {type === "quote" && quote?.valid_until && (
-                <p><span className="font-semibold">Valid Until:</span> {formatDate(quote.valid_until)}</p>
-              )}
-            </div>
-          </div>
-
-          <Separator className="my-4" />
+          <div className="separator"></div>
 
           {/* Items */}
-          <div className="mb-4">
-            <div className="flex justify-between font-semibold mb-2 text-sm">
-              <span>Item</span>
-              <span>Qty</span>
-              <span>Price</span>
-              <span>Total</span>
-            </div>
-            <Separator className="mb-2" />
-            
+          <div className="items-section">
             {isLoading ? (
-              <p className="text-center py-4">Loading items...</p>
+              <div className="center">Loading items...</div>
             ) : (
-              <div className="space-y-1">
+              <div>
                 {items.map((item) => (
-                  <div key={item.id} className="text-sm">
-                    <div className="flex justify-between">
-                      <span className="flex-1 font-medium">
+                  <div key={item.id}>
+                    <div className="item-line">
+                      <div className="item-name">
                         {item.products.name}
                         {"product_variants" in item && item.product_variants && (
-                          <span className="text-muted-foreground ml-2">
-                            ({item.product_variants.name}: {item.product_variants.value})
-                          </span>
+                          <div className="small">({item.product_variants.name}: {item.product_variants.value})</div>
                         )}
-                      </span>
-                      <span className="w-12 text-center">{item.quantity}</span>
-                      <span className="w-20 text-right">{formatAmount(item.unit_price)}</span>
-                      <span className="w-24 text-right font-medium">{formatAmount(item.total_price)}</span>
+                      </div>
+                    </div>
+                    <div className="item-line">
+                      <div>{item.quantity} x {formatAmount(item.unit_price)}</div>
+                      <div className="qty-price">{formatAmount(item.total_price)}</div>
                     </div>
                     {item.products.sku && (
-                      <div className="text-xs text-muted-foreground ml-2">SKU: {item.products.sku}</div>
+                      <div className="small">SKU: {item.products.sku}</div>
                     )}
+                    <div style={{ height: '2px' }}></div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <Separator className="my-4" />
+          <div className="separator"></div>
 
           {/* Totals */}
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span>{formatAmount(calculateSubtotal())}</span>
+          <div className="totals-section">
+            <div className="item-line">
+              <div>Subtotal:</div>
+              <div>{formatAmount(calculateSubtotal())}</div>
             </div>
             
             {document.discount_amount > 0 && (
-              <div className="flex justify-between">
-                <span>Discount:</span>
-                <span className="text-red-600">-{formatAmount(document.discount_amount)}</span>
+              <div className="item-line">
+                <div>Discount:</div>
+                <div>-{formatAmount(document.discount_amount)}</div>
               </div>
             )}
             
             {document.tax_amount > 0 && (
-              <div className="flex justify-between">
-                <span>Tax:</span>
-                <span>{formatAmount(document.tax_amount)}</span>
+              <div className="item-line">
+                <div>Tax:</div>
+                <div>{formatAmount(document.tax_amount)}</div>
               </div>
             )}
             
-            <Separator className="my-2" />
+            <div className="separator"></div>
             
-            <div className="flex justify-between text-lg font-bold">
-              <span>Total:</span>
-              <span>{formatAmount(document.total_amount)}</span>
+            <div className="total-line large">
+              <div>TOTAL:</div>
+              <div>{formatAmount(document.total_amount)}</div>
             </div>
           </div>
 
           {/* Notes for quotes */}
           {type === "quote" && quote?.notes && (
             <>
-              <Separator className="my-4" />
-              <div>
-                <p className="font-semibold text-sm mb-2">Notes:</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{quote.notes}</p>
+              <div className="separator"></div>
+              <div className="small">
+                <div className="bold">Notes:</div>
+                <div>{quote.notes}</div>
               </div>
             </>
           )}
 
           {/* Footer */}
-          <Separator className="my-6" />
+          <div className="separator"></div>
           
-          <div className="center text-xs text-muted-foreground space-y-1">
+          <div className="footer-section center small">
             {/* Custom Footer */}
             {businessSettings.receipt_footer ? (
-              <div className="whitespace-pre-wrap mb-2">{businessSettings.receipt_footer}</div>
+              <div>{businessSettings.receipt_footer}</div>
             ) : (
-              <p>Thank you for your business!</p>
+              <div>Thank you for your business!</div>
             )}
             
             {type === "quote" && (
-              <p className="font-medium">This quote is valid until {quote?.valid_until ? formatDate(quote.valid_until) : "further notice"}</p>
+              <div className="bold">Valid until {quote?.valid_until ? formatDate(quote.valid_until) : "further notice"}</div>
             )}
             {type === "receipt" && (
-              <p>Please keep this receipt for your records</p>
+              <div>Please keep this receipt</div>
             )}
-            <p>Powered by VibePOS - Modern Point of Sale Solution</p>
+            <div style={{ marginTop: '5px' }}>Powered by VibePOS</div>
           </div>
         </div>
       </DialogContent>
