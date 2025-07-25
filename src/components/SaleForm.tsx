@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar } from "lucide-react";
+import QuickCreateCustomerDialog from './QuickCreateCustomerDialog';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -654,9 +655,12 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                 name="customer_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      <User className="h-4 w-4 mr-1 inline" />
-                      Customer {saleType === "online" && "*"}
+                    <FormLabel className="flex items-center justify-between">
+                      <span className="flex items-center">
+                        <User className="h-4 w-4 mr-1" />
+                        Customer {saleType === "online" && "*"}
+                      </span>
+                      <QuickCreateCustomerDialog onCustomerCreated={fetchCustomers} />
                     </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>

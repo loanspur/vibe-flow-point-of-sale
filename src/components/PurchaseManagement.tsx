@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import QuickCreateSupplierDialog from './QuickCreateSupplierDialog';
 import { 
   ShoppingCart, 
   Plus, 
@@ -993,23 +994,26 @@ const PurchaseManagement = () => {
                         Create a new purchase order for your suppliers
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="supplier">Supplier *</Label>
-                          <Select value={formData.supplier_id} onValueChange={(value) => setFormData({...formData, supplier_id: value})}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(suppliers || []).map((supplier) => (
-                                <SelectItem key={supplier.id} value={supplier.id}>
-                                  {supplier.name} {supplier.company && `(${supplier.company})`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="supplier">Supplier *</Label>
+                            <div className="flex items-center gap-2">
+                              <Select value={formData.supplier_id} onValueChange={(value) => setFormData({...formData, supplier_id: value})}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select supplier" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(suppliers || []).map((supplier) => (
+                                    <SelectItem key={supplier.id} value={supplier.id}>
+                                      {supplier.name} {supplier.company && `(${supplier.company})`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <QuickCreateSupplierDialog onSupplierCreated={fetchSuppliers} />
+                            </div>
+                          </div>
                         <div>
                           <Label htmlFor="expectedDate">Expected Date</Label>
                           <Input

@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X, Package, Plus, Trash2 } from 'lucide-react';
+import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 
 interface Category {
   id: string;
@@ -808,21 +809,24 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select
-                value={formData.category_id}
-                onValueChange={(value) => handleInputChange('category_id', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) => handleInputChange('category_id', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <QuickCreateCategoryDialog onCategoryCreated={fetchCategories} />
+              </div>
             </div>
             
             <div className="space-y-2">
