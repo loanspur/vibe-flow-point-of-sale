@@ -443,13 +443,36 @@ export default function BillingPlansManager() {
               </div>
             )}
           </div>
-          <div className="flex items-baseline gap-2 mt-4">
-            <span className="text-3xl font-bold">{formatPlanCurrency(plan.price)}</span>
-            <span className="text-muted-foreground">/{plan.period}</span>
-            {plan.original_price && plan.original_price > plan.price && (
-              <span className="text-sm line-through text-muted-foreground">{formatPlanCurrency(plan.original_price)}</span>
-            )}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Monthly</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold">{formatPlanCurrency(plan.price)}</span>
+                <span className="text-muted-foreground">/month</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Annual</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold">
+                  {formatPlanCurrency(
+                    plan.annual_discount_percentage 
+                      ? (plan.price * 12) * (1 - (plan.annual_discount_percentage || 0) / 100)
+                      : plan.price * (12 - (plan.annual_discount_months || 2))
+                  )}
+                </span>
+                <span className="text-muted-foreground">/year</span>
+              </div>
+              <p className="text-xs text-green-600 mt-1">
+                Save {plan.annual_discount_months || 2} months
+              </p>
+            </div>
           </div>
+          {plan.original_price && plan.original_price > plan.price && (
+            <div className="mt-2">
+              <span className="text-sm line-through text-muted-foreground">{formatPlanCurrency(plan.original_price)}</span>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Plan Metrics */}
@@ -660,6 +683,31 @@ export default function BillingPlansManager() {
                 <Input id="maxProducts" type="number" placeholder="1000" />
               </div>
             </div>
+
+            {/* Annual Pricing Configuration */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Annual Pricing Configuration</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="annualDiscountMonths">Free Months (Annual)</Label>
+                  <Input id="annualDiscountMonths" type="number" defaultValue="2" placeholder="2" />
+                  <p className="text-xs text-muted-foreground mt-1">Number of months to discount from annual price</p>
+                </div>
+                <div>
+                  <Label htmlFor="annualDiscountPercentage">Or Percentage Discount (%)</Label>
+                  <Input id="annualDiscountPercentage" type="number" placeholder="16.67" />
+                  <p className="text-xs text-muted-foreground mt-1">Alternative to free months (leave empty if using months)</p>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="currency">Currency</Label>
+                <select id="currency" className="w-full p-2 border rounded">
+                  <option value="KES">KES - Kenyan Shilling</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="EUR">EUR - Euro</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -675,11 +723,17 @@ export default function BillingPlansManager() {
             const maxUsers = (document.getElementById('maxUsers') as HTMLInputElement)?.value;
             const maxLocations = (document.getElementById('maxLocations') as HTMLInputElement)?.value;
             const maxProducts = (document.getElementById('maxProducts') as HTMLInputElement)?.value;
+            const annualDiscountMonths = (document.getElementById('annualDiscountMonths') as HTMLInputElement)?.value;
+            const annualDiscountPercentage = (document.getElementById('annualDiscountPercentage') as HTMLInputElement)?.value;
+            const currency = (document.getElementById('currency') as HTMLSelectElement)?.value;
             
             const planData = {
               name: planName,
               description: description,
               price: monthlyPrice,
+              annual_discount_months: annualDiscountMonths ? parseInt(annualDiscountMonths) : 2,
+              annual_discount_percentage: annualDiscountPercentage ? parseFloat(annualDiscountPercentage) : null,
+              currency: currency || 'KES',
               features: [
                 { name: `Up to ${maxLocations || 'Unlimited'} Locations`, included: true, limit: maxLocations },
                 { name: `Up to ${maxUsers || 'Unlimited'} Staff Users`, included: true, limit: maxUsers },

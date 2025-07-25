@@ -3,26 +3,38 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle, Star } from "lucide-react";
 import BillingPlansManager from "./BillingPlansManager";
 import PaystackTestingInterface from "./PaystackTestingInterface";
-import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { usePricingCalculation } from "@/hooks/usePricingCalculation";
 import { useState } from "react";
 
 const Pricing = () => {
-  const { formatPrice } = useCurrencyUpdate();
   const [isAnnual, setIsAnnual] = useState(false);
-  const getPrice = (monthlyPrice: number) => {
-    return isAnnual ? formatPrice(monthlyPrice * 10) : formatPrice(monthlyPrice);
-  };
 
-  const getPeriod = () => {
-    return isAnnual ? "/year" : "/month";
-  };
+  // Dynamic pricing configurations for each plan
+  const starterPricing = usePricingCalculation({
+    monthlyPrice: 29,
+    annualDiscountMonths: 2,
+    currency: 'USD'
+  });
+
+  const professionalPricing = usePricingCalculation({
+    monthlyPrice: 79,
+    annualDiscountMonths: 2, 
+    currency: 'USD'
+  });
+
+  const enterprisePricing = usePricingCalculation({
+    monthlyPrice: 199,
+    annualDiscountMonths: 2,
+    currency: 'USD'
+  });
 
   const plans = [
     {
       name: "Starter",
       monthlyPrice: 29,
-      price: getPrice(29),
-      period: getPeriod(),
+      price: starterPricing.getDisplayPriceFormatted(isAnnual),
+      period: starterPricing.getPeriod(isAnnual),
+      pricing: starterPricing,
       description: "Perfect for small businesses just getting started",
       features: [
         "1 Location",
@@ -39,8 +51,9 @@ const Pricing = () => {
     {
       name: "Professional",
       monthlyPrice: 79,
-      price: getPrice(79),
-      period: getPeriod(),
+      price: professionalPricing.getDisplayPriceFormatted(isAnnual),
+      period: professionalPricing.getPeriod(isAnnual),
+      pricing: professionalPricing,
       description: "Ideal for growing businesses with multiple needs",
       features: [
         "Up to 5 Locations",
@@ -59,8 +72,9 @@ const Pricing = () => {
     {
       name: "Enterprise",
       monthlyPrice: 199,
-      price: getPrice(199),
-      period: getPeriod(),
+      price: enterprisePricing.getDisplayPriceFormatted(isAnnual),
+      period: enterprisePricing.getPeriod(isAnnual),
+      pricing: enterprisePricing,
       description: "For large businesses requiring advanced features",
       features: [
         "Unlimited Locations",
@@ -114,7 +128,7 @@ const Pricing = () => {
               </span>
               {isAnnual && (
                 <span className="ml-2 text-sm font-medium text-pos-success bg-pos-success/10 px-2 py-1 rounded-full">
-                  Save 2 months
+                  Save {starterPricing.getSavings().display}
                 </span>
               )}
             </div>

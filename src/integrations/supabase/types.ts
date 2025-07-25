@@ -359,6 +359,8 @@ export type Database = {
         Row: {
           add_ons: Json | null
           allows_prorating: boolean | null
+          annual_discount_months: number | null
+          annual_discount_percentage: number | null
           arpu: number | null
           badge: string | null
           badge_color: string | null
@@ -367,6 +369,7 @@ export type Database = {
           conversion_rate: number | null
           created_at: string
           created_by: string | null
+          currency: string | null
           customers: number | null
           description: string | null
           discounts: Json | null
@@ -381,6 +384,7 @@ export type Database = {
           popularity: number | null
           price: number
           pricing: Json | null
+          pricing_config: Json | null
           proration_policy: string | null
           status: string
           tenant_id: string | null
@@ -390,6 +394,8 @@ export type Database = {
         Insert: {
           add_ons?: Json | null
           allows_prorating?: boolean | null
+          annual_discount_months?: number | null
+          annual_discount_percentage?: number | null
           arpu?: number | null
           badge?: string | null
           badge_color?: string | null
@@ -398,6 +404,7 @@ export type Database = {
           conversion_rate?: number | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           customers?: number | null
           description?: string | null
           discounts?: Json | null
@@ -412,6 +419,7 @@ export type Database = {
           popularity?: number | null
           price?: number
           pricing?: Json | null
+          pricing_config?: Json | null
           proration_policy?: string | null
           status?: string
           tenant_id?: string | null
@@ -421,6 +429,8 @@ export type Database = {
         Update: {
           add_ons?: Json | null
           allows_prorating?: boolean | null
+          annual_discount_months?: number | null
+          annual_discount_percentage?: number | null
           arpu?: number | null
           badge?: string | null
           badge_color?: string | null
@@ -429,6 +439,7 @@ export type Database = {
           conversion_rate?: number | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           customers?: number | null
           description?: string | null
           discounts?: Json | null
@@ -443,6 +454,7 @@ export type Database = {
           popularity?: number | null
           price?: number
           pricing?: Json | null
+          pricing_config?: Json | null
           proration_policy?: string | null
           status?: string
           tenant_id?: string | null

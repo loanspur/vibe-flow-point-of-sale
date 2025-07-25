@@ -10,6 +10,8 @@ import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import Dashboard from "@/components/Dashboard";
 import Footer from "@/components/Footer";
+import { usePricingCalculation } from "@/hooks/usePricingCalculation";
+import { planToPricingConfig } from "@/lib/pricingUtils";
 
 interface BillingPlan {
   id: string;
@@ -74,11 +76,37 @@ const Index = () => {
   };
 
   const getDisplayPrice = (plan: BillingPlan) => {
-    return isAnnual ? formatPrice(plan.price * 10) : formatPrice(plan.price);
+    // Create pricing configuration from database plan
+    const pricing = usePricingCalculation({
+      monthlyPrice: plan.price,
+      annualDiscountMonths: (plan as any).annual_discount_months || 2,
+      annualDiscountPercentage: (plan as any).annual_discount_percentage,
+      currency: (plan as any).currency || 'KES'
+    });
+    
+    return pricing.getDisplayPriceFormatted(isAnnual);
   };
 
-  const getDisplayPeriod = () => {
-    return isAnnual ? "/year" : "/month";
+  const getDisplayPeriod = (plan: BillingPlan) => {
+    const pricing = usePricingCalculation({
+      monthlyPrice: plan.price,
+      annualDiscountMonths: (plan as any).annual_discount_months || 2,
+      annualDiscountPercentage: (plan as any).annual_discount_percentage,
+      currency: (plan as any).currency || 'KES'
+    });
+    
+    return pricing.getPeriod(isAnnual);
+  };
+
+  const getDynamicSavings = (plan: BillingPlan) => {
+    const pricing = usePricingCalculation({
+      monthlyPrice: plan.price,
+      annualDiscountMonths: (plan as any).annual_discount_months || 2,
+      annualDiscountPercentage: (plan as any).annual_discount_percentage,
+      currency: (plan as any).currency || 'KES'
+    });
+    
+    return pricing.getSavings();
   };
 
   const formatFeatures = (features: any) => {
@@ -204,9 +232,9 @@ const Index = () => {
               <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
                 Annual
               </span>
-              {isAnnual && (
+              {isAnnual && plans.length > 0 && (
                 <span className="ml-2 text-sm font-medium text-pos-success bg-pos-success/10 px-2 py-1 rounded-full">
-                  Save 2 months
+                  Save {getDynamicSavings(plans[0]).display}
                 </span>
               )}
             </div>
@@ -243,13 +271,13 @@ const Index = () => {
                       <CardTitle className="text-2xl mb-2">{plan.name}</CardTitle>
                       <div className="space-y-2">
                         <div className="text-4xl font-bold">
-                          {getDisplayPrice(plan)}
-                          <span className="text-lg text-muted-foreground font-normal">
-                            {getDisplayPeriod()}
-                          </span>
-                        </div>
-                        <div className="text-sm text-green-600 font-medium">
-                          Free for 14 days, then {getDisplayPrice(plan)}{getDisplayPeriod()}
+                           {getDisplayPrice(plan)}
+                           <span className="text-lg text-muted-foreground font-normal">
+                             {getDisplayPeriod(plan)}
+                           </span>
+                         </div>
+                         <div className="text-sm text-green-600 font-medium">
+                           Free for 14 days, then {getDisplayPrice(plan)}{getDisplayPeriod(plan)}
                         </div>
                         <CardDescription className="text-base">
                           {plan.description}
