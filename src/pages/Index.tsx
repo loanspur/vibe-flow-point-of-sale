@@ -107,13 +107,7 @@ const Index = () => {
               Start free, scale fast, succeed everywhere.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button size="lg" className="text-lg px-8 py-6" asChild>
-                <Link to="/signup">
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+            <div className="flex justify-center">
               <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
                 <Link to="/auth">
                   Sign In
