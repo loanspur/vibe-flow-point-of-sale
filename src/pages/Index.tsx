@@ -27,6 +27,7 @@ interface BillingPlan {
 const Index = () => {
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAnnual, setIsAnnual] = useState(false);
   const [stats, setStats] = useState({
     totalCustomers: 0,
     avgRating: 4.9,
@@ -70,6 +71,14 @@ const Index = () => {
 
   const formatPrice = (price: number) => {
     return `KES ${price.toLocaleString()}`;
+  };
+
+  const getDisplayPrice = (plan: BillingPlan) => {
+    return isAnnual ? formatPrice(plan.price * 10) : formatPrice(plan.price);
+  };
+
+  const getDisplayPeriod = () => {
+    return isAnnual ? "/year" : "/month";
   };
 
   const formatFeatures = (features: any) => {
@@ -174,6 +183,33 @@ const Index = () => {
               Start with a 14-day free trial. Affordable pricing in Kenyan Shillings. 
               No setup fees, no hidden costs. Cancel anytime during your trial.
             </p>
+            
+            {/* Billing Toggle */}
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <span className={`text-sm font-medium ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Monthly
+              </span>
+              <button
+                onClick={() => setIsAnnual(!isAnnual)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isAnnual ? 'bg-primary' : 'bg-muted'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isAnnual ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+                Annual
+              </span>
+              {isAnnual && (
+                <span className="ml-2 text-sm font-medium text-pos-success bg-pos-success/10 px-2 py-1 rounded-full">
+                  Save 2 months
+                </span>
+              )}
+            </div>
           </div>
 
           {loading ? (
@@ -207,13 +243,13 @@ const Index = () => {
                       <CardTitle className="text-2xl mb-2">{plan.name}</CardTitle>
                       <div className="space-y-2">
                         <div className="text-4xl font-bold">
-                          {formatPrice(plan.price)}
+                          {getDisplayPrice(plan)}
                           <span className="text-lg text-muted-foreground font-normal">
-                            /{plan.period}
+                            {getDisplayPeriod()}
                           </span>
                         </div>
                         <div className="text-sm text-green-600 font-medium">
-                          Free for 14 days, then {formatPrice(plan.price)}/{plan.period}
+                          Free for 14 days, then {getDisplayPrice(plan)}{getDisplayPeriod()}
                         </div>
                         <CardDescription className="text-base">
                           {plan.description}
