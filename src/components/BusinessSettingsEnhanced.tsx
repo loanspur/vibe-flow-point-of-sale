@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import BillingManagement from "./BillingManagement";
 import { DocumentTemplateEditor } from "./DocumentTemplateEditor";
+import { DataMigration } from "./DataMigration";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -54,7 +55,8 @@ import {
   MessageSquare,
   Layout,
   Download,
-  Printer
+  Printer,
+  Database
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -839,7 +841,7 @@ export function BusinessSettingsEnhanced() {
           {/* Enhanced Navigation */}
           <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-1 shadow-sm">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-10 h-auto bg-transparent gap-1 p-1">
+              <TabsList className="grid w-full grid-cols-11 h-auto bg-transparent gap-1 p-1">
                 <TabsTrigger value="company" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <Building className="h-4 w-4 mr-2" />
                   Company
@@ -879,6 +881,10 @@ export function BusinessSettingsEnhanced() {
                 <TabsTrigger value="billing" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Billing
+                </TabsTrigger>
+                <TabsTrigger value="migration" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+                  <Database className="h-4 w-4 mr-2" />
+                  Migration
                 </TabsTrigger>
               </TabsList>
 
@@ -1995,6 +2001,11 @@ export function BusinessSettingsEnhanced() {
                     {/* Billing Tab */}
                     <TabsContent value="billing" className="space-y-6 mt-6">
                       <BillingManagement />
+                    </TabsContent>
+
+                    {/* Data Migration Tab */}
+                    <TabsContent value="migration" className="space-y-6 mt-6">
+                      <DataMigration />
                     </TabsContent>
 
                   </form>
