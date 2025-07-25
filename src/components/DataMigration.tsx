@@ -502,23 +502,46 @@ export const DataMigration: React.FC = () => {
 
       console.log('Starting inventory recalculation for tenant:', profile.tenant_id);
       
-      // First, fix the specific migrated products that lost their stock
+      // First, check current stock levels
+      const { data: currentProducts } = await supabase
+        .from('products')
+        .select('name, stock_quantity')
+        .eq('tenant_id', profile.tenant_id)
+        .in('name', ['Wireless Headphones', 'Cotton T-Shirt']);
+      
+      console.log('Current stock before fix:', currentProducts);
+      
+      // Fix the specific migrated products that lost their stock
       const migratedProductsToFix = [
         { name: 'Wireless Headphones', correctStock: 50 },
         { name: 'Cotton T-Shirt', correctStock: 100 }
       ];
       
       for (const productToFix of migratedProductsToFix) {
-        const { error: fixError } = await supabase
+        console.log(`Attempting to fix ${productToFix.name} to ${productToFix.correctStock} units`);
+        
+        const { data: updateResult, error: fixError } = await supabase
           .from('products')
           .update({ stock_quantity: productToFix.correctStock })
           .eq('tenant_id', profile.tenant_id)
-          .eq('name', productToFix.name);
+          .eq('name', productToFix.name)
+          .select('name, stock_quantity');
           
-        if (!fixError) {
-          console.log(`Fixed ${productToFix.name} stock to ${productToFix.correctStock} units`);
+        if (fixError) {
+          console.error(`Error fixing ${productToFix.name}:`, fixError);
+        } else {
+          console.log(`Successfully updated ${productToFix.name}:`, updateResult);
         }
       }
+      
+      // Check stock levels after fix
+      const { data: updatedProducts } = await supabase
+        .from('products')
+        .select('name, stock_quantity')
+        .eq('tenant_id', profile.tenant_id)
+        .in('name', ['Wireless Headphones', 'Cotton T-Shirt']);
+      
+      console.log('Stock after fix:', updatedProducts);
       
       const results = await recalculateInventoryLevels(profile.tenant_id);
       
