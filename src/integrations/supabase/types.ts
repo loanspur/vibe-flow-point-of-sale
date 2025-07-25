@@ -1957,6 +1957,7 @@ export type Database = {
           brand_id: string | null
           category_id: string | null
           cost: number | null
+          cost_price: number | null
           created_at: string
           description: string | null
           id: string
@@ -1980,6 +1981,7 @@ export type Database = {
           brand_id?: string | null
           category_id?: string | null
           cost?: number | null
+          cost_price?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -2003,6 +2005,7 @@ export type Database = {
           brand_id?: string | null
           category_id?: string | null
           cost?: number | null
+          cost_price?: number | null
           created_at?: string
           description?: string | null
           id?: string
