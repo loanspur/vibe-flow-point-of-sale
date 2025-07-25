@@ -651,6 +651,10 @@ export default function BillingPlansManager() {
                 <Label htmlFor="maxLocations">Max Locations</Label>
                 <Input id="maxLocations" type="number" placeholder="5" />
               </div>
+              <div>
+                <Label htmlFor="maxProducts">Max Products</Label>
+                <Input id="maxProducts" type="number" placeholder="1000" />
+              </div>
             </div>
           </div>
         </div>
