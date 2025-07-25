@@ -19,12 +19,16 @@ const Hero = () => {
                   The modern multi-tenant point of sale system that grows with your business
                 </p>
               </div>
-              <div className="w-full">
+              <div className="w-full bg-red-100 border border-red-500 p-2">
+                <p className="text-sm text-red-600 mb-2">Debug: Image container</p>
                 <img 
                   src={businessDataTracking} 
                   alt="Professional tracking business data on computer and phone" 
                   className="w-full h-auto rounded-xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
+                  onError={(e) => console.error('Image failed to load:', e)}
+                  onLoad={() => console.log('Image loaded successfully')}
                 />
+                <p className="text-xs text-red-600 mt-2">Image src: {businessDataTracking}</p>
               </div>
             </div>
             
