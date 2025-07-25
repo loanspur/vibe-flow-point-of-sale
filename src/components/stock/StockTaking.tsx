@@ -833,9 +833,37 @@ export const StockTaking: React.FC = () => {
             </TabsList>
 
             <TabsContent value="count" className="space-y-4">
-              {/* Filters and Batch Actions */}
+              {/* Quick Count Entry Section */}
               <Card>
-                <CardContent className="p-4">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Calculator className="h-5 w-5" />
+                      Quick Stock Count Entry
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedItems(new Set(filteredItems.map(item => item.id)));
+                        }}
+                        disabled={filteredItems.length === 0}
+                      >
+                        Select All ({filteredItems.length})
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedItems(new Set())}
+                        disabled={selectedItems.size === 0}
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <Label htmlFor="search">Search Products</Label>
@@ -847,29 +875,29 @@ export const StockTaking: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="status-filter">Status</Label>
+                      <Label htmlFor="status-filter">Count Status</Label>
                       <Select value={filterStatus} onValueChange={setFilterStatus}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Items</SelectItem>
-                          <SelectItem value="counted">Counted</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="counted">Already Counted</SelectItem>
+                          <SelectItem value="pending">Need Counting</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="variance-filter">Variance</Label>
+                      <Label htmlFor="variance-filter">Variance Type</Label>
                       <Select value={filterVariance} onValueChange={setFilterVariance}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Variances</SelectItem>
-                          <SelectItem value="no-variance">No Variance</SelectItem>
-                          <SelectItem value="positive">Over Count</SelectItem>
-                          <SelectItem value="negative">Under Count</SelectItem>
+                          <SelectItem value="no-variance">Perfect Match</SelectItem>
+                          <SelectItem value="positive">Over Count (+)</SelectItem>
+                          <SelectItem value="negative">Under Count (-)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -879,37 +907,45 @@ export const StockTaking: React.FC = () => {
                         <Input
                           id="batch-count"
                           type="number"
-                          placeholder="Count"
+                          placeholder="Enter count"
                           value={batchCount}
                           onChange={(e) => setBatchCount(e.target.value)}
                           disabled={selectedItems.size === 0}
+                          min="0"
                         />
                       </div>
                       <Button
                         onClick={batchUpdateCount}
                         disabled={!batchCount || selectedItems.size === 0 || loading}
                         size="sm"
+                        className="flex items-center gap-1"
                       >
+                        <Save className="h-3 w-3" />
                         Apply to {selectedItems.size}
                       </Button>
                     </div>
                   </div>
+
+                  {selectedItems.size > 0 && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        {selectedItems.size} item(s) selected for batch counting. Enter a count above and click "Apply" to update all selected items.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </CardContent>
               </Card>
 
-              {selectedItems.size > 0 && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {selectedItems.size} item(s) selected for batch counting.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Stock Items Table */}
+              {/* Enhanced Stock Items Table */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Stock Count Items ({filteredItems.length})</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Physical Count Entry ({filteredItems.length} items)</span>
+                    <div className="text-sm text-muted-foreground">
+                      Progress: {calculateSummary().countedItems} / {calculateSummary().totalItems} completed
+                    </div>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -927,21 +963,24 @@ export const StockTaking: React.FC = () => {
                                   setSelectedItems(new Set());
                                 }
                               }}
+                              className="rounded"
                             />
                           </TableHead>
                         )}
-                        <TableHead>Product</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>System Qty</TableHead>
-                        <TableHead>Counted Qty</TableHead>
-                        <TableHead>Variance</TableHead>
-                        <TableHead>Value Impact</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Product Details</TableHead>
+                        <TableHead className="text-center">System Count</TableHead>
+                        <TableHead className="text-center">Physical Count</TableHead>
+                        <TableHead className="text-center">Variance</TableHead>
+                        <TableHead className="text-center">Value Impact</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        {selectedSession.status === 'active' && (
+                          <TableHead className="text-center">Actions</TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredItems.map((item) => (
-                        <TableRow key={item.id}>
+                        <TableRow key={item.id} className={item.is_counted ? 'bg-muted/30' : ''}>
                           {selectedSession.status === 'active' && (
                             <TableCell>
                               <input
@@ -956,56 +995,121 @@ export const StockTaking: React.FC = () => {
                                   }
                                   setSelectedItems(newSelected);
                                 }}
+                                className="rounded"
                               />
                             </TableCell>
                           )}
-                          <TableCell className="font-medium">
-                            {item.products?.name}
-                            {item.product_variants?.name && (
-                              <div className="text-sm text-muted-foreground">
-                                {item.product_variants.name}: {item.product_variants.value}
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-medium">{item.products?.name}</div>
+                              {item.product_variants?.name && (
+                                <div className="text-sm text-muted-foreground">
+                                  {item.product_variants.name}: {item.product_variants.value}
+                                </div>
+                              )}
+                              <div className="text-xs font-mono text-muted-foreground">
+                                SKU: {item.products?.sku || item.product_variants?.sku}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="font-medium text-lg">{item.system_quantity}</div>
+                            <div className="text-xs text-muted-foreground">Expected</div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {selectedSession.status === 'active' ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={item.counted_quantity || ''}
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value) || 0;
+                                    updateCount(item.id, value);
+                                  }}
+                                  className="w-20 text-center font-medium"
+                                  min="0"
+                                  placeholder="0"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateCount(item.id, item.system_quantity)}
+                                  className="text-xs px-2 py-1"
+                                >
+                                  Match System
+                                </Button>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="font-medium text-lg">{item.counted_quantity || '-'}</div>
+                                <div className="text-xs text-muted-foreground">Actual</div>
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {item.products?.sku || item.product_variants?.sku}
-                          </TableCell>
-                          <TableCell className="font-medium">{item.system_quantity}</TableCell>
-                          <TableCell>
-                            {selectedSession.status === 'active' ? (
-                              <Input
-                                type="number"
-                                value={item.counted_quantity || ''}
-                                onChange={(e) => {
-                                  const value = parseInt(e.target.value) || 0;
-                                  updateCount(item.id, value);
-                                }}
-                                className="w-20"
-                                min="0"
-                              />
+                          <TableCell className="text-center">
+                            {item.variance_quantity !== null ? (
+                              <div className="space-y-1">
+                                <div className={`font-bold text-lg ${getVarianceColor(item.variance_quantity)}`}>
+                                  {item.variance_quantity > 0 ? '+' : ''}{item.variance_quantity}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {item.variance_quantity === 0 ? 'Perfect!' : 
+                                   item.variance_quantity > 0 ? 'Over count' : 'Under count'}
+                                </div>
+                              </div>
                             ) : (
-                              <span className="font-medium">{item.counted_quantity || '-'}</span>
+                              <div className="text-muted-foreground">-</div>
                             )}
                           </TableCell>
-                          <TableCell>
-                            {item.variance_quantity !== null ? (
-                              <span className={`font-medium ${getVarianceColor(item.variance_quantity)}`}>
-                                {item.variance_quantity > 0 ? '+' : ''}{item.variance_quantity}
-                              </span>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             {item.variance_value !== null ? (
-                              <span className={`font-medium ${getVarianceColor(item.variance_value)}`}>
-                                {item.variance_value > 0 ? '+' : ''}${item.variance_value.toFixed(2)}
-                              </span>
-                            ) : '-'}
+                              <div className="space-y-1">
+                                <div className={`font-medium ${getVarianceColor(item.variance_value)}`}>
+                                  {item.variance_value > 0 ? '+' : ''}${item.variance_value.toFixed(2)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  @ ${(item.unit_cost || 0).toFixed(2)}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-muted-foreground">-</div>
+                            )}
                           </TableCell>
-                          <TableCell>
-                            <Badge variant={item.is_counted ? 'default' : 'secondary'}>
+                          <TableCell className="text-center">
+                            <Badge 
+                              variant={item.is_counted ? 'default' : 'secondary'}
+                              className={item.is_counted ? 'bg-green-500 hover:bg-green-600' : ''}
+                            >
                               {item.is_counted ? 'Counted' : 'Pending'}
                             </Badge>
                           </TableCell>
+                          {selectedSession.status === 'active' && (
+                            <TableCell className="text-center">
+                              <div className="flex flex-col gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateCount(item.id, 0)}
+                                  className="text-xs px-2 py-1"
+                                >
+                                  Zero Count
+                                </Button>
+                                {!item.is_counted && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      // Quick skip - mark as counted with system quantity
+                                      updateCount(item.id, item.system_quantity);
+                                    }}
+                                    className="text-xs px-2 py-1 text-muted-foreground"
+                                  >
+                                    Skip
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
