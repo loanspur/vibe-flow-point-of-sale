@@ -36,6 +36,9 @@ const DEFAULT_FEATURES: FeatureAccess = {
   // Staff user limits
   max_staff_users: 3, // Starter: 3, Professional: unlimited, Enterprise: unlimited
   
+  // Product limits
+  max_products: 500, // Starter: 500, Professional: 5000, Enterprise: unlimited
+  
   // Premium features (require paid subscription)
   advanced_reporting: false,
   multi_location: false,

@@ -663,7 +663,28 @@ export default function BillingPlansManager() {
           <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreatePlan}>
+          <Button onClick={() => {
+            // Collect form data
+            const planName = (document.getElementById('planName') as HTMLInputElement)?.value;
+            const description = (document.getElementById('description') as HTMLTextAreaElement)?.value;
+            const monthlyPrice = (document.getElementById('monthlyPrice') as HTMLInputElement)?.value;
+            const maxUsers = (document.getElementById('maxUsers') as HTMLInputElement)?.value;
+            const maxLocations = (document.getElementById('maxLocations') as HTMLInputElement)?.value;
+            const maxProducts = (document.getElementById('maxProducts') as HTMLInputElement)?.value;
+            
+            const planData = {
+              name: planName,
+              description: description,
+              price: monthlyPrice,
+              features: [
+                { name: `Up to ${maxLocations || 'Unlimited'} Locations`, included: true, limit: maxLocations },
+                { name: `Up to ${maxUsers || 'Unlimited'} Staff Users`, included: true, limit: maxUsers },
+                { name: `Up to ${maxProducts || 'Unlimited'} Products`, included: true, limit: maxProducts },
+              ]
+            };
+            
+            handleCreatePlan(planData);
+          }}>
             Create Plan
           </Button>
         </div>

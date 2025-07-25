@@ -28,6 +28,7 @@ export const SubscriptionFeatureSummary = () => {
   const planName = subscription?.billing_plans?.name || 'Free Trial';
   const maxLocations = getFeatureLimit('max_locations');
   const maxStaffUsers = getFeatureLimit('max_staff_users');
+  const maxProducts = getFeatureLimit('max_products');
 
   const featureCategories = [
     {
@@ -44,6 +45,7 @@ export const SubscriptionFeatureSummary = () => {
       title: 'Inventory & Products',
       icon: BarChart3,
       features: [
+        { key: 'max_products', label: `Products: ${maxProducts === 999999 ? 'Unlimited' : maxProducts}`, type: 'limit' },
         { key: 'basic_inventory', label: 'Basic Inventory Management', type: 'boolean' },
         { key: 'advanced_inventory', label: 'Advanced Inventory Features', type: 'boolean' },
         { key: 'loyalty_program', label: 'Customer Loyalty Programs', type: 'boolean' },
