@@ -587,7 +587,7 @@ const ContactStatement: React.FC<ContactStatementProps> = ({ contact, isOpen, on
                 {/* Footer */}
                 <div className="footer">
                   <p>This statement is computer generated and does not require a signature.</p>
-                  <p>For any queries regarding this statement, please contact us at {businessSettings?.email || 'info@company.com'}</p>
+                  <p>For any queries regarding this statement, please contact us at {businessSettings?.email || 'your business email'}</p>
                   <p>Generated on {format(new Date(), 'MMM d, yyyy HH:mm')}</p>
                 </div>
               </div>

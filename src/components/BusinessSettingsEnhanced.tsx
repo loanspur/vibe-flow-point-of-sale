@@ -2235,18 +2235,18 @@ export function BusinessSettingsEnhanced() {
                     {settings?.company_name || "Your Business Name"}
                   </h2>
                   <div className="text-gray-600 space-y-1 text-sm">
-                    <p className="font-medium">{settings?.address_line_1 || "123 Business Street"}</p>
+                    <p className="font-medium">{settings?.address_line_1 || "Business Address"}</p>
                     {settings?.address_line_2 && <p>{settings.address_line_2}</p>}
-                    <p>{settings?.city || "City"}, {settings?.state_province || "State"} {settings?.postal_code || "12345"}</p>
-                    <p>{settings?.country || "United States"}</p>
+                    <p>{settings?.city || "City"}, {settings?.state_province || "State"} {settings?.postal_code || "Postal Code"}</p>
+                    <p>{settings?.country || "Country"}</p>
                     <div className="mt-2 pt-2 border-t border-gray-200">
                       <p className="flex items-center justify-end gap-1">
                         <Phone className="h-3 w-3" />
-                        {settings?.phone || "(555) 123-4567"}
+                        {settings?.phone || "Phone Number"}
                       </p>
                       <p className="flex items-center justify-end gap-1">
                         <Mail className="h-3 w-3" />
-                        {settings?.email || "info@business.com"}
+                        {settings?.email || "Email Address"}
                       </p>
                       {settings?.website && (
                         <p className="flex items-center justify-end gap-1">
