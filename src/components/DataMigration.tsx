@@ -272,7 +272,6 @@ export const DataMigration: React.FC = () => {
           name: data.name,
           description: data.description || null,
           price: parseFloat(data.price) || 0,
-          cost_price: data.cost_price ? parseFloat(data.cost_price) : null,
           sku: data.sku || null,
           barcode: data.barcode || null,
           stock_quantity: data.stock_quantity ? parseInt(data.stock_quantity) : 0,
