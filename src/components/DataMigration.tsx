@@ -434,7 +434,13 @@ export const DataMigration: React.FC = () => {
           console.log('Products count:', products?.length || 0);
           
           data = (products || []).map(p => ({
-            ...p,
+            name: p.name || '',
+            description: p.description || '',
+            price: p.price || 0,
+            cost_price: p.cost_price || 0,
+            sku: p.sku || '',
+            barcode: p.barcode || '',
+            stock_quantity: p.stock_quantity != null ? p.stock_quantity : 0,
             category: p.product_categories?.name || ''
           }));
           headers = ['name', 'description', 'price', 'cost_price', 'sku', 'barcode', 'stock_quantity', 'category'];
