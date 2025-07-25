@@ -199,7 +199,7 @@ export const useFeatureAccess = () => {
             Object.keys(accessibleFeatures).forEach(key => {
               if (typeof accessibleFeatures[key] === 'boolean') {
                 accessibleFeatures[key] = true;
-              } else if (key === 'max_locations' || key === 'max_staff_users') {
+              } else if (key === 'max_locations' || key === 'max_staff_users' || key === 'max_products') {
                 accessibleFeatures[key] = 999999; // Unlimited
               }
             });
@@ -230,6 +230,18 @@ export const useFeatureAccess = () => {
                   const limitMatch = feature.name.match(/(\d+)/);
                   if (limitMatch) {
                     accessibleFeatures['max_staff_users'] = parseInt(limitMatch[1]);
+                  }
+                }
+              }
+              
+              // Handle product limits
+              if (feature.name.includes('Products')) {
+                if (feature.name.includes('Unlimited')) {
+                  accessibleFeatures['max_products'] = 999999; // Unlimited
+                } else {
+                  const limitMatch = feature.name.match(/(\d+)/);
+                  if (limitMatch) {
+                    accessibleFeatures['max_products'] = parseInt(limitMatch[1]);
                   }
                 }
               }
