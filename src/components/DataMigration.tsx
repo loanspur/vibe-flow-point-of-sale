@@ -265,7 +265,9 @@ export const DataMigration: React.FC = () => {
           }
         }
 
-        return await supabase.from('products').insert({
+        console.log('Inserting product:', data.name, 'with tenant_id:', profile.tenant_id);
+        
+        const result = await supabase.from('products').insert({
           tenant_id: profile.tenant_id,
           name: data.name,
           description: data.description || null,
@@ -277,6 +279,14 @@ export const DataMigration: React.FC = () => {
           category_id: categoryId,
           is_active: true,
         });
+        
+        console.log('Product insert result:', result);
+        
+        if (result.error) {
+          throw new Error(`Failed to insert product: ${result.error.message}`);
+        }
+        
+        return result;
         break;
 
       case 'inventory':
