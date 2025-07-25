@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,7 @@ interface ContactStatementProps {
 
 const ContactStatement: React.FC<ContactStatementProps> = ({ contact, isOpen, onClose }) => {
   const { tenantId } = useAuth();
+  const { tenantCurrency } = useApp();
   const printRef = useRef<HTMLDivElement>(null);
   
   const [loading, setLoading] = useState(false);
@@ -368,7 +370,7 @@ const ContactStatement: React.FC<ContactStatementProps> = ({ contact, isOpen, on
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: tenantCurrency || 'USD'
     }).format(amount);
   };
 

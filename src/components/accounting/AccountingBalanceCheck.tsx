@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ interface BalanceCheckData {
 
 export default function AccountingBalanceCheck() {
   const { tenantId } = useAuth();
+  const { tenantCurrency } = useApp();
   const { toast } = useToast();
   const [balanceData, setBalanceData] = useState<BalanceCheckData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -127,7 +129,7 @@ export default function AccountingBalanceCheck() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: tenantCurrency || 'USD'
     }).format(amount);
   };
 

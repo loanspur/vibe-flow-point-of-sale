@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Printer, Download, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrencySettings } from "@/lib/currency";
 
 interface Sale {
   id: string;
@@ -102,6 +103,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   });
   const receiptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { formatAmount } = useCurrencySettings();
 
   const document = sale || quote;
 
@@ -151,12 +153,6 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -357,8 +353,8 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                         )}
                       </span>
                       <span className="w-12 text-center">{item.quantity}</span>
-                      <span className="w-20 text-right">{formatCurrency(item.unit_price)}</span>
-                      <span className="w-24 text-right font-medium">{formatCurrency(item.total_price)}</span>
+                      <span className="w-20 text-right">{formatAmount(item.unit_price)}</span>
+                      <span className="w-24 text-right font-medium">{formatAmount(item.total_price)}</span>
                     </div>
                     {item.products.sku && (
                       <div className="text-xs text-muted-foreground ml-2">SKU: {item.products.sku}</div>
@@ -375,20 +371,20 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>{formatCurrency(calculateSubtotal())}</span>
+              <span>{formatAmount(calculateSubtotal())}</span>
             </div>
             
             {document.discount_amount > 0 && (
               <div className="flex justify-between">
                 <span>Discount:</span>
-                <span className="text-red-600">-{formatCurrency(document.discount_amount)}</span>
+                <span className="text-red-600">-{formatAmount(document.discount_amount)}</span>
               </div>
             )}
             
             {document.tax_amount > 0 && (
               <div className="flex justify-between">
                 <span>Tax:</span>
-                <span>{formatCurrency(document.tax_amount)}</span>
+                <span>{formatAmount(document.tax_amount)}</span>
               </div>
             )}
             
@@ -396,7 +392,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
             
             <div className="flex justify-between text-lg font-bold">
               <span>Total:</span>
-              <span>{formatCurrency(document.total_amount)}</span>
+              <span>{formatAmount(document.total_amount)}</span>
             </div>
           </div>
 

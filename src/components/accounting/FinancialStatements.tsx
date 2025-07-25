@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ interface IncomeStatementItem {
 
 export default function FinancialStatements() {
   const { tenantId } = useAuth();
+  const { tenantCurrency } = useApp();
   const { toast } = useToast();
 
   const [balanceSheetData, setBalanceSheetData] = useState<BalanceSheetItem[]>([]);
@@ -212,7 +214,7 @@ export default function FinancialStatements() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: tenantCurrency || 'USD'
     }).format(amount);
   };
 

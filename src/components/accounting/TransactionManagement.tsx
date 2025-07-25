@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ interface Account {
 
 export default function TransactionManagement() {
   const { tenantId, user } = useAuth();
+  const { tenantCurrency } = useApp();
   const { toast } = useToast();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
 
@@ -415,7 +417,7 @@ export default function TransactionManagement() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: tenantCurrency || 'USD'
     }).format(amount);
   };
 

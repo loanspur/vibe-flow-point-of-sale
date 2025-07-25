@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { updateProductInventory } from "@/lib/inventory-integration";
 import { createPurchaseReturnJournalEntry } from "@/lib/accounting-integration";
 import { useAuth } from "@/contexts/AuthContext";
+import { useApp } from "@/contexts/AppContext";
 
 
 interface Purchase {
@@ -98,6 +99,7 @@ interface ReturnFormData {
 }
 
 export default function PurchaseReturns() {
+  const { tenantCurrency } = useApp();
   const { tenantId } = useAuth();
   const [activeTab, setActiveTab] = useState('historical-purchases');
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
@@ -274,7 +276,7 @@ export default function PurchaseReturns() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: tenantCurrency || 'USD'
     }).format(amount);
   };
 

@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { createReturnJournalEntry } from '@/lib/accounting-integration';
 import { Search, RotateCcw, Receipt, CheckCircle, XCircle, Clock, ShoppingCart, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { useApp } from "@/contexts/AppContext";
 
 interface Sale {
   id: string;
@@ -103,6 +105,7 @@ interface ReturnFormData {
 }
 
 export default function SalesReturns() {
+  const { tenantCurrency } = useApp();
   const [activeTab, setActiveTab] = useState('historical-sales');
   const [returns, setReturns] = useState<Return[]>([]);
   const [historicalSales, setHistoricalSales] = useState<Sale[]>([]);
@@ -772,7 +775,7 @@ export default function SalesReturns() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: tenantCurrency || 'USD'
     }).format(amount);
   };
 

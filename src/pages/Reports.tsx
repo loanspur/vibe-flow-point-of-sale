@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
 
 interface ReportMetrics {
@@ -33,6 +34,7 @@ type ReportView = 'overview' | 'sales' | 'products' | 'customers' | 'financial' 
 
 const Reports = () => {
   const { tenantId } = useAuth();
+  const { tenantCurrency } = useApp();
   const [currentView, setCurrentView] = useState<ReportView>('overview');
   const [detailedSales, setDetailedSales] = useState<any[]>([]);
   const [detailedProducts, setDetailedProducts] = useState<any[]>([]);
@@ -200,7 +202,7 @@ const Reports = () => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: tenantCurrency || 'USD'
     }).format(amount);
   };
 
