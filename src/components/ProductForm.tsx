@@ -71,19 +71,43 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     is_active: true,
   });
 
-  const generateSKU = (productName: string) => {
-    if (!productName) return '';
+  const generateSKU = async (productName: string): Promise<string> => {
+    if (!productName || !tenantId) return '';
     
-    // Generate SKU from product name: Take first 3 letters + random 4 digits
+    // Generate SKU from product name: Take first 3 letters + timestamp + random
     const namePrefix = productName
       .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
       .substring(0, 3)
       .toUpperCase();
     
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
-    const timestamp = Date.now().toString().slice(-3); // Last 3 digits of timestamp
+    let attempts = 0;
+    const maxAttempts = 10;
     
-    return `${namePrefix}${randomSuffix}${timestamp}`;
+    while (attempts < maxAttempts) {
+      const timestamp = Date.now().toString().slice(-4); // Last 4 digits of timestamp
+      const randomSuffix = Math.floor(100 + Math.random() * 900); // 3-digit random number
+      const potentialSKU = `${namePrefix}${timestamp}${randomSuffix}`;
+      
+      // Check if SKU exists in database
+      const { data: existingProduct } = await supabase
+        .from('products')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('sku', potentialSKU)
+        .maybeSingle();
+      
+      if (!existingProduct) {
+        return potentialSKU;
+      }
+      
+      attempts++;
+      // Add small delay to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
+    
+    // Fallback: use UUID-like suffix if all attempts failed
+    const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `${namePrefix}${fallbackSuffix}`;
   };
 
   const generateVariantSKU = (productSku: string, variantValue: string) => {
@@ -300,9 +324,28 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         }
       }
 
+      // Ensure we have a unique SKU for new products
+      let finalSKU = formData.sku;
+      if (!product && (!finalSKU || finalSKU.trim() === '')) {
+        finalSKU = await generateSKU(formData.name);
+      } else if (!product && finalSKU) {
+        // Check if the provided SKU is unique
+        const { data: existingProduct } = await supabase
+          .from('products')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('sku', finalSKU)
+          .maybeSingle();
+        
+        if (existingProduct) {
+          // SKU exists, generate a new one
+          finalSKU = await generateSKU(formData.name);
+        }
+      }
+
       const productData = {
         name: formData.name,
-        sku: formData.sku || null,
+        sku: finalSKU || null,
         description: formData.description || null,
         price: parseFloat(formData.price),
         cost: formData.cost ? parseFloat(formData.cost) : null,
@@ -360,17 +403,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = async (field: string, value: string | boolean) => {
     setFormData(prev => {
       const newData = { ...prev, [field]: value };
-      
-      // Auto-generate SKU when product name changes (only for new products)
-      if (field === 'name' && !product && typeof value === 'string' && value.trim()) {
-        newData.sku = generateSKU(value);
-      }
-      
       return newData;
     });
+
+    // Auto-generate SKU when product name changes (only for new products)
+    if (field === 'name' && !product && typeof value === 'string' && value.trim()) {
+      const generatedSKU = await generateSKU(value);
+      setFormData(prev => ({ ...prev, sku: generatedSKU }));
+    }
 
     // Update all variant SKUs when product SKU changes
     if (field === 'sku' && typeof value === 'string' && value.trim()) {

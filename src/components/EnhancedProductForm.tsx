@@ -70,6 +70,46 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
     },
   });
 
+  // Generate unique SKU function
+  const generateUniqueSKU = async (productName: string): Promise<string> => {
+    if (!productName || !tenantId) return '';
+    
+    // Generate SKU from product name: Take first 3 letters + timestamp + random
+    const namePrefix = productName
+      .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
+      .substring(0, 3)
+      .toUpperCase();
+    
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+      const timestamp = Date.now().toString().slice(-4); // Last 4 digits of timestamp
+      const randomSuffix = Math.floor(100 + Math.random() * 900); // 3-digit random number
+      const potentialSKU = `${namePrefix}${timestamp}${randomSuffix}`;
+      
+      // Check if SKU exists in database
+      const { data: existingProduct } = await supabase
+        .from('products')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('sku', potentialSKU)
+        .maybeSingle();
+      
+      if (!existingProduct) {
+        return potentialSKU;
+      }
+      
+      attempts++;
+      // Add small delay to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
+    
+    // Fallback: use UUID-like suffix if all attempts failed
+    const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `${namePrefix}${fallbackSuffix}`;
+  };
+
   // Fetch brands
   const { data: brands } = useQuery({
     queryKey: ['brands', tenantId],
@@ -169,10 +209,29 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
 
   const saveMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
+      // Ensure we have a unique SKU for new products
+      let finalSKU = data.sku;
+      if (!productId && (!finalSKU || finalSKU.trim() === '')) {
+        finalSKU = await generateUniqueSKU(data.name);
+      } else if (!productId && finalSKU) {
+        // Check if the provided SKU is unique
+        const { data: existingProduct } = await supabase
+          .from('products')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('sku', finalSKU)
+          .maybeSingle();
+        
+        if (existingProduct) {
+          // SKU exists, generate a new one
+          finalSKU = await generateUniqueSKU(data.name);
+        }
+      }
+
       const productData = {
         name: data.name,
         description: data.description || null,
-        sku: data.sku || null,
+        sku: finalSKU || null,
         barcode: data.barcode || null,
         category_id: data.category_id || null,
         subcategory_id: data.subcategory_id || null,
