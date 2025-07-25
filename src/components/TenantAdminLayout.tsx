@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, Search, Plus, LogOut, User } from 'lucide-react';
+import { Bell, Search, Plus, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
@@ -55,8 +55,8 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
                 {/* User Menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <User className="h-4 w-4" />
+                    <Button variant="ghost" className="text-left">
+                      <span className="font-medium">{user?.user_metadata?.full_name || 'User'}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
