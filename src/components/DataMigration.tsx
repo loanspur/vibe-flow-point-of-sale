@@ -425,10 +425,13 @@ export const DataMigration: React.FC = () => {
           break;
 
         case 'products':
-          const { data: products } = await supabase
+          const { data: products, error: productsError } = await supabase
             .from('products')
             .select('*, product_categories(name)')
             .eq('tenant_id', profile.tenant_id);
+          
+          console.log('Products export query result:', { products, error: productsError });
+          console.log('Products count:', products?.length || 0);
           
           data = (products || []).map(p => ({
             ...p,
