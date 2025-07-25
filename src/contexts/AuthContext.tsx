@@ -3,17 +3,13 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 type UserRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
-type ViewMode = 'superadmin' | 'tenant';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   userRole: UserRole | null;
-  viewMode: ViewMode;
   tenantId: string | null;
-  canSwitchViews: boolean;
-  switchViewMode: (mode: ViewMode) => void;
   refreshUserInfo: () => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -36,7 +32,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('tenant');
 
   // Fetch user role and tenant info
   const fetchUserInfo = async (userId: string) => {
@@ -52,7 +47,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn('Error fetching user profile:', error);
         setUserRole('user');
         setTenantId(null);
-        setViewMode('tenant');
         return;
       }
 
@@ -60,28 +54,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('User profile loaded:', profile);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
-        
-        // Only auto-set view mode for new sessions, not when switching
-        if (profile.role === 'superadmin' && viewMode === 'tenant') {
-          // Keep current view mode when switching, don't auto-change
-        } else if (profile.role === 'superadmin') {
-          setViewMode('superadmin');
-        } else {
-          setViewMode('tenant');
-        }
       } else {
         console.log('No profile found, setting default role');
         // Fallback if no profile found
         setUserRole('user');
         setTenantId(null);
-        setViewMode('tenant');
       }
     } catch (error) {
       console.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
-      setViewMode('tenant');
     }
   };
 
@@ -158,7 +141,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           setUserRole(null);
           setTenantId(null);
-          setViewMode('tenant');
         }
         
         setLoading(false);
@@ -232,24 +214,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut();
   };
 
-  const switchViewMode = (mode: ViewMode) => {
-    if (canSwitchViews) {
-      setViewMode(mode);
-    }
-  };
-
-  // Determine if user can switch views (only superadmins can switch)
-  const canSwitchViews = userRole === 'superadmin';
-
   const value = {
     user,
     session,
     loading,
     userRole,
-    viewMode,
     tenantId,
-    canSwitchViews,
-    switchViewMode,
     refreshUserInfo,
     signUp,
     signIn,

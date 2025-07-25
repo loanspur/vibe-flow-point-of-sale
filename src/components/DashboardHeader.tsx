@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { User, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import RoleSwitcher from "./RoleSwitcher";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +30,6 @@ export default function DashboardHeader() {
 
         {/* User Controls */}
         <div className="flex items-center space-x-4">
-          <RoleSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2">

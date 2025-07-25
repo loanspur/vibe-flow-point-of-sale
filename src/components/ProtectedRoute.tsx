@@ -3,20 +3,17 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 type UserRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
-type ViewMode = 'superadmin' | 'tenant';
 
 interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: UserRole[];
-  requiredViewMode?: ViewMode;
 }
 
 export default function ProtectedRoute({ 
   children, 
-  allowedRoles,
-  requiredViewMode 
+  allowedRoles
 }: ProtectedRouteProps) {
-  const { user, userRole, viewMode, loading } = useAuth();
+  const { user, userRole, loading } = useAuth();
 
   // Show loading while auth is initializing
   if (loading) {
@@ -37,16 +34,11 @@ export default function ProtectedRoute({
     return <Navigate to="/pos" replace />;
   }
 
-  // Check view mode for superadmins
-  if (requiredViewMode && viewMode !== requiredViewMode) {
-    return <Navigate to="/pos" replace />;
-  }
-
   // Special handling for dashboard redirect
   if (window.location.pathname === '/dashboard') {
-    if (userRole === 'superadmin' && viewMode === 'superadmin') {
+    if (userRole === 'superadmin') {
       return <Navigate to="/superadmin" replace />;
-    } else if (userRole === 'admin' || userRole === 'manager' || (userRole === 'superadmin' && viewMode === 'tenant')) {
+    } else if (userRole === 'admin' || userRole === 'manager') {
       return <Navigate to="/admin" replace />;
     } else {
       return <Navigate to="/pos" replace />;

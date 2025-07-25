@@ -3,7 +3,7 @@ import { Menu, X, User, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import RoleSwitcher from "./RoleSwitcher";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +55,6 @@ const Navigation = () => {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-4">
-                <RoleSwitcher />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="flex items-center space-x-2">

@@ -163,7 +163,7 @@ const App = () => (
             <Route 
               path="/superadmin" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminDashboard />
                   </SuperAdminLayout>
@@ -173,7 +173,7 @@ const App = () => (
             <Route 
               path="/superadmin/tenants" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <TenantManagement />
                   </SuperAdminLayout>
@@ -183,7 +183,7 @@ const App = () => (
             <Route 
               path="/superadmin/users" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminUserManagement />
                   </SuperAdminLayout>
@@ -193,7 +193,7 @@ const App = () => (
             <Route 
               path="/superadmin/analytics" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminAnalytics />
                   </SuperAdminLayout>
@@ -203,7 +203,7 @@ const App = () => (
             <Route 
               path="/superadmin/revenue" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminRevenue />
                   </SuperAdminLayout>
@@ -213,7 +213,7 @@ const App = () => (
             <Route 
               path="/superadmin/system" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminSystemHealth />
                   </SuperAdminLayout>
@@ -223,7 +223,7 @@ const App = () => (
             <Route 
               path="/superadmin/database" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminDatabase />
                   </SuperAdminLayout>
@@ -233,7 +233,7 @@ const App = () => (
             <Route 
               path="/superadmin/security" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminSecurity />
                   </SuperAdminLayout>
@@ -243,7 +243,7 @@ const App = () => (
             <Route 
               path="/superadmin/communications" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminCommunications />
                   </SuperAdminLayout>
@@ -253,7 +253,7 @@ const App = () => (
             <Route 
               path="/superadmin/plans" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminPlanManagement />
                   </SuperAdminLayout>
@@ -263,7 +263,7 @@ const App = () => (
             <Route 
               path="/superadmin/settings" 
               element={
-                <ProtectedRoute allowedRoles={['superadmin']} requiredViewMode="superadmin">
+                <ProtectedRoute allowedRoles={['superadmin']}>
                   <SuperAdminLayout>
                     <SuperAdminSettings />
                   </SuperAdminLayout>

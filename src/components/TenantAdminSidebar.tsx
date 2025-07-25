@@ -26,7 +26,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from '@/components/ui/sidebar';
-import RoleSwitcher from './RoleSwitcher';
+
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Badge } from '@/components/ui/badge';
 
@@ -86,11 +86,6 @@ export function TenantAdminSidebar() {
             </div>
           )}
         </div>
-        {!collapsed && (
-          <div className="mt-3">
-            <RoleSwitcher />
-          </div>
-        )}
       </SidebarHeader>
 
       <SidebarContent>
