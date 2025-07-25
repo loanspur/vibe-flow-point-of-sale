@@ -155,7 +155,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
             name,
             value,
             sku,
-            price,
+            sale_price,
             stock_quantity
           )
         `)
@@ -243,7 +243,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     if (selectedVariant && selectedVariant !== "no-variant") {
       variant = product.product_variants.find((v: any) => v.id === selectedVariant);
       if (variant) {
-        unitPrice = product.price + (variant.price_adjustment || 0);
+        unitPrice = variant.sale_price || product.price;
         productName = `${product.name} - ${variant.name}: ${variant.value}`;
       }
     }
@@ -695,16 +695,16 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no-variant">No variant</SelectItem>
-                  {selectedProductData.product_variants.map((variant: any) => (
-                    <SelectItem key={variant.id} value={variant.id}>
-                      {variant.name}: {variant.value} 
-                      {variant.price_adjustment !== 0 && (
-                         <span className="text-muted-foreground">
-                           {variant.price_adjustment > 0 ? '+' : ''}{formatAmount(variant.price_adjustment)}
-                        </span>
-                      )}
-                    </SelectItem>
-                  ))}
+                   {selectedProductData.product_variants.map((variant: any) => (
+                     <SelectItem key={variant.id} value={variant.id}>
+                       {variant.name}: {variant.value} 
+                       {variant.sale_price && (
+                          <span className="text-muted-foreground">
+                            ({formatAmount(variant.sale_price)})
+                         </span>
+                       )}
+                     </SelectItem>
+                   ))}
                 </SelectContent>
               </Select>
             </div>
