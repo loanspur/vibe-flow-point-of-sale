@@ -157,7 +157,7 @@ serve(async (req) => {
         amount: Math.round(actualAmount * 100), // Amount in kobo, rounded
         currency: 'KES',
         reference: `sub_${profile.tenant_id}_${Date.now()}`,
-        callback_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/paystack-webhook`,
+        callback_url: `${req.headers.get("origin")}/success?payment=success`,
         metadata: {
           tenant_id: profile.tenant_id,
           billing_plan_id: billingPlan.id,
