@@ -177,19 +177,67 @@ export const StockTaking: React.FC = () => {
 
   const viewSession = async (sessionId: string) => {
     try {
-      const { data, error } = await supabase
+      console.log('Viewing session:', sessionId);
+      
+      // First, let's try a simple query without joins to see if data exists
+      const { data: items, error: itemsError } = await supabase
         .from('stock_taking_items')
-        .select(`
-          *,
-          products(name, sku),
-          product_variants(name, value, sku)
-        `)
-        .eq('session_id', sessionId)
-        .order('created_at');
+        .select('*')
+        .eq('session_id', sessionId);
 
-      if (error) throw error;
+      if (itemsError) {
+        console.error('Error fetching stock items:', itemsError);
+        toast({
+          title: 'Error',
+          description: 'Failed to load session items. Please try again.',
+          variant: 'destructive'
+        });
+        return;
+      }
 
-      setStockItems(data || []);
+      console.log('Stock taking items found:', items?.length || 0);
+
+      // If we have items, try to get product details separately
+      if (items && items.length > 0) {
+        const productIds = items.filter(item => item.product_id).map(item => item.product_id);
+        const variantIds = items.filter(item => item.variant_id).map(item => item.variant_id);
+
+        let products = [];
+        let variants = [];
+
+        if (productIds.length > 0) {
+          const { data: productData } = await supabase
+            .from('products')
+            .select('id, name, sku')
+            .in('id', productIds);
+          products = productData || [];
+        }
+
+        if (variantIds.length > 0) {
+          const { data: variantData } = await supabase
+            .from('product_variants')
+            .select('id, name, value, sku')
+            .in('id', variantIds);
+          variants = variantData || [];
+        }
+
+        // Combine the data
+        const enrichedItems = items.map(item => {
+          const product = products.find(p => p.id === item.product_id);
+          const variant = variants.find(v => v.id === item.variant_id);
+          
+          return {
+            ...item,
+            products: product,
+            product_variants: variant
+          };
+        });
+
+        setStockItems(enrichedItems);
+      } else {
+        setStockItems([]);
+      }
+
       const session = sessions.find(s => s.id === sessionId);
       setSelectedSession(session);
 
@@ -201,8 +249,18 @@ export const StockTaking: React.FC = () => {
         .single();
       
       setSessionNotes(sessionData?.notes || '');
+      
+      toast({
+        title: 'Session Loaded',
+        description: `Loaded ${items?.length || 0} items for counting.`
+      });
     } catch (error) {
-      console.error('Error fetching stock items:', error);
+      console.error('Error in viewSession:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load session details.',
+        variant: 'destructive'
+      });
     }
   };
 
