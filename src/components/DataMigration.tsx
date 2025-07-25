@@ -23,6 +23,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { recalculateInventoryLevels } from '@/lib/inventory-integration';
 
 interface MigrationResult {
   success: number;
@@ -44,6 +45,7 @@ export const DataMigration: React.FC = () => {
   const [result, setResult] = useState<MigrationResult | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -483,6 +485,38 @@ export const DataMigration: React.FC = () => {
     }
   };
 
+  const recalculateInventory = async () => {
+    setIsRecalculating(true);
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (!profile?.tenant_id) throw new Error('Tenant not found');
+
+      console.log('Starting inventory recalculation for tenant:', profile.tenant_id);
+      const results = await recalculateInventoryLevels(profile.tenant_id);
+      
+      toast({
+        title: "Inventory Recalculation Complete",
+        description: `Successfully recalculated stock levels for ${results.length} products.`,
+      });
+
+      console.log('Recalculation results:', results);
+    } catch (error) {
+      console.error('Error recalculating inventory:', error);
+      toast({
+        title: "Recalculation Error",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   const downloadSampleTemplate = () => {
     const templates = {
       contacts: {
@@ -818,10 +852,24 @@ export const DataMigration: React.FC = () => {
                     </AlertDescription>
                   </Alert>
 
-                  <Button onClick={exportData} className="w-full">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export {importType.charAt(0).toUpperCase() + importType.slice(1)} Data
-                  </Button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button onClick={exportData} className="w-full">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export {importType.charAt(0).toUpperCase() + importType.slice(1)} Data
+                    </Button>
+                    
+                    {importType === 'products' && (
+                      <Button 
+                        onClick={recalculateInventory} 
+                        disabled={isRecalculating}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <Database className="h-4 w-4 mr-2" />
+                        {isRecalculating ? 'Recalculating...' : 'Fix Inventory Levels'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

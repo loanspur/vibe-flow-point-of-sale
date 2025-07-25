@@ -310,3 +310,77 @@ export const getLowStockItems = async (tenantId: string) => {
     throw error;
   }
 };
+
+// Recalculate and fix all inventory levels for a tenant
+export const recalculateInventoryLevels = async (tenantId: string) => {
+  try {
+    console.log('Starting inventory recalculation for tenant:', tenantId);
+    
+    // Get all active products for the tenant
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('id, name, sku')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    const results = [];
+
+    for (const product of products || []) {
+      // Get purchase receipts (received items)
+      const { data: purchaseItems } = await supabase
+        .from('purchase_items')
+        .select('quantity_received')
+        .eq('product_id', product.id);
+
+      // Get sales
+      const { data: saleItems } = await supabase
+        .from('sale_items')
+        .select('quantity')
+        .eq('product_id', product.id);
+
+      // Get returns that were restocked
+      const { data: returnItems } = await supabase
+        .from('return_items')
+        .select('quantity_returned')
+        .eq('product_id', product.id)
+        .eq('restock', true);
+
+      const totalReceived = purchaseItems?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0;
+      const totalSold = saleItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+      const totalReturned = returnItems?.reduce((sum, item) => sum + (item.quantity_returned || 0), 0) || 0;
+
+      const calculatedStock = totalReceived + totalReturned - totalSold;
+
+      // Update the product stock_quantity in the database
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ stock_quantity: Math.max(0, calculatedStock) })
+        .eq('id', product.id);
+
+      if (updateError) {
+        console.error(`Error updating stock for product ${product.name}:`, updateError);
+      } else {
+        console.log(`Updated ${product.name}: ${calculatedStock} units`);
+      }
+
+      results.push({
+        productId: product.id,
+        productName: product.name,
+        sku: product.sku,
+        totalReceived,
+        totalSold,
+        totalReturned,
+        calculatedStock,
+        success: !updateError
+      });
+    }
+
+    console.log('Inventory recalculation completed:', results.length, 'products processed');
+    return results;
+  } catch (error) {
+    console.error('Error recalculating inventory levels:', error);
+    throw error;
+  }
+};
