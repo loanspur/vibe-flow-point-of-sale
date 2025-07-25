@@ -451,6 +451,39 @@ export type Database = {
         }
         Relationships: []
       }
+      brands: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       business_settings: {
         Row: {
           account_lockout_duration: number | null
@@ -746,6 +779,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      combo_products: {
+        Row: {
+          combo_product_id: string
+          component_product_id: string
+          component_variant_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          quantity_required: number
+          tenant_id: string
+        }
+        Insert: {
+          combo_product_id: string
+          component_product_id: string
+          component_variant_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          quantity_required?: number
+          tenant_id: string
+        }
+        Update: {
+          combo_product_id?: string
+          component_product_id?: string
+          component_variant_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          quantity_required?: number
+          tenant_id?: string
+        }
+        Relationships: []
       }
       commission_agents: {
         Row: {
@@ -1784,6 +1850,50 @@ export type Database = {
           },
         ]
       }
+      product_units: {
+        Row: {
+          abbreviation: string
+          base_unit_id: string | null
+          conversion_factor: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          abbreviation: string
+          base_unit_id?: string | null
+          conversion_factor?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          abbreviation?: string
+          base_unit_id?: string | null
+          conversion_factor?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_units_base_unit_id_fkey"
+            columns: ["base_unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_variants: {
         Row: {
           created_at: string
@@ -1842,7 +1952,9 @@ export type Database = {
       }
       products: {
         Row: {
+          allow_negative_stock: boolean | null
           barcode: string | null
+          brand_id: string | null
           category_id: string | null
           cost: number | null
           created_at: string
@@ -1850,6 +1962,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_combo_product: boolean | null
           min_stock_level: number | null
           name: string
           price: number
@@ -1858,10 +1971,13 @@ export type Database = {
           stock_quantity: number | null
           subcategory_id: string | null
           tenant_id: string | null
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
+          allow_negative_stock?: boolean | null
           barcode?: string | null
+          brand_id?: string | null
           category_id?: string | null
           cost?: number | null
           created_at?: string
@@ -1869,6 +1985,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_combo_product?: boolean | null
           min_stock_level?: number | null
           name: string
           price: number
@@ -1877,10 +1994,13 @@ export type Database = {
           stock_quantity?: number | null
           subcategory_id?: string | null
           tenant_id?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
+          allow_negative_stock?: boolean | null
           barcode?: string | null
+          brand_id?: string | null
           category_id?: string | null
           cost?: number | null
           created_at?: string
@@ -1888,6 +2008,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_combo_product?: boolean | null
           min_stock_level?: number | null
           name?: string
           price?: number
@@ -1896,6 +2017,7 @@ export type Database = {
           stock_quantity?: number | null
           subcategory_id?: string | null
           tenant_id?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1904,6 +2026,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
           {
@@ -1925,6 +2054,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
             referencedColumns: ["id"]
           },
         ]
@@ -3760,6 +3896,39 @@ export type Database = {
           session_token?: string
           tenant_id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      warranty_info: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          product_id: string
+          updated_at: string
+          warranty_period_months: number
+          warranty_terms: string | null
+          warranty_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          product_id: string
+          updated_at?: string
+          warranty_period_months?: number
+          warranty_terms?: string | null
+          warranty_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          product_id?: string
+          updated_at?: string
+          warranty_period_months?: number
+          warranty_terms?: string | null
+          warranty_type?: string | null
         }
         Relationships: []
       }
