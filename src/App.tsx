@@ -8,8 +8,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
+import { FeatureGuard } from "./components/FeatureGuard";
 import { TenantAdminLayout } from "./components/TenantAdminLayout";
 import { SuperAdminLayout } from "./components/SuperAdminLayout";
+import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 // Lazy load components for better performance
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -290,6 +292,20 @@ const App = () => (
                     <TenantAdminLayout>
                       <Products />
                     </TenantAdminLayout>
+                  </SubscriptionGuard>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/stock" 
+              element={
+                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                  <SubscriptionGuard>
+                    <FeatureGuard featureName="advanced_inventory">
+                      <TenantAdminLayout>
+                        <StockManagement />
+                      </TenantAdminLayout>
+                    </FeatureGuard>
                   </SubscriptionGuard>
                 </ProtectedRoute>
               } 

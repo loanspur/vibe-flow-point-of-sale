@@ -9,7 +9,8 @@ import {
   CreditCard,
   TrendingUp,
   Calculator,
-  Mail
+  Mail,
+  Warehouse
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,6 +36,7 @@ const mainItems = [
 
 const businessItems = [
   { title: "Products", url: "/admin/products", icon: Package },
+  { title: "Stock Management", url: "/admin/stock", icon: Warehouse, featureRequired: "advanced_inventory" },
   { title: "Sales", url: "/admin/sales", icon: TrendingUp },
   { title: "Purchases", url: "/admin/purchases", icon: ShoppingCart },
   { title: "Contacts", url: "/admin/customers", icon: Users },
