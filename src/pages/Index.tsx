@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Star, ArrowRight, Zap, Shield, Users, BarChart3, CreditCard, Clock, Building2, ShoppingCart, Package, Receipt, Smartphone, Globe, Settings, HeadphonesIcon, TrendingUp, Database, Lock } from "lucide-react";
+import { Check, Star, ArrowRight, Zap, Shield, Users, BarChart3, CreditCard, Clock, Building2, ShoppingCart, Package, Receipt, Smartphone, Globe, Settings, HeadphonesIcon, TrendingUp, Database, Lock, Mail, Target, Send, Eye, MousePointer } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -622,6 +622,266 @@ const Index = () => {
               </div>
               <h4 className="font-semibold">Data Security</h4>
               <p className="text-sm text-muted-foreground">Enterprise-grade security & backups</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Advanced Email Management Features */}
+      <section className="py-20 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <Badge variant="outline" className="text-sm px-4 py-2">
+              <Mail className="h-4 w-4 mr-2" />
+              Advanced Marketing
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold">
+              Powerful Email Campaign Management
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Reach your customers with targeted email campaigns, advanced segmentation, 
+              and comprehensive analytics. Perfect for superadmins managing multiple tenants.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+            {/* Email Campaigns */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <Send className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <CardTitle className="text-xl">Email Campaigns</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Create targeted email campaigns</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Rich HTML email templates</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Schedule campaigns in advance</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>A/B testing capabilities</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Automated drip campaigns</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Client Segmentation */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-500/10 rounded-lg">
+                    <Target className="h-6 w-6 text-purple-500" />
+                  </div>
+                  <CardTitle className="text-xl">Smart Segmentation</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Advanced targeting criteria</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Dynamic audience updates</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Behavioral segmentation</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Geographic targeting</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Custom audience rules</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Analytics & Reporting */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <Eye className="h-6 w-6 text-green-500" />
+                  </div>
+                  <CardTitle className="text-xl">Campaign Analytics</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Real-time campaign tracking</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Open & click-through rates</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Bounce & unsubscribe tracking</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Revenue attribution</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Performance insights</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Automation */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <Settings className="h-6 w-6 text-orange-500" />
+                  </div>
+                  <CardTitle className="text-xl">Marketing Automation</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Trigger-based automation</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Welcome email sequences</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Behavioral triggers</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Re-engagement campaigns</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Cross-tenant automation</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Tenant Management */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-500/10 rounded-lg">
+                    <Database className="h-6 w-6 text-red-500" />
+                  </div>
+                  <CardTitle className="text-xl">Superadmin Controls</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Multi-tenant management</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Global campaign oversight</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>System-wide analytics</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Email blacklist management</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Compliance monitoring</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Deliverability */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-cyan-500/10 rounded-lg">
+                    <MousePointer className="h-6 w-6 text-cyan-500" />
+                  </div>
+                  <CardTitle className="text-xl">Email Deliverability</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>High deliverability rates</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>SPF/DKIM authentication</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Reputation monitoring</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>ISP compliance</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Spam score optimization</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Email Management Stats */}
+          <div className="text-center bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl p-8">
+            <h3 className="text-2xl font-bold mb-6">Powerful Email Marketing at Scale</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-primary">99.9%</div>
+                <div className="text-sm text-muted-foreground">Uptime</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-primary">95%+</div>
+                <div className="text-sm text-muted-foreground">Deliverability</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-primary">1M+</div>
+                <div className="text-sm text-muted-foreground">Emails/Month</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-primary">24/7</div>
+                <div className="text-sm text-muted-foreground">Support</div>
+              </div>
             </div>
           </div>
         </div>

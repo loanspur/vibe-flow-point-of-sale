@@ -7,7 +7,11 @@ import {
   Shield, 
   Zap,
   Building2,
-  CreditCard
+  CreditCard,
+  Mail,
+  Target,
+  Settings,
+  Database
 } from "lucide-react";
 
 const Features = () => {
@@ -28,9 +32,24 @@ const Features = () => {
       description: "Serve multiple businesses with complete data isolation, custom branding, and tenant management."
     },
     {
+      icon: Mail,
+      title: "Email Campaign Management",
+      description: "Powerful email marketing system with client segmentation, automation, and comprehensive analytics."
+    },
+    {
+      icon: Target,
+      title: "Client Segmentation",
+      description: "Advanced targeting capabilities to reach the right customers with personalized messaging and campaigns."
+    },
+    {
       icon: Users,
       title: "Customer Management",
       description: "Build customer profiles, loyalty programs, and targeted marketing campaigns to increase retention."
+    },
+    {
+      icon: Database,
+      title: "Superadmin Controls",
+      description: "Advanced system administration with tenant management, global settings, and comprehensive monitoring."
     },
     {
       icon: Smartphone,
@@ -51,6 +70,11 @@ const Features = () => {
       icon: Zap,
       title: "Lightning Fast",
       description: "Optimized for speed with sub-second response times and efficient database operations."
+    },
+    {
+      icon: Settings,
+      title: "Automation Rules",
+      description: "Set up automated email workflows based on customer behavior, events, and business triggers."
     }
   ];
 
@@ -67,7 +91,7 @@ const Features = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
             <Card 
               key={index} 
