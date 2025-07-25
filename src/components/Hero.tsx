@@ -19,7 +19,7 @@ const Hero = () => {
                   The modern multi-tenant point of sale system that grows with your business
                 </p>
               </div>
-              <div className="hidden md:block">
+              <div className="w-full">
                 <img 
                   src={businessDataTracking} 
                   alt="Professional tracking business data on computer and phone" 
