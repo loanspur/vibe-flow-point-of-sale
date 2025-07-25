@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Building2, Users, Settings, Trash2, AlertCircle } from 'lucide-react';
-import CreateTenantAdminDialog from '@/components/CreateTenantAdminDialog';
+import CreateTenantWithAdminDialog from '@/components/CreateTenantWithAdminDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -210,82 +210,7 @@ export default function TenantManagement() {
         </div>
         
         <div className="flex gap-2">
-          <CreateTenantAdminDialog onUserCreated={fetchTenants} />
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Tenant
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Tenant</DialogTitle>
-              <DialogDescription>
-                Add a new tenant to the system
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Tenant Name</Label>
-                <Input
-                  id="name"
-                  value={newTenant.name}
-                  onChange={(e) => setNewTenant({ ...newTenant, name: e.target.value })}
-                  placeholder="Enter tenant name"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="subdomain">Subdomain</Label>
-                <Input
-                  id="subdomain"
-                  value={newTenant.subdomain}
-                  onChange={(e) => setNewTenant({ ...newTenant, subdomain: e.target.value })}
-                  placeholder="Enter subdomain"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="contact_email">Contact Email</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  value={newTenant.contact_email}
-                  onChange={(e) => setNewTenant({ ...newTenant, contact_email: e.target.value })}
-                  placeholder="Enter contact email"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="plan_type">Plan Type</Label>
-                <Select value={newTenant.plan_type} onValueChange={(value) => setNewTenant({ ...newTenant, plan_type: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select plan type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Basic</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="max_users">Max Users</Label>
-                <Input
-                  id="max_users"
-                  type="number"
-                  value={newTenant.max_users}
-                  onChange={(e) => setNewTenant({ ...newTenant, max_users: parseInt(e.target.value) })}
-                  placeholder="Enter max users"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={createTenant}>Create Tenant</Button>
-            </div>
-          </DialogContent>
-          </Dialog>
+          <CreateTenantWithAdminDialog onTenantCreated={fetchTenants} />
         </div>
       </div>
 
