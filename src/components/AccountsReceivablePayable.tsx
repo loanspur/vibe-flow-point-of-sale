@@ -560,6 +560,98 @@ const AccountsReceivablePayable: React.FC = () => {
     }
   }, [tenantId]);
 
+  // Real-time subscriptions for instant AR/AP updates
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const arApChannel = supabase
+      .channel('ar-ap-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts_receivable',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('Accounts receivable updated, refreshing...');
+          fetchReceivables();
+          fetchAgingAnalysis();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts_payable',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('Accounts payable updated, refreshing...');
+          fetchPayables();
+          fetchAgingAnalysis();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ar_ap_payments',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('AR/AP payments updated, refreshing...');
+          fetchReceivables();
+          fetchPayables();
+          fetchAgingAnalysis();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales'
+        },
+        (payload) => {
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          if (newRecord?.tenant_id === tenantId || oldRecord?.tenant_id === tenantId) {
+            console.log('Sales updated, refreshing AR and sales data...');
+            fetchReceivables();
+            fetchSalesAndPurchases();
+            fetchAgingAnalysis();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'purchases'
+        },
+        (payload) => {
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          if (newRecord?.tenant_id === tenantId || oldRecord?.tenant_id === tenantId) {
+            console.log('Purchases updated, refreshing AP and purchase data...');
+            fetchPayables();
+            fetchSalesAndPurchases();
+            fetchAgingAnalysis();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(arApChannel);
+    };
+  }, [tenantId]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

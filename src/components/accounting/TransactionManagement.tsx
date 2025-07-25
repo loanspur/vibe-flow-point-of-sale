@@ -429,6 +429,58 @@ export default function TransactionManagement() {
     }
   }, [tenantId]);
 
+  // Real-time subscriptions for instant transaction updates
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const transactionsChannel = supabase
+      .channel('transactions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounting_transactions',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('Accounting transactions updated, refreshing...');
+          fetchTransactions();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounting_entries'
+        },
+        (payload) => {
+          // Check if this entry belongs to a transaction for this tenant
+          console.log('Accounting entries updated, refreshing...');
+          fetchTransactions();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('Accounts updated, refreshing...');
+          fetchAccounts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(transactionsChannel);
+    };
+  }, [tenantId]);
+
   if (!tenantId) {
     return (
       <Card>

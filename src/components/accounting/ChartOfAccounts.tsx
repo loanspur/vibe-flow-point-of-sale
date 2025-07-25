@@ -397,6 +397,58 @@ export default function ChartOfAccounts() {
     }
   }, [tenantId]);
 
+  // Real-time subscriptions for instant updates
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const accountsChannel = supabase
+      .channel('accounts-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('Accounts updated, refreshing...');
+          fetchAccounts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'account_types',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('Account types updated, refreshing...');
+          fetchAccountTypes();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounting_transactions',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          console.log('Accounting transactions updated, refreshing accounts...');
+          fetchAccounts(); // Refresh to get updated balances
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(accountsChannel);
+    };
+  }, [tenantId]);
+
   if (!tenantId) {
     return (
       <Card>
