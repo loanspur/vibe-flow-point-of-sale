@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,9 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { FileText, Eye, Save, RotateCcw, Info, Plus } from 'lucide-react';
+import { FileText, Eye, Save, RotateCcw, Info, Plus, Split, Maximize2, Minimize2, Copy, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface DocumentTemplate {
   id: string;
@@ -185,11 +187,53 @@ Vehicle: {{vehicle_number}}
 `
 };
 
+const SAMPLE_DATA: Record<string, string> = {
+  '{{company_name}}': 'Sample Company Ltd.',
+  '{{company_address}}': '123 Business Street, City, State 12345',
+  '{{company_phone}}': '+1 (555) 123-4567',
+  '{{company_email}}': 'info@samplecompany.com',
+  '{{company_logo}}': '[COMPANY LOGO]',
+  '{{receipt_number}}': 'RCP-2024-001',
+  '{{invoice_number}}': 'INV-2024-001',
+  '{{quote_number}}': 'QT-2024-001',
+  '{{delivery_note_number}}': 'DN-2024-001',
+  '{{date}}': new Date().toLocaleDateString(),
+  '{{time}}': new Date().toLocaleTimeString(),
+  '{{invoice_date}}': new Date().toLocaleDateString(),
+  '{{due_date}}': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+  '{{quote_date}}': new Date().toLocaleDateString(),
+  '{{valid_until}}': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+  '{{delivery_date}}': new Date().toLocaleDateString(),
+  '{{customer_name}}': 'John Doe',
+  '{{customer_address}}': '456 Customer Avenue, Customer City, CS 67890',
+  '{{customer_phone}}': '+1 (555) 987-6543',
+  '{{customer_email}}': 'john.doe@email.com',
+  '{{delivery_address}}': '456 Customer Avenue, Customer City, CS 67890',
+  '{{cashier_name}}': 'Jane Smith',
+  '{{driver_name}}': 'Mike Wilson',
+  '{{vehicle_number}}': 'ABC-123',
+  '{{items}}': `Product A x2         $20.00
+Product B x1         $15.00
+Service Fee          $5.00`,
+  '{{subtotal}}': '$40.00',
+  '{{tax_amount}}': '$4.00',
+  '{{discount_amount}}': '$2.00',
+  '{{total_amount}}': '$42.00',
+  '{{payment_method}}': 'Cash',
+  '{{amount_paid}}': '$50.00',
+  '{{change_amount}}': '$8.00',
+  '{{receipt_header}}': 'Welcome to our store!',
+  '{{receipt_footer}}': 'Thank you for shopping with us!',
+  '{{terms_conditions}}': 'Payment is due within 30 days. Late payments may incur additional charges.',
+  '{{notes}}': 'Thank you for your business. We appreciate your prompt payment.'
+};
+
 export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ tenantId }) => {
   const [templates, setTemplates] = useState<Record<string, DocumentTemplate>>({});
   const [activeTemplate, setActiveTemplate] = useState<'receipt' | 'invoice' | 'quote' | 'delivery_note'>('receipt');
-  const [previewMode, setPreviewMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showSideBySide, setShowSideBySide] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -271,7 +315,7 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
     }));
   };
 
-  const insertVariable = (variable: string) => {
+  const insertVariable = useCallback((variable: string) => {
     const template = templates[activeTemplate];
     if (!template) return;
 
@@ -296,42 +340,204 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
       textarea.selectionStart = textarea.selectionEnd = start + variable.length;
       textarea.focus();
     }, 0);
-  };
+  }, [activeTemplate, templates]);
 
-  const getPreviewContent = (content: string) => {
-    // Replace variables with sample data for preview
-    const sampleData: Record<string, string> = {
-      '{{company_name}}': 'Sample Company Ltd.',
-      '{{company_address}}': '123 Business Street, City, State 12345',
-      '{{company_phone}}': '+1 (555) 123-4567',
-      '{{company_email}}': 'info@samplecompany.com',
-      '{{receipt_number}}': 'RCP-2024-001',
-      '{{invoice_number}}': 'INV-2024-001',
-      '{{quote_number}}': 'QT-2024-001',
-      '{{delivery_note_number}}': 'DN-2024-001',
-      '{{date}}': new Date().toLocaleDateString(),
-      '{{time}}': new Date().toLocaleTimeString(),
-      '{{customer_name}}': 'John Doe',
-      '{{customer_phone}}': '+1 (555) 987-6543',
-      '{{customer_email}}': 'john.doe@email.com',
-      '{{cashier_name}}': 'Jane Smith',
-      '{{items}}': 'Product A x2     $20.00\nProduct B x1     $15.00',
-      '{{subtotal}}': '$35.00',
-      '{{tax_amount}}': '$3.50',
-      '{{total_amount}}': '$38.50',
-      '{{receipt_header}}': 'Welcome to our store!',
-      '{{receipt_footer}}': 'Thank you for shopping with us!'
-    };
-
+  const getPreviewContent = useCallback((content: string) => {
     let preview = content;
-    Object.entries(sampleData).forEach(([variable, value]) => {
+    Object.entries(SAMPLE_DATA).forEach(([variable, value]) => {
       preview = preview.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
     });
-    
     return preview;
+  }, []);
+
+  const copyTemplate = () => {
+    const template = templates[activeTemplate];
+    if (template) {
+      navigator.clipboard.writeText(template.content);
+      toast({
+        title: "Copied",
+        description: "Template content copied to clipboard",
+      });
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = templates[activeTemplate];
+    if (template) {
+      const blob = new Blob([template.content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeTemplate}_template.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   };
 
   const currentTemplate = templates[activeTemplate];
+
+  const renderEditor = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-lg font-semibold">
+          {currentTemplate?.name}
+        </Label>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSideBySide(!showSideBySide)}
+          >
+            <Split className="h-4 w-4 mr-2" />
+            {showSideBySide ? 'Stack' : 'Side by Side'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className={`grid gap-4 ${showSideBySide ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+        {/* Editor Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Template Content</Label>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={copyTemplate}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => resetTemplate(activeTemplate)}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => saveTemplate(activeTemplate, currentTemplate.content)}
+                disabled={isLoading}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+            </div>
+          </div>
+          
+          <Textarea
+            data-template={activeTemplate}
+            value={currentTemplate?.content || ''}
+            onChange={(e) => setTemplates(prev => ({
+              ...prev,
+              [activeTemplate]: {
+                ...prev[activeTemplate],
+                content: e.target.value
+              }
+            }))}
+            className="min-h-[500px] font-mono text-sm resize-none"
+            placeholder="Enter your template content..."
+          />
+          
+          {/* Variables Panel */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Info className="h-4 w-4" />
+                Available Variables
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-32">
+                <div className="grid grid-cols-2 gap-2">
+                  {currentTemplate?.variables.map((variable) => (
+                    <Badge
+                      key={variable}
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground justify-start text-xs py-1 px-2"
+                      onClick={() => insertVariable(variable)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      {variable.replace(/[{}]/g, '')}
+                    </Badge>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Preview Section */}
+        {showSideBySide && (
+          <div className="space-y-4">
+            <Label>Live Preview</Label>
+            <Card className="bg-white border">
+              <CardContent className="p-6">
+                <ScrollArea className="h-[500px]">
+                  <pre className="whitespace-pre-wrap text-sm font-mono text-gray-800 leading-relaxed">
+                    {currentTemplate ? getPreviewContent(currentTemplate.content) : ''}
+                  </pre>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+            
+            <div className="bg-muted/20 p-4 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Live Preview Tips:</strong>
+                <br />
+                • Preview updates automatically as you type
+                • Variables are replaced with sample data
+                • Formatting and layout are preserved
+                • Use thermal printer formatting for receipts
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!showSideBySide && (
+        <Card className="bg-white border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Preview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-96">
+              <pre className="whitespace-pre-wrap text-sm font-mono text-gray-800 leading-relaxed">
+                {currentTemplate ? getPreviewContent(currentTemplate.content) : ''}
+              </pre>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
+  if (isFullscreen) {
+    return (
+      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Template Editor - {currentTemplate?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {renderEditor()}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50">
@@ -343,7 +549,7 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
       </CardHeader>
       <CardContent>
         <Tabs value={activeTemplate} onValueChange={(value) => setActiveTemplate(value as any)}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="receipt">Receipt</TabsTrigger>
             <TabsTrigger value="invoice">Invoice</TabsTrigger>
             <TabsTrigger value="quote">Quote</TabsTrigger>
@@ -351,102 +557,8 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
           </TabsList>
 
           {(['receipt', 'invoice', 'quote', 'delivery_note'] as const).map((templateType) => (
-            <TabsContent key={templateType} value={templateType} className="space-y-4">
-              {currentTemplate && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-lg font-semibold">
-                      {currentTemplate.name}
-                    </Label>
-                    <div className="flex gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4 mr-2" />
-                            Preview
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>Template Preview</DialogTitle>
-                          </DialogHeader>
-                          <div className="bg-muted p-4 rounded-lg">
-                            <pre className="whitespace-pre-wrap text-sm font-mono">
-                              {getPreviewContent(currentTemplate.content)}
-                            </pre>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => resetTemplate(templateType)}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Reset
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => saveTemplate(templateType, currentTemplate.content)}
-                        disabled={isLoading}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                    <div className="lg:col-span-3">
-                      <Label>Template Content</Label>
-                      <Textarea
-                        data-template={templateType}
-                        value={currentTemplate.content}
-                        onChange={(e) => setTemplates(prev => ({
-                          ...prev,
-                          [templateType]: {
-                            ...prev[templateType],
-                            content: e.target.value
-                          }
-                        }))}
-                        className="min-h-[400px] font-mono text-sm"
-                        placeholder="Enter your template content..."
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label className="flex items-center gap-2">
-                        <Info className="h-4 w-4" />
-                        Available Variables
-                      </Label>
-                      <div className="mt-2 space-y-2 max-h-[400px] overflow-y-auto">
-                        {currentTemplate.variables.map((variable) => (
-                          <Badge
-                            key={variable}
-                            variant="secondary"
-                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground w-full justify-start text-xs"
-                            onClick={() => insertVariable(variable)}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            {variable}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-muted/20 p-4 rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      <strong>Tips:</strong>
-                      <br />
-                      • Click on any variable to insert it at your cursor position
-                      • Use the Preview button to see how your template will look with sample data
-                      • Variables will be automatically replaced with actual data when documents are generated
-                      • You can use HTML formatting for advanced styling in some templates
-                    </p>
-                  </div>
-                </>
-              )}
+            <TabsContent key={templateType} value={templateType}>
+              {currentTemplate && renderEditor()}
             </TabsContent>
           ))}
         </Tabs>
