@@ -636,6 +636,10 @@ export default function BillingPlansManager() {
                 <span>Custom Integrations</span>
                 <Switch />
               </div>
+              <div className="flex items-center justify-between p-3 border rounded">
+                <span>Stock Management</span>
+                <Switch />
+              </div>
             </div>
           </div>
 
@@ -680,6 +684,7 @@ export default function BillingPlansManager() {
                 { name: `Up to ${maxLocations || 'Unlimited'} Locations`, included: true, limit: maxLocations },
                 { name: `Up to ${maxUsers || 'Unlimited'} Staff Users`, included: true, limit: maxUsers },
                 { name: `Up to ${maxProducts || 'Unlimited'} Products`, included: true, limit: maxProducts },
+                { name: 'Stock Management', included: planName?.toLowerCase().includes('enterprise') || false, limit: '' },
               ]
             };
             
