@@ -122,7 +122,7 @@ export function useDataList<T = any>(
     }
   );
 
-  const data = queryResult?.data || [];
+  const data: T[] = (queryResult || []) as T[];
 
   // Memoized filtered data for client-side filtering when pagination is disabled
   const filteredData = useMemo(() => {
