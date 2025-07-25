@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle } from "lucide-react";
 import heroImage from "@/assets/hero-pos.jpg";
 import posSystemHero from "@/assets/pos-system-hero.jpg";
+import businessDataTracking from "@/assets/business-data-tracking.jpg";
 
 const Hero = () => {
   return (
@@ -9,17 +10,27 @@ const Hero = () => {
       <div className="container mx-auto px-4 py-20">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-5xl lg:text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent leading-tight">
-                vibePOS
-              </h1>
-              <p className="text-xl lg:text-2xl text-muted-foreground font-medium">
-                The modern multi-tenant point of sale system that grows with your business
-              </p>
-              <p className="text-lg text-muted-foreground">
-                Streamline operations, boost sales, and delight customers with our intuitive POS solution designed for businesses of all sizes.
-              </p>
+            <div className="grid md:grid-cols-2 gap-6 items-center">
+              <div className="space-y-4">
+                <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent leading-tight">
+                  Transform Your Business with vibePOS
+                </h1>
+                <p className="text-lg text-muted-foreground">
+                  The modern multi-tenant point of sale system that grows with your business
+                </p>
+              </div>
+              <div className="hidden md:block">
+                <img 
+                  src={businessDataTracking} 
+                  alt="Professional tracking business data on computer and phone" 
+                  className="w-full h-auto rounded-xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
+                />
+              </div>
             </div>
+            
+            <p className="text-lg text-muted-foreground">
+              Streamline operations, boost sales, and delight customers with our intuitive POS solution designed for businesses of all sizes.
+            </p>
 
             <div className="flex flex-wrap gap-4">
               <Button variant="hero" size="lg" className="text-lg px-8 py-6">
