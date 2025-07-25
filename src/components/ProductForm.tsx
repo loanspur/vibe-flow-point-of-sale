@@ -582,9 +582,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
         // Insert new variants
         if (toInsert.length > 0) {
+          // Remove id field from new variants since it should be auto-generated
+          const insertData = toInsert.map(({ id, ...variantWithoutId }) => variantWithoutId);
+          
           const { error: insertError } = await supabase
             .from('product_variants')
-            .insert(toInsert);
+            .insert(insertData);
 
           if (insertError) throw insertError;
         }
