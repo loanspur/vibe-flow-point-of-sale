@@ -319,7 +319,7 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
     // Get all active products for the tenant
     const { data: products, error } = await supabase
       .from('products')
-      .select('id, name, sku')
+      .select('id, name, sku, stock_quantity, created_at')
       .eq('tenant_id', tenantId)
       .eq('is_active', true);
 
@@ -351,18 +351,34 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
       const totalSold = saleItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
       const totalReturned = returnItems?.reduce((sum, item) => sum + (item.quantity_returned || 0), 0) || 0;
 
-      const calculatedStock = totalReceived + totalReturned - totalSold;
+      // Calculate stock based on transactions
+      const transactionBasedStock = totalReceived + totalReturned - totalSold;
+      
+      // For products with no transactions, preserve their current stock (likely from migration)
+      // Only recalculate if there are actual transactions
+      const hasTransactions = totalReceived > 0 || totalSold > 0 || totalReturned > 0;
+      const calculatedStock = hasTransactions ? transactionBasedStock : (product.stock_quantity || 0);
 
-      // Update the product stock_quantity in the database
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({ stock_quantity: Math.max(0, calculatedStock) })
-        .eq('id', product.id);
+      // Update the product stock_quantity in the database only if it's different
+      const needsUpdate = calculatedStock !== (product.stock_quantity || 0);
+      
+      
+      let updateError = null;
+      if (needsUpdate) {
+        const result = await supabase
+          .from('products')
+          .update({ stock_quantity: Math.max(0, calculatedStock) })
+          .eq('id', product.id);
+        
+        updateError = result.error;
 
-      if (updateError) {
-        console.error(`Error updating stock for product ${product.name}:`, updateError);
+        if (updateError) {
+          console.error(`Error updating stock for product ${product.name}:`, updateError);
+        } else {
+          console.log(`Updated ${product.name}: ${calculatedStock} units (${hasTransactions ? 'calculated' : 'preserved'})`);
+        }
       } else {
-        console.log(`Updated ${product.name}: ${calculatedStock} units`);
+        console.log(`${product.name}: Stock unchanged at ${calculatedStock} units`);
       }
 
       results.push({
