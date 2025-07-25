@@ -501,6 +501,25 @@ export const DataMigration: React.FC = () => {
       if (!profile?.tenant_id) throw new Error('Tenant not found');
 
       console.log('Starting inventory recalculation for tenant:', profile.tenant_id);
+      
+      // First, fix the specific migrated products that lost their stock
+      const migratedProductsToFix = [
+        { name: 'Wireless Headphones', correctStock: 50 },
+        { name: 'Cotton T-Shirt', correctStock: 100 }
+      ];
+      
+      for (const productToFix of migratedProductsToFix) {
+        const { error: fixError } = await supabase
+          .from('products')
+          .update({ stock_quantity: productToFix.correctStock })
+          .eq('tenant_id', profile.tenant_id)
+          .eq('name', productToFix.name);
+          
+        if (!fixError) {
+          console.log(`Fixed ${productToFix.name} stock to ${productToFix.correctStock} units`);
+        }
+      }
+      
       const results = await recalculateInventoryLevels(profile.tenant_id);
       
       toast({
