@@ -67,8 +67,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.error('Error fetching business settings:', settingsResponse.error);
         // Use default fallback settings
         setBusinessSettings({
-          currency_code: 'KES',
-          currency_symbol: 'KES',
+          currency_code: 'USD',
+          currency_symbol: '$',
           company_name: 'Your Business',
           timezone: 'UTC',
           tax_inclusive: false,
@@ -198,8 +198,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       formatLocalCurrency,
       convertFromKES,
       tenantCurrency: tenantCurrency?.currency || null,
-      currencySymbol: businessSettings?.currency_symbol || 'KES',
-      currencyCode: businessSettings?.currency_code || 'KES',
+      currencySymbol: businessSettings?.currency_symbol || '$',
+      currencyCode: businessSettings?.currency_code || 'USD',
       triggerCurrencyUpdate
     }}>
       {children}
