@@ -435,16 +435,20 @@ export const DataMigration: React.FC = () => {
           console.log('Products export query result:', { products, error: productsError });
           console.log('Products count:', products?.length || 0);
           
-          data = (products || []).map(p => ({
-            name: p.name || '',
-            description: p.description || '',
-            price: p.price || 0,
-            cost_price: p.cost_price || 0,
-            sku: p.sku || '',
-            barcode: p.barcode || '',
-            stock_quantity: p.stock_quantity != null ? p.stock_quantity : 0,
-            category: p.product_categories?.name || ''
-          }));
+          data = (products || []).map(p => {
+            const mappedData = {
+              name: p.name || '',
+              description: p.description || '',
+              price: p.price || 0,
+              cost_price: p.cost_price || 0,
+              sku: p.sku || '',
+              barcode: p.barcode || '',
+              stock_quantity: p.stock_quantity != null ? p.stock_quantity : 0,
+              category: p.product_categories?.name || ''
+            };
+            console.log('Mapped product data:', p.name, 'stock_quantity:', p.stock_quantity, 'mapped:', mappedData.stock_quantity);
+            return mappedData;
+          });
           headers = ['name', 'description', 'price', 'cost_price', 'sku', 'barcode', 'stock_quantity', 'category'];
           filename = 'products_export.csv';
           break;
