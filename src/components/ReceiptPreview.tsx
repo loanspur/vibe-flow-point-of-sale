@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Printer, Download, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCurrencySettings } from "@/lib/currency";
 
 interface Sale {
@@ -91,16 +92,10 @@ interface ReceiptPreviewProps {
 }
 
 export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPreviewProps) {
+  const { tenantId } = useAuth();
   const [items, setItems] = useState<(SaleItem | QuoteItem)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [companyInfo, setCompanyInfo] = useState({
-    name: "VibePOS",
-    address: "123 Business Street",
-    city: "Business City, BC 12345",
-    phone: "(555) 123-4567",
-    email: "info@vibepos.com",
-    website: "www.vibepos.com"
-  });
+  const [businessSettings, setBusinessSettings] = useState<any>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { formatAmount } = useCurrencySettings();
@@ -109,9 +104,53 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
 
   useEffect(() => {
     if (isOpen && document) {
+      fetchBusinessSettings();
       fetchItems();
     }
   }, [isOpen, document]);
+
+  const fetchBusinessSettings = async () => {
+    if (!tenantId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('business_settings')
+        .select(`
+          company_name,
+          email,
+          phone,
+          website,
+          address_line_1,
+          address_line_2,
+          city,
+          state_province,
+          postal_code,
+          country,
+          receipt_header,
+          receipt_footer,
+          receipt_logo_url,
+          receipt_template
+        `)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (error) throw error;
+      setBusinessSettings(data);
+    } catch (error: any) {
+      console.error('Error fetching business settings:', error);
+      // Use fallback data if settings not found
+      setBusinessSettings({
+        company_name: "VibePOS",
+        address_line_1: "123 Business Street",
+        city: "Business City",
+        phone: "(555) 123-4567",
+        email: "info@vibepos.com",
+        website: "www.vibepos.com",
+        receipt_header: "",
+        receipt_footer: "Thank you for your business!"
+      });
+    }
+  };
 
   const fetchItems = async () => {
     if (!document) return;
@@ -253,7 +292,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     }
   };
 
-  if (!document) return null;
+  if (!document || !businessSettings) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -278,15 +317,39 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
         </DialogHeader>
 
         <div ref={receiptRef} className="receipt bg-white p-6 border rounded-lg">
-          {/* Header */}
+          {/* Custom Header */}
+          {businessSettings.receipt_header && (
+            <div className="center mb-4">
+              <div className="text-sm whitespace-pre-wrap">{businessSettings.receipt_header}</div>
+            </div>
+          )}
+
+          {/* Logo */}
+          {businessSettings.receipt_logo_url && (
+            <div className="center mb-4">
+              <img src={businessSettings.receipt_logo_url} alt="Company Logo" className="h-16 mx-auto" />
+            </div>
+          )}
+
+          {/* Company Header */}
           <div className="center mb-6">
-            <h1 className="text-2xl font-bold text-primary">{companyInfo.name}</h1>
-            <p className="text-sm text-muted-foreground">{companyInfo.address}</p>
-            <p className="text-sm text-muted-foreground">{companyInfo.city}</p>
+            <h1 className="text-2xl font-bold text-primary">{businessSettings.company_name || "VibePOS"}</h1>
+            {businessSettings.address_line_1 && (
+              <p className="text-sm text-muted-foreground">{businessSettings.address_line_1}</p>
+            )}
+            {businessSettings.address_line_2 && (
+              <p className="text-sm text-muted-foreground">{businessSettings.address_line_2}</p>
+            )}
             <p className="text-sm text-muted-foreground">
-              {companyInfo.phone} | {companyInfo.email}
+              {[businessSettings.city, businessSettings.state_province, businessSettings.postal_code].filter(Boolean).join(', ')}
+              {businessSettings.country && `, ${businessSettings.country}`}
             </p>
-            <p className="text-sm text-muted-foreground">{companyInfo.website}</p>
+            <p className="text-sm text-muted-foreground">
+              {businessSettings.phone} {businessSettings.email && `| ${businessSettings.email}`}
+            </p>
+            {businessSettings.website && (
+              <p className="text-sm text-muted-foreground">{businessSettings.website}</p>
+            )}
           </div>
 
           <Separator className="my-4" />
@@ -411,7 +474,13 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           <Separator className="my-6" />
           
           <div className="center text-xs text-muted-foreground space-y-1">
-            <p>Thank you for your business!</p>
+            {/* Custom Footer */}
+            {businessSettings.receipt_footer ? (
+              <div className="whitespace-pre-wrap mb-2">{businessSettings.receipt_footer}</div>
+            ) : (
+              <p>Thank you for your business!</p>
+            )}
+            
             {type === "quote" && (
               <p className="font-medium">This quote is valid until {quote?.valid_until ? formatDate(quote.valid_until) : "further notice"}</p>
             )}
