@@ -258,21 +258,30 @@ export default function TrialSignup() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
-        body: { planId: selectedPlan, isSignup: true }
+      // Start trial without payment
+      const { data, error } = await supabase.functions.invoke('start-free-trial', {
+        body: { planId: selectedPlan }
       });
 
       if (error) throw error;
 
-      if (data.authorization_url) {
-        // Open Paystack checkout in a new tab
-        window.open(data.authorization_url, '_blank');
+      if (data.success) {
+        toast({
+          title: "Trial Started!",
+          description: "Your 14-day free trial has begun. Welcome to VibePOS!",
+          variant: "default"
+        });
+        
+        // Redirect to dashboard after successful trial start
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
       }
 
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to start checkout",
+        description: error.message || "Failed to start trial",
         variant: "destructive"
       });
     } finally {
@@ -499,7 +508,7 @@ export default function TrialSignup() {
                     Start Your Free Trial
                   </CardTitle>
                   <CardDescription>
-                    Step 2 of 2: Set up your {selectedPlanData?.name} plan
+                    Step 2 of 2: Start your free trial for {selectedPlanData?.name}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -555,9 +564,8 @@ export default function TrialSignup() {
                   </Button>
                   
                   <p className="text-xs text-muted-foreground text-center">
-                    You won't be charged until your 14-day trial ends. 
-                    Cancel anytime during the trial period. 
-                    Pay with Paystack or M-Pesa.
+                    No credit card required. Start your 14-day free trial instantly. 
+                    You'll be prompted to add payment details when your trial expires.
                   </p>
                 </CardContent>
               </Card>

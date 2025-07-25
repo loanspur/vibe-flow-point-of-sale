@@ -76,17 +76,19 @@ serve(async (req) => {
       throw new Error("Failed to get default billing plan");
     }
 
-    // Assign default billing plan to tenant
+    // Create trial subscription record (not active payment required)
     const { error: subscriptionError } = await supabase
       .from('tenant_subscriptions')
       .insert({
         tenant_id: tenantData.id,
         billing_plan_id: defaultPlan.id,
-        reference: `default-${tenantData.id}`,
-        status: 'active',
-        amount: 500,
-        currency: 'NGN',
+        reference: `trial-${tenantData.id}`,
+        status: 'trial',
+        amount: 0, // Free trial
+        currency: 'KES',
         started_at: new Date().toISOString(),
+        trial_start: new Date().toISOString().split('T')[0],
+        trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days from now
       });
 
