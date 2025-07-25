@@ -51,8 +51,8 @@ interface Product {
   cost: number;
   stock_quantity: number;
   min_stock_level: number;
-  description: string;
-  barcode: string;
+  description?: string;
+  barcode?: string;
   image_url: string;
   is_active: boolean;
   category_id: string;
@@ -74,19 +74,28 @@ export default function ProductManagement() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [activeTab, setActiveTab] = useState('products');
 
-  // Optimized product fetching with caching
+  // Optimized product fetching with minimal fields and caching
   const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
-
     async () => {
       if (!tenantId) return { data: [], error: null };
       
       const { data, error } = await supabase
         .from('products')
         .select(`
-          *,
-          product_categories (name),
-          product_subcategories (name),
-          product_variants (*)
+          id,
+          name,
+          sku,
+          price,
+          cost,
+          stock_quantity,
+          min_stock_level,
+          image_url,
+          is_active,
+          category_id,
+          subcategory_id,
+          product_categories!left(name),
+          product_subcategories!left(name),
+          product_variants!left(id, stock_quantity, name, value)
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
@@ -97,8 +106,8 @@ export default function ProductManagement() {
     [tenantId],
     {
       enabled: !!tenantId,
-      staleTime: 1 * 60 * 1000, // 1 minute cache
-      cacheKey: `products-${tenantId}`
+      staleTime: 2 * 60 * 1000, // 2 minute cache for better performance
+      cacheKey: `products-list-${tenantId}`
     }
   );
 

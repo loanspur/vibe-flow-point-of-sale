@@ -62,27 +62,27 @@ const Dashboard = () => {
   }, [tenantId]);
 
 
-  // Optimized data fetching with caching
+  // Optimized data fetching with caching and minimal fields
   const { data: dashboardData, loading } = useOptimizedQuery(
     async () => {
       if (!tenantId) return { data: null, error: null };
       
       const today = new Date().toISOString().split('T')[0];
       
-      // Fetch all data in parallel for better performance
+      // Optimized parallel queries with only needed fields
       const [todaySalesResponse, customersResponse, saleItemsResponse] = await Promise.all([
         supabase
           .from('sales')
-          .select('total_amount, created_at')
+          .select('total_amount')
           .eq('tenant_id', tenantId)
           .gte('created_at', today),
         supabase
           .from('customers')
-          .select('id', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true })
           .eq('tenant_id', tenantId),
         supabase
           .from('sale_items')
-          .select('quantity, sales!inner(created_at, tenant_id)')
+          .select('quantity, sales!inner(tenant_id)')
           .eq('sales.tenant_id', tenantId)
           .gte('sales.created_at', today)
       ]);
@@ -109,8 +109,8 @@ const Dashboard = () => {
     [tenantId],
     {
       enabled: !!tenantId,
-      staleTime: 2 * 60 * 1000, // 2 minutes cache
-      cacheKey: `dashboard-metrics-${tenantId}`
+      staleTime: 3 * 60 * 1000, // 3 minutes cache for dashboard
+      cacheKey: `dashboard-metrics-${tenantId}-${new Date().toISOString().split('T')[0]}`
     }
   );
 

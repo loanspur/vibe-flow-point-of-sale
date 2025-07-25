@@ -1,38 +1,35 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface QueryOptions {
+interface BatchQueryOptions {
   enabled?: boolean;
-  refetchOnWindowFocus?: boolean;
-  staleTime?: number; // in milliseconds
+  staleTime?: number;
   cacheKey?: string;
+  refetchOnWindowFocus?: boolean;
 }
 
-interface QueryResult<T> {
+interface BatchQueryResult<T> {
   data: T | null;
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
 }
 
-// Enhanced cache with size limits and TTL
+// Enhanced cache with TTL and size limits
 class QueryCache {
   private cache = new Map<string, { data: any; timestamp: number }>();
-  private maxSize = 50; // Limit cache size
+  private maxSize = 100;
 
   get(key: string, staleTime: number): any | null {
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.timestamp < staleTime) {
       return cached.data;
     }
-    if (cached) {
-      this.cache.delete(key); // Remove stale entries
-    }
+    this.cache.delete(key);
     return null;
   }
 
   set(key: string, data: any): void {
-    // Remove oldest entry if cache is full
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
@@ -47,24 +44,21 @@ class QueryCache {
   clear(): void {
     this.cache.clear();
   }
-
-  size(): number {
-    return this.cache.size;
-  }
 }
 
-const queryCache = new QueryCache();
+const batchQueryCache = new QueryCache();
 
-export function useOptimizedQuery<T>(
-  queryFn: () => Promise<{ data: T | null; error: any }>,
+// Batch multiple queries into a single hook
+export function useOptimizedQueryBatch<T>(
+  queries: Record<string, () => Promise<{ data: any; error: any }>>,
   dependencies: any[],
-  options: QueryOptions = {}
-): QueryResult<T> {
+  options: BatchQueryOptions = {}
+): BatchQueryResult<T> {
   const {
     enabled = true,
-    refetchOnWindowFocus = false,
-    staleTime = 5 * 60 * 1000, // 5 minutes default
-    cacheKey
+    staleTime = 5 * 60 * 1000,
+    cacheKey,
+    refetchOnWindowFocus = false
   } = options;
 
   const [data, setData] = useState<T | null>(null);
@@ -72,20 +66,20 @@ export function useOptimizedQuery<T>(
   const [error, setError] = useState<Error | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const executeQuery = useCallback(async () => {
+  const executeQueries = useCallback(async () => {
     if (!enabled) return;
 
     // Check cache first
     if (cacheKey) {
-      const cached = queryCache.get(cacheKey, staleTime);
+      const cached = batchQueryCache.get(cacheKey, staleTime);
       if (cached) {
-        setData(cached.data);
+        setData(cached);
         setLoading(false);
         return;
       }
     }
 
-    // Cancel previous request
+    // Cancel previous requests
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -95,17 +89,39 @@ export function useOptimizedQuery<T>(
     setError(null);
 
     try {
-      const result = await queryFn();
-      
-      if (result.error) {
-        throw new Error(result.error.message || 'Query failed');
+      // Execute all queries in parallel
+      const results = await Promise.allSettled(
+        Object.entries(queries).map(async ([key, queryFn]) => {
+          const result = await queryFn();
+          if (result.error) {
+            throw new Error(`${key}: ${result.error.message || 'Query failed'}`);
+          }
+          return [key, result.data];
+        })
+      );
+
+      // Process results
+      const combinedData: any = {};
+      const errors: string[] = [];
+
+      results.forEach((result, index) => {
+        const key = Object.keys(queries)[index];
+        if (result.status === 'fulfilled') {
+          combinedData[key] = result.value[1];
+        } else {
+          errors.push(`${key}: ${result.reason.message}`);
+        }
+      });
+
+      if (errors.length > 0) {
+        throw new Error(errors.join(', '));
       }
 
-      setData(result.data);
-      
+      setData(combinedData as T);
+
       // Cache the result
-      if (cacheKey && result.data) {
-        queryCache.set(cacheKey, result.data);
+      if (cacheKey) {
+        batchQueryCache.set(cacheKey, combinedData);
       }
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
@@ -114,19 +130,18 @@ export function useOptimizedQuery<T>(
     } finally {
       setLoading(false);
     }
-  }, [enabled, queryFn, staleTime, cacheKey]);
+  }, [enabled, queries, staleTime, cacheKey]);
 
   const refetch = useCallback(async () => {
-    // Clear cache for this key
     if (cacheKey) {
-      queryCache.delete(cacheKey);
+      batchQueryCache.delete(cacheKey);
     }
-    await executeQuery();
-  }, [executeQuery, cacheKey]);
+    await executeQueries();
+  }, [executeQueries, cacheKey]);
 
   useEffect(() => {
-    executeQuery();
-    
+    executeQueries();
+
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -139,29 +154,23 @@ export function useOptimizedQuery<T>(
 
     const handleFocus = () => {
       if (document.visibilityState === 'visible') {
-        executeQuery();
+        executeQueries();
       }
     };
 
     document.addEventListener('visibilitychange', handleFocus);
     return () => document.removeEventListener('visibilitychange', handleFocus);
-  }, [executeQuery, refetchOnWindowFocus]);
+  }, [executeQueries, refetchOnWindowFocus]);
 
   return { data, loading, error, refetch };
 }
 
-// Clear all cached queries
-export const clearQueryCache = () => {
-  queryCache.clear();
+// Clear all cached batch queries
+export const clearBatchQueryCache = () => {
+  batchQueryCache.clear();
 };
 
 // Clear specific cache entry
-export const clearCacheKey = (key: string) => {
-  queryCache.delete(key);
+export const clearBatchCacheKey = (key: string) => {
+  batchQueryCache.delete(key);
 };
-
-// Get cache stats
-export const getCacheStats = () => ({
-  size: queryCache.size(),
-  maxSize: 50
-});
