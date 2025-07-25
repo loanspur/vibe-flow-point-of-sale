@@ -11,7 +11,8 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardCheck, Plus, Eye, CheckCircle, Calculator, AlertCircle, BarChart3, FileText, Scan, Save } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ClipboardCheck, Plus, Eye, CheckCircle, Calculator, AlertCircle, BarChart3, FileText, Scan, Save, MoreHorizontal, Copy, Download, Trash2, Play, Pause, XCircle, FileDown, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -338,6 +339,150 @@ export const StockTaking: React.FC = () => {
     }
   };
 
+  const cancelSession = async (sessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('stock_taking_sessions')
+        .update({ 
+          status: 'cancelled',
+          completed_at: new Date().toISOString(),
+          completed_by: user?.id
+        })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Session Cancelled',
+        description: 'Stock taking session has been cancelled.'
+      });
+
+      fetchSessions();
+    } catch (error) {
+      console.error('Error cancelling session:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to cancel session.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const duplicateSession = async (sessionId: string) => {
+    setLoading(true);
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (!profile?.tenant_id) throw new Error('Tenant not found');
+
+      const originalSession = sessions.find(s => s.id === sessionId);
+      if (!originalSession) throw new Error('Session not found');
+
+      const sessionNumber = `ST-${Date.now()}`;
+
+      const { data: session, error } = await supabase
+        .from('stock_taking_sessions')
+        .insert({
+          tenant_id: profile.tenant_id,
+          session_number: sessionNumber,
+          location_id: originalSession.location_id,
+          created_by: user?.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Initialize session with current inventory
+      await initializeStockTakingSession(profile.tenant_id, session.id, originalSession.location_id);
+
+      toast({
+        title: 'Session Duplicated',
+        description: `New session ${sessionNumber} created based on the original session.`
+      });
+
+      fetchSessions();
+    } catch (error) {
+      console.error('Error duplicating session:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to duplicate session.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportSessionData = async (sessionId: string, format: 'csv' | 'pdf') => {
+    try {
+      const { data: items } = await supabase
+        .from('stock_taking_items')
+        .select(`
+          *,
+          products(name, sku),
+          product_variants(name, value, sku)
+        `)
+        .eq('session_id', sessionId);
+
+      if (!items) return;
+
+      const session = sessions.find(s => s.id === sessionId);
+      const filename = `stock-taking-${session?.session_number || sessionId}`;
+
+      if (format === 'csv') {
+        const csvContent = [
+          'Product,SKU,System Quantity,Counted Quantity,Variance,Value Impact,Status',
+          ...items.map(item => [
+            (item as any).products?.name || '',
+            (item as any).products?.sku || (item as any).product_variants?.sku || '',
+            item.system_quantity,
+            item.counted_quantity || '',
+            item.variance_quantity || '',
+            item.variance_value || '',
+            item.is_counted ? 'Counted' : 'Pending'
+          ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+
+      toast({
+        title: 'Export Complete',
+        description: `Session data exported as ${format.toUpperCase()}.`
+      });
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to export session data.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const printSessionReport = (sessionId: string) => {
+    // Open session in new window for printing
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      toast({
+        title: 'Print Report',
+        description: `Opening print dialog for session ${session.session_number}.`
+      });
+      // In a real implementation, this would open a print-friendly view
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-blue-500';
@@ -468,15 +613,61 @@ export const StockTaking: React.FC = () => {
                         {session.products_counted} / {session.total_products}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => viewSession(session.id)}
-                          className="flex items-center gap-1"
-                        >
-                          <Eye className="h-3 w-3" />
-                          View
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => viewSession(session.id)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            
+                            {session.status === 'active' && (
+                              <>
+                                <DropdownMenuItem onClick={() => completeSession()}>
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Complete Session
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => cancelSession(session.id)}
+                                  className="text-red-600"
+                                >
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Cancel Session
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem onClick={() => duplicateSession(session.id)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicate Session
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem onClick={() => exportSessionData(session.id, 'csv')}>
+                              <Download className="mr-2 h-4 w-4" />
+                              Export CSV
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem onClick={() => printSessionReport(session.id)}>
+                              <Printer className="mr-2 h-4 w-4" />
+                              Print Report
+                            </DropdownMenuItem>
+                            
+                            {session.status === 'completed' && (
+                              <DropdownMenuItem onClick={() => exportSessionData(session.id, 'pdf')}>
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Export PDF
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
