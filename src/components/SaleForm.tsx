@@ -86,39 +86,84 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   }, [tenantId]);
 
   useEffect(() => {
-    // Filter products based on search term
-    const filtered = products.filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredProducts(filtered);
+    // Debounce the search to prevent excessive filtering
+    const timeoutId = setTimeout(() => {
+      try {
+        if (!searchTerm.trim()) {
+          setFilteredProducts(products);
+          return;
+        }
+        
+        const filtered = products.filter(product =>
+          product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredProducts(filtered);
+      } catch (error) {
+        console.error('Error filtering products:', error);
+        setFilteredProducts([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, [products, searchTerm]);
 
   const fetchProducts = async () => {
     if (!tenantId) return;
     
     setIsLoadingProducts(true);
-    console.log('Fetching products with inventory levels for tenant:', tenantId);
+    console.log('Fetching products for tenant:', tenantId);
     
     try {
-      // Use the proper inventory integration function to get accurate stock levels
-      const inventoryData = await getInventoryLevels(tenantId);
+      // Fetch products with a simpler, more efficient query
+      const { data: products, error } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          sku,
+          barcode,
+          price,
+          stock_quantity,
+          min_stock_level,
+          image_url,
+          is_active,
+          product_variants (
+            id,
+            name,
+            value,
+            sku,
+            price,
+            stock_quantity
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
       
-      console.log(`Loaded ${inventoryData?.length || 0} products with correct stock:`, 
-        inventoryData?.map(p => ({ name: p.name, stock: p.stock_quantity })));
+      console.log(`Loaded ${products?.length || 0} products`);
       
-      if (inventoryData) {
-        setProducts(inventoryData);
-        setFilteredProducts(inventoryData);
+      if (products) {
+        setProducts(products);
+        setFilteredProducts(products);
       }
     } catch (error) {
-      console.error('Error fetching products with inventory:', error);
+      console.error('Error fetching products:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch products with inventory data",
+        description: "Failed to fetch products. Please try again.",
         variant: "destructive",
       });
+      
+      // Set empty arrays to prevent further errors
+      setProducts([]);
+      setFilteredProducts([]);
     } finally {
       setIsLoadingProducts(false);
     }
@@ -187,9 +232,18 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   };
 
   const handleProductSelect = (productId: string) => {
-    setSelectedProduct(productId);
-    setSelectedVariant("");
-    setSearchTerm("");
+    try {
+      setSelectedProduct(productId);
+      setSelectedVariant("");
+      setSearchTerm("");
+    } catch (error) {
+      console.error('Error selecting product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to select product",
+        variant: "destructive",
+      });
+    }
   };
 
   const calculateTotal = () => {
@@ -494,17 +548,28 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
             <Input
               placeholder="Search products by name, SKU, or barcode..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                try {
+                  setSearchTerm(e.target.value);
+                } catch (error) {
+                  console.error('Error updating search term:', error);
+                }
+              }}
               className="pl-10"
+              disabled={isLoadingProducts}
             />
           </div>
 
           {/* Product Grid */}
           {searchTerm && (
-            <div className="border rounded-lg">
+            <div className="border rounded-lg bg-background">
               <ScrollArea className="h-64">
                 <div className="p-2 space-y-2">
-                  {filteredProducts.length > 0 ? (
+                  {isLoadingProducts ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      Loading products...
+                    </div>
+                  ) : filteredProducts.length > 0 ? (
                     filteredProducts.map((product) => (
                       <div
                         key={product.id}
@@ -517,17 +582,20 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                           {product.image_url ? (
                             <img 
                               src={product.image_url} 
-                              alt={product.name}
+                              alt={product.name || 'Product'}
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           ) : (
                             <Package className="h-6 w-6 text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{product.name}</p>
+                          <p className="font-medium text-sm">{product.name || 'Unnamed Product'}</p>
                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                             <span>{formatAmount(product.price)}</span>
+                             <span>{formatAmount(product.price || 0)}</span>
                             {product.sku && <span>SKU: {product.sku}</span>}
                             <Badge variant="outline" className="text-xs">
                               Stock: {product.stock_quantity || 0}
@@ -538,7 +606,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     ))
                   ) : (
                     <div className="text-center py-4 text-muted-foreground">
-                      No products found
+                      No products found matching "{searchTerm}"
                     </div>
                   )}
                 </div>
