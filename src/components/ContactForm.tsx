@@ -34,30 +34,21 @@ const ContactForm = ({ isOpen, onOpenChange }: ContactFormProps) => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.functions.invoke('send-enhanced-email', {
+      const { data, error } = await supabase.functions.invoke('send-contact-email', {
         body: {
-          to: 'itsupport@loanspur.com',
-          toName: 'IT Support',
-          subject: `Support Request: ${formData.subject}`,
-          htmlContent: `
-            <h2>New Support Request</h2>
-            <p><strong>From:</strong> ${formData.name} (${formData.email})</p>
-            <p><strong>Subject:</strong> ${formData.subject}</p>
-            <p><strong>Message:</strong></p>
-            <p>${formData.message.replace(/\n/g, '<br>')}</p>
-          `,
-          textContent: `
-            New Support Request
-            From: ${formData.name} (${formData.email})
-            Subject: ${formData.subject}
-            Message: ${formData.message}
-          `,
-          priority: 'medium'
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message
         }
       });
 
       if (error) {
         throw error;
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to send email');
       }
 
       toast({
