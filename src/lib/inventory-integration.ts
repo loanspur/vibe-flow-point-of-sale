@@ -230,6 +230,11 @@ export const getInventoryLevels = async (tenantId: string, productId?: string) =
 
         const calculatedStock = totalReceived + totalReturned - totalSold;
 
+        console.log(`Product: ${product.name} (${product.sku})`);
+        console.log(`  Database stock: ${product.stock_quantity}`);
+        console.log(`  Received: ${totalReceived}, Sold: ${totalSold}, Returned: ${totalReturned}`);
+        console.log(`  Calculated stock: ${calculatedStock}`);
+
         return {
           ...product,
           calculated_stock: calculatedStock,

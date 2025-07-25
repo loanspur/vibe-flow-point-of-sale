@@ -33,6 +33,9 @@ export const StockOverview: React.FC = () => {
         getLowStockItems(profile.tenant_id)
       ]);
 
+      console.log('Inventory data loaded:', inventory);
+      console.log('Low stock items:', lowStock);
+
       setInventoryData(inventory);
       setLowStockItems(lowStock);
     } catch (error) {
