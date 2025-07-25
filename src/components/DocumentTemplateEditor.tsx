@@ -255,10 +255,22 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
       
       ['receipt', 'invoice', 'quote', 'delivery_note'].forEach((type) => {
         const templateType = type as keyof typeof DEFAULT_TEMPLATES;
+        const storedTemplate = data?.[`${type}_template` as keyof typeof data];
+        
+        // Use default template content since database stores template type names, not content
+        let templateContent = DEFAULT_TEMPLATES[templateType];
+        
+        // If it's receipt template and we have header/footer, inject them
+        if (type === 'receipt' && (data?.receipt_header || data?.receipt_footer)) {
+          templateContent = templateContent
+            .replace('{{receipt_header}}', data.receipt_header || 'Welcome to our store!')
+            .replace('{{receipt_footer}}', data.receipt_footer || 'Thank you for shopping with us!');
+        }
+        
         loadedTemplates[type] = {
           id: `${type}_template`,
           name: `${type.charAt(0).toUpperCase() + type.slice(1)} Template`,
-          content: data?.[`${type}_template` as keyof typeof data] || DEFAULT_TEMPLATES[templateType],
+          content: templateContent,
           variables: TEMPLATE_VARIABLES[templateType],
           template_type: templateType
         };
@@ -267,6 +279,19 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
       setTemplates(loadedTemplates);
     } catch (error) {
       console.error('Error loading templates:', error);
+      // Initialize with defaults if loading fails
+      const loadedTemplates: Record<string, DocumentTemplate> = {};
+      ['receipt', 'invoice', 'quote', 'delivery_note'].forEach((type) => {
+        const templateType = type as keyof typeof DEFAULT_TEMPLATES;
+        loadedTemplates[type] = {
+          id: `${type}_template`,
+          name: `${type.charAt(0).toUpperCase() + type.slice(1)} Template`,
+          content: DEFAULT_TEMPLATES[templateType],
+          variables: TEMPLATE_VARIABLES[templateType],
+          template_type: templateType
+        };
+      });
+      setTemplates(loadedTemplates);
     }
   };
 
