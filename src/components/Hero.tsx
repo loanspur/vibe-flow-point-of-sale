@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle } from "lucide-react";
 import heroImage from "@/assets/hero-pos.jpg";
+import posSystemHero from "@/assets/pos-system-hero.jpg";
 
 const Hero = () => {
   return (
@@ -45,14 +46,25 @@ const Hero = () => {
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative space-y-6">
+            {/* Main POS System Hero Image */}
             <div className="relative z-10">
               <img 
-                src={heroImage} 
-                alt="vibePOS System Interface" 
+                src={posSystemHero} 
+                alt="Modern POS System Interface" 
                 className="w-full h-auto rounded-2xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
               />
             </div>
+            
+            {/* Secondary Dashboard Image */}
+            <div className="relative z-10 transform translate-x-8 -translate-y-8">
+              <img 
+                src={heroImage} 
+                alt="vibePOS Dashboard Overview" 
+                className="w-3/4 h-auto rounded-xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500 opacity-90"
+              />
+            </div>
+            
             {/* Decorative gradient background */}
             <div className="absolute -top-4 -right-4 -bottom-4 -left-4 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-xl"></div>
           </div>
