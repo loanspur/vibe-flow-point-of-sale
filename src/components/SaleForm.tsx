@@ -82,6 +82,11 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     if (tenantId) {
       fetchProducts();
       fetchCustomers();
+    } else {
+      // Clear products and customers when no tenant
+      setProducts([]);
+      setFilteredProducts([]);
+      setCustomers([]);
     }
   }, [tenantId]);
 
@@ -110,7 +115,13 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   }, [products, searchTerm]);
 
   const fetchProducts = async () => {
-    if (!tenantId) return;
+    if (!tenantId) {
+      console.warn('No tenant ID available for fetching products');
+      setProducts([]);
+      setFilteredProducts([]);
+      setIsLoadingProducts(false);
+      return;
+    }
     
     setIsLoadingProducts(true);
     console.log('Fetching products for tenant:', tenantId);
@@ -149,15 +160,28 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       
       console.log(`Loaded ${products?.length || 0} products`);
       
-      if (products) {
+      if (products && Array.isArray(products)) {
         setProducts(products);
         setFilteredProducts(products);
+      } else {
+        console.warn('No products data received');
+        setProducts([]);
+        setFilteredProducts([]);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+      
+      // More specific error handling
+      let errorMessage = "Failed to fetch products. Please try again.";
+      if (error?.message?.includes('JWT')) {
+        errorMessage = "Session expired. Please refresh the page and try again.";
+      } else if (error?.message?.includes('permission')) {
+        errorMessage = "You don't have permission to view products.";
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to fetch products. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       
@@ -170,7 +194,11 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   };
 
   const fetchCustomers = async () => {
-    if (!tenantId) return;
+    if (!tenantId) {
+      console.warn('No tenant ID available for fetching customers');
+      setCustomers([]);
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -183,9 +211,14 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         return;
       }
       
-      if (data) setCustomers(data);
+      if (data && Array.isArray(data)) {
+        setCustomers(data);
+      } else {
+        setCustomers([]);
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
+      setCustomers([]);
     }
   };
 
