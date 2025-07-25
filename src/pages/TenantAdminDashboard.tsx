@@ -47,7 +47,7 @@ export default function TenantAdminDashboard() {
     try {
       console.log('Starting subscription fetch...');
       const { data, error } = await supabase
-        .from('tenant_subscriptions')
+        .from('tenant_subscription_details')
         .select(`
           *,
           billing_plans (
@@ -57,7 +57,7 @@ export default function TenantAdminDashboard() {
           )
         `)
         .eq('tenant_id', tenantId)
-        .eq('status', 'active')
+        .in('status', ['active', 'pending'])
         .maybeSingle();
 
       console.log('Subscription fetch result:', { data, error });
@@ -286,10 +286,14 @@ export default function TenantAdminDashboard() {
                     {currentSubscription.billing_plans?.name} Plan
                   </p>
                   <p className="text-sm text-blue-600">
-                    {new Date(currentSubscription.expires_at) > new Date() ? (
-                      <>Trial expires {new Date(currentSubscription.expires_at).toLocaleDateString()}</>
-                    ) : (
+                    {currentSubscription.status === 'pending' ? (
+                      <>Payment pending</>
+                    ) : currentSubscription.trial_end && new Date(currentSubscription.trial_end) > new Date() ? (
+                      <>Trial expires {new Date(currentSubscription.trial_end).toLocaleDateString()}</>
+                    ) : currentSubscription.trial_end ? (
                       <>Trial expired - Payment required</>
+                    ) : (
+                      <>Active subscription</>
                     )}
                   </p>
                 </div>
@@ -297,7 +301,7 @@ export default function TenantAdminDashboard() {
               <div className="flex items-center space-x-3">
                 <div className="text-right">
                   <p className="text-2xl font-bold text-blue-900">
-                    {formatPrice((currentSubscription.billing_plans?.price || 0) / 100)}
+                    {formatPrice(currentSubscription.billing_plans?.price || 0)}
                   </p>
                   <p className="text-sm text-blue-600">per {currentSubscription.billing_plans?.period}</p>
                 </div>
