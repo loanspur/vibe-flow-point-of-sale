@@ -22,7 +22,7 @@ const Navigation = () => {
   const navItems = [
     { label: "Features", href: "#features", action: "scroll" },
     { label: "Pricing", href: "#pricing", action: "scroll" },
-    { label: "Demo", href: "#demo", action: "scroll" },
+    { label: "Demo", href: "/demo", action: "navigate" },
     { label: "Support", href: "#support", action: "contact" }
   ];
 
@@ -31,6 +31,8 @@ const Navigation = () => {
     
     if (item.action === "contact") {
       setIsContactOpen(true);
+    } else if (item.action === "navigate") {
+      navigate(item.href);
     } else if (item.action === "scroll") {
       const element = document.querySelector(item.href);
       if (element) {

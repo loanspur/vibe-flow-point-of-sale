@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-pos.jpg";
 import posSystemHero from "@/assets/pos-system-hero.jpg";
 // import businessDataTracking from "@/assets/business-data-tracking.jpg";
@@ -35,12 +36,16 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <Button variant="hero" size="lg" className="text-lg px-8 py-6">
-                Start Free Trial
-                <ArrowRight className="ml-2" />
+              <Button variant="hero" size="lg" className="text-lg px-8 py-6" asChild>
+                <Link to="/signup">
+                  Start Free Trial
+                  <ArrowRight className="ml-2" />
+                </Link>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6">
-                View Demo
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
+                <Link to="/demo">
+                  View Demo
+                </Link>
               </Button>
             </div>
 

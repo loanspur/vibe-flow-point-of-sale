@@ -19,6 +19,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Demo = lazy(() => import("./pages/Demo"));
 
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
@@ -155,6 +156,7 @@ const App = () => (
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/demo" element={<Demo />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/signup" element={<TrialSignup />} />
             <Route path="/success" element={<Success />} />
