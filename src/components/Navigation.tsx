@@ -3,6 +3,7 @@ import { Menu, X, User, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import ContactForm from "@/components/ContactForm";
 
 import {
   DropdownMenu,
@@ -14,15 +15,35 @@ import {
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isContactOpen, setIsContactOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const navItems = [
-    { label: "Features", href: "#features" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "Demo", href: "#demo" },
-    { label: "Support", href: "#support" }
+    { label: "Features", href: "#features", action: "scroll" },
+    { label: "Pricing", href: "#pricing", action: "scroll" },
+    { label: "Demo", href: "#demo", action: "scroll" },
+    { label: "Support", href: "#support", action: "contact" }
   ];
+
+  const handleNavClick = (item: typeof navItems[0], e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (item.action === "contact") {
+      setIsContactOpen(true);
+    } else if (item.action === "scroll") {
+      const element = document.querySelector(item.href);
+      if (element) {
+        element.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }
+    
+    // Close mobile menu
+    setIsOpen(false);
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
@@ -41,13 +62,13 @@ const Navigation = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => (
-              <a
+              <button
                 key={item.label}
-                href={item.href}
+                onClick={(e) => handleNavClick(item, e)}
                 className="text-foreground hover:text-primary transition-colors font-medium"
               >
                 {item.label}
-              </a>
+              </button>
             ))}
           </div>
 
@@ -96,14 +117,13 @@ const Navigation = () => {
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col space-y-4">
               {navItems.map((item) => (
-                <a
+                <button
                   key={item.label}
-                  href={item.href}
-                  className="text-foreground hover:text-primary transition-colors font-medium"
-                  onClick={() => setIsOpen(false)}
+                  onClick={(e) => handleNavClick(item, e)}
+                  className="text-foreground hover:text-primary transition-colors font-medium text-left"
                 >
                   {item.label}
-                </a>
+                </button>
               ))}
               <div className="flex flex-col space-y-2 pt-4">
                 {user ? (
@@ -127,6 +147,11 @@ const Navigation = () => {
           </div>
         )}
       </div>
+      
+      <ContactForm 
+        isOpen={isContactOpen} 
+        onOpenChange={setIsContactOpen} 
+      />
     </nav>
   );
 };

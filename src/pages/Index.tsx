@@ -361,7 +361,7 @@ const Index = () => {
       </section>
 
       {/* Comprehensive POS Features Section */}
-      <section className="py-20 bg-muted/20">
+      <section className="py-20 bg-muted/20" id="features">
         <div className="container mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
             <Badge variant="outline" className="text-sm px-4 py-2">

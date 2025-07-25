@@ -1,230 +1,299 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { User, Building } from 'lucide-react';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Mail, Phone, MapPin, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ContactFormProps {
-  contact?: any;
-  onSuccess: () => void;
-  onCancel: () => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function ContactForm({ contact, onSuccess, onCancel }: ContactFormProps) {
-  const { tenantId } = useAuth();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  
+const ContactForm = ({ isOpen, onOpenChange }: ContactFormProps) => {
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'customer',
-    email: '',
-    phone: '',
-    address: '',
-    company: '',
-    notes: '',
-    is_active: true,
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (contact) {
-      setFormData({
-        name: contact.name || '',
-        type: contact.type || 'customer',
-        email: contact.email || '',
-        phone: contact.phone || '',
-        address: contact.address || '',
-        company: contact.company || '',
-        notes: contact.notes || '',
-        is_active: contact.is_active ?? true,
-      });
-    }
-  }, [contact]);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsSubmitting(true);
 
     try {
-      const contactData = {
-        name: formData.name,
-        type: formData.type,
-        email: formData.email || null,
-        phone: formData.phone || null,
-        address: formData.address || null,
-        company: formData.company || null,
-        notes: formData.notes || null,
-        is_active: formData.is_active,
-        tenant_id: tenantId,
-      };
+      const { error } = await supabase.functions.invoke('send-enhanced-email', {
+        body: {
+          to: 'itsupport@loanspur.com',
+          toName: 'IT Support',
+          subject: `Support Request: ${formData.subject}`,
+          htmlContent: `
+            <h2>New Support Request</h2>
+            <p><strong>From:</strong> ${formData.name} (${formData.email})</p>
+            <p><strong>Subject:</strong> ${formData.subject}</p>
+            <p><strong>Message:</strong></p>
+            <p>${formData.message.replace(/\n/g, '<br>')}</p>
+          `,
+          textContent: `
+            New Support Request
+            From: ${formData.name} (${formData.email})
+            Subject: ${formData.subject}
+            Message: ${formData.message}
+          `,
+          priority: 'medium'
+        }
+      });
 
-      let error;
-      if (contact) {
-        ({ error } = await supabase
-          .from('contacts')
-          .update(contactData)
-          .eq('id', contact.id));
-      } else {
-        ({ error } = await supabase
-          .from('contacts')
-          .insert([contactData]));
+      if (error) {
+        throw error;
       }
 
-      if (error) throw error;
-
       toast({
-        title: contact ? "Contact updated" : "Contact created",
-        description: `${formData.name} has been ${contact ? 'updated' : 'created'} successfully.`,
+        title: "Message sent successfully!",
+        description: "We'll get back to you as soon as possible.",
       });
 
-      onSuccess();
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        subject: "",
+        message: ""
+      });
+
+      // Close dialog if it's in dialog mode
+      if (onOpenChange) {
+        onOpenChange(false);
+      }
     } catch (error: any) {
+      console.error('Error sending email:', error);
       toast({
-        title: `Error ${contact ? 'updating' : 'creating'} contact`,
-        description: error.message,
-        variant: "destructive",
+        title: "Failed to send message",
+        description: "Please try again or contact us directly at itsupport@loanspur.com",
+        variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  if (isOpen !== undefined && onOpenChange) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Contact Support</DialogTitle>
+            <DialogDescription>
+              Get help with your VibePOS account or technical issues
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter your email"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="subject">Subject</Label>
+                <Input
+                  id="subject"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="What can we help you with?"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="message">Message</Label>
+                <Textarea
+                  id="message"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Describe your issue or question in detail..."
+                  rows={6}
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                size="lg"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  "Sending..."
+                ) : (
+                  <>
+                    Send Message
+                    <Send className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </form>
+            
+            <div className="mt-8 pt-6 border-t border-border">
+              <h3 className="text-lg font-semibold mb-4">Other Ways to Reach Us</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-4 w-4 text-primary" />
+                  <span>itsupport@loanspur.com</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-primary" />
+                  <span>+254 700 000 000</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <span>Nairobi, Kenya</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Basic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {formData.type === 'customer' ? <User className="w-5 h-5" /> : <Building className="w-5 h-5" />}
-            Contact Information
-          </CardTitle>
-          <CardDescription>
-            {formData.type === 'customer' ? 'Customer' : 'Supplier'} details
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Contact Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Enter contact name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="type">Type *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => handleInputChange('type', value)}
+    <section className="py-20" id="support">
+      <div className="container mx-auto px-4">
+        <Card className="w-full max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="text-2xl">Contact Support</CardTitle>
+            <CardDescription>
+              Get help with your VibePOS account or technical issues
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter your email"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="subject">Subject</Label>
+                <Input
+                  id="subject"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="What can we help you with?"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="message">Message</Label>
+                <Textarea
+                  id="message"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Describe your issue or question in detail..."
+                  rows={6}
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                size="lg"
+                disabled={isSubmitting}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="customer">Customer</SelectItem>
-                  <SelectItem value="supplier">Supplier</SelectItem>
-                </SelectContent>
-              </Select>
+                {isSubmitting ? (
+                  "Sending..."
+                ) : (
+                  <>
+                    Send Message
+                    <Send className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-border">
+              <h3 className="text-lg font-semibold mb-4">Other Ways to Reach Us</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-4 w-4 text-primary" />
+                  <span>itsupport@loanspur.com</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-primary" />
+                  <span>+254 700 000 000</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <span>Nairobi, Kenya</span>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="contact@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="Phone number"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="company">Company</Label>
-            <Input
-              id="company"
-              value={formData.company}
-              onChange={(e) => handleInputChange('company', e.target.value)}
-              placeholder="Company name"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Textarea
-              id="address"
-              value={formData.address}
-              onChange={(e) => handleInputChange('address', e.target.value)}
-              placeholder="Full address"
-              rows={2}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="Additional notes"
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Status</CardTitle>
-          <CardDescription>Contact availability</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="is_active"
-              checked={formData.is_active}
-              onCheckedChange={(checked) => handleInputChange('is_active', checked)}
-            />
-            <Label htmlFor="is_active">Active contact</Label>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Form Actions */}
-      <div className="flex justify-end space-x-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading || !formData.name}>
-          {loading ? 'Saving...' : contact ? 'Update Contact' : 'Create Contact'}
-        </Button>
+          </CardContent>
+        </Card>
       </div>
-    </form>
+    </section>
   );
-}
+};
+
+export default ContactForm;
