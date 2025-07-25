@@ -281,11 +281,15 @@ export const DataMigration: React.FC = () => {
         });
         
         console.log('Product insert result:', result);
-        console.log('Full error details:', result.error);
+        console.log('Full error object:', JSON.stringify(result.error, null, 2));
         
         if (result.error) {
-          console.error('Product insertion failed:', result.error.message, result.error.details);
-          throw new Error(`Failed to insert product: ${result.error.message} - ${result.error.details || 'No additional details'}`);
+          console.error('Product insertion failed:');
+          console.error('Error message:', result.error.message);
+          console.error('Error details:', result.error.details);
+          console.error('Error hint:', result.error.hint);
+          console.error('Error code:', result.error.code);
+          throw new Error(`Failed to insert product: ${result.error.message} - ${result.error.details || result.error.hint || 'No additional details'}`);
         }
         
         return result;
