@@ -281,9 +281,11 @@ export const DataMigration: React.FC = () => {
         });
         
         console.log('Product insert result:', result);
+        console.log('Full error details:', result.error);
         
         if (result.error) {
-          throw new Error(`Failed to insert product: ${result.error.message}`);
+          console.error('Product insertion failed:', result.error.message, result.error.details);
+          throw new Error(`Failed to insert product: ${result.error.message} - ${result.error.details || 'No additional details'}`);
         }
         
         return result;
