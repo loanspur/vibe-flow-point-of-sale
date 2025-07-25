@@ -16,6 +16,7 @@ const Pricing = () => {
       features: [
         "1 Location",
         "Up to 3 Staff Users",
+        "Up to 500 Products",
         "Basic Inventory Management",
         "Standard Reports",
         "Email Support",
@@ -32,6 +33,7 @@ const Pricing = () => {
       features: [
         "Up to 5 Locations",
         "Unlimited Staff Users",
+        "Up to 5,000 Products",
         "Advanced Inventory & Analytics",
         "Custom Reports & Dashboards",
         "Priority Support",
@@ -50,6 +52,7 @@ const Pricing = () => {
       features: [
         "Unlimited Locations",
         "Unlimited Staff Users",
+        "Unlimited Products",
         "White-label Solutions",
         "Custom Integrations",
         "24/7 Phone Support",
