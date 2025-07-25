@@ -792,6 +792,42 @@ export type Database = {
           },
         ]
       }
+      client_segments: {
+        Row: {
+          created_at: string
+          created_by: string
+          criteria: Json
+          description: string | null
+          id: string
+          is_dynamic: boolean | null
+          name: string
+          tenant_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          criteria: Json
+          description?: string | null
+          id?: string
+          is_dynamic?: boolean | null
+          name: string
+          tenant_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          criteria?: Json
+          description?: string | null
+          id?: string
+          is_dynamic?: boolean | null
+          name?: string
+          tenant_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       combo_products: {
         Row: {
           combo_product_id: string
@@ -1177,6 +1213,302 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "tenant_domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_automation_rules: {
+        Row: {
+          created_at: string
+          created_by: string
+          delay_minutes: number | null
+          description: string | null
+          emails_sent: number | null
+          id: string
+          is_active: boolean | null
+          last_triggered_at: string | null
+          name: string
+          template_id: string | null
+          total_triggered: number | null
+          trigger_conditions: Json | null
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          delay_minutes?: number | null
+          description?: string | null
+          emails_sent?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          name: string
+          template_id?: string | null
+          total_triggered?: number | null
+          trigger_conditions?: Json | null
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          delay_minutes?: number | null
+          description?: string | null
+          emails_sent?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          name?: string
+          template_id?: string | null
+          total_triggered?: number | null
+          trigger_conditions?: Json | null
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_automation_rules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_blacklist: {
+        Row: {
+          blacklisted_at: string
+          blacklisted_by: string | null
+          email: string
+          id: string
+          is_global: boolean | null
+          notes: string | null
+          reason: string
+          tenant_id: string | null
+        }
+        Insert: {
+          blacklisted_at?: string
+          blacklisted_by?: string | null
+          email: string
+          id?: string
+          is_global?: boolean | null
+          notes?: string | null
+          reason: string
+          tenant_id?: string | null
+        }
+        Update: {
+          blacklisted_at?: string
+          blacklisted_by?: string | null
+          email?: string
+          id?: string
+          is_global?: boolean | null
+          notes?: string | null
+          reason?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      email_campaign_analytics: {
+        Row: {
+          bounced_count: number | null
+          campaign_id: string
+          clicked_count: number | null
+          created_at: string
+          delivered_count: number | null
+          id: string
+          metric_date: string
+          opened_count: number | null
+          revenue_attributed: number | null
+          sent_count: number | null
+          unsubscribed_count: number | null
+        }
+        Insert: {
+          bounced_count?: number | null
+          campaign_id: string
+          clicked_count?: number | null
+          created_at?: string
+          delivered_count?: number | null
+          id?: string
+          metric_date?: string
+          opened_count?: number | null
+          revenue_attributed?: number | null
+          sent_count?: number | null
+          unsubscribed_count?: number | null
+        }
+        Update: {
+          bounced_count?: number | null
+          campaign_id?: string
+          clicked_count?: number | null
+          created_at?: string
+          delivered_count?: number | null
+          id?: string
+          metric_date?: string
+          opened_count?: number | null
+          revenue_attributed?: number | null
+          sent_count?: number | null
+          unsubscribed_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_analytics_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaign_recipients: {
+        Row: {
+          bounced_at: string | null
+          campaign_id: string
+          clicked_at: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          opened_at: string | null
+          recipient_email: string
+          recipient_name: string | null
+          sent_at: string | null
+          status: string
+          tenant_id: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          bounced_at?: string | null
+          campaign_id: string
+          clicked_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          bounced_at?: string | null
+          campaign_id?: string
+          clicked_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaigns: {
+        Row: {
+          campaign_type: string
+          created_at: string
+          created_by: string
+          emails_bounced: number | null
+          emails_clicked: number | null
+          emails_delivered: number | null
+          emails_opened: number | null
+          emails_sent: number | null
+          emails_unsubscribed: number | null
+          html_content: string
+          id: string
+          metadata: Json | null
+          name: string
+          scheduled_at: string | null
+          sender_email: string | null
+          sender_name: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          target_audience: string | null
+          template_id: string | null
+          text_content: string | null
+          total_recipients: number | null
+          updated_at: string
+        }
+        Insert: {
+          campaign_type?: string
+          created_at?: string
+          created_by: string
+          emails_bounced?: number | null
+          emails_clicked?: number | null
+          emails_delivered?: number | null
+          emails_opened?: number | null
+          emails_sent?: number | null
+          emails_unsubscribed?: number | null
+          html_content: string
+          id?: string
+          metadata?: Json | null
+          name: string
+          scheduled_at?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          target_audience?: string | null
+          template_id?: string | null
+          text_content?: string | null
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Update: {
+          campaign_type?: string
+          created_at?: string
+          created_by?: string
+          emails_bounced?: number | null
+          emails_clicked?: number | null
+          emails_delivered?: number | null
+          emails_opened?: number | null
+          emails_sent?: number | null
+          emails_unsubscribed?: number | null
+          html_content?: string
+          id?: string
+          metadata?: Json | null
+          name?: string
+          scheduled_at?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          target_audience?: string | null
+          template_id?: string | null
+          text_content?: string | null
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -4451,6 +4783,17 @@ export type Database = {
         Args: { account_id_param: string; as_of_date?: string }
         Returns: number
       }
+      get_campaign_target_tenants: {
+        Args: { target_audience_param: string; segment_criteria_param?: Json }
+        Returns: {
+          tenant_id: string
+          tenant_name: string
+          admin_email: string
+          admin_name: string
+          status: string
+          created_at: string
+        }[]
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
@@ -4528,6 +4871,10 @@ export type Database = {
         Args: { return_id_param: string }
         Returns: boolean
       }
+      queue_campaign_emails: {
+        Args: { campaign_id_param: string }
+        Returns: number
+      }
       setup_default_accounts: {
         Args: { tenant_id_param: string }
         Returns: undefined
@@ -4548,6 +4895,10 @@ export type Database = {
       }
       update_account_balances_from_entries: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_campaign_statistics: {
+        Args: { campaign_id_param: string }
         Returns: undefined
       }
       update_payment_status: {
