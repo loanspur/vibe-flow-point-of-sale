@@ -1086,12 +1086,12 @@ const PurchaseManagement = () => {
                                   step="0.01"
                                 />
                               </div>
-                              <div>
-                                <Input
-                                  value={`$${(item.quantity * item.unit_cost).toFixed(2)}`}
-                                  disabled
-                                />
-                              </div>
+                               <div>
+                                 <Input
+                                   value={formatCurrency(item.quantity * item.unit_cost)}
+                                   disabled
+                                 />
+                               </div>
                               <div>
                                 <Button
                                   variant="outline"
@@ -1108,11 +1108,11 @@ const PurchaseManagement = () => {
                             <Plus className="h-4 w-4 mr-2" />
                             Add Item
                           </Button>
-                          <div className="flex justify-end">
-                            <div className="text-lg font-semibold">
-                              Total: ${selectedItems.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0).toFixed(2)}
-                            </div>
-                          </div>
+                           <div className="flex justify-end">
+                             <div className="text-lg font-semibold">
+                               Total: {formatCurrency(selectedItems.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0))}
+                             </div>
+                           </div>
                         </div>
                       </div>
 
