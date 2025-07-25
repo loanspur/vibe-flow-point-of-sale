@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useFeatureAccess } from './useFeatureAccess';
 
 interface FeatureGuardOptions {
@@ -18,7 +18,9 @@ interface FeatureGuardResult {
 
 export function useFeatureGuard(options: FeatureGuardOptions): FeatureGuardResult {
   const { feature, fallbackComponent: FallbackComponent, fallbackMessage, showUpgrade = true } = options;
-  const { hasAccess, loading, requiresUpgrade } = useFeatureAccess(feature);
+  const { hasFeature, loading } = useFeatureAccess();
+  const hasAccess = hasFeature(feature);
+  const requiresUpgrade = !hasAccess;
 
   const accessLevel = useMemo(() => {
     if (loading) return 'loading';

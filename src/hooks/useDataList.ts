@@ -59,7 +59,7 @@ export function useDataList<T = any>(
   const queryFn = useCallback(async () => {
     if (!tenantId) return { data: [], error: null };
 
-    let query = supabase.from(tableName).select(select);
+    let query = supabase.from(tableName as any).select(select);
 
     // Add tenant filter
     query = query.eq('tenant_id', tenantId);

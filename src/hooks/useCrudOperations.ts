@@ -38,7 +38,7 @@ export function useCrudOperations<T = any>(options: CrudOptions) {
     try {
       const insertData = tenantId ? { ...data, tenant_id: tenantId } : data;
       const { data: result, error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .insert([insertData])
         .select()
         .single();
@@ -71,7 +71,7 @@ export function useCrudOperations<T = any>(options: CrudOptions) {
     
     try {
       const { data: result, error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .update(data)
         .eq('id', id)
         .select()
@@ -118,7 +118,7 @@ export function useCrudOperations<T = any>(options: CrudOptions) {
     
     try {
       const { error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .delete()
         .eq('id', id);
 
@@ -159,7 +159,7 @@ export function useCrudOperations<T = any>(options: CrudOptions) {
     
     try {
       const { error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .delete()
         .in('id', ids);
 
