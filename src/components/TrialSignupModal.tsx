@@ -126,7 +126,22 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
 
       if (error) {
         console.error('Verification email error:', error);
-        throw error;
+        
+        // Try to get specific error message from response
+        let errorMessage = "Failed to send verification email. Please try again.";
+        
+        // Check if there's a specific error in the response
+        if (data && data.error) {
+          errorMessage = data.error;
+        }
+        
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
       }
 
       toast({
