@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
@@ -162,7 +162,7 @@ const App = () => (
             <Route path="/demo" element={<Demo />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/accept-invitation" element={<AcceptInvitation />} />
-            <Route path="/signup" element={<TrialSignup />} />
+            <Route path="/signup" element={<Navigate to="/" replace />} />
             <Route path="/success" element={<Success />} />
             
             {/* Super Admin Routes */}

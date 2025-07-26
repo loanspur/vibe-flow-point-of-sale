@@ -1,94 +1,150 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { TrialSignupModal } from "@/components/TrialSignupModal";
+import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-pos.jpg";
 import posSystemHero from "@/assets/pos-system-hero.jpg";
-// import businessDataTracking from "@/assets/business-data-tracking.jpg";
+
+interface BillingPlan {
+  id: string;
+  name: string;
+  price: number;
+  period: string;
+  description: string;
+  features: any;
+  badge?: string;
+  badge_color?: string;
+}
 
 const Hero = () => {
-  return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-background via-primary/5 to-accent/10 min-h-screen flex items-center">
-      <div className="container mx-auto px-4 py-20">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8">
-            <div className="grid md:grid-cols-2 gap-6 items-center">
-              <div className="space-y-4">
-                <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent leading-tight">
-                  Transform Your Business with vibePOS
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  The modern multi-tenant point of sale system that grows with your business
-                </p>
-              </div>
-              <div className="w-full">
-                <img 
-                  src="/business-data-tracking.jpg" 
-                  alt="Professional tracking business data on computer and phone" 
-                  className="w-full h-auto rounded-xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
-                  onError={(e) => console.error('Image failed to load:', e)}
-                  onLoad={() => console.log('Image loaded successfully')}
-                />
-              </div>
-            </div>
-            
-            <p className="text-lg text-muted-foreground">
-              Streamline operations, boost sales, and delight customers with our intuitive POS solution designed for businesses of all sizes.
-            </p>
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
 
-            <div className="flex flex-wrap gap-4">
-              <Button variant="hero" size="lg" className="text-lg px-8 py-6" asChild>
-                <Link to="/signup">
+  useEffect(() => {
+    const fetchPlans = async () => {
+      const { data } = await supabase
+        .from('billing_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      
+      if (data) setPlans(data);
+    };
+    
+    fetchPlans();
+  }, []);
+
+  const handleStartTrial = () => {
+    setSelectedPlan(plans[0] || null); // Use first plan as default
+    setIsSignupModalOpen(true);
+  };
+
+  const formatFeatures = (features: any) => {
+    return Array.isArray(features) ? features : [];
+  };
+
+  const getDisplayPrice = (plan: BillingPlan) => {
+    return `KES ${plan.price?.toLocaleString() || '0'}`;
+  };
+
+  const getDisplayPeriod = () => '/month';
+
+  return (
+    <>
+      <section className="relative overflow-hidden bg-gradient-to-br from-background via-primary/5 to-accent/10 min-h-screen flex items-center">
+        <div className="container mx-auto px-4 py-20">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <div className="grid md:grid-cols-2 gap-6 items-center">
+                <div className="space-y-4">
+                  <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent leading-tight">
+                    Transform Your Business with vibePOS
+                  </h1>
+                  <p className="text-lg text-muted-foreground">
+                    The modern multi-tenant point of sale system that grows with your business
+                  </p>
+                </div>
+                <div className="w-full">
+                  <img 
+                    src="/business-data-tracking.jpg" 
+                    alt="Professional tracking business data on computer and phone" 
+                    className="w-full h-auto rounded-xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
+                    onError={(e) => console.error('Image failed to load:', e)}
+                    onLoad={() => console.log('Image loaded successfully')}
+                  />
+                </div>
+              </div>
+              
+              <p className="text-lg text-muted-foreground">
+                Streamline operations, boost sales, and delight customers with our intuitive POS solution designed for businesses of all sizes.
+              </p>
+
+              <div className="flex flex-wrap gap-4">
+                <Button variant="hero" size="lg" className="text-lg px-8 py-6" onClick={handleStartTrial}>
                   Start Free Trial
                   <ArrowRight className="ml-2" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
-                <Link to="/demo">
-                  View Demo
-                </Link>
-              </Button>
+                </Button>
+                <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
+                  <Link to="/demo">
+                    View Demo
+                  </Link>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
+                {[
+                  "Multi-tenant architecture",
+                  "Real-time inventory tracking",
+                  "Advanced analytics & reporting",
+                  "Mobile & tablet optimized"
+                ].map((feature, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-pos-success flex-shrink-0" />
+                    <span className="text-foreground font-medium">{feature}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
-              {[
-                "Multi-tenant architecture",
-                "Real-time inventory tracking",
-                "Advanced analytics & reporting",
-                "Mobile & tablet optimized"
-              ].map((feature, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <CheckCircle className="h-5 w-5 text-pos-success flex-shrink-0" />
-                  <span className="text-foreground font-medium">{feature}</span>
-                </div>
-              ))}
+            <div className="relative space-y-6">
+              {/* Main POS System Hero Image */}
+              <div className="relative z-10">
+                <img 
+                  src={posSystemHero} 
+                  alt="Modern POS System Interface" 
+                  className="w-full h-auto rounded-2xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+              
+              {/* Secondary Dashboard Image */}
+              <div className="relative z-10 transform translate-x-8 -translate-y-8">
+                <img 
+                  src={heroImage} 
+                  alt="vibePOS Dashboard Overview" 
+                  className="w-3/4 h-auto rounded-xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500 opacity-90"
+                />
+              </div>
+              
+              {/* Decorative gradient background */}
+              <div className="absolute -top-4 -right-4 -bottom-4 -left-4 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-xl"></div>
             </div>
-          </div>
-
-          <div className="relative space-y-6">
-            {/* Main POS System Hero Image */}
-            <div className="relative z-10">
-              <img 
-                src={posSystemHero} 
-                alt="Modern POS System Interface" 
-                className="w-full h-auto rounded-2xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
-              />
-            </div>
-            
-            {/* Secondary Dashboard Image */}
-            <div className="relative z-10 transform translate-x-8 -translate-y-8">
-              <img 
-                src={heroImage} 
-                alt="vibePOS Dashboard Overview" 
-                className="w-3/4 h-auto rounded-xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500 opacity-90"
-              />
-            </div>
-            
-            {/* Decorative gradient background */}
-            <div className="absolute -top-4 -right-4 -bottom-4 -left-4 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-xl"></div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* Trial Signup Modal */}
+      <TrialSignupModal
+        isOpen={isSignupModalOpen}
+        onClose={() => setIsSignupModalOpen(false)}
+        selectedPlan={selectedPlan}
+        getDisplayPrice={getDisplayPrice}
+        getDisplayPeriod={getDisplayPeriod}
+        formatFeatures={formatFeatures}
+      />
+    </>
   );
 };
 

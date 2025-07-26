@@ -4,10 +4,57 @@ import { CheckCircle, Star } from "lucide-react";
 import BillingPlansManager from "./BillingPlansManager";
 import PaystackTestingInterface from "./PaystackTestingInterface";
 import { usePricingCalculation } from "@/hooks/usePricingCalculation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { TrialSignupModal } from "@/components/TrialSignupModal";
+import { supabase } from "@/integrations/supabase/client";
+
+interface BillingPlan {
+  id: string;
+  name: string;
+  price: number;
+  period: string;
+  description: string;
+  features: any;
+  badge?: string;
+  badge_color?: string;
+}
 
 const Pricing = () => {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [dbPlans, setDbPlans] = useState<BillingPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      const { data } = await supabase
+        .from('billing_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      
+      if (data) setDbPlans(data);
+    };
+    
+    fetchPlans();
+  }, []);
+
+  const handleStartTrial = (planName: string) => {
+    // Find the corresponding plan in the database
+    const dbPlan = dbPlans.find(p => p.name.toLowerCase() === planName.toLowerCase());
+    setSelectedPlan(dbPlan || null);
+    setIsSignupModalOpen(true);
+  };
+
+  const formatFeatures = (features: any) => {
+    return Array.isArray(features) ? features : [];
+  };
+
+  const getDisplayPrice = (plan: BillingPlan) => {
+    return `KES ${plan.price?.toLocaleString() || '0'}`;
+  };
+
+  const getDisplayPeriod = () => '/month';
 
   // Dynamic pricing configurations for each plan
   const starterPricing = usePricingCalculation({
@@ -168,6 +215,7 @@ const Pricing = () => {
                     variant={plan.popular ? "hero" : "outline"} 
                     className="w-full"
                     size="lg"
+                    onClick={() => plan.cta === "Start Free Trial" ? handleStartTrial(plan.name) : undefined}
                   >
                     {plan.cta}
                   </Button>
@@ -215,6 +263,16 @@ const Pricing = () => {
           <PaystackTestingInterface />
         </div>
       </section>
+
+      {/* Trial Signup Modal */}
+      <TrialSignupModal
+        isOpen={isSignupModalOpen}
+        onClose={() => setIsSignupModalOpen(false)}
+        selectedPlan={selectedPlan}
+        getDisplayPrice={getDisplayPrice}
+        getDisplayPeriod={getDisplayPeriod}
+        formatFeatures={formatFeatures}
+      />
     </>
   );
 };
