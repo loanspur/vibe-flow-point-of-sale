@@ -23,6 +23,8 @@ const TrialSignup = lazy(() => import("./pages/TrialSignup"));
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Demo = lazy(() => import("./pages/Demo"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
@@ -168,6 +170,8 @@ const App = () => (
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/signup" element={<Navigate to="/" replace />} />
             <Route path="/success" element={<Success />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
             
             {/* Super Admin Routes */}
             <Route 
