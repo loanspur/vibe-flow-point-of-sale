@@ -105,7 +105,31 @@ serve(async (req) => {
 
       if (userError) {
         if (userError.message?.includes('already been registered')) {
-          throw new Error('An account with this email already exists. Please log in instead.');
+          // If user already exists but we have a valid verification token, 
+          // it means they should be able to log in
+          console.log("User already exists for invitation, verification complete");
+          
+          // Mark verification as completed since user exists
+          await supabaseAdmin
+            .from('pending_verifications')
+            .update({ status: 'completed' })
+            .eq('verification_token', token);
+            
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: "Your email has been verified! You can now log in with your existing account.",
+              user: {
+                email: verification.email,
+                name: verification.full_name
+              },
+              type: 'existing_user'
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 200,
+            }
+          );
         }
         throw new Error(`Failed to create user account: ${userError.message}`);
       }
@@ -215,7 +239,31 @@ serve(async (req) => {
 
       if (userError) {
         if (userError.message?.includes('already been registered')) {
-          throw new Error('An account with this email already exists. Please log in instead.');
+          // If user already exists but we have a valid verification token,
+          // it means they should be able to log in
+          console.log("User already exists for signup, verification complete");
+          
+          // Mark verification as completed since user exists
+          await supabaseAdmin
+            .from('pending_verifications')
+            .update({ status: 'completed' })
+            .eq('verification_token', token);
+            
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: "Your email has been verified! You can now log in with your existing account.",
+              user: {
+                email: verification.email,
+                name: verification.full_name
+              },
+              type: 'existing_user'
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 200,
+            }
+          );
         }
         throw new Error(`Failed to create user account: ${userError.message}`);
       }
