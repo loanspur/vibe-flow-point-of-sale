@@ -578,40 +578,20 @@ const UserManagement = () => {
         .eq('user_id', user.id)
         .single();
 
-      // Use Supabase's built-in invitation system
-      const redirectUrl = `${window.location.origin}/accept-invitation`;
-      const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-        inviteEmail.trim(),
-        {
-          redirectTo: redirectUrl,
-          data: {
-            role_id: inviteRoleId,
-            tenant_id: tenantId,
-            invited_by: user.id,
-            inviter_name: profile?.full_name || 'Team Member',
-            company_name: businessSettings?.company_name || 'Your Company',
-            role_name: roleData?.name || 'Unknown Role'
-          }
-        }
-      );
-
-      if (inviteError) throw inviteError;
-
-      // Create invitation record for tracking
-      const { error: trackingError } = await supabase
-        .from('user_invitations')
-        .insert([{
+      // Send invitation using edge function
+      const { error: invitationError } = await supabase.functions.invoke('send-user-invitation', {
+        body: {
           email: inviteEmail.trim(),
-          role_id: inviteRoleId,
-          invited_by: user.id,
-          tenant_id: tenantId,
-          invitation_token: inviteData.user.id,
-          expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-          status: 'pending'
-        }]);
+          roleId: inviteRoleId,
+          tenantId: tenantId,
+          inviterName: profile?.full_name || 'Team Member',
+          companyName: businessSettings?.company_name || 'Your Company',
+          roleName: roleData?.name || 'Unknown Role'
+        }
+      });
 
-      if (trackingError) {
-        console.error('Failed to create invitation tracking record:', trackingError);
+      if (invitationError) {
+        throw invitationError;
       }
 
       toast.success('User invitation sent successfully');
@@ -701,21 +681,12 @@ const UserManagement = () => {
         ? businessSettings.value.data.company_name 
         : 'Your Company';
 
-      // Get the updated invitation token
-      const { data: updatedInvitation, error: invitationTokenError } = await supabase
-        .from('user_invitations')
-        .select('invitation_token')
-        .eq('id', invitationId)
-        .maybeSingle();
-
-      if (invitationTokenError) throw invitationTokenError;
-      if (!updatedInvitation) throw new Error('Failed to retrieve updated invitation token');
-
-      // Send email via edge function
-      const { data, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+      // Send invitation using the new edge function
+      const { error: emailError } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email: invitation.email,
-          invitationToken: updatedInvitation.invitation_token,
+          roleId: invitation.role_id,
+          tenantId: invitation.tenant_id,
           inviterName,
           companyName,
           roleName
@@ -724,7 +695,7 @@ const UserManagement = () => {
 
       if (emailError) {
         console.error('Email function error:', emailError);
-        throw new Error(`Failed to send email: ${emailError.message}`);
+        throw new Error(`Failed to send invitation: ${emailError.message}`);
       }
 
       toast.success('Invitation resent successfully');
