@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@4.0.0";
@@ -31,14 +32,69 @@ serve(async (req) => {
   }
 
   try {
-    const requestData: VerificationRequest = await req.json();
+    // Parse request body with better error handling
+    let requestData: VerificationRequest;
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Invalid request format. Please send valid JSON."
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
     const { email, fullName, businessName, password, planId, invitationData } = requestData;
 
-    console.log("Sending verification email to:", email);
+    console.log("Processing verification email for:", email);
 
     // Validate required fields
-    if (!email || !fullName) {
-      throw new Error('Email and full name are required');
+    if (!email || !fullName || !password) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Email, full name, and password are required'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Please enter a valid email address'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
+    // Validate business name for regular signup
+    if (!invitationData && (!businessName || businessName.trim().length < 2)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Business name is required and must be at least 2 characters long'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
     }
 
     // Create admin Supabase client
@@ -53,62 +109,200 @@ serve(async (req) => {
       }
     );
 
-    // Check if email already exists in auth.users
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(user => user.email === email);
-
-    if (existingUser) {
+    if (!supabaseAdmin) {
+      console.error("Failed to create Supabase admin client");
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "An account with this email already exists. Please try signing in instead."
+          error: 'Service temporarily unavailable. Please try again later.'
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
+          status: 503,
+        }
+      );
+    }
+
+    // Check if email already exists in auth.users
+    try {
+      const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (listError) {
+        console.error("Error checking existing users:", listError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Unable to verify account status. Please try again later.'
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
+      }
+
+      const existingUser = existingUsers?.users?.find(user => user.email === email);
+
+      if (existingUser) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "An account with this email already exists. Please try signing in instead."
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          }
+        );
+      }
+    } catch (authError) {
+      console.error("Error checking auth users:", authError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Unable to verify account status. Please try again later.'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
         }
       );
     }
 
     // Check if there's already a pending verification for this email
-    const { data: existingPending } = await supabaseAdmin
-      .from('pending_verifications')
-      .select('*')
-      .eq('email', email)
-      .eq('status', 'pending')
-      .maybeSingle();
-
-    // If there's an existing pending verification, update it instead of creating new
-    if (existingPending) {
-      console.log("Updating existing pending verification for:", email);
-      
-      // Generate new verification token
-      const verificationToken = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-      const { error: updateError } = await supabaseAdmin
+    let existingPending = null;
+    try {
+      const { data, error } = await supabaseAdmin
         .from('pending_verifications')
-        .update({
-          full_name: fullName,
-          business_name: businessName,
-          password_hash: password,
-          plan_id: planId,
-          invitation_data: invitationData,
-          verification_token: verificationToken,
-          expires_at: expiresAt.toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingPending.id);
+        .select('*')
+        .eq('email', email)
+        .eq('status', 'pending')
+        .maybeSingle();
 
-      if (updateError) {
-        console.error("Failed to update pending verification:", updateError);
-        throw new Error(`Failed to update verification record: ${updateError.message}`);
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error checking pending verifications:", error);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Database error occurred. Please try again later.'
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
       }
 
-      // Send verification email with new token
+      existingPending = data;
+    } catch (dbError) {
+      console.error("Database query error:", dbError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Database connection error. Please try again later.'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
+    }
+
+    // Generate verification token
+    const verificationToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update existing or create new pending verification
+    try {
+      if (existingPending) {
+        console.log("Updating existing pending verification for:", email);
+        
+        const { error: updateError } = await supabaseAdmin
+          .from('pending_verifications')
+          .update({
+            full_name: fullName,
+            business_name: businessName,
+            password_hash: password,
+            plan_id: planId,
+            invitation_data: invitationData,
+            verification_token: verificationToken,
+            expires_at: expiresAt.toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingPending.id);
+
+        if (updateError) {
+          console.error("Failed to update pending verification:", updateError);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Failed to update verification record. Please try again.'
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            }
+          );
+        }
+      } else {
+        // Create new pending verification
+        const { error: insertError } = await supabaseAdmin
+          .from('pending_verifications')
+          .insert({
+            email: email,
+            full_name: fullName,
+            business_name: businessName,
+            password_hash: password,
+            plan_id: planId,
+            invitation_data: invitationData,
+            verification_token: verificationToken,
+            expires_at: expiresAt.toISOString(),
+            status: 'pending'
+          });
+
+        if (insertError) {
+          console.error("Failed to store pending verification:", insertError);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Failed to create verification record. Please try again.'
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            }
+          );
+        }
+      }
+    } catch (dbError) {
+      console.error("Database operation error:", dbError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Database operation failed. Please try again later.'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
+    }
+
+    // Send verification email
+    try {
       const resendApiKey = Deno.env.get('RESEND_API_KEY');
       if (!resendApiKey) {
-        throw new Error('Email service not configured');
+        console.error("RESEND_API_KEY not configured");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Email service not configured. Please contact support.'
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 503,
+          }
+        );
       }
 
       const resend = new Resend(resendApiKey);
@@ -139,7 +333,7 @@ serve(async (req) => {
           <p>Best regards,<br>The VibePOS Team</p>
         `;
 
-      const { error: emailError } = await resend.emails.send({
+      const { data: emailResult, error: emailError } = await resend.emails.send({
         from: 'VibePOS <noreply@vibepos.shop>',
         to: [email],
         subject: subject,
@@ -147,105 +341,60 @@ serve(async (req) => {
       });
 
       if (emailError) {
-        throw new Error(`Failed to send verification email: ${emailError.message}`);
+        console.error("Email sending failed:", emailError);
+        
+        // Clean up pending verification if email fails
+        await supabaseAdmin
+          .from('pending_verifications')
+          .delete()
+          .eq('verification_token', verificationToken);
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Failed to send verification email. Please check your email address and try again.'
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
       }
 
-      console.log("Updated verification email sent successfully");
-
+      console.log("Verification email sent successfully:", emailResult);
+    } catch (emailError) {
+      console.error("Email service error:", emailError);
+      
+      // Clean up pending verification if email fails
+      try {
+        await supabaseAdmin
+          .from('pending_verifications')
+          .delete()
+          .eq('verification_token', verificationToken);
+      } catch (cleanupError) {
+        console.error("Cleanup error:", cleanupError);
+      }
+      
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "New verification email sent successfully. Please check your email to complete the process.",
-          token: verificationToken
+        JSON.stringify({ 
+          success: false, 
+          error: 'Email service error. Please try again later.'
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
+          status: 500,
         }
       );
     }
 
-    // Generate verification token
-    const verificationToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    // Store pending verification
-    const { error: insertError } = await supabaseAdmin
-      .from('pending_verifications')
-      .insert({
-        email: email,
-        full_name: fullName,
-        business_name: businessName,
-        password_hash: password, // We'll hash this on verification
-        plan_id: planId,
-        invitation_data: invitationData,
-        verification_token: verificationToken,
-        expires_at: expiresAt.toISOString(),
-        status: 'pending'
-      });
-
-    if (insertError) {
-      console.error("Failed to store pending verification:", insertError);
-      throw new Error(`Failed to create verification record: ${insertError.message}`);
-    }
-
-    // Send verification email
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) {
-      throw new Error('Email service not configured');
-    }
-
-    const resend = new Resend(resendApiKey);
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'https://www.vibepos.shop';
-    const verificationUrl = `${origin}/verify-email?token=${verificationToken}`;
-
-    const emailType = invitationData ? 'invitation' : 'signup';
-    const subject = invitationData 
-      ? `You're invited to join ${invitationData.companyName}` 
-      : `Verify your email to complete VibePOS signup`;
-
-    const htmlContent = invitationData 
-      ? `
-        <h1>You're invited to join ${invitationData.companyName}!</h1>
-        <p>Hi ${fullName},</p>
-        <p>${invitationData.inviterName} has invited you to join ${invitationData.companyName} as a ${invitationData.roleName}.</p>
-        <p>To accept this invitation and complete your account setup, please verify your email address:</p>
-        <p><a href="${verificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email & Accept Invitation</a></p>
-        <p>This link will expire in 24 hours.</p>
-        <p>Best regards,<br>The VibePOS Team</p>
-      `
-      : `
-        <h1>Welcome to VibePOS!</h1>
-        <p>Hi ${fullName},</p>
-        <p>Thank you for signing up for VibePOS! To complete your account creation for <strong>${businessName}</strong>, please verify your email address:</p>
-        <p><a href="${verificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email & Complete Signup</a></p>
-        <p>This link will expire in 24 hours.</p>
-        <p>Best regards,<br>The VibePOS Team</p>
-      `;
-
-    const { error: emailError } = await resend.emails.send({
-      from: 'VibePOS <noreply@vibepos.shop>',
-      to: [email],
-      subject: subject,
-      html: htmlContent,
-    });
-
-    if (emailError) {
-      // Clean up pending verification if email fails
-      await supabaseAdmin
-        .from('pending_verifications')
-        .delete()
-        .eq('verification_token', verificationToken);
-      
-      throw new Error(`Failed to send verification email: ${emailError.message}`);
-    }
-
-    console.log("Verification email sent successfully");
+    const message = existingPending 
+      ? "New verification email sent successfully. Please check your email to complete the process."
+      : "Verification email sent successfully. Please check your email to complete the process.";
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Verification email sent successfully. Please check your email to complete the process.",
+        message: message,
         token: verificationToken
       }),
       {
@@ -255,11 +404,11 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error("Error in send-verification-email function:", error);
+    console.error("Unexpected error in send-verification-email function:", error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || "Failed to send verification email"
+        error: "An unexpected error occurred. Please try again later."
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
