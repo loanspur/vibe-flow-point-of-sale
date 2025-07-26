@@ -16,10 +16,10 @@ serve(async (req) => {
   try {
     console.log("Processing request...");
     
-    const { businessName, ownerName, email } = await req.json();
+    const { businessName, fullName, email, password, planId } = await req.json();
     
-    if (!businessName || !ownerName || !email) {
-      throw new Error("Missing required fields: businessName, ownerName, email");
+    if (!businessName || !fullName || !email || !password) {
+      throw new Error("Missing required fields: businessName, fullName, email, password");
     }
 
     // Initialize Supabase with service role key
@@ -29,20 +29,24 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Get authenticated user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
+    console.log("Creating new user account...");
+
+    // Create new user account
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true, // Auto-confirm email for trial
+      user_metadata: {
+        full_name: fullName
+      }
+    });
+
+    if (authError || !authData.user) {
+      console.error("User creation error:", authError);
+      throw new Error(`Failed to create user account: ${authError?.message || 'Unknown error'}`);
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !userData.user) {
-      throw new Error("Failed to authenticate user");
-    }
-
-    console.log("Creating tenant for user:", userData.user.id);
+    console.log("User created:", authData.user.id);
 
     // Create tenant
     const { data: tenantData, error: tenantError } = await supabase
@@ -65,18 +69,37 @@ serve(async (req) => {
 
     console.log("Tenant created:", tenantData);
 
-    // Get the default billing plan (cheapest - Starter)
-    const { data: defaultPlan, error: planError } = await supabase
+    // Get the selected billing plan or default to Starter
+    let selectedPlanId = planId;
+    if (!selectedPlanId) {
+      const { data: defaultPlan, error: defaultPlanError } = await supabase
+        .from('billing_plans')
+        .select('id')
+        .eq('name', 'Starter')
+        .eq('is_active', true)
+        .single();
+      
+      if (defaultPlanError || !defaultPlan) {
+        console.error("Default plan fetch error:", defaultPlanError);
+        throw new Error("Failed to get default billing plan");
+      }
+      selectedPlanId = defaultPlan.id;
+    }
+
+    // Verify the selected plan exists
+    const { data: planData, error: planError } = await supabase
       .from('billing_plans')
-      .select('id')
-      .eq('name', 'Starter')
+      .select('id, name')
+      .eq('id', selectedPlanId)
       .eq('is_active', true)
       .single();
 
-    if (planError || !defaultPlan) {
-      console.error("Default plan fetch error:", planError);
-      throw new Error("Failed to get default billing plan");
+    if (planError || !planData) {
+      console.error("Plan verification error:", planError);
+      throw new Error("Invalid billing plan selected");
     }
+
+    console.log("Using billing plan:", planData.name);
 
     // Create trial subscription record (not active payment required)
     const trialStartDate = new Date().toISOString().split('T')[0];
@@ -86,7 +109,7 @@ serve(async (req) => {
       .from('tenant_subscriptions')
       .insert({
         tenant_id: tenantData.id,
-        billing_plan_id: defaultPlan.id,
+        billing_plan_id: selectedPlanId,
         reference: `trial-${tenantData.id}`,
         status: 'trial',
         amount: 0, // Free trial
@@ -113,7 +136,7 @@ serve(async (req) => {
     const { error: tenantUserError } = await supabase
       .from('tenant_users')
       .insert({
-        user_id: userData.user.id,
+        user_id: authData.user.id,
         tenant_id: tenantData.id,
         role: 'admin',
         is_active: true
@@ -136,7 +159,7 @@ serve(async (req) => {
       const { error: roleAssignError } = await supabase
         .from('user_role_assignments')
         .insert({
-          user_id: userData.user.id,
+          user_id: authData.user.id,
           role_id: adminRole.id,
           tenant_id: tenantData.id,
           is_active: true
