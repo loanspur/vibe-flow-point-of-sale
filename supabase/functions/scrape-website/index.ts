@@ -38,7 +38,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Scraping URL:', url)
+    console.log('Starting scrape for URL:', url)
 
     // Call Firecrawl API to scrape the website
     const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
