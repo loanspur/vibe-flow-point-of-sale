@@ -17,6 +17,7 @@ import CookieConsent from "./components/CookieConsent";
 // Lazy load components for better performance
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Auth = lazy(() => import("./pages/Auth"));
+const AcceptInvitation = lazy(() => import("./pages/AcceptInvitation"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -160,6 +161,7 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/accept-invitation" element={<AcceptInvitation />} />
             <Route path="/signup" element={<TrialSignup />} />
             <Route path="/success" element={<Success />} />
             
