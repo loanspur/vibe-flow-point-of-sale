@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   MessageCircle, 
   X, 
@@ -12,15 +13,38 @@ import {
   User, 
   Minimize2, 
   Maximize2,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Lightbulb,
+  Navigation
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
+  functionCall?: {
+    name: string;
+    arguments: any;
+  };
+  navigationAction?: {
+    route: string;
+    reason: string;
+  };
+  featureGuide?: {
+    feature: string;
+    steps: string[];
+  };
+  businessSuggestion?: {
+    area: string;
+    suggestions: string[];
+  };
 }
 
 interface FloatingAIAssistantProps {
@@ -33,7 +57,7 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hello! I\'m your AI business assistant. I can help you with sales insights, inventory management, customer queries, and business analytics. How can I assist you today?',
+      content: 'Hello! I\'m your VibePOS AI assistant with deep knowledge of every system feature. I can help you with:\n\n• Sales and POS operations\n• Inventory and product management\n• Customer analytics and insights\n• Financial reporting and accounting\n• Business optimization strategies\n• Feature navigation and tutorials\n\nWhat would you like to explore today?',
       role: 'assistant',
       timestamp: new Date()
     }
@@ -41,6 +65,10 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { user, tenantId } = useAuth();
+  const { formatCurrency } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -58,6 +86,135 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
     }
   }, [isOpen, isMinimized]);
 
+  const getCurrentPageContext = () => {
+    const path = location.pathname;
+    const contextMap: Record<string, string> = {
+      '/admin': 'Main Dashboard - viewing business overview and key metrics',
+      '/pos': 'Point of Sale - processing transactions and sales',
+      '/admin/products': 'Product Management - managing inventory and catalog',
+      '/admin/customers': 'Customer Management - handling customer relationships',
+      '/admin/sales': 'Sales Management - tracking and managing sales',
+      '/admin/purchases': 'Purchase Management - managing supplier orders',
+      '/admin/reports': 'Reports & Analytics - business intelligence and insights',
+      '/admin/accounting': 'Accounting - financial management and reporting',
+      '/admin/team': 'Team Management - user and role administration',
+      '/admin/settings': 'Business Settings - configuration and preferences'
+    };
+    return contextMap[path] || `Custom page: ${path}`;
+  };
+
+  const getBusinessContext = async () => {
+    if (!tenantId) return null;
+
+    try {
+      // Fetch current business data for context
+      const today = new Date().toISOString().split('T')[0];
+      
+      const [salesData, productsData, customersData] = await Promise.all([
+        supabase
+          .from('sales')
+          .select('total_amount')
+          .eq('tenant_id', tenantId)
+          .gte('created_at', today),
+        supabase
+          .from('products')
+          .select('id, stock_quantity, min_stock_level')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true),
+        supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+      ]);
+
+      const todayRevenue = salesData.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+      const lowStockProducts = productsData.data?.filter(p => 
+        p.stock_quantity <= p.min_stock_level && p.min_stock_level > 0
+      ).length || 0;
+
+      return {
+        todayRevenue: formatCurrency(todayRevenue),
+        totalProducts: productsData.data?.length || 0,
+        totalCustomers: customersData.count || 0,
+        lowStockCount: lowStockProducts,
+        hasLowStock: lowStockProducts > 0,
+        hasSalesToday: todayRevenue > 0
+      };
+    } catch (error) {
+      console.error('Error fetching business context:', error);
+      return null;
+    }
+  };
+
+  const handleNavigationAction = (route: string, reason: string) => {
+    navigate(route);
+    toast({
+      title: "Navigation",
+      description: reason,
+      duration: 4000,
+    });
+  };
+
+  const renderFunctionCallResponse = (message: Message) => {
+    if (message.navigationAction) {
+      return (
+        <Alert className="mt-2">
+          <Navigation className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>{message.navigationAction.reason}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleNavigationAction(message.navigationAction!.route, message.navigationAction!.reason)}
+              className="ml-2"
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              Go there
+            </Button>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (message.featureGuide) {
+      return (
+        <Alert className="mt-2">
+          <Lightbulb className="h-4 w-4" />
+          <AlertDescription>
+            <div className="space-y-2">
+              <p className="font-medium">How to {message.featureGuide.feature}:</p>
+              <ol className="list-decimal list-inside space-y-1 text-sm">
+                {message.featureGuide.steps.map((step, index) => (
+                  <li key={index}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (message.businessSuggestion) {
+      return (
+        <Alert className="mt-2">
+          <Lightbulb className="h-4 w-4" />
+          <AlertDescription>
+            <div className="space-y-2">
+              <p className="font-medium">Optimization suggestions for {message.businessSuggestion.area}:</p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                {message.businessSuggestion.suggestions.map((suggestion, index) => (
+                  <li key={index}>{suggestion}</li>
+                ))}
+              </ul>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return null;
+  };
+
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -69,53 +226,89 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input.trim();
     setInput('');
     setIsLoading(true);
 
     try {
-      // Simulate AI response with business context
-      const responses = [
-        "I can help you analyze your sales data. Would you like me to show you today's performance summary?",
-        "To improve your inventory management, I recommend setting up automated low-stock alerts. Shall I guide you through this?",
-        "Based on your business type, I suggest focusing on customer retention strategies. Would you like some specific recommendations?",
-        "I notice you might want to optimize your product pricing. Let me help you analyze your profit margins.",
-        "For better business insights, I recommend checking your reports section. Would you like me to explain the key metrics?",
-        "Your POS system can track more detailed analytics. Shall I show you how to access advanced features?",
-        "I can help you understand your customer behavior patterns. Would you like me to explain what to look for?",
-        "Setting up automated billing reminders can improve cash flow. Let me guide you through the process."
-      ];
+      // Get current context
+      const businessContext = await getBusinessContext();
+      const pageContext = getCurrentPageContext();
 
-      // Simple keyword-based response selection
-      const lowercaseInput = input.toLowerCase();
-      let response = responses[Math.floor(Math.random() * responses.length)];
+      const context = {
+        currentRoute: location.pathname,
+        pageDescription: pageContext,
+        userRole: user?.user_metadata?.role || 'user',
+        businessData: businessContext,
+        tenantId: tenantId
+      };
 
-      if (lowercaseInput.includes('sales') || lowercaseInput.includes('revenue')) {
-        response = "I can help you analyze your sales performance. Check your dashboard for today's revenue trends, and consider using the reports section for detailed analytics.";
-      } else if (lowercaseInput.includes('inventory') || lowercaseInput.includes('stock')) {
-        response = "For inventory management, I recommend monitoring your low-stock alerts and setting up automatic reorder points. Would you like me to guide you to the inventory section?";
-      } else if (lowercaseInput.includes('customer') || lowercaseInput.includes('client')) {
-        response = "Customer management is key to business growth. You can track customer orders, contact information, and purchase history in the customers section. Need help navigating there?";
-      } else if (lowercaseInput.includes('report') || lowercaseInput.includes('analytics')) {
-        response = "Your reports section contains valuable business insights including sales trends, top products, and customer analytics. I can help you understand which metrics to focus on.";
+      console.log('Sending context to AI:', context);
+
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: {
+          message: currentInput,
+          context: context
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
 
-      setTimeout(() => {
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: response,
-          role: 'assistant',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-        setIsLoading(false);
-      }, 1000 + Math.random() * 1000);
+      let assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: data.content || "I'm here to help! Could you rephrase your question?",
+        role: 'assistant',
+        timestamp: new Date()
+      };
+
+      // Handle function calls
+      if (data.function_call) {
+        const { name, arguments: args } = data.function_call;
+        
+        switch (name) {
+          case 'navigate_to_page':
+            assistantMessage.navigationAction = {
+              route: args.route,
+              reason: args.reason
+            };
+            break;
+          case 'show_feature_guide':
+            assistantMessage.featureGuide = {
+              feature: args.feature,
+              steps: args.steps
+            };
+            break;
+          case 'suggest_business_optimization':
+            assistantMessage.businessSuggestion = {
+              area: args.area,
+              suggestions: args.suggestions
+            };
+            break;
+        }
+        
+        assistantMessage.functionCall = data.function_call;
+      }
+
+      setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
+      console.error('AI Assistant Error:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "I apologize, but I'm having trouble processing your request right now. Please try again or rephrase your question.",
+        role: 'assistant',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
       toast({
-        title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        title: "AI Assistant Error",
+        description: "There was an issue processing your request. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -159,8 +352,8 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
                 <Bot className="h-4 w-4 text-blue-600" />
               </div>
               <div>
-                <CardTitle className="text-sm font-semibold">AI Business Assistant</CardTitle>
-                <p className="text-xs text-muted-foreground">Online and ready to help</p>
+                <CardTitle className="text-sm font-semibold">VibePOS AI Assistant</CardTitle>
+                <p className="text-xs text-muted-foreground">Smart business helper</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -189,36 +382,38 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
                 {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex gap-2 ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    {message.role === 'assistant' && (
-                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                        <Bot className="h-3 w-3 text-blue-600" />
-                      </div>
-                    )}
+                  <div key={message.id}>
                     <div
-                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
+                      className={`flex gap-2 ${
+                        message.role === 'user' ? 'justify-end' : 'justify-start'
                       }`}
                     >
-                      {message.content}
-                      <div className={`text-xs mt-1 opacity-70 ${
-                        message.role === 'user' ? 'text-primary-foreground' : 'text-muted-foreground'
-                      }`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {message.role === 'assistant' && (
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
+                          <Bot className="h-3 w-3 text-blue-600" />
+                        </div>
+                      )}
+                      <div
+                        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap">{message.content}</div>
+                        <div className={`text-xs mt-1 opacity-70 ${
+                          message.role === 'user' ? 'text-primary-foreground' : 'text-muted-foreground'
+                        }`}>
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                       </div>
+                      {message.role === 'user' && (
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                          <User className="h-3 w-3 text-primary" />
+                        </div>
+                      )}
                     </div>
-                    {message.role === 'user' && (
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                        <User className="h-3 w-3 text-primary" />
-                      </div>
-                    )}
+                    {message.role === 'assistant' && renderFunctionCallResponse(message)}
                   </div>
                 ))}
                 {isLoading && (
@@ -229,7 +424,7 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
                     <div className="bg-muted rounded-lg px-3 py-2 text-sm">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>AI is thinking...</span>
+                        <span>Analyzing your request...</span>
                       </div>
                     </div>
                   </div>
@@ -245,7 +440,7 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask about sales, inventory, customers..."
+                  placeholder="Ask about features, get business insights, or request help..."
                   className="flex-1"
                   disabled={isLoading}
                 />
@@ -259,7 +454,7 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2 text-center">
-                AI can make mistakes. Verify important information.
+                Powered by AI with deep VibePOS knowledge
               </p>
             </div>
           </CardContent>
