@@ -51,6 +51,7 @@ const Sales = lazy(() => import("./pages/Sales"));
 const Purchases = lazy(() => import("./pages/Purchases"));
 const Accounting = lazy(() => import("./pages/Accounting"));
 const Profile = lazy(() => import("./pages/Profile"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 // Loading component
 const PageLoader = () => (
@@ -162,6 +163,7 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invitation" element={<AcceptInvitation />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/signup" element={<Navigate to="/" replace />} />
