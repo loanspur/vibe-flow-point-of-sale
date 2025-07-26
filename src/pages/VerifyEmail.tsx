@@ -44,6 +44,8 @@ const VerifyEmail: React.FC = () => {
       
       if (data.type === 'invitation') {
         setMessage('Your email has been verified and your account has been created! You can now log in to access your workspace.');
+      } else if (data.type === 'existing_user') {
+        setMessage('Your email has been verified! You can now log in with your existing account.');
       } else {
         setMessage(`Your email has been verified and your business account "${data.tenant.name}" has been created! You can now log in to start using VibePOS.`);
       }
