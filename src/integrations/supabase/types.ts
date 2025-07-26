@@ -355,6 +355,44 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_notifications: {
+        Row: {
+          created_at: string
+          email_sent_to: string
+          id: string
+          notification_date: string
+          notification_type: string
+          sent_at: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_sent_to: string
+          id?: string
+          notification_date: string
+          notification_type: string
+          sent_at?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          email_sent_to?: string
+          id?: string
+          notification_date?: string
+          notification_type?: string
+          sent_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_plans: {
         Row: {
           add_ons: Json | null
