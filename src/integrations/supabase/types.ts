@@ -2234,51 +2234,6 @@ export type Database = {
           },
         ]
       }
-      pending_email_verifications: {
-        Row: {
-          business_name: string
-          created_at: string | null
-          email: string
-          expires_at: string
-          full_name: string
-          id: string
-          is_verified: boolean | null
-          password: string
-          plan_id: string | null
-          updated_at: string | null
-          verification_token: string
-          verified_at: string | null
-        }
-        Insert: {
-          business_name: string
-          created_at?: string | null
-          email: string
-          expires_at: string
-          full_name: string
-          id?: string
-          is_verified?: boolean | null
-          password: string
-          plan_id?: string | null
-          updated_at?: string | null
-          verification_token: string
-          verified_at?: string | null
-        }
-        Update: {
-          business_name?: string
-          created_at?: string | null
-          email?: string
-          expires_at?: string
-          full_name?: string
-          id?: string
-          is_verified?: boolean | null
-          password?: string
-          plan_id?: string | null
-          updated_at?: string | null
-          verification_token?: string
-          verified_at?: string | null
-        }
-        Relationships: []
-      }
       permission_templates: {
         Row: {
           category: string
