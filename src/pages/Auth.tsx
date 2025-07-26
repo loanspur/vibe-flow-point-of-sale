@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -19,6 +20,13 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  
+  // Error states
+  const [signInError, setSignInError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [resetEmailError, setResetEmailError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -32,18 +40,58 @@ const Auth = () => {
     password: ''
   });
 
+  const validateEmail = (email: string) => {
+    if (!email) return 'Email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return 'Please enter a valid email address';
+    return '';
+  };
+
+  const validatePassword = (password: string) => {
+    if (!password) return 'Password is required';
+    if (password.length < 6) return 'Password must be at least 6 characters';
+    return '';
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setSignInError('');
+    setEmailError('');
+    setPasswordError('');
+
+    // Validate inputs
+    const emailValidation = validateEmail(signInData.email);
+    const passwordValidation = validatePassword(signInData.password);
+
+    if (emailValidation) {
+      setEmailError(emailValidation);
+      return;
+    }
+
+    if (passwordValidation) {
+      setPasswordError(passwordValidation);
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await signIn(signInData.email, signInData.password);
 
     if (error) {
-      toast({
-        title: "Sign in failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      // Handle specific auth errors
+      if (error.message.includes('Invalid login credentials')) {
+        setSignInError('Invalid email or password. Please check your credentials and try again.');
+      } else if (error.message.includes('Email not confirmed')) {
+        setSignInError('Please check your email and click the confirmation link before signing in.');
+      } else if (error.message.includes('Too many requests')) {
+        setSignInError('Too many login attempts. Please wait a few minutes before trying again.');
+      } else if (error.message.includes('User not found')) {
+        setSignInError('No account found with this email address.');
+      } else {
+        setSignInError(error.message || 'Sign in failed. Please try again.');
+      }
     } else {
       toast({
         title: "Welcome back!",
@@ -57,6 +105,18 @@ const Auth = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear previous errors and success messages
+    setResetEmailError('');
+    setResetSuccess('');
+
+    // Validate email
+    const emailValidation = validateEmail(resetEmail);
+    if (emailValidation) {
+      setResetEmailError(emailValidation);
+      return;
+    }
+
     setResetLoading(true);
 
     try {
@@ -70,22 +130,18 @@ const Auth = () => {
 
       if (verificationError) {
         console.error('Error verifying email:', verificationError);
-        toast({
-          title: "Error",
-          description: "An error occurred while processing your request. Please try again.",
-          variant: "destructive"
-        });
+        if (verificationError.message?.includes('Failed to fetch')) {
+          setResetEmailError('Network error. Please check your connection and try again.');
+        } else {
+          setResetEmailError('Unable to verify email address. Please try again.');
+        }
         setResetLoading(false);
         return;
       }
 
       // If no user found with this email
       if (!verificationResult?.exists) {
-        toast({
-          title: "Email not found",
-          description: "No account found with this email address. Please check your email or sign up for a new account.",
-          variant: "destructive"
-        });
+        setResetEmailError('No account found with this email address. Please check your email or sign up for a new account.');
         setResetLoading(false);
         return;
       }
@@ -96,26 +152,20 @@ const Auth = () => {
       });
 
       if (error) {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive"
-        });
+        if (error.message.includes('rate limit')) {
+          setResetEmailError('Too many password reset requests. Please wait before trying again.');
+        } else if (error.message.includes('network')) {
+          setResetEmailError('Network error. Please check your connection and try again.');
+        } else {
+          setResetEmailError(error.message || 'Failed to send reset email. Please try again.');
+        }
       } else {
-        toast({
-          title: "Reset email sent",
-          description: "Check your email for password reset instructions."
-        });
-        setShowForgotPassword(false);
+        setResetSuccess('Password reset instructions have been sent to your email address. Please check your inbox and follow the link to reset your password.');
         setResetEmail('');
       }
     } catch (error: any) {
       console.error('Forgot password error:', error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
+      setResetEmailError('An unexpected error occurred. Please try again later.');
     }
 
     setResetLoading(false);
@@ -150,6 +200,14 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Global sign-in error */}
+            {signInError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{signInError}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="w-full">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
@@ -159,9 +217,18 @@ const Auth = () => {
                     type="email"
                     placeholder="your@email.com"
                     value={signInData.email}
-                    onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
-                    required
+                    onChange={(e) => {
+                      setSignInData({ ...signInData, email: e.target.value });
+                      setEmailError(''); // Clear error when user types
+                    }}
+                    className={emailError ? 'border-destructive focus:border-destructive' : ''}
                   />
+                  {emailError && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {emailError}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signin-password">Password</Label>
@@ -170,9 +237,12 @@ const Auth = () => {
                       id="signin-password"
                       type={showPassword ? "text" : "password"}
                       value={signInData.password}
-                      onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
-                      required
-                      className="pr-10"
+                      onChange={(e) => {
+                        setSignInData({ ...signInData, password: e.target.value });
+                        setPasswordError(''); // Clear error when user types
+                      }}
+                      className={`pr-10 ${passwordError ? 'border-destructive focus:border-destructive' : ''}`}
+                      placeholder="Enter your password"
                     />
                     <Button
                       type="button"
@@ -189,6 +259,12 @@ const Auth = () => {
                       )}
                     </Button>
                   </div>
+                  {passwordError && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {passwordError}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <Button
@@ -218,6 +294,14 @@ const Auth = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Reset success message */}
+              {resetSuccess && (
+                <Alert className="mb-4 border-green-200 bg-green-50 text-green-800">
+                  <Mail className="h-4 w-4" />
+                  <AlertDescription>{resetSuccess}</AlertDescription>
+                </Alert>
+              )}
+              
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">Email</Label>
@@ -226,16 +310,30 @@ const Auth = () => {
                     type="email"
                     placeholder="your@email.com"
                     value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setResetEmail(e.target.value);
+                      setResetEmailError(''); // Clear error when user types
+                    }}
+                    className={resetEmailError ? 'border-destructive focus:border-destructive' : ''}
                   />
+                  {resetEmailError && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {resetEmailError}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     className="flex-1"
-                    onClick={() => setShowForgotPassword(false)}
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setResetEmailError('');
+                      setResetSuccess('');
+                      setResetEmail('');
+                    }}
                   >
                     Cancel
                   </Button>
