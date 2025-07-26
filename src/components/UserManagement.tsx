@@ -493,6 +493,7 @@ const UserManagement = () => {
   };
 
   const sendUserInvitation = async () => {
+    setLoading(true);
     if (!inviteEmail.trim() || !inviteRoleId) {
       toast.error('Email and role are required');
       return;
@@ -605,6 +606,8 @@ const UserManagement = () => {
       fetchInvitations();
     } catch (error) {
       toast.error('Failed to send invitation');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1368,9 +1371,9 @@ const UserManagement = () => {
               <Button variant="outline" onClick={() => setIsInviteUserOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={sendUserInvitation}>
+              <Button onClick={sendUserInvitation} disabled={loading}>
                 <Mail className="h-4 w-4 mr-2" />
-                Send Invitation
+                {loading ? 'Sending...' : 'Send Invitation'}
               </Button>
             </div>
           </div>

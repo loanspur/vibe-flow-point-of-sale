@@ -154,6 +154,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("About to initialize Resend with API key:", Deno.env.get('RESEND_API_KEY') ? 'Key exists' : 'Key missing');
+    console.log("Processing NEW USER invitation for:", email);
+    
     // Initialize Resend
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
