@@ -1717,6 +1717,39 @@ export type Database = {
           },
         ]
       }
+      feature_sets: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_name: string
+          features: string[]
+          id: string
+          is_system_set: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          features: string[]
+          id?: string
+          is_system_set?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          features?: string[]
+          id?: string
+          is_system_set?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       financial_periods: {
         Row: {
           created_at: string
@@ -2066,6 +2099,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      permission_templates: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_system_template: boolean | null
+          name: string
+          template_data: Json
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system_template?: boolean | null
+          name: string
+          template_data: Json
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system_template?: boolean | null
+          name?: string
+          template_data?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       product_categories: {
         Row: {
@@ -3687,6 +3756,60 @@ export type Database = {
         }
         Relationships: []
       }
+      system_features: {
+        Row: {
+          category: string
+          created_at: string | null
+          dependencies: string[] | null
+          description: string | null
+          display_name: string
+          feature_type: Database["public"]["Enums"]["feature_type"]
+          icon: string | null
+          id: string
+          is_system_feature: boolean | null
+          metadata: Json | null
+          min_plan_level: string | null
+          name: string
+          requires_subscription: boolean | null
+          status: Database["public"]["Enums"]["feature_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          dependencies?: string[] | null
+          description?: string | null
+          display_name: string
+          feature_type?: Database["public"]["Enums"]["feature_type"]
+          icon?: string | null
+          id?: string
+          is_system_feature?: boolean | null
+          metadata?: Json | null
+          min_plan_level?: string | null
+          name: string
+          requires_subscription?: boolean | null
+          status?: Database["public"]["Enums"]["feature_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          dependencies?: string[] | null
+          description?: string | null
+          display_name?: string
+          feature_type?: Database["public"]["Enums"]["feature_type"]
+          icon?: string | null
+          id?: string
+          is_system_feature?: boolean | null
+          metadata?: Json | null
+          min_plan_level?: string | null
+          name?: string
+          requires_subscription?: boolean | null
+          status?: Database["public"]["Enums"]["feature_status"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       system_notes: {
         Row: {
           created_at: string | null
@@ -4147,6 +4270,51 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_feature_access: {
+        Row: {
+          created_at: string | null
+          enabled_at: string | null
+          enabled_by: string | null
+          expires_at: string | null
+          feature_name: string
+          id: string
+          is_enabled: boolean | null
+          metadata: Json | null
+          tenant_id: string
+          updated_at: string | null
+          usage_count: number | null
+          usage_limit: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          enabled_at?: string | null
+          enabled_by?: string | null
+          expires_at?: string | null
+          feature_name: string
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          tenant_id: string
+          updated_at?: string | null
+          usage_count?: number | null
+          usage_limit?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          enabled_at?: string | null
+          enabled_by?: string | null
+          expires_at?: string | null
+          feature_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          tenant_id?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          usage_limit?: number | null
+        }
+        Relationships: []
+      }
       tenant_subscription_details: {
         Row: {
           billing_day: number | null
@@ -4397,6 +4565,54 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activity_permissions: {
+        Row: {
+          action: string
+          conditions: Json | null
+          created_at: string | null
+          expires_at: string | null
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          is_allowed: boolean | null
+          last_used_at: string | null
+          resource: string
+          tenant_id: string
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          conditions?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_allowed?: boolean | null
+          last_used_at?: string | null
+          resource: string
+          tenant_id: string
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          conditions?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_allowed?: boolean | null
+          last_used_at?: string | null
+          resource?: string
+          tenant_id?: string
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_invitations: {
         Row: {
           accepted_at: string | null
@@ -4513,46 +4729,64 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          can_manage_settings: boolean | null
+          can_manage_users: boolean | null
+          can_view_reports: boolean | null
           color: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          feature_set_id: string | null
           id: string
           is_active: boolean | null
           is_editable: boolean
           is_system_role: boolean | null
+          level: number | null
           name: string
           permissions: Json | null
+          resource_limits: Json | null
           sort_order: number | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          can_manage_settings?: boolean | null
+          can_manage_users?: boolean | null
+          can_view_reports?: boolean | null
           color?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          feature_set_id?: string | null
           id?: string
           is_active?: boolean | null
           is_editable?: boolean
           is_system_role?: boolean | null
+          level?: number | null
           name: string
           permissions?: Json | null
+          resource_limits?: Json | null
           sort_order?: number | null
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          can_manage_settings?: boolean | null
+          can_manage_users?: boolean | null
+          can_view_reports?: boolean | null
           color?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          feature_set_id?: string | null
           id?: string
           is_active?: boolean | null
           is_editable?: boolean
           is_system_role?: boolean | null
+          level?: number | null
           name?: string
           permissions?: Json | null
+          resource_limits?: Json | null
           sort_order?: number | null
           tenant_id?: string
           updated_at?: string
@@ -4929,6 +5163,8 @@ export type Database = {
     Enums: {
       domain_status: "pending" | "verifying" | "verified" | "failed" | "expired"
       domain_type: "subdomain" | "custom_domain"
+      feature_status: "active" | "inactive" | "deprecated" | "beta"
+      feature_type: "core" | "premium" | "enterprise" | "addon"
       notification_priority: "low" | "medium" | "high" | "urgent"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
       notification_type:
@@ -5133,6 +5369,8 @@ export const Constants = {
     Enums: {
       domain_status: ["pending", "verifying", "verified", "failed", "expired"],
       domain_type: ["subdomain", "custom_domain"],
+      feature_status: ["active", "inactive", "deprecated", "beta"],
+      feature_type: ["core", "premium", "enterprise", "addon"],
       notification_priority: ["low", "medium", "high", "urgent"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
       notification_type: [
