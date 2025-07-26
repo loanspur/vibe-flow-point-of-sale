@@ -126,22 +126,7 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
 
       if (error) {
         console.error('Verification email error:', error);
-        
-        // Try to get specific error message from response
-        let errorMessage = "Failed to send verification email. Please try again.";
-        
-        // Check if there's a specific error in the response
-        if (data && data.error) {
-          errorMessage = data.error;
-        }
-        
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive"
-        });
-        setLoading(false);
-        return;
+        throw error;
       }
 
       toast({
@@ -154,9 +139,18 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
       navigate('/success');
     } catch (error: any) {
       console.error('Signup error:', error);
+      
+      // For specific known errors, provide better messages
+      let errorMessage = "Failed to send verification email. Please try again.";
+      
+      if (error.message && error.message.includes('Edge Function returned a non-2xx status code')) {
+        // Common case: user already exists
+        errorMessage = "An account with this email already exists. Please try signing in instead.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to send verification email. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
