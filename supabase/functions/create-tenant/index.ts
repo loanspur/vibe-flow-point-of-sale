@@ -50,8 +50,10 @@ serve(async (req) => {
       .insert({
         name: businessName,
         subdomain: businessName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        owner_id: userData.user.id,
-        is_active: true
+        contact_email: email,
+        is_active: true,
+        plan_type: 'trial',
+        max_users: 5
       })
       .select()
       .single();
@@ -77,6 +79,9 @@ serve(async (req) => {
     }
 
     // Create trial subscription record (not active payment required)
+    const trialStartDate = new Date().toISOString().split('T')[0];
+    const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
     const { error: subscriptionError } = await supabase
       .from('tenant_subscriptions')
       .insert({
@@ -86,10 +91,11 @@ serve(async (req) => {
         status: 'trial',
         amount: 0, // Free trial
         currency: 'KES',
-        started_at: new Date().toISOString(),
-        trial_start: new Date().toISOString().split('T')[0],
-        trial_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days from now
+        trial_start: trialStartDate,
+        trial_end: trialEndDate,
+        current_period_start: trialStartDate,
+        current_period_end: trialEndDate,
+        next_billing_date: trialEndDate
       });
 
     if (subscriptionError) {
