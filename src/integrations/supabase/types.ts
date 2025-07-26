@@ -1789,6 +1789,86 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_document_versions: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          document_id: string
+          effective_date: string
+          id: string
+          is_current: boolean
+          updated_at: string
+          version_number: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          document_id: string
+          effective_date?: string
+          id?: string
+          is_current?: boolean
+          updated_at?: string
+          version_number: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          document_id?: string
+          effective_date?: string
+          id?: string
+          is_current?: boolean
+          updated_at?: string
+          version_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "legal_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_type: string
+          id: string
+          is_active: boolean
+          tenant_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_type: string
+          id?: string
+          is_active?: boolean
+          tenant_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_type?: string
+          id?: string
+          is_active?: boolean
+          tenant_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           created_at: string
@@ -4700,6 +4780,47 @@ export type Database = {
         }
         Relationships: []
       }
+      user_legal_acceptances: {
+        Row: {
+          accepted_at: string
+          document_version_id: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          tenant_id: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          document_version_id: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          tenant_id?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          document_version_id?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          tenant_id?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_legal_acceptances_document_version_id_fkey"
+            columns: ["document_version_id"]
+            isOneToOne: false
+            referencedRelation: "legal_document_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_preferences: {
         Row: {
           created_at: string
@@ -5071,6 +5192,17 @@ export type Database = {
           admin_name: string
           status: string
           created_at: string
+        }[]
+      }
+      get_current_legal_document: {
+        Args: { document_type_param: string; tenant_id_param?: string }
+        Returns: {
+          document_id: string
+          version_id: string
+          title: string
+          content: string
+          version_number: string
+          effective_date: string
         }[]
       }
       get_current_user_role: {
