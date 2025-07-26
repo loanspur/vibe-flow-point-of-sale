@@ -46,7 +46,82 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Using redirect URL:", redirectUrl);
 
-    // Send invitation using admin client
+    // Check if user already exists
+    const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (getUserError) {
+      console.error("Error checking existing users:", getUserError);
+      throw getUserError;
+    }
+
+    const userExists = existingUser.users.find(user => user.email === email);
+
+    if (userExists) {
+      console.log("User already exists, adding to tenant instead of sending invitation");
+      
+      // Check if user is already in this tenant
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userExists.id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (existingProfile) {
+        return new Response(JSON.stringify({ 
+          error: "User is already a member of this organization" 
+        }), {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          },
+        });
+      }
+
+      // Add existing user to tenant
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          user_id: userExists.id,
+          tenant_id: tenantId,
+          full_name: userExists.user_metadata?.full_name || email.split('@')[0],
+          updated_at: new Date().toISOString()
+        });
+
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        throw profileError;
+      }
+
+      // Assign role to user
+      const { error: roleError } = await supabaseAdmin
+        .from('user_role_assignments')
+        .insert({
+          user_id: userExists.id,
+          role_id: roleId,
+          tenant_id: tenantId
+        });
+
+      if (roleError) {
+        console.error("Role assignment error:", roleError);
+        throw roleError;
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        userId: userExists.id,
+        message: "User added to organization successfully" 
+      }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
+    }
+
+    // Send invitation for new users
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
       {
