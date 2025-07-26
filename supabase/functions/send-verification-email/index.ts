@@ -123,50 +123,27 @@ serve(async (req) => {
       );
     }
 
-    // Check if email already exists in auth.users
+    // Check if email already exists in auth.users - allow verification for existing emails
     try {
       const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
       
       if (listError) {
         console.error("Error checking existing users:", listError);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Unable to verify account status. Please try again later.'
-          }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 500,
-          }
-        );
-      }
-
-      const existingUser = existingUsers?.users?.find(user => user.email === email);
-
-      if (existingUser) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "An account with this email already exists. Please try signing in instead."
-          }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 400,
-          }
-        );
+        // Don't block verification if we can't check - proceed anyway
+        console.log("Proceeding with verification despite user check error");
+      } else {
+        const existingUser = existingUsers?.users?.find(user => user.email === email);
+        
+        if (existingUser) {
+          console.log("User already exists, but allowing verification to proceed");
+          // Don't return error - let verification proceed so user can get the "already exists" message
+          // from the verification function which handles it properly
+        }
       }
     } catch (authError) {
       console.error("Error checking auth users:", authError);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Unable to verify account status. Please try again later.'
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
+      // Don't block verification if we can't check - proceed anyway
+      console.log("Proceeding with verification despite auth check error");
     }
 
     // Check if there's already a pending verification for this email
@@ -222,7 +199,7 @@ serve(async (req) => {
           .update({
             full_name: fullName,
             business_name: businessName,
-            password_hash: password,
+            password_hash: password, // Store plain password temporarily for user creation
             plan_id: planId,
             invitation_data: invitationData,
             verification_token: verificationToken,
@@ -252,7 +229,7 @@ serve(async (req) => {
             email: email,
             full_name: fullName,
             business_name: businessName,
-            password_hash: password,
+            password_hash: password, // Store plain password temporarily for user creation
             plan_id: planId,
             invitation_data: invitationData,
             verification_token: verificationToken,
