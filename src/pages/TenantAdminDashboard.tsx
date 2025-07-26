@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 
 const getTimeBasedGreeting = () => {
   const hour = new Date().getHours();
@@ -540,6 +541,9 @@ export default function TenantAdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+      {/* Floating AI Assistant */}
+      <FloatingAIAssistant />
     </div>
   );
 }
