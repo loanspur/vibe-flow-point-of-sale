@@ -168,28 +168,11 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate a secure invitation token
     const invitationToken = crypto.randomUUID();
 
-    // Create invitation tracking record
-    const { error: trackingError } = await supabaseAdmin
-      .from('user_invitations')
-      .insert([{
-        email: email,
-        role_id: roleId,
-        tenant_id: tenantId,
-        invited_by: inviterId,
-        invitation_token: invitationToken,
-        expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-        status: 'pending'
-      }]);
-
-    if (trackingError) {
-      console.error('Failed to create invitation tracking record:', trackingError);
-      throw trackingError;
-    }
-
-    // Generate the invitation email HTML using React Email
+    // Generate the invitation URL
     const invitationUrl = `${origin}/accept-invitation?token=${invitationToken}`;
     console.log("Generated invitation URL:", invitationUrl);
     
+    // STEP 1: Send the invitation email FIRST (before creating any database records)
     console.log("About to render email template with props:", { inviterName, companyName, roleName, invitationUrl });
     const emailHtml = await renderAsync(
       React.createElement(InvitationEmail, {
@@ -216,6 +199,24 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Invitation email sent successfully to:", email, "Result:", emailResult);
+
+    // STEP 2: Only create invitation tracking record AFTER email sending succeeds
+    const { error: trackingError } = await supabaseAdmin
+      .from('user_invitations')
+      .insert([{
+        email: email,
+        role_id: roleId,
+        tenant_id: tenantId,
+        invited_by: inviterId,
+        invitation_token: invitationToken,
+        expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+        status: 'pending'
+      }]);
+
+    if (trackingError) {
+      console.error('Failed to create invitation tracking record:', trackingError);
+      throw trackingError;
+    }
 
     return new Response(JSON.stringify({ 
       success: true, 
