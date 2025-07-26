@@ -16,18 +16,38 @@ serve(async (req) => {
   try {
     console.log("Processing request...");
     
-    const { businessName, fullName, email, password, planId } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (jsonError) {
+      console.error("JSON parsing error:", jsonError);
+      throw new Error("Invalid JSON in request body");
+    }
+    
+    const { businessName, fullName, email, password, planId } = requestBody;
+    console.log("Request data:", { businessName, fullName, email, planId });
     
     if (!businessName || !fullName || !email || !password) {
       throw new Error("Missing required fields: businessName, fullName, email, password");
     }
 
     // Initialize Supabase with service role key
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    console.log("Environment check:", {
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      urlPrefix: supabaseUrl?.substring(0, 20) + "..."
+    });
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing Supabase environment variables");
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, { 
+      auth: { persistSession: false } 
+    });
 
     console.log("Checking if user exists...");
 
