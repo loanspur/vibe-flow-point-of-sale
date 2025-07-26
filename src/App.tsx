@@ -18,6 +18,7 @@ import CookieConsent from "./components/CookieConsent";
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Auth = lazy(() => import("./pages/Auth"));
 const AcceptInvitation = lazy(() => import("./pages/AcceptInvitation"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -162,6 +163,7 @@ const App = () => (
             <Route path="/demo" element={<Demo />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/accept-invitation" element={<AcceptInvitation />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/signup" element={<Navigate to="/" replace />} />
             <Route path="/success" element={<Success />} />
             

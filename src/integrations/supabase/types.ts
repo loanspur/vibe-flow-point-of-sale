@@ -2100,6 +2100,51 @@ export type Database = {
           },
         ]
       }
+      pending_verifications: {
+        Row: {
+          business_name: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          invitation_data: Json | null
+          password_hash: string
+          plan_id: string | null
+          status: string
+          updated_at: string
+          verification_token: string
+        }
+        Insert: {
+          business_name?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          full_name: string
+          id?: string
+          invitation_data?: Json | null
+          password_hash: string
+          plan_id?: string | null
+          status?: string
+          updated_at?: string
+          verification_token: string
+        }
+        Update: {
+          business_name?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          invitation_data?: Json | null
+          password_hash?: string
+          plan_id?: string | null
+          status?: string
+          updated_at?: string
+          verification_token?: string
+        }
+        Relationships: []
+      }
       permission_templates: {
         Row: {
           category: string

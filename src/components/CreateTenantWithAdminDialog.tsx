@@ -47,16 +47,15 @@ export default function CreateTenantWithAdminDialog({ onTenantCreated }: CreateT
     setLoading(true);
 
     try {
-      // Use the same create-tenant edge function as trial signup
-      const { data, error } = await supabase.functions.invoke('create-tenant', {
+      // Send verification email for admin-created tenants
+      const { data, error } = await supabase.functions.invoke('send-verification-email', {
         body: {
-          businessName: formData.tenantName,
-          ownerName: formData.adminFullName,
           email: formData.adminEmail,
+          fullName: formData.adminFullName,
+          businessName: formData.tenantName,
           password: formData.adminPassword,
-          planType: formData.planType,
-          maxUsers: formData.maxUsers,
-          isAdminCreated: true // Flag to indicate this is admin-created
+          planId: null, // Admin created, no specific plan
+          isAdminCreated: true
         }
       });
 
@@ -65,12 +64,12 @@ export default function CreateTenantWithAdminDialog({ onTenantCreated }: CreateT
       }
 
       if (!data?.success) {
-        throw new Error(data?.error || 'Failed to create tenant');
+        throw new Error(data?.error || 'Failed to send verification email');
       }
 
       toast({
         title: "Success",
-        description: `Tenant "${formData.tenantName}" and admin user created successfully`,
+        description: `Verification email sent to ${formData.adminEmail}. The tenant will be created once they verify their email.`,
       });
 
       // Reset form

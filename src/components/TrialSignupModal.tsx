@@ -113,11 +113,11 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
     setLoading(true);
 
     try {
-      // Create tenant using edge function
-      const { data, error } = await supabase.functions.invoke('create-tenant', {
+      // Send verification email first
+      const { data, error } = await supabase.functions.invoke('send-verification-email', {
         body: {
-          fullName: formData.fullName,
           email: formData.email,
+          fullName: formData.fullName,
           businessName: formData.businessName,
           password: formData.password,
           planId: selectedPlan.id
@@ -125,13 +125,13 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
       });
 
       if (error) {
-        console.error('Signup error:', error);
+        console.error('Verification email error:', error);
         throw error;
       }
 
       toast({
-        title: "Success!",
-        description: "Your account has been created successfully. Please check your email to verify your account.",
+        title: "Verification Email Sent!",
+        description: "Please check your email and click the verification link to complete your account setup.",
         variant: "default"
       });
 
@@ -141,7 +141,7 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
       console.error('Signup error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create account. Please try again.",
+        description: error.message || "Failed to send verification email. Please try again.",
         variant: "destructive"
       });
     } finally {
