@@ -281,41 +281,44 @@ serve(async (req) => {
       if (tenantUserError) {
         throw new Error(`Failed to associate user with tenant: ${tenantUserError.message}`);
       }
-    }
 
-    // Mark verification as completed
-    const { error: updateError } = await supabaseAdmin
-      .from('pending_verifications')
-      .update({ status: 'completed' })
-      .eq('verification_token', token);
+      // Mark verification as completed
+      const { error: updateError } = await supabaseAdmin
+        .from('pending_verifications')
+        .update({ status: 'completed' })
+        .eq('verification_token', token);
 
-    if (updateError) {
-      console.error("Failed to update verification status:", updateError);
-    }
-
-    // Return success response for regular signup
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Email verified and account created successfully! You can now log in.",
-        tenant: {
-          id: createdTenantId,
-          name: verification.business_name,
-          subdomain: subdomain,
-          url: `https://${subdomain}.vibepos.shop`
-        },
-        user: {
-          id: createdUserId,
-          email: verification.email,
-          name: verification.full_name
-        },
-        type: 'signup'
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
+      if (updateError) {
+        console.error("Failed to update verification status:", updateError);
       }
-    );
+
+      // Return success response for regular signup
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Email verified and account created successfully! You can now log in.",
+          tenant: {
+            id: createdTenantId,
+            name: verification.business_name,
+            subdomain: subdomain,
+            url: `https://${subdomain}.vibepos.shop`
+          },
+          user: {
+            id: createdUserId,
+            email: verification.email,
+            name: verification.full_name
+          },
+          type: 'signup'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
+
+    // This should never be reached, but just in case
+    throw new Error('Unexpected flow - neither invitation nor signup processed');
 
   } catch (error: any) {
     console.error("Verification error:", error);
