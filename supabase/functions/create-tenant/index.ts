@@ -29,24 +29,48 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    console.log("Creating new user account...");
+    console.log("Checking if user exists...");
 
-    // Create new user account
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true, // Auto-confirm email for trial
-      user_metadata: {
-        full_name: fullName
+    // Check if user already exists
+    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const existingUser = existingUsers.users.find(user => user.email === email);
+
+    let userId;
+    if (existingUser) {
+      console.log("User already exists:", existingUser.id);
+      userId = existingUser.id;
+      
+      // Update user metadata if needed
+      const { error: updateError } = await supabase.auth.admin.updateUserById(existingUser.id, {
+        user_metadata: {
+          full_name: fullName
+        }
+      });
+      
+      if (updateError) {
+        console.error("User metadata update error:", updateError);
       }
-    });
+    } else {
+      console.log("Creating new user account...");
+      
+      // Create new user account
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: email,
+        password: password,
+        email_confirm: true, // Auto-confirm email for trial
+        user_metadata: {
+          full_name: fullName
+        }
+      });
 
-    if (authError || !authData.user) {
-      console.error("User creation error:", authError);
-      throw new Error(`Failed to create user account: ${authError?.message || 'Unknown error'}`);
+      if (authError || !authData.user) {
+        console.error("User creation error:", authError);
+        throw new Error(`Failed to create user account: ${authError?.message || 'Unknown error'}`);
+      }
+
+      console.log("User created:", authData.user.id);
+      userId = authData.user.id;
     }
-
-    console.log("User created:", authData.user.id);
 
     // Create tenant
     const { data: tenantData, error: tenantError } = await supabase
@@ -136,7 +160,7 @@ serve(async (req) => {
     const { error: tenantUserError } = await supabase
       .from('tenant_users')
       .insert({
-        user_id: authData.user.id,
+        user_id: userId,
         tenant_id: tenantData.id,
         role: 'admin',
         is_active: true
@@ -159,7 +183,7 @@ serve(async (req) => {
       const { error: roleAssignError } = await supabase
         .from('user_role_assignments')
         .insert({
-          user_id: authData.user.id,
+          user_id: userId,
           role_id: adminRole.id,
           tenant_id: tenantData.id,
           is_active: true
