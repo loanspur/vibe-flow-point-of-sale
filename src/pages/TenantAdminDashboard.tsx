@@ -296,6 +296,11 @@ export default function TenantAdminDashboard() {
                       <>Active subscription</>
                     )}
                   </p>
+                  {currentSubscription.next_billing_date && (
+                    <p className="text-xs text-blue-500 mt-1">
+                      Next billing: {new Date(currentSubscription.next_billing_date).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
