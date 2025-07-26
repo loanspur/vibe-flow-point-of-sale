@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { UserPlus } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Tenant = Tables<'tenants'>;
 
@@ -20,6 +21,7 @@ export default function CreateTenantAdminDialog({ onUserCreated }: CreateTenantA
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -70,69 +72,33 @@ export default function CreateTenantAdminDialog({ onUserCreated }: CreateTenantA
     setLoading(true);
 
     try {
-      // Create the user account using regular signup
-      const redirectUrl = `${window.location.origin}/auth`;
-      
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: formData.fullName,
-            role: formData.role,
-            tenant_id: formData.tenantId
+      // Get the selected tenant name for invitation
+      const selectedTenant = tenants.find(t => t.id === formData.tenantId);
+      const tenantName = selectedTenant?.name || 'Your Company';
+
+      // Use verification-based signup for tenant admin creation
+      const { data, error } = await supabase.functions.invoke('send-verification-email', {
+        body: {
+          email: formData.email,
+          fullName: formData.fullName,
+          businessName: '', // Not required for tenant admin
+          password: formData.password,
+          invitationData: {
+            roleId: formData.role,
+            tenantId: formData.tenantId,
+            inviterName: user?.user_metadata?.full_name || 'Admin',
+            inviterId: user?.id || '',
+            companyName: tenantName,
+            roleName: formData.role === 'admin' ? 'Administrator' : 'Manager'
           }
         }
       });
 
-      if (authError) throw authError;
-
-      if (!authData.user) {
-        throw new Error('Failed to create user');
-      }
-
-      // The profile will be created automatically by the trigger
-      // We need to update it with the proper role and tenant after creation
-      
-      // Give it a moment for the trigger to execute
-      setTimeout(async () => {
-        try {
-          // Update the user's profile with role and tenant
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({
-              role: formData.role,
-              tenant_id: formData.tenantId,
-              full_name: formData.fullName
-            })
-            .eq('user_id', authData.user.id);
-
-          if (profileError) {
-            console.error('Profile update error:', profileError);
-          }
-
-          // Add user to tenant_users table
-          const { error: tenantUserError } = await supabase
-            .from('tenant_users')
-            .insert({
-              user_id: authData.user.id,
-              tenant_id: formData.tenantId,
-              role: formData.role,
-              is_active: true
-            });
-
-          if (tenantUserError) {
-            console.error('Tenant user creation error:', tenantUserError);
-          }
-        } catch (updateError) {
-          console.error('Error updating user after creation:', updateError);
-        }
-      }, 1000);
+      if (error) throw error;
 
       toast({
-        title: "Success",
-        description: `Tenant ${formData.role} user created successfully`,
+        title: "Invitation Sent",
+        description: `Verification email sent to ${formData.email}. They will receive an invitation to join ${tenantName} as ${formData.role === 'admin' ? 'Administrator' : 'Manager'}.`,
       });
 
       // Reset form

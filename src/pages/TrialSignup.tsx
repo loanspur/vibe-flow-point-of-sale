@@ -26,7 +26,7 @@ interface BillingPlan {
 export default function TrialSignup() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, signUp } = useAuth();
+  const { user } = useAuth();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState(searchParams.get('plan') || '');
   const [loading, setLoading] = useState(false);
@@ -120,75 +120,47 @@ export default function TrialSignup() {
 
     setLoading(true);
     try {
-      console.log('Starting signup process...');
+      console.log('Starting verification-based signup process...');
       
-      // Step 1: Create user account
-      const { error: signUpError } = await signUp(formData.email, formData.password, formData.ownerName);
-
-      if (signUpError) {
-        console.error('Signup error:', signUpError);
-        if (signUpError.message.includes('already registered')) {
-          toast({
-            title: "Account exists",
-            description: "This email is already registered. Please sign in instead.",
-            variant: "destructive"
-          });
-          navigate('/auth');
-          return;
+      // Send verification email using the unified verification flow
+      const { data, error } = await supabase.functions.invoke('send-verification-email', {
+        body: {
+          email: formData.email,
+          fullName: formData.ownerName,
+          businessName: formData.businessName,
+          password: formData.password,
+          planId: selectedPlan
         }
-        throw signUpError;
+      });
+
+      if (error) {
+        console.error('Verification email error:', error);
+        throw error;
       }
 
-      console.log('Signup successful, checking authentication...');
+      toast({
+        title: "Verification Email Sent!",
+        description: "Please check your email and click the verification link to complete your account setup.",
+        variant: "default"
+      });
 
-      // Check current session immediately
-      const { data: session } = await supabase.auth.getSession();
-      console.log('Current session:', session);
-
-      if (session.session?.user) {
-        console.log('User authenticated immediately');
-        // User is authenticated, proceed with tenant creation
-        await createTenant();
-      } else {
-        console.log('Waiting for authentication...');
-        // Wait for authentication with better retry logic
-        let retries = 0;
-        const maxRetries = 8; // 4 seconds total
-        let authenticated = false;
-        
-        while (retries < maxRetries && !authenticated) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Check both the auth context user and session
-          const { data: currentSession } = await supabase.auth.getSession();
-          authenticated = !!(currentSession.session?.user || user);
-          
-          retries++;
-          console.log(`Retry ${retries}/${maxRetries}, authenticated:`, authenticated);
-        }
-
-        if (authenticated) {
-          console.log('Authentication successful after retries');
-          await createTenant();
-        } else {
-          console.log('Authentication timeout, proceeding without tenant setup');
-          // Show user they can complete setup later
-          toast({
-            title: "Account Created Successfully!",
-            description: "Please check your email to verify your account, then you can complete the business setup.",
-            variant: "default"
-          });
-          setStep(2);
-        }
-      }
+      // Navigate to success page
+      navigate('/success');
 
     } catch (error: any) {
       console.error('Signup error:', error);
+      
+      // For specific known errors, provide better messages
+      let errorMessage = "Failed to send verification email. Please try again.";
+      
+      if (error.message && error.message.includes('Edge Function returned a non-2xx status code')) {
+        // Common case: user already exists
+        errorMessage = "An account with this email already exists. Please try signing in instead.";
+      }
+      
       toast({
-        title: "Signup Error",
-        description: error.message.includes('Invalid login credentials') 
-          ? "Please check your email and password and try again."
-          : error.message,
+        title: "Error",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -196,55 +168,6 @@ export default function TrialSignup() {
     }
   };
 
-  const createTenant = async () => {
-    try {
-      console.log('Creating tenant...');
-      console.log('Form data:', {
-        businessName: formData.businessName,
-        ownerName: formData.ownerName,
-        email: formData.email
-      });
-      
-      const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant', {
-        body: {
-          businessName: formData.businessName,
-          ownerName: formData.ownerName,
-          email: formData.email,
-        }
-      });
-
-      console.log('Tenant creation response:', { tenantData, tenantError });
-
-      if (tenantError) {
-        console.error('Tenant creation error:', tenantError);
-        throw new Error(`Failed to set up business: ${tenantError.message}`);
-      }
-
-      if (!tenantData?.success) {
-        console.error('Tenant creation failed:', tenantData);
-        throw new Error(tenantData?.error || 'Failed to create business account');
-      }
-
-      console.log('Tenant created successfully:', tenantData);
-      setStep(2);
-      toast({
-        title: "Business account created!",
-        description: `Welcome to VibePOS, ${formData.businessName}! Now let's set up your subscription.`
-      });
-
-    } catch (tenantError: any) {
-      console.error('Tenant setup error:', tenantError);
-      
-      // Allow user to proceed to payment even if tenant setup fails
-      toast({
-        title: "Account created - Setup incomplete",
-        description: "Your account was created but business setup needs to be completed in your dashboard.",
-        variant: "destructive"
-      });
-      
-      setStep(2);
-    }
-  };
 
   const handleStartTrial = async () => {
     if (!user) {

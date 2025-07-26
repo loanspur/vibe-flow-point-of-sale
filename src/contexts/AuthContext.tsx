@@ -11,7 +11,6 @@ interface AuthContextType {
   userRole: UserRole | null;
   tenantId: string | null;
   refreshUserInfo: () => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -184,22 +183,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []); // Remove user.id dependency to prevent infinite loops
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName
-        }
-      }
-    });
-    
-    return { error };
-  };
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -221,7 +204,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     userRole,
     tenantId,
     refreshUserInfo,
-    signUp,
     signIn,
     signOut
   };
