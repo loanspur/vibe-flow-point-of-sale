@@ -123,27 +123,50 @@ serve(async (req) => {
       );
     }
 
-    // Check if email already exists in auth.users - allow verification for existing emails
+    // Check if email already exists in auth.users - only block if account actually exists
     try {
       const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
       
       if (listError) {
         console.error("Error checking existing users:", listError);
-        // Don't block verification if we can't check - proceed anyway
-        console.log("Proceeding with verification despite user check error");
-      } else {
-        const existingUser = existingUsers?.users?.find(user => user.email === email);
-        
-        if (existingUser) {
-          console.log("User already exists, but allowing verification to proceed");
-          // Don't return error - let verification proceed so user can get the "already exists" message
-          // from the verification function which handles it properly
-        }
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Unable to verify account status. Please try again later.'
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
+      }
+
+      const existingUser = existingUsers?.users?.find(user => user.email === email);
+
+      if (existingUser) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "An account with this email already exists. Please try signing in instead."
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          }
+        );
       }
     } catch (authError) {
       console.error("Error checking auth users:", authError);
-      // Don't block verification if we can't check - proceed anyway
-      console.log("Proceeding with verification despite auth check error");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Unable to verify account status. Please try again later.'
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
     }
 
     // Check if there's already a pending verification for this email
