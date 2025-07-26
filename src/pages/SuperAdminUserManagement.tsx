@@ -42,14 +42,20 @@ interface User {
   created_at: string;
   avatar_url?: string;
   tenant_name?: string;
+  email?: string;
+  email_confirmed_at?: string;
+  last_sign_in_at?: string;
+  tenant_status?: string;
+  tenant_active?: boolean;
 }
 
 interface Tenant {
   id: string;
   name: string;
-  subdomain: string;
-  plan_type: string;
+  subdomain?: string;
+  plan_type?: string;
   is_active: boolean;
+  status?: string;
 }
 
 interface UserActivityLog {
@@ -64,6 +70,9 @@ interface UserActivityLog {
   created_at: string;
   user_name?: string;
   tenant_name?: string;
+  user_email?: string;
+  tenant_status?: string;
+  details_formatted?: string;
 }
 
 const SuperAdminUserManagement = () => {
@@ -126,6 +135,7 @@ const SuperAdminUserManagement = () => {
 
   const fetchUsers = async () => {
     try {
+      // Get all profiles 
       const { data: profiles, error } = await supabase
         .from('profiles')
         .select(`
@@ -141,27 +151,54 @@ const SuperAdminUserManagement = () => {
 
       if (error) throw error;
 
-      // Get tenant names for users
-      const tenantIds = [...new Set(profiles?.map(p => p.tenant_id).filter(Boolean) || [])];
-      
-      if (tenantIds.length > 0) {
-        const { data: tenantsData } = await supabase
-          .from('tenants')
-          .select('id, name')
-          .in('id', tenantIds);
-
-        const tenantMap = new Map(tenantsData?.map(t => [t.id, t.name]) || []);
-        
-        const usersWithTenants = profiles?.map(user => ({
-          ...user,
-          tenant_name: user.tenant_id ? tenantMap.get(user.tenant_id) || 'Unknown' : 'No Tenant'
-        })) || [];
-
-        setUsers(usersWithTenants);
-      } else {
-        setUsers(profiles || []);
+      // Get additional user info from auth.users via admin API (if available)
+      let authUserMap = new Map();
+      try {
+        const { data: authUsers } = await supabase.auth.admin.listUsers();
+        authUserMap = new Map((authUsers?.users || []).map(user => [
+          user.id, 
+          {
+            email: user.email,
+            email_confirmed_at: user.email_confirmed_at,
+            last_sign_in_at: user.last_sign_in_at,
+            created_at: user.created_at
+          }
+        ]));
+      } catch (authError) {
+        console.warn('Could not fetch auth users:', authError);
       }
+
+      // Get tenant names and status for users
+      const tenantIds = [...new Set((profiles || []).map(p => p.tenant_id).filter(Boolean))];
+      
+      let tenantsData = { data: [] as any[] };
+      if (tenantIds.length > 0) {
+        tenantsData = await supabase
+          .from('tenants')
+          .select('id, name, status, is_active')
+          .in('id', tenantIds);
+      }
+
+      const tenantMap = new Map((tenantsData.data || []).map(t => [t.id, t]));
+      
+      const usersWithDetails = (profiles || []).map(user => {
+        const authUser = authUserMap.get(user.user_id);
+        const tenant = user.tenant_id ? tenantMap.get(user.tenant_id) : null;
+        
+        return {
+          ...user,
+          email: authUser?.email,
+          email_confirmed_at: authUser?.email_confirmed_at,
+          last_sign_in_at: authUser?.last_sign_in_at,
+          tenant_name: tenant?.name || (user.tenant_id ? 'Unknown Tenant' : 'No Tenant'),
+          tenant_status: tenant?.status,
+          tenant_active: tenant?.is_active
+        };
+      });
+
+      setUsers(usersWithDetails);
     } catch (error) {
+      console.error('Failed to load users:', error);
       toast.error('Failed to load users');
     }
   };
@@ -182,37 +219,62 @@ const SuperAdminUserManagement = () => {
 
   const fetchActivityLogs = async () => {
     try {
+      // Get recent activity logs with more detailed information
       const { data, error } = await supabase
         .from('user_activity_logs')
-        .select('*')
+        .select(`
+          id,
+          user_id,
+          tenant_id,
+          action_type,
+          resource_type,
+          resource_id,
+          details,
+          ip_address,
+          user_agent,
+          created_at
+        `)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (error) throw error;
 
-      // Get user and tenant names
+      // Get user and tenant names with batch queries
       const userIds = [...new Set(data?.map(log => log.user_id) || [])];
       const tenantIds = [...new Set(data?.map(log => log.tenant_id).filter(Boolean) || [])];
 
       const [profilesData, tenantsData] = await Promise.all([
-        supabase.from('profiles').select('user_id, full_name').in('user_id', userIds),
-        supabase.from('tenants').select('id, name').in('id', tenantIds)
+        userIds.length > 0 
+          ? supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
+          : { data: [] },
+        tenantIds.length > 0 
+          ? supabase.from('tenants').select('id, name, status').in('id', tenantIds)
+          : { data: [] }
       ]);
 
-      const profileMap = new Map(profilesData.data?.map(p => [p.user_id, p.full_name]) || []);
-      const tenantMap = new Map(tenantsData.data?.map(t => [t.id, t.name]) || []);
+      const profileMap = new Map((profilesData.data || []).map(p => [p.user_id, { name: p.full_name, email: null }]));
+      const tenantMap = new Map((tenantsData.data || []).map(t => [t.id, { name: t.name, status: t.status }]));
 
-      const logsWithNames = data?.map(log => ({
-        ...log,
-        user_name: profileMap.get(log.user_id) || 'Unknown User',
-        tenant_name: log.tenant_id ? tenantMap.get(log.tenant_id) || 'Unknown Tenant' : 'System',
-        ip_address: log.ip_address as string || undefined,
-        user_agent: log.user_agent as string || undefined
-      })) || [];
+      const logsWithDetails = data?.map(log => {
+        const profile = profileMap.get(log.user_id);
+        const tenant = log.tenant_id ? tenantMap.get(log.tenant_id) : null;
+        
+        return {
+          ...log,
+          user_name: profile?.name || 'Unknown User',
+          user_email: profile?.email,
+          tenant_name: tenant?.name || (log.tenant_id ? 'Unknown Tenant' : 'System'),
+          tenant_status: tenant?.status,
+          ip_address: log.ip_address as string || null,
+          user_agent: log.user_agent as string || null,
+          details_formatted: typeof log.details === 'object' ? JSON.stringify(log.details, null, 2) : String(log.details || '')
+        };
+      }) || [];
 
-      setActivityLogs(logsWithNames);
+      setActivityLogs(logsWithDetails);
     } catch (error) {
-      // Silently handle error
+      console.error('Failed to load activity logs:', error);
+      toast.error('Failed to load activity logs');
     }
   };
 
@@ -410,19 +472,33 @@ const SuperAdminUserManagement = () => {
                 <TableBody>
                   {filteredUsers.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{user.full_name || 'Unknown User'}</div>
-                          <div className="text-sm text-muted-foreground">{user.user_id}</div>
-                        </div>
-                      </TableCell>
+                       <TableCell>
+                         <div>
+                           <div className="font-medium">{user.full_name || 'Unknown User'}</div>
+                           <div className="text-sm text-muted-foreground">{user.email || user.user_id}</div>
+                           {user.last_sign_in_at && (
+                             <div className="text-xs text-muted-foreground">
+                               Last active: {new Date(user.last_sign_in_at).toLocaleDateString()}
+                             </div>
+                           )}
+                         </div>
+                       </TableCell>
                       <TableCell>
                         <Badge variant={getRoleBadgeVariant(user.role)} className={getRoleColor(user.role)}>
                           {user.role === 'superadmin' && <Crown className="h-3 w-3 mr-1" />}
                           {user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell>{user.tenant_name || 'No Tenant'}</TableCell>
+                       <TableCell>
+                         <div>
+                           <div>{user.tenant_name || 'No Tenant'}</div>
+                           {user.tenant_status && (
+                             <Badge variant="outline" className="text-xs">
+                               {user.tenant_status}
+                             </Badge>
+                           )}
+                         </div>
+                       </TableCell>
                       <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -485,26 +561,50 @@ const SuperAdminUserManagement = () => {
                     <TableHead>IP Address</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {activityLogs.slice(0, 50).map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell>{log.user_name}</TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{log.action_type}</div>
-                          {log.resource_type && (
-                            <div className="text-sm text-muted-foreground">
-                              {log.resource_type}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{log.tenant_name}</TableCell>
-                      <TableCell>{new Date(log.created_at).toLocaleString()}</TableCell>
-                      <TableCell>{log.ip_address || '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+                 <TableBody>
+                   {activityLogs.slice(0, 100).map((log) => (
+                     <TableRow key={log.id}>
+                       <TableCell>
+                         <div>
+                           <div className="font-medium">{log.user_name}</div>
+                           {log.user_email && (
+                             <div className="text-sm text-muted-foreground">{log.user_email}</div>
+                           )}
+                         </div>
+                       </TableCell>
+                       <TableCell>
+                         <div>
+                           <div className="font-medium capitalize">{log.action_type.replace('_', ' ')}</div>
+                           {log.resource_type && (
+                             <div className="text-sm text-muted-foreground capitalize">
+                               {log.resource_type.replace('_', ' ')}
+                             </div>
+                           )}
+                         </div>
+                       </TableCell>
+                       <TableCell>
+                         <div>
+                           <div>{log.tenant_name}</div>
+                           {log.tenant_status && (
+                             <Badge variant="outline" className="text-xs">
+                               {log.tenant_status}
+                             </Badge>
+                           )}
+                         </div>
+                       </TableCell>
+                       <TableCell>
+                         <div className="text-sm">
+                           {new Date(log.created_at).toLocaleString()}
+                         </div>
+                       </TableCell>
+                       <TableCell>
+                         <div className="text-sm font-mono">
+                           {log.ip_address || '-'}
+                         </div>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                 </TableBody>
               </Table>
             </CardContent>
           </Card>
