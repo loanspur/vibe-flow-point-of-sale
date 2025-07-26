@@ -173,10 +173,10 @@ serve(async (req) => {
     let existingPending = null;
     try {
       const { data, error } = await supabaseAdmin
-        .from('pending_verifications')
+        .from('pending_email_verifications')
         .select('*')
         .eq('email', email)
-        .eq('status', 'pending')
+        .eq('is_verified', false)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -218,13 +218,12 @@ serve(async (req) => {
         console.log("Updating existing pending verification for:", email);
         
         const { error: updateError } = await supabaseAdmin
-          .from('pending_verifications')
+          .from('pending_email_verifications')
           .update({
             full_name: fullName,
             business_name: businessName,
-            password_hash: password, // Store plain password temporarily for user creation
+            password: password, // Store plain password temporarily for user creation
             plan_id: planId,
-            invitation_data: invitationData,
             verification_token: verificationToken,
             expires_at: expiresAt.toISOString(),
             updated_at: new Date().toISOString()
@@ -247,17 +246,15 @@ serve(async (req) => {
       } else {
         // Create new pending verification
         const { error: insertError } = await supabaseAdmin
-          .from('pending_verifications')
+          .from('pending_email_verifications')
           .insert({
             email: email,
             full_name: fullName,
             business_name: businessName,
-            password_hash: password, // Store plain password temporarily for user creation
+            password: password, // Store plain password temporarily for user creation
             plan_id: planId,
-            invitation_data: invitationData,
             verification_token: verificationToken,
-            expires_at: expiresAt.toISOString(),
-            status: 'pending'
+            expires_at: expiresAt.toISOString()
           });
 
         if (insertError) {
@@ -345,7 +342,7 @@ serve(async (req) => {
         
         // Clean up pending verification if email fails
         await supabaseAdmin
-          .from('pending_verifications')
+          .from('pending_email_verifications')
           .delete()
           .eq('verification_token', verificationToken);
         
@@ -368,7 +365,7 @@ serve(async (req) => {
       // Clean up pending verification if email fails
       try {
         await supabaseAdmin
-          .from('pending_verifications')
+          .from('pending_email_verifications')
           .delete()
           .eq('verification_token', verificationToken);
       } catch (cleanupError) {
