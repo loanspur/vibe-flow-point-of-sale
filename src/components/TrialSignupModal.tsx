@@ -113,38 +113,33 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
     setLoading(true);
 
     try {
-      // Send verification email first
-      const { data, error } = await supabase.functions.invoke('send-verification-email', {
-        body: {
-          email: formData.email,
-          fullName: formData.fullName,
-          businessName: formData.businessName,
-          password: formData.password,
-          planId: selectedPlan.id
+      // Create user directly with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            business_name: formData.businessName,
+            plan_id: selectedPlan.id
+          }
         }
       });
 
-      if (error) {
-        console.error('Verification email error:', error);
-        throw error;
-      }
+      if (authError) throw authError;
 
       toast({
-        title: "Verification Email Sent!",
-        description: "Please check your email and click the verification link to complete your account setup.",
+        title: "Account Created Successfully!",
+        description: "Welcome to VibePOS! You can now start your free trial.",
         variant: "default"
       });
 
       onClose();
-      navigate('/success');
+      navigate('/dashboard');
     } catch (error: any) {
-      console.error('Signup error:', error);
+      let errorMessage = "Failed to create account. Please try again.";
       
-      // For specific known errors, provide better messages
-      let errorMessage = "Failed to send verification email. Please try again.";
-      
-      if (error.message && error.message.includes('Edge Function returned a non-2xx status code')) {
-        // Common case: user already exists
+      if (error.message?.includes('already registered')) {
         errorMessage = "An account with this email already exists. Please try signing in instead.";
       }
       
