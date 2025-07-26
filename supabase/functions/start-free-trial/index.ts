@@ -101,7 +101,7 @@ serve(async (req) => {
           trial_end: trialEnd,
           current_period_start: trialStart,
           current_period_end: trialEnd,
-          next_billing_date: trialEnd,
+          next_billing_date: new Date(new Date(trialEnd).getFullYear(), new Date(trialEnd).getMonth() + 1, 1).toISOString().split('T')[0],
           updated_at: new Date().toISOString()
         })
         .eq('id', existingSub.id);

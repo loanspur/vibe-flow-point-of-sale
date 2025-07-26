@@ -147,7 +147,7 @@ serve(async (req) => {
           paystack_subscription_id: transaction.subscription?.subscription_code || null,
           current_period_start: new Date().toISOString().split('T')[0],
           current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          next_billing_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0],
           updated_at: new Date().toISOString(),
           metadata: {
             ...metadata,

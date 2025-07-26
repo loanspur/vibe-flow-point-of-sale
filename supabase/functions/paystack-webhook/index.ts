@@ -141,8 +141,8 @@ async function handleSuccessfulPayment(supabaseClient: any, data: any) {
         .update({
           status: 'active',
           current_period_start: new Date().toISOString().split('T')[0],
-          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          current_period_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
+          next_billing_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0],
           updated_at: new Date().toISOString(),
           metadata: {
             last_payment_reference: data.reference,
@@ -211,7 +211,7 @@ async function handleSubscriptionCreated(supabaseClient: any, data: any) {
         paystack_subscription_id: data.subscription_code,
         paid_at: new Date().toISOString(),
         billing_period_start: new Date().toISOString().split('T')[0],
-        billing_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        billing_period_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
         metadata: data
       });
 

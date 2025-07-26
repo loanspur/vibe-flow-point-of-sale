@@ -632,11 +632,11 @@ export default function BillingManagement() {
                   
                   {isCurrentPlan && (
                     <div className="text-center">
-                      <p className="text-xs text-muted-foreground">
-                        {currentSubscription?.expires_at && (
-                          <>Next billing: {formatDate(currentSubscription.expires_at)}</>
-                        )}
-                      </p>
+                       <p className="text-xs text-muted-foreground">
+                         {currentSubscription?.next_billing_date && (
+                           <>Next billing: {formatDate(currentSubscription.next_billing_date)}</>
+                         )}
+                       </p>
                     </div>
                   )}
                 </CardContent>
