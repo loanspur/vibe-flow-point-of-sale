@@ -159,27 +159,8 @@ const handler = async (req: Request): Promise<Response> => {
     // Initialize Resend
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
-    // Generate invitation token and create user record
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      email,
-      {
-        redirectTo: redirectUrl,
-        data: {
-          role_id: roleId,
-          tenant_id: tenantId,
-          inviter_name: inviterName,
-          company_name: companyName,
-          role_name: roleName
-        }
-      }
-    );
-
-    if (inviteError) {
-      console.error("Invitation error:", inviteError);
-      throw inviteError;
-    }
-
-    console.log("Invitation user created:", inviteData);
+    // Generate a secure invitation token
+    const invitationToken = crypto.randomUUID();
 
     // Create invitation tracking record
     const { error: trackingError } = await supabaseAdmin
@@ -189,17 +170,18 @@ const handler = async (req: Request): Promise<Response> => {
         role_id: roleId,
         tenant_id: tenantId,
         invited_by: inviterId,
-        invitation_token: inviteData.user.id,
+        invitation_token: invitationToken,
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
         status: 'pending'
       }]);
 
     if (trackingError) {
       console.error('Failed to create invitation tracking record:', trackingError);
+      throw trackingError;
     }
 
     // Generate the invitation email HTML using React Email
-    const invitationUrl = `${origin}/accept-invitation?token=${inviteData.user.confirmation_token || inviteData.user.id}`;
+    const invitationUrl = `${origin}/accept-invitation?token=${invitationToken}`;
     console.log("Generated invitation URL:", invitationUrl);
     
     console.log("About to render email template with props:", { inviterName, companyName, roleName, invitationUrl });
@@ -231,7 +213,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      userId: inviteData.user.id,
+      invitationToken: invitationToken,
       message: "Invitation sent successfully" 
     }), {
       status: 200,
