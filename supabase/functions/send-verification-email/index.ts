@@ -76,7 +76,7 @@ serve(async (req) => {
       .select('*')
       .eq('email', email)
       .eq('status', 'pending')
-      .single();
+      .maybeSingle();
 
     // If there's an existing pending verification, update it instead of creating new
     if (existingPending) {
