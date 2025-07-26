@@ -5,6 +5,7 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import React from 'npm:react@18.3.1';
 import { TrialEndingEmail } from './_templates/trial-ending-email.tsx';
 import { PaymentDueEmail } from './_templates/payment-due-email.tsx';
+import { TrialEncouragementEmail } from './_templates/trial-encouragement-email.tsx';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
 
@@ -17,7 +18,7 @@ interface NotificationData {
   tenant_id: string;
   tenant_name: string;
   contact_email: string;
-  notification_type: 'trial_ending' | 'payment_due';
+  notification_type: 'trial_ending' | 'payment_due' | 'trial_encouragement_early' | 'trial_encouragement_mid';
   target_date: string;
   plan_name: string;
   plan_price: number;
@@ -44,13 +45,26 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Get today's date
+    // Get today's date and various target dates
     const today = new Date();
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + 5); // 5 days from now
     const targetDateStr = targetDate.toISOString().split('T')[0];
 
-    logStep('Checking for notifications', { targetDate: targetDateStr });
+    // For encouragement emails
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(today.getDate() - 3);
+    const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
+
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    logStep('Checking for notifications', { 
+      targetDate: targetDateStr,
+      threeDaysAgo: threeDaysAgoStr,
+      sevenDaysAgo: sevenDaysAgoStr
+    });
 
     // Query for tenants needing trial ending notifications
     const { data: trialEndingTenants, error: trialError } = await supabase
@@ -92,6 +106,48 @@ serve(async (req) => {
 
     logStep('Found payment due tenants', { count: paymentDueTenants?.length || 0 });
 
+    // Query for early trial encouragement (3 days into trial)
+    const { data: earlyTrialTenants, error: earlyTrialError } = await supabase
+      .from('tenant_subscription_details')
+      .select(`
+        tenant_id,
+        trial_end,
+        trial_start,
+        billing_plan_id,
+        tenants!inner(name, contact_email),
+        billing_plans!inner(name, price)
+      `)
+      .eq('status', 'trial')
+      .eq('trial_start', threeDaysAgoStr)
+      .not('tenants.contact_email', 'is', null);
+
+    if (earlyTrialError) {
+      throw new Error(`Error fetching early trial tenants: ${earlyTrialError.message}`);
+    }
+
+    logStep('Found early trial tenants', { count: earlyTrialTenants?.length || 0 });
+
+    // Query for mid-trial encouragement (7 days into trial)
+    const { data: midTrialTenants, error: midTrialError } = await supabase
+      .from('tenant_subscription_details')
+      .select(`
+        tenant_id,
+        trial_end,
+        trial_start,
+        billing_plan_id,
+        tenants!inner(name, contact_email),
+        billing_plans!inner(name, price)
+      `)
+      .eq('status', 'trial')
+      .eq('trial_start', sevenDaysAgoStr)
+      .not('tenants.contact_email', 'is', null);
+
+    if (midTrialError) {
+      throw new Error(`Error fetching mid trial tenants: ${midTrialError.message}`);
+    }
+
+    logStep('Found mid trial tenants', { count: midTrialTenants?.length || 0 });
+
     const notifications: NotificationData[] = [];
 
     // Process trial ending notifications
@@ -118,6 +174,36 @@ serve(async (req) => {
           contact_email: tenant.tenants.contact_email,
           notification_type: 'payment_due',
           target_date: tenant.next_billing_date,
+          plan_name: tenant.billing_plans.name,
+          plan_price: tenant.billing_plans.price,
+        });
+      }
+    }
+
+    // Process early trial encouragement notifications
+    if (earlyTrialTenants) {
+      for (const tenant of earlyTrialTenants) {
+        notifications.push({
+          tenant_id: tenant.tenant_id,
+          tenant_name: tenant.tenants.name,
+          contact_email: tenant.tenants.contact_email,
+          notification_type: 'trial_encouragement_early',
+          target_date: tenant.trial_end,
+          plan_name: tenant.billing_plans.name,
+          plan_price: tenant.billing_plans.price,
+        });
+      }
+    }
+
+    // Process mid trial encouragement notifications
+    if (midTrialTenants) {
+      for (const tenant of midTrialTenants) {
+        notifications.push({
+          tenant_id: tenant.tenant_id,
+          tenant_name: tenant.tenants.name,
+          contact_email: tenant.tenants.contact_email,
+          notification_type: 'trial_encouragement_mid',
+          target_date: tenant.trial_end,
           plan_name: tenant.billing_plans.name,
           plan_price: tenant.billing_plans.price,
         });
@@ -166,7 +252,7 @@ serve(async (req) => {
             })
           );
           subject = 'Your VibePOS Trial Ends in 5 Days';
-        } else {
+        } else if (notification.notification_type === 'payment_due') {
           const manageUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com')}/admin/settings?tab=billing`;
           
           emailHtml = await renderAsync(
@@ -179,6 +265,32 @@ serve(async (req) => {
             })
           );
           subject = 'VibePOS Payment Due in 5 Days';
+        } else if (notification.notification_type === 'trial_encouragement_early') {
+          const upgradeUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com')}/admin/settings?tab=billing`;
+          
+          emailHtml = await renderAsync(
+            React.createElement(TrialEncouragementEmail, {
+              userName: 'there', // We don't have user name in this context
+              tenantName: notification.tenant_name,
+              trialEndsAt: notification.target_date,
+              upgradeUrl,
+              encouragementType: 'early',
+            })
+          );
+          subject = `How's your ${notification.tenant_name} experience going?`;
+        } else if (notification.notification_type === 'trial_encouragement_mid') {
+          const upgradeUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com')}/admin/settings?tab=billing`;
+          
+          emailHtml = await renderAsync(
+            React.createElement(TrialEncouragementEmail, {
+              userName: 'there', // We don't have user name in this context
+              tenantName: notification.tenant_name,
+              trialEndsAt: notification.target_date,
+              upgradeUrl,
+              encouragementType: 'mid',
+            })
+          );
+          subject = `Unlock the full potential of ${notification.tenant_name}`;
         }
 
         // Send email
