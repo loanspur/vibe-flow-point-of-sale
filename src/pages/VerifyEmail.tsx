@@ -46,8 +46,10 @@ const VerifyEmail: React.FC = () => {
         setMessage('Your email has been verified and your account has been created! You can now log in to access your workspace.');
       } else if (data.type === 'existing_user') {
         setMessage('Your email has been verified! You can now log in with your existing account.');
+      } else if (data.type === 'debug') {
+        setMessage('Debug mode: Email verification token received successfully. Please contact support to complete setup.');
       } else {
-        setMessage(`Your email has been verified and your business account "${data.tenant.name}" has been created! You can now log in to start using VibePOS.`);
+        setMessage(`Your email has been verified and your business account "${data.tenant?.name || 'your new business'}" has been created! You can now log in to start using VibePOS.`);
       }
 
       toast({
