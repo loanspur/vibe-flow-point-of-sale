@@ -40,8 +40,8 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    // Get the current origin for redirect URL
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'https://qwtybhvdbbkbcelisuek.lovable.app';
+    // Get the current origin for redirect URL, prioritizing the custom domain
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'https://www.vibepos.shop';
     const redirectUrl = `${origin}/accept-invitation`;
 
     console.log("Using redirect URL:", redirectUrl);

@@ -87,6 +87,22 @@ export default function AcceptInvitation() {
         // Get the invitation metadata
         const userData = data.user.user_metadata;
         
+        // Create tenant-user relationship if it doesn't exist
+        if (userData?.tenant_id) {
+          const { error: tenantUserError } = await supabase
+            .from('tenant_users')
+            .insert({
+              user_id: data.user.id,
+              tenant_id: userData.tenant_id,
+              role: 'user',
+              is_active: true
+            });
+
+          if (tenantUserError && !tenantUserError.message.includes('duplicate key')) {
+            console.error('Tenant user creation error:', tenantUserError);
+          }
+        }
+        
         // Update the user's profile with full name and tenant info
         const { error: profileError } = await supabase
           .from('profiles')
@@ -102,7 +118,7 @@ export default function AcceptInvitation() {
         }
 
         // Assign the user their role if provided in metadata
-        if (userData?.role_id) {
+        if (userData?.role_id && userData?.tenant_id) {
           const { error: roleError } = await supabase
             .from('user_role_assignments')
             .insert({
@@ -112,7 +128,7 @@ export default function AcceptInvitation() {
               assigned_by: userData.invited_by
             });
 
-          if (roleError) {
+          if (roleError && !roleError.message.includes('duplicate key')) {
             console.error('Role assignment error:', roleError);
           }
         }
@@ -133,11 +149,11 @@ export default function AcceptInvitation() {
 
         toast({
           title: "Welcome!",
-          description: "Your account has been set up successfully.",
+          description: "Your account has been set up successfully. Welcome to the team!",
         });
 
-        // Redirect to dashboard
-        navigate('/dashboard');
+        // Redirect to admin dashboard
+        navigate('/admin');
       }
     } catch (error: any) {
       console.error('Accept invitation error:', error);
