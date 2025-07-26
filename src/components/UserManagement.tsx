@@ -585,6 +585,7 @@ const UserManagement = () => {
           roleId: inviteRoleId,
           tenantId: tenantId,
           inviterName: profile?.full_name || 'Team Member',
+          inviterId: user.id,
           companyName: businessSettings?.company_name || 'Your Company',
           roleName: roleData?.name || 'Unknown Role'
         }

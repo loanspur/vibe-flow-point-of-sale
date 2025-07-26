@@ -12,6 +12,7 @@ interface InvitationRequest {
   roleId: string;
   tenantId: string;
   inviterName: string;
+  inviterId: string;
   companyName: string;
   roleName: string;
 }
@@ -25,7 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, roleId, tenantId, inviterName, companyName, roleName }: InvitationRequest = await req.json();
+    const { email, roleId, tenantId, inviterName, inviterId, companyName, roleName }: InvitationRequest = await req.json();
     console.log("Sending invitation to:", email);
 
     // Create admin Supabase client
@@ -175,6 +176,7 @@ const handler = async (req: Request): Promise<Response> => {
         email: email,
         role_id: roleId,
         tenant_id: tenantId,
+        invited_by: inviterId,
         invitation_token: inviteData.user.id,
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
         status: 'pending'
