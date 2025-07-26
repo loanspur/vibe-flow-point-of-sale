@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.test-deploy]
 verify_jwt = false
+
+[functions.scrape-website]
+verify_jwt = false
