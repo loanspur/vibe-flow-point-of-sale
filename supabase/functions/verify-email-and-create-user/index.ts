@@ -209,8 +209,18 @@ serve(async (req) => {
     } else {
       // Handle regular signup flow - create tenant
       
-      // Generate unique subdomain
-      const baseSubdomain = verification.business_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      // Generate unique subdomain with better validation
+      let baseSubdomain = verification.business_name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+      
+      // Ensure subdomain is at least 3 characters and not too long
+      if (baseSubdomain.length < 3) {
+        baseSubdomain = `company${Math.floor(Math.random() * 1000)}`;
+      } else if (baseSubdomain.length > 20) {
+        baseSubdomain = baseSubdomain.substring(0, 20);
+      }
+      
       let subdomain = baseSubdomain;
       let counter = 1;
 
@@ -225,6 +235,12 @@ serve(async (req) => {
         
         subdomain = `${baseSubdomain}${counter}`;
         counter++;
+        
+        // Prevent infinite loop
+        if (counter > 1000) {
+          subdomain = `company${Date.now()}`;
+          break;
+        }
       }
 
       // Create user account
