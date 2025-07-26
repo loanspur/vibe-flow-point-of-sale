@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, Star, ArrowRight, Zap, Shield, Users, BarChart3, CreditCard, Clock, Building2, ShoppingCart, Package, Receipt, Smartphone, Globe, Settings, HeadphonesIcon, TrendingUp, Database, Lock, Mail, Target, Send, Eye, MousePointer } from "lucide-react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import Dashboard from "@/components/Dashboard";
 import Footer from "@/components/Footer";
-import { usePricingCalculation } from "@/hooks/usePricingCalculation";
-import { planToPricingConfig } from "@/lib/pricingUtils";
+import { LazyImage } from "@/components/ui/image-lazy";
+import { PricingCardSkeleton } from "@/components/ui/skeleton-loader";
+import { useOptimizedPricing } from "@/hooks/useOptimizedPricing";
+import { usePreloader, preloadCriticalResources } from "@/hooks/usePreloader";
 
 interface BillingPlan {
   id: string;
@@ -27,105 +28,25 @@ interface BillingPlan {
 }
 
 const Index = () => {
-  const [plans, setPlans] = useState<BillingPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isAnnual, setIsAnnual] = useState(false);
-  const [stats, setStats] = useState({
-    totalCustomers: 0,
-    avgRating: 4.9,
-    uptime: 99.9
-  });
-  const { toast } = useToast();
+  const {
+    plans,
+    loading,
+    isAnnual,
+    setIsAnnual,
+    stats,
+    getDisplayPrice,
+    getDisplayPeriod,
+    getDynamicSavings,
+    formatFeatures
+  } = useOptimizedPricing();
 
+  // Preload critical resources on component mount
   useEffect(() => {
-    fetchPlansAndStats();
+    preloadCriticalResources();
   }, []);
-
-  const fetchPlansAndStats = async () => {
-    try {
-      // Fetch billing plans
-      const { data: billingPlans, error } = await supabase
-        .from('billing_plans')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order');
-      
-      if (error) throw error;
-      
-      if (billingPlans) {
-        setPlans(billingPlans);
-        
-        // Calculate total customers across all plans
-        const totalCustomers = billingPlans.reduce((sum, plan) => sum + (plan.customers || 0), 0);
-        setStats(prev => ({ ...prev, totalCustomers }));
-      }
-    } catch (error: any) {
-      console.error('Error fetching plans:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load pricing plans",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatPrice = (price: number) => {
     return `KES ${price.toLocaleString()}`;
-  };
-
-  // Calculate pricing for all plans at component level
-  const planPricingMap = useMemo(() => {
-    const map = new Map();
-    plans.forEach(plan => {
-      const pricing = {
-        monthlyPrice: plan.price,
-        annualDiscountMonths: (plan as any).annual_discount_months || 2,
-        annualDiscountPercentage: (plan as any).annual_discount_percentage,
-        currency: (plan as any).currency || 'KES'
-      };
-      map.set(plan.id, pricing);
-    });
-    return map;
-  }, [plans]);
-
-  const getDisplayPrice = (plan: BillingPlan) => {
-    const pricingConfig = planPricingMap.get(plan.id);
-    if (!pricingConfig) return `KES ${plan.price.toLocaleString()}`;
-    
-    if (isAnnual) {
-      const annualPrice = pricingConfig.monthlyPrice * 12;
-      const discountMonths = pricingConfig.annualDiscountMonths || 2;
-      const discountAmount = pricingConfig.monthlyPrice * discountMonths;
-      const finalPrice = annualPrice - discountAmount;
-      return `${pricingConfig.currency} ${finalPrice.toLocaleString()}`;
-    }
-    
-    return `${pricingConfig.currency} ${pricingConfig.monthlyPrice.toLocaleString()}`;
-  };
-
-  const getDisplayPeriod = (plan: BillingPlan) => {
-    return isAnnual ? '/year' : '/month';
-  };
-
-  const getDynamicSavings = (plan: BillingPlan) => {
-    const pricingConfig = planPricingMap.get(plan.id);
-    if (!pricingConfig || !isAnnual) return '';
-    
-    const discountMonths = pricingConfig.annualDiscountMonths || 2;
-    const savingsAmount = pricingConfig.monthlyPrice * discountMonths;
-    return `Save ${pricingConfig.currency} ${savingsAmount.toLocaleString()} annually`;
-  };
-
-  const formatFeatures = (features: any) => {
-    if (Array.isArray(features)) {
-      return features;
-    }
-    if (typeof features === 'object' && features !== null) {
-      return Object.values(features).flat();
-    }
-    return [];
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -250,9 +171,10 @@ const Index = () => {
           </div>
 
           {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading pricing plans...</p>
+            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {[...Array(3)].map((_, i) => (
+                <PricingCardSkeleton key={i} />
+              ))}
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -279,15 +201,15 @@ const Index = () => {
                     <CardHeader className="text-center pb-8">
                       <CardTitle className="text-2xl mb-2">{plan.name}</CardTitle>
                       <div className="space-y-2">
-                        <div className="text-4xl font-bold">
-                           {getDisplayPrice(plan)}
-                           <span className="text-lg text-muted-foreground font-normal">
-                             {getDisplayPeriod(plan)}
-                           </span>
+                         <div className="text-4xl font-bold">
+                            {getDisplayPrice(plan)}
+                            <span className="text-lg text-muted-foreground font-normal">
+                              {getDisplayPeriod()}
+                            </span>
+                          </div>
+                          <div className="text-sm text-green-600 font-medium">
+                            Free for 14 days, then {getDisplayPrice(plan)}{getDisplayPeriod()}
                          </div>
-                         <div className="text-sm text-green-600 font-medium">
-                           Free for 14 days, then {getDisplayPrice(plan)}{getDisplayPeriod(plan)}
-                        </div>
                         <CardDescription className="text-base">
                           {plan.description}
                         </CardDescription>

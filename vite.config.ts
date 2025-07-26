@@ -25,9 +25,17 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           router: ['react-router-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu']
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+          supabase: ['@supabase/supabase-js'],
+          icons: ['lucide-react'],
+          forms: ['react-hook-form', '@hookform/resolvers', 'zod']
         }
       }
-    }
+    },
+    target: 'es2020',
+    minify: 'terser',
+    cssMinify: true,
+    reportCompressedSize: false,
+    chunkSizeWarningLimit: 1000
   }
 }));
