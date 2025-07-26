@@ -30,7 +30,8 @@ const handler = async (req: Request): Promise<Response> => {
     const { email, invitationToken, inviterName, companyName, roleName }: InvitationEmailRequest = await req.json();
     console.log("Sending invitation email to:", email);
 
-    const acceptUrl = `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify?token=${invitationToken}&type=invite&redirect_to=${encodeURIComponent(req.headers.get('origin') || 'https://qwtybhvdbbkbcelisuek.lovable.app')}/accept-invitation`;
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/')[0] + '//' + req.headers.get('referer')?.split('/')[2] || 'https://qwtybhvdbbkbcelisuek.lovable.app';
+    const acceptUrl = `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify?token=${invitationToken}&type=invite&redirect_to=${encodeURIComponent(origin)}/accept-invitation`;
 
     const emailResponse = await resend.emails.send({
       from: `${companyName} <onboarding@resend.dev>`,
