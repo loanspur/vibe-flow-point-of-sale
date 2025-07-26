@@ -53,12 +53,116 @@ serve(async (req) => {
       }
     );
 
-    // Check if email already exists
+    // Check if email already exists in auth.users
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find(user => user.email === email);
 
     if (existingUser) {
-      throw new Error('A user with this email already exists');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "An account with this email already exists. Please try signing in instead."
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
+    // Check if there's already a pending verification for this email
+    const { data: existingPending } = await supabaseAdmin
+      .from('pending_verifications')
+      .select('*')
+      .eq('email', email)
+      .eq('status', 'pending')
+      .single();
+
+    // If there's an existing pending verification, update it instead of creating new
+    if (existingPending) {
+      console.log("Updating existing pending verification for:", email);
+      
+      // Generate new verification token
+      const verificationToken = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      const { error: updateError } = await supabaseAdmin
+        .from('pending_verifications')
+        .update({
+          full_name: fullName,
+          business_name: businessName,
+          password_hash: password,
+          plan_id: planId,
+          invitation_data: invitationData,
+          verification_token: verificationToken,
+          expires_at: expiresAt.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingPending.id);
+
+      if (updateError) {
+        console.error("Failed to update pending verification:", updateError);
+        throw new Error(`Failed to update verification record: ${updateError.message}`);
+      }
+
+      // Send verification email with new token
+      const resendApiKey = Deno.env.get('RESEND_API_KEY');
+      if (!resendApiKey) {
+        throw new Error('Email service not configured');
+      }
+
+      const resend = new Resend(resendApiKey);
+      const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'https://www.vibepos.shop';
+      const verificationUrl = `${origin}/verify-email?token=${verificationToken}`;
+
+      const emailType = invitationData ? 'invitation' : 'signup';
+      const subject = invitationData 
+        ? `You're invited to join ${invitationData.companyName}` 
+        : `Verify your email to complete VibePOS signup`;
+
+      const htmlContent = invitationData 
+        ? `
+          <h1>You're invited to join ${invitationData.companyName}!</h1>
+          <p>Hi ${fullName},</p>
+          <p>${invitationData.inviterName} has invited you to join ${invitationData.companyName} as a ${invitationData.roleName}.</p>
+          <p>To accept this invitation and complete your account setup, please verify your email address:</p>
+          <p><a href="${verificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email & Accept Invitation</a></p>
+          <p>This link will expire in 24 hours.</p>
+          <p>Best regards,<br>The VibePOS Team</p>
+        `
+        : `
+          <h1>Welcome to VibePOS!</h1>
+          <p>Hi ${fullName},</p>
+          <p>Thank you for signing up for VibePOS! To complete your account creation for <strong>${businessName}</strong>, please verify your email address:</p>
+          <p><a href="${verificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email & Complete Signup</a></p>
+          <p>This link will expire in 24 hours.</p>
+          <p>Best regards,<br>The VibePOS Team</p>
+        `;
+
+      const { error: emailError } = await resend.emails.send({
+        from: 'VibePOS <noreply@vibepos.shop>',
+        to: [email],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (emailError) {
+        throw new Error(`Failed to send verification email: ${emailError.message}`);
+      }
+
+      console.log("Updated verification email sent successfully");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "New verification email sent successfully. Please check your email to complete the process.",
+          token: verificationToken
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
     }
 
     // Generate verification token
