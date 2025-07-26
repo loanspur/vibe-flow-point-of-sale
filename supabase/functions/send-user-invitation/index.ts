@@ -59,15 +59,15 @@ const handler = async (req: Request): Promise<Response> => {
     if (userExists) {
       console.log("User already exists, adding to tenant instead of sending invitation");
       
-      // Check if user is already in this tenant
-      const { data: existingProfile } = await supabaseAdmin
-        .from('profiles')
+      // Check if user is already associated with this tenant
+      const { data: existingTenantUser } = await supabaseAdmin
+        .from('tenant_users')
         .select('id')
         .eq('user_id', userExists.id)
         .eq('tenant_id', tenantId)
         .maybeSingle();
 
-      if (existingProfile) {
+      if (existingTenantUser) {
         return new Response(JSON.stringify({ 
           error: "User is already a member of this organization" 
         }), {
@@ -79,19 +79,42 @@ const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      // Add existing user to tenant
-      const { error: profileError } = await supabaseAdmin
+      // Check if user has a profile, if not create one
+      const { data: existingProfile } = await supabaseAdmin
         .from('profiles')
-        .upsert({
+        .select('id')
+        .eq('user_id', userExists.id)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        // Create profile if it doesn't exist
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .insert({
+            user_id: userExists.id,
+            full_name: userExists.user_metadata?.full_name || email.split('@')[0],
+            email: userExists.email
+          });
+
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+          throw profileError;
+        }
+      }
+
+      // Add user to tenant
+      const { error: tenantUserError } = await supabaseAdmin
+        .from('tenant_users')
+        .insert({
           user_id: userExists.id,
           tenant_id: tenantId,
-          full_name: userExists.user_metadata?.full_name || email.split('@')[0],
-          updated_at: new Date().toISOString()
+          role: 'user', // Default role, will be overridden by role assignment
+          is_active: true
         });
 
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-        throw profileError;
+      if (tenantUserError) {
+        console.error("Tenant user creation error:", tenantUserError);
+        throw tenantUserError;
       }
 
       // Assign role to user
