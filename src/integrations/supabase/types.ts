@@ -5121,6 +5121,14 @@ export type Database = {
         Args: { tenant_id_param: string }
         Returns: undefined
       }
+      setup_default_business_settings: {
+        Args: { tenant_id_param: string }
+        Returns: undefined
+      }
+      setup_default_user_roles: {
+        Args: { tenant_id_param: string }
+        Returns: undefined
+      }
       setup_monthly_billing_cycle: {
         Args: {
           tenant_id_param: string
@@ -5134,6 +5142,10 @@ export type Database = {
           billing_period_start: string
           billing_period_end: string
         }[]
+      }
+      setup_tenant_default_features: {
+        Args: { tenant_id_param: string }
+        Returns: undefined
       }
       update_account_balances_from_entries: {
         Args: Record<PropertyKey, never>

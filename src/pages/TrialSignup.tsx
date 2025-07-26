@@ -272,9 +272,9 @@ export default function TrialSignup() {
           variant: "default"
         });
         
-        // Redirect to dashboard after successful trial start
+        // Redirect to admin dashboard after successful trial start
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate('/admin');
         }, 1500);
       }
 

@@ -106,20 +106,10 @@ serve(async (req) => {
       console.log("Default subscription assigned to tenant");
     }
 
-    // Update user profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        role: 'admin',
-        tenant_id: tenantData.id
-      })
-      .eq('user_id', userData.user.id);
+    // No need to manually update profile as the trigger handles role assignment
+    console.log("Tenant created successfully, triggers should handle setup");
 
-    if (profileError) {
-      console.error("Profile update error:", profileError);
-    }
-
-    // Create tenant_users entry
+    // Create tenant_users entry with admin role
     const { error: tenantUserError } = await supabase
       .from('tenant_users')
       .insert({
@@ -131,7 +121,34 @@ serve(async (req) => {
 
     if (tenantUserError) {
       console.error("Tenant user creation error:", tenantUserError);
+      // Don't fail tenant creation if this fails - user can be added later
     }
+
+    // Get the default admin role for this tenant and assign it
+    const { data: adminRole } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('tenant_id', tenantData.id)
+      .eq('name', 'Admin')
+      .single();
+
+    if (adminRole) {
+      const { error: roleAssignError } = await supabase
+        .from('user_role_assignments')
+        .insert({
+          user_id: userData.user.id,
+          role_id: adminRole.id,
+          tenant_id: tenantData.id,
+          is_active: true
+        });
+
+      if (roleAssignError) {
+        console.error("Role assignment error:", roleAssignError);
+      } else {
+        console.log("Admin role assigned successfully");
+      }
+    }
+
 
     return new Response(
       JSON.stringify({
