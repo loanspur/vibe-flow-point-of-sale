@@ -507,13 +507,16 @@ const UserManagement = () => {
       }
 
       // Check if invitation already exists for this email
-      const { data: existingInvitation } = await supabase
+      console.log('Checking for existing invitation for:', inviteEmail.trim(), 'tenant:', tenantId);
+      const { data: existingInvitation, error: invitationCheckError } = await supabase
         .from('user_invitations')
         .select('id, status')
         .eq('tenant_id', tenantId)
         .eq('email', inviteEmail.trim())
         .eq('status', 'pending')
-        .single();
+        .maybeSingle();
+
+      console.log('Invitation check result:', { existingInvitation, invitationCheckError });
 
       if (existingInvitation) {
         toast.error('An invitation has already been sent to this email address');
@@ -529,13 +532,16 @@ const UserManagement = () => {
 
       if (existingUser) {
         // Get user email from auth.users would require admin access, so we'll check by email in contacts
-        const { data: contactWithEmail } = await supabase
+        console.log('Checking for existing contact with email:', inviteEmail.trim(), 'tenant:', tenantId);
+        const { data: contactWithEmail, error: contactError } = await supabase
           .from('contacts')
           .select('user_id')
           .eq('tenant_id', tenantId)
           .eq('email', inviteEmail.trim())
           .not('user_id', 'is', null)
-          .single();
+          .maybeSingle();
+
+        console.log('Contact check result:', { contactWithEmail, contactError });
 
         if (contactWithEmail) {
           toast.error('A user with this email already exists in your organization');
@@ -544,13 +550,16 @@ const UserManagement = () => {
       }
 
       // Check for existing pending invitations first
-      const { data: existingPendingInvitation } = await supabase
+      console.log('Checking for pending invitation:', inviteEmail.trim(), 'tenant:', tenantId);
+      const { data: existingPendingInvitation, error: pendingInvitationError } = await supabase
         .from('user_invitations')
         .select('id')
         .eq('email', inviteEmail.trim())
         .eq('tenant_id', tenantId)
         .eq('status', 'pending')
         .maybeSingle();
+
+      console.log('Pending invitation check result:', { existingPendingInvitation, pendingInvitationError });
 
       if (existingPendingInvitation) {
         toast.error('A pending invitation already exists for this email');
