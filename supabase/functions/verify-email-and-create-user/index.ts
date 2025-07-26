@@ -296,22 +296,30 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Verification error:", error);
 
+    // Create cleanup client
+    const cleanupClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
     // Comprehensive cleanup on any error
     try {
       if (createdUserId) {
         console.log("Cleaning up created user:", createdUserId);
-        await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+        await cleanupClient.auth.admin.deleteUser(createdUserId);
       }
       if (createdTenantId) {
         console.log("Cleaning up created tenant:", createdTenantId);
-        const supabaseAdmin = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
         await Promise.all([
-          supabaseAdmin.from('tenant_users').delete().eq('tenant_id', createdTenantId),
-          supabaseAdmin.from('profiles').delete().eq('tenant_id', createdTenantId),
-          supabaseAdmin.from('tenants').delete().eq('id', createdTenantId)
+          cleanupClient.from('tenant_users').delete().eq('tenant_id', createdTenantId),
+          cleanupClient.from('profiles').delete().eq('tenant_id', createdTenantId),
+          cleanupClient.from('tenants').delete().eq('id', createdTenantId)
         ]);
       }
     } catch (cleanupError) {
