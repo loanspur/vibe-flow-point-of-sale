@@ -92,8 +92,7 @@ const handler = async (req: Request): Promise<Response> => {
           .from('profiles')
           .insert({
             user_id: userExists.id,
-            full_name: userExists.user_metadata?.full_name || email.split('@')[0],
-            email: userExists.email
+            full_name: userExists.user_metadata?.full_name || email.split('@')[0]
           });
 
         if (profileError) {
