@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import { TrialSignupModal } from "@/components/TrialSignupModal";
 import { supabase } from "@/integrations/supabase/client";
+import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react";
 
 interface BillingPlan {
   id: string;
@@ -97,6 +98,48 @@ const Footer = () => {
               <p className="text-muted-foreground">
                 The modern multi-tenant POS system that grows with your business.
               </p>
+              <div className="flex space-x-3 mb-4">
+                <a 
+                  href="https://facebook.com/vibepos" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10"
+                >
+                  <Facebook size={20} />
+                </a>
+                <a 
+                  href="https://twitter.com/vibepos" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10"
+                >
+                  <Twitter size={20} />
+                </a>
+                <a 
+                  href="https://instagram.com/vibepos" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10"
+                >
+                  <Instagram size={20} />
+                </a>
+                <a 
+                  href="https://linkedin.com/company/vibepos" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10"
+                >
+                  <Linkedin size={20} />
+                </a>
+                <a 
+                  href="https://youtube.com/@vibepos" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10"
+                >
+                  <Youtube size={20} />
+                </a>
+              </div>
               <Button variant="hero" className="w-full" onClick={handleStartTrial}>
                 Start Free Trial
               </Button>
