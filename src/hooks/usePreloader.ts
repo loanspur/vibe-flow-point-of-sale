@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import heroPos from '@/assets/hero-pos.jpg';
+import dashboardPreview from '@/assets/dashboard-preview.jpg';
 
 interface PreloaderOptions {
   images?: string[];
@@ -52,10 +54,7 @@ export const preloadCriticalResources = () => {
   document.head.appendChild(fontLink);
 
   // Preload critical images
-  const criticalImages = [
-    '/assets/hero-pos.jpg',
-    '/assets/dashboard-preview.jpg'
-  ];
+  const criticalImages = [heroPos, dashboardPreview];
 
   criticalImages.forEach(src => {
     const link = document.createElement('link');
