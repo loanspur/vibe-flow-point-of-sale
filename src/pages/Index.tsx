@@ -13,6 +13,7 @@ import { LazyImage } from "@/components/ui/image-lazy";
 import { PricingCardSkeleton } from "@/components/ui/skeleton-loader";
 import { useOptimizedPricing } from "@/hooks/useOptimizedPricing";
 import { usePreloader, preloadCriticalResources } from "@/hooks/usePreloader";
+import { TrialSignupModal } from "@/components/TrialSignupModal";
 
 interface BillingPlan {
   id: string;
@@ -28,6 +29,9 @@ interface BillingPlan {
 }
 
 const Index = () => {
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+  
   const {
     plans,
     loading,
@@ -47,6 +51,16 @@ const Index = () => {
 
   const formatPrice = (price: number) => {
     return `KES ${price.toLocaleString()}`;
+  };
+
+  const handleStartTrial = (plan: BillingPlan) => {
+    setSelectedPlan(plan);
+    setIsSignupModalOpen(true);
+  };
+
+  const handleCloseSignupModal = () => {
+    setIsSignupModalOpen(false);
+    setSelectedPlan(null);
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -75,11 +89,9 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button size="lg" className="text-lg px-8 py-6" asChild>
-                <Link to="/signup">
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
+              <Button size="lg" className="text-lg px-8 py-6" onClick={() => handleStartTrial(plans[0] || {} as BillingPlan)}>
+                Start Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-6" asChild>
                 <Link to="/auth">
@@ -240,12 +252,10 @@ const Index = () => {
                         className="w-full" 
                         size="lg"
                         variant={isPopular ? "default" : "outline"}
-                        asChild
+                        onClick={() => handleStartTrial(plan)}
                       >
-                        <Link to={`/signup?plan=${plan.id}`}>
-                          Start Free Trial
-                          <Zap className="ml-2 h-4 w-4" />
-                        </Link>
+                        Start Free Trial
+                        <Zap className="ml-2 h-4 w-4" />
                       </Button>
                     </CardContent>
                   </Card>
@@ -933,7 +943,17 @@ const Index = () => {
           </div>
         </div>
       </section>
-
+      
+      {/* Trial Signup Modal */}
+      <TrialSignupModal
+        isOpen={isSignupModalOpen}
+        onClose={handleCloseSignupModal}
+        selectedPlan={selectedPlan}
+        getDisplayPrice={getDisplayPrice}
+        getDisplayPeriod={getDisplayPeriod}
+        formatFeatures={formatFeatures}
+      />
+      
       <Footer />
     </div>
   );
