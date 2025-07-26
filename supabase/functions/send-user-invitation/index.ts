@@ -153,11 +153,17 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    console.log("About to initialize Resend with API key:", Deno.env.get('RESEND_API_KEY') ? 'Key exists' : 'Key missing');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    console.log("About to initialize Resend with API key:", resendApiKey ? 'Key exists' : 'Key missing');
     console.log("Processing NEW USER invitation for:", email);
     
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY environment variable is not set');
+      throw new Error('Email service not configured. Please contact administrator.');
+    }
+    
     // Initialize Resend
-    const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+    const resend = new Resend(resendApiKey);
 
     // Generate a secure invitation token
     const invitationToken = crypto.randomUUID();
