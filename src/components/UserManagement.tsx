@@ -493,9 +493,12 @@ const UserManagement = () => {
   };
 
   const sendUserInvitation = async () => {
+    console.log("🚀 Starting invitation process...");
     setLoading(true);
     if (!inviteEmail.trim() || !inviteRoleId) {
+      console.log("❌ Missing email or role:", { email: inviteEmail, roleId: inviteRoleId });
       toast.error('Email and role are required');
+      setLoading(false);
       return;
     }
 
@@ -579,6 +582,16 @@ const UserManagement = () => {
         .eq('user_id', user.id)
         .single();
 
+      console.log("📧 About to call send-user-invitation function with data:", {
+        email: inviteEmail.trim(),
+        roleId: inviteRoleId,
+        tenantId: tenantId,
+        inviterName: profile?.full_name || 'Team Member',
+        inviterId: user.id,
+        companyName: businessSettings?.company_name || 'Your Company',
+        roleName: roleData?.name || 'Unknown Role'
+      });
+
       // Send invitation using edge function
       const { error: invitationError } = await supabase.functions.invoke('send-user-invitation', {
         body: {
@@ -591,6 +604,8 @@ const UserManagement = () => {
           roleName: roleData?.name || 'Unknown Role'
         }
       });
+
+      console.log("📧 Function call completed, error:", invitationError);
 
       if (invitationError) {
         throw invitationError;
