@@ -13,6 +13,7 @@ import { TenantAdminLayout } from "./components/TenantAdminLayout";
 import { SuperAdminLayout } from "./components/SuperAdminLayout";
 import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
+import CookieConsent from "./components/CookieConsent";
 // Lazy load components for better performance
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -151,6 +152,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <PerformanceMonitor />
+        <CookieConsent />
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
