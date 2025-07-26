@@ -98,7 +98,10 @@ const handler = async (req: Request): Promise<Response> => {
 
         if (profileError) {
           console.error("Profile creation error:", profileError);
-          throw profileError;
+          // Don't throw error if profile already exists due to race condition
+          if (!profileError.message.includes('duplicate key')) {
+            throw profileError;
+          }
         }
       }
 
