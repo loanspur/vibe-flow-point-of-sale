@@ -21,6 +21,8 @@ serve(async (req) => {
   let createdTenantId: string | null = null;
 
   try {
+    console.log("Starting verification process...");
+    
     const body = await req.json().catch(() => null);
     
     if (!body) {
@@ -47,6 +49,8 @@ serve(async (req) => {
       }
     );
 
+    console.log("Getting pending verification...");
+    
     // Get pending verification
     const { data: verification, error: verificationError } = await supabaseAdmin
       .from('pending_verifications')
@@ -56,6 +60,7 @@ serve(async (req) => {
       .single();
 
     if (verificationError) {
+      console.error("Verification error:", verificationError);
       if (verificationError.code === 'PGRST116') {
         throw new Error('Verification token not found or already used');
       }
@@ -66,9 +71,11 @@ serve(async (req) => {
       throw new Error('Verification token not found or already used');
     }
 
+    console.log("Found verification for email:", verification.email);
+
     // Check if token is expired
     if (new Date() > new Date(verification.expires_at)) {
-      // Clean up expired token
+      console.log("Token expired, cleaning up...");
       await supabaseAdmin
         .from('pending_verifications')
         .delete()
@@ -86,133 +93,23 @@ serve(async (req) => {
       throw new Error('Business name is required for new tenant signup');
     }
 
-    console.log("Valid verification found for email:", verification.email);
+    console.log("Validation passed, proceeding with user creation...");
 
     // Check if this is an invitation or regular signup
     if (verification.invitation_data) {
-      // Handle invitation flow
-      const invitationData = verification.invitation_data;
+      console.log("Processing invitation flow...");
+      // Handle invitation flow (simplified for now)
+      throw new Error('Invitation flow not implemented yet');
       
-      // Create user account
-      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-        email: verification.email,
-        password: verification.password_hash,
-        email_confirm: true,
-        user_metadata: {
-          full_name: verification.full_name
-        }
-      });
-
-      if (userError) {
-        if (userError.message?.includes('already been registered')) {
-          // If user already exists but we have a valid verification token, 
-          // it means they should be able to log in
-          console.log("User already exists for invitation, verification complete");
-          
-          // Mark verification as completed since user exists
-          await supabaseAdmin
-            .from('pending_verifications')
-            .update({ status: 'completed' })
-            .eq('verification_token', token);
-            
-          return new Response(
-            JSON.stringify({
-              success: true,
-              message: "Your email has been verified! You can now log in with your existing account.",
-              user: {
-                email: verification.email,
-                name: verification.full_name
-              },
-              type: 'existing_user'
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 200,
-            }
-          );
-        }
-        throw new Error(`Failed to create user account: ${userError.message}`);
-      }
-
-      if (!userData.user) {
-        throw new Error('User creation failed - no user data returned');
-      }
-
-      createdUserId = userData.user.id;
-      console.log("User created successfully:", createdUserId);
-
-      // Create profile if it doesn't exist
-      const { data: existingProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('user_id', createdUserId)
-        .maybeSingle();
-
-      if (!existingProfile) {
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .insert({
-            user_id: createdUserId,
-            full_name: verification.full_name,
-            tenant_id: invitationData.tenantId
-          });
-
-        if (profileError) {
-          console.error("Profile creation error:", profileError);
-          if (!profileError.message.includes('duplicate key')) {
-            throw profileError;
-          }
-        }
-      }
-
-      // Add user to tenant
-      const { error: tenantUserError } = await supabaseAdmin
-        .from('tenant_users')
-        .insert({
-          user_id: createdUserId,
-          tenant_id: invitationData.tenantId,
-          role: 'user',
-          is_active: true
-        });
-
-      if (tenantUserError) {
-        console.error("Tenant user creation error:", tenantUserError);
-        throw tenantUserError;
-      }
-
-      // Assign role to user
-      const { error: roleError } = await supabaseAdmin
-        .from('user_role_assignments')
-        .insert({
-          user_id: createdUserId,
-          role_id: invitationData.roleId,
-          tenant_id: invitationData.tenantId
-        });
-
-      if (roleError) {
-        console.error("Role assignment error:", roleError);
-        throw roleError;
-      }
-
-      // Update invitation status
-      const { error: invitationUpdateError } = await supabaseAdmin
-        .from('user_invitations')
-        .update({ status: 'accepted' })
-        .eq('email', verification.email)
-        .eq('tenant_id', invitationData.tenantId);
-
-      if (invitationUpdateError) {
-        console.error("Failed to update invitation status:", invitationUpdateError);
-        // Don't throw error here as user is already created
-      }
-
     } else {
-      // Handle regular signup flow - create tenant
+      console.log("Processing regular signup flow...");
       
       // Generate unique subdomain with better validation
       let baseSubdomain = verification.business_name
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '');
+      
+      console.log("Base subdomain generated:", baseSubdomain);
       
       // Ensure subdomain is at least 3 characters and not too long
       if (baseSubdomain.length < 3) {
@@ -224,6 +121,8 @@ serve(async (req) => {
       let subdomain = baseSubdomain;
       let counter = 1;
 
+      console.log("Checking subdomain availability...");
+      
       while (true) {
         const { data: existingTenant } = await supabaseAdmin
           .from('tenants')
@@ -237,11 +136,14 @@ serve(async (req) => {
         counter++;
         
         // Prevent infinite loop
-        if (counter > 1000) {
+        if (counter > 100) {
           subdomain = `company${Date.now()}`;
           break;
         }
       }
+
+      console.log("Final subdomain:", subdomain);
+      console.log("Creating user account...");
 
       // Create user account
       const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -254,12 +156,10 @@ serve(async (req) => {
       });
 
       if (userError) {
+        console.error("User creation error:", userError);
         if (userError.message?.includes('already been registered')) {
-          // If user already exists but we have a valid verification token,
-          // it means they should be able to log in
-          console.log("User already exists for signup, verification complete");
+          console.log("User already exists, marking verification as completed");
           
-          // Mark verification as completed since user exists
           await supabaseAdmin
             .from('pending_verifications')
             .update({ status: 'completed' })
@@ -291,6 +191,8 @@ serve(async (req) => {
       createdUserId = userData.user.id;
       console.log("User created successfully:", createdUserId);
 
+      console.log("Creating tenant record...");
+      
       // Create tenant record
       const { data: tenantData, error: tenantError } = await supabaseAdmin
         .from('tenants')
@@ -306,12 +208,15 @@ serve(async (req) => {
         .single();
 
       if (tenantError || !tenantData) {
+        console.error("Tenant creation error:", tenantError);
         throw new Error(`Failed to create tenant: ${tenantError?.message}`);
       }
 
       createdTenantId = tenantData.id;
       console.log("Tenant created successfully:", createdTenantId);
 
+      console.log("Creating user profile...");
+      
       // Create user profile
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -327,6 +232,8 @@ serve(async (req) => {
         throw new Error(`Failed to create user profile: ${profileError.message}`);
       }
 
+      console.log("Creating tenant user association...");
+      
       // Add user to tenant_users table
       const { error: tenantUserError } = await supabaseAdmin
         .from('tenant_users')
@@ -343,6 +250,8 @@ serve(async (req) => {
       }
     }
 
+    console.log("Marking verification as completed...");
+    
     // Mark verification as completed
     const { error: updateError } = await supabaseAdmin
       .from('pending_verifications')
@@ -356,33 +265,22 @@ serve(async (req) => {
 
     console.log("Email verification and user creation completed successfully");
 
-    const responseData = verification.invitation_data 
-      ? {
-          success: true,
-          message: "Email verified and account created successfully! You can now log in.",
-          user: {
-            id: createdUserId,
-            email: verification.email,
-            name: verification.full_name
-          },
-          type: 'invitation'
-        }
-      : {
-          success: true,
-          message: "Email verified and account created successfully! You can now log in.",
-          tenant: {
-            id: createdTenantId,
-            name: verification.business_name,
-            subdomain: subdomain,
-            url: `https://${subdomain}.vibepos.shop`
-          },
-          user: {
-            id: createdUserId,
-            email: verification.email,
-            name: verification.full_name
-          },
-          type: 'signup'
-        };
+    const responseData = {
+      success: true,
+      message: "Email verified and account created successfully! You can now log in.",
+      tenant: {
+        id: createdTenantId,
+        name: verification.business_name,
+        subdomain: subdomain,
+        url: `https://${subdomain}.vibepos.shop`
+      },
+      user: {
+        id: createdUserId,
+        email: verification.email,
+        name: verification.full_name
+      },
+      type: 'signup'
+    };
 
     return new Response(
       JSON.stringify(responseData),
