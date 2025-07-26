@@ -516,7 +516,7 @@ const UserManagement = () => {
         .eq('status', 'pending')
         .maybeSingle();
 
-      console.log('Invitation check result:', { existingInvitation, invitationCheckError });
+      console.log('Invitation check result:', JSON.stringify({ existingInvitation, invitationCheckError }, null, 2));
 
       if (existingInvitation) {
         toast.error('An invitation has already been sent to this email address');
@@ -541,7 +541,7 @@ const UserManagement = () => {
           .not('user_id', 'is', null)
           .maybeSingle();
 
-        console.log('Contact check result:', { contactWithEmail, contactError });
+        console.log('Contact check result:', JSON.stringify({ contactWithEmail, contactError }, null, 2));
 
         if (contactWithEmail) {
           toast.error('A user with this email already exists in your organization');
@@ -559,7 +559,7 @@ const UserManagement = () => {
         .eq('status', 'pending')
         .maybeSingle();
 
-      console.log('Pending invitation check result:', { existingPendingInvitation, pendingInvitationError });
+      console.log('Pending invitation check result:', JSON.stringify({ existingPendingInvitation, pendingInvitationError }, null, 2));
 
       if (existingPendingInvitation) {
         toast.error('A pending invitation already exists for this email');
