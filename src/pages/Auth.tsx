@@ -59,23 +59,63 @@ const Auth = () => {
     e.preventDefault();
     setResetLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    try {
+      // First, verify if the email exists in our system
+      const { data: verificationResult, error: verificationError } = await supabase.functions.invoke(
+        'verify-email-exists',
+        {
+          body: { email: resetEmail }
+        }
+      );
 
-    if (error) {
+      if (verificationError) {
+        console.error('Error verifying email:', verificationError);
+        toast({
+          title: "Error",
+          description: "An error occurred while processing your request. Please try again.",
+          variant: "destructive"
+        });
+        setResetLoading(false);
+        return;
+      }
+
+      // If no user found with this email
+      if (!verificationResult?.exists) {
+        toast({
+          title: "Email not found",
+          description: "No account found with this email address. Please check your email or sign up for a new account.",
+          variant: "destructive"
+        });
+        setResetLoading(false);
+        return;
+      }
+
+      // If user exists, send the reset email
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Reset email sent",
+          description: "Check your email for password reset instructions."
+        });
+        setShowForgotPassword(false);
+        setResetEmail('');
+      }
+    } catch (error: any) {
+      console.error('Forgot password error:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive"
       });
-    } else {
-      toast({
-        title: "Reset email sent",
-        description: "Check your email for password reset instructions."
-      });
-      setShowForgotPassword(false);
-      setResetEmail('');
     }
 
     setResetLoading(false);
