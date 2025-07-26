@@ -35,8 +35,7 @@ export default function CreateTenantWithAdminDialog({ onTenantCreated }: CreateT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.tenantName || !formData.subdomain || !formData.adminEmail || 
-        !formData.adminPassword || !formData.adminFullName) {
+    if (!formData.tenantName || !formData.adminEmail || !formData.adminPassword || !formData.adminFullName) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -48,83 +47,26 @@ export default function CreateTenantWithAdminDialog({ onTenantCreated }: CreateT
     setLoading(true);
 
     try {
-      // Step 1: Create the tenant
-      const { data: tenantData, error: tenantError } = await supabase
-        .from('tenants')
-        .insert([{
-          name: formData.tenantName,
-          subdomain: formData.subdomain,
-          contact_email: formData.adminEmail,
-          plan_type: formData.planType,
-          max_users: formData.maxUsers,
-          is_active: true
-        }])
-        .select()
-        .single();
-
-      if (tenantError) throw tenantError;
-
-      // Step 2: Create the admin user account
-      const redirectUrl = `${window.location.origin}/auth`;
-      
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.adminEmail,
-        password: formData.adminPassword,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: formData.adminFullName,
-            role: formData.adminRole,
-            tenant_id: tenantData.id
-          }
+      // Use the same create-tenant edge function as trial signup
+      const { data, error } = await supabase.functions.invoke('create-tenant', {
+        body: {
+          businessName: formData.tenantName,
+          ownerName: formData.adminFullName,
+          email: formData.adminEmail,
+          password: formData.adminPassword,
+          planType: formData.planType,
+          maxUsers: formData.maxUsers,
+          isAdminCreated: true // Flag to indicate this is admin-created
         }
       });
 
-      if (authError) {
-        // If user creation fails, clean up the tenant
-        await supabase.from('tenants').delete().eq('id', tenantData.id);
-        throw authError;
+      if (error) {
+        throw error;
       }
 
-      if (!authData.user) {
-        await supabase.from('tenants').delete().eq('id', tenantData.id);
-        throw new Error('Failed to create admin user');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to create tenant');
       }
-
-      // Step 3: Update user profile and create tenant association
-      setTimeout(async () => {
-        try {
-          // Update the user's profile
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({
-              role: formData.adminRole,
-              tenant_id: tenantData.id,
-              full_name: formData.adminFullName
-            })
-            .eq('user_id', authData.user.id);
-
-          if (profileError) {
-            console.error('Profile update error:', profileError);
-          }
-
-          // Add user to tenant_users table
-          const { error: tenantUserError } = await supabase
-            .from('tenant_users')
-            .insert({
-              user_id: authData.user.id,
-              tenant_id: tenantData.id,
-              role: formData.adminRole,
-              is_active: true
-            });
-
-          if (tenantUserError) {
-            console.error('Tenant user creation error:', tenantUserError);
-          }
-        } catch (updateError) {
-          console.error('Error updating user after creation:', updateError);
-        }
-      }, 1000);
 
       toast({
         title: "Success",
