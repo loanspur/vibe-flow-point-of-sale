@@ -5054,6 +5054,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_feature_access: {
+        Args: { user_tenant_id: string }
+        Returns: {
+          feature_name: string
+          is_enabled: boolean
+          expires_at: string
+        }[]
+      }
       get_user_permissions: {
         Args: { user_id_param: string }
         Returns: {
@@ -5150,6 +5158,10 @@ export type Database = {
       update_variant_stock: {
         Args: { variant_id: string; quantity_sold: number }
         Returns: undefined
+      }
+      user_has_feature_access: {
+        Args: { user_tenant_id: string; feature_name_param: string }
+        Returns: boolean
       }
       user_has_permission: {
         Args: {
