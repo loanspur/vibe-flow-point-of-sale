@@ -84,17 +84,51 @@ export default function AcceptInvitation() {
           throw updateError;
         }
 
-        // Update the user's profile with full name
+        // Get the invitation metadata
+        const userData = data.user.user_metadata;
+        
+        // Update the user's profile with full name and tenant info
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
             user_id: data.user.id,
             full_name: formData.fullName,
+            tenant_id: userData?.tenant_id,
             updated_at: new Date().toISOString()
           });
 
         if (profileError) {
           console.error('Profile update error:', profileError);
+        }
+
+        // Assign the user their role if provided in metadata
+        if (userData?.role_id) {
+          const { error: roleError } = await supabase
+            .from('user_role_assignments')
+            .insert({
+              user_id: data.user.id,
+              role_id: userData.role_id,
+              tenant_id: userData.tenant_id,
+              assigned_by: userData.invited_by
+            });
+
+          if (roleError) {
+            console.error('Role assignment error:', roleError);
+          }
+        }
+
+        // Update invitation status
+        const { error: invitationUpdateError } = await supabase
+          .from('user_invitations')
+          .update({ 
+            status: 'accepted',
+            accepted_at: new Date().toISOString()
+          })
+          .eq('email', data.user.email)
+          .eq('tenant_id', userData?.tenant_id);
+
+        if (invitationUpdateError) {
+          console.error('Invitation update error:', invitationUpdateError);
         }
 
         toast({

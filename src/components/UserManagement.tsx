@@ -557,28 +557,7 @@ const UserManagement = () => {
         return;
       }
 
-      // Create the invitation record
-      const { data: invitationId, error } = await supabase.rpc('create_user_invitation', {
-        tenant_id_param: tenantId,
-        email_param: inviteEmail.trim(),
-        role_id_param: inviteRoleId,
-        invited_by_param: user.id,
-        expires_in_hours: 72
-      });
-
-      if (error) throw error;
-
-      // Get invitation details for email
-      const { data: invitation } = await supabase
-        .from('user_invitations')
-        .select(`
-          invitation_token,
-          role_id
-        `)
-        .eq('id', invitationId)
-        .single();
-
-      // Get role name separately
+      // Get role name for the invitation
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('name')
@@ -599,17 +578,40 @@ const UserManagement = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (invitation) {
-        // Send email via edge function
-        await supabase.functions.invoke('send-invitation-email', {
-          body: {
-            email: inviteEmail.trim(),
-            invitationToken: invitation.invitation_token,
-            inviterName: profile?.full_name || 'Team Member',
-            companyName: businessSettings?.company_name || 'Your Company',
-            roleName: roleData?.name || 'Unknown Role'
+      // Use Supabase's built-in invitation system
+      const redirectUrl = `${window.location.origin}/accept-invitation`;
+      const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+        inviteEmail.trim(),
+        {
+          redirectTo: redirectUrl,
+          data: {
+            role_id: inviteRoleId,
+            tenant_id: tenantId,
+            invited_by: user.id,
+            inviter_name: profile?.full_name || 'Team Member',
+            company_name: businessSettings?.company_name || 'Your Company',
+            role_name: roleData?.name || 'Unknown Role'
           }
-        });
+        }
+      );
+
+      if (inviteError) throw inviteError;
+
+      // Create invitation record for tracking
+      const { error: trackingError } = await supabase
+        .from('user_invitations')
+        .insert([{
+          email: inviteEmail.trim(),
+          role_id: inviteRoleId,
+          invited_by: user.id,
+          tenant_id: tenantId,
+          invitation_token: inviteData.user.id,
+          expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+          status: 'pending'
+        }]);
+
+      if (trackingError) {
+        console.error('Failed to create invitation tracking record:', trackingError);
       }
 
       toast.success('User invitation sent successfully');
