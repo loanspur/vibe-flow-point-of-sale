@@ -9,6 +9,7 @@ import {
   Text,
   Button,
   Hr,
+  Img,
 } from 'npm:@react-email/components@0.0.22'
 import * as React from 'npm:react@18.3.1'
 
@@ -30,6 +31,13 @@ export const InvitationEmail = ({
     <Preview>You're invited to join {companyName}</Preview>
     <Body style={main}>
       <Container style={container}>
+        <Img
+          src="https://www.vibepos.shop/logo.png"
+          width="120"
+          height="40"
+          alt="VibePOS"
+          style={logo}
+        />
         <Heading style={h1}>You're invited to join {companyName}</Heading>
         
         <Text style={text}>
@@ -150,4 +158,8 @@ const footer = {
   fontSize: '12px',
   lineHeight: '16px',
   margin: '10px 0',
+}
+
+const logo = {
+  margin: '0 0 30px',
 }
