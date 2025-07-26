@@ -599,6 +599,9 @@ const UserManagement = () => {
       setInviteEmail('');
       setInviteRoleId('');
       setIsInviteUserOpen(false);
+      
+      // Refresh the user list to show any updates
+      fetchUsers();
       fetchInvitations();
     } catch (error) {
       toast.error('Failed to send invitation');

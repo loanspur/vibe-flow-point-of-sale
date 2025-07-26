@@ -70,9 +70,11 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (existingTenantUser) {
         return new Response(JSON.stringify({ 
-          error: "User is already a member of this organization" 
+          success: true,
+          userId: userExists.id,
+          message: "User is already a member of this organization" 
         }), {
-          status: 400,
+          status: 200,
           headers: {
             "Content-Type": "application/json",
             ...corsHeaders,
