@@ -26,6 +26,7 @@ const Demo = lazy(() => import("./pages/Demo"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const CompanyInfo = lazy(() => import("./pages/CompanyInfo"));
+const Careers = lazy(() => import("./pages/Careers"));
 
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
@@ -174,6 +175,7 @@ const App = () => (
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/company-info" element={<CompanyInfo />} />
+            <Route path="/careers" element={<Careers />} />
             
             {/* Super Admin Routes */}
             <Route 

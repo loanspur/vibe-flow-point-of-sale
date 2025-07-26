@@ -792,6 +792,60 @@ export type Database = {
           },
         ]
       }
+      career_applications: {
+        Row: {
+          availability: string | null
+          bio: string | null
+          created_at: string
+          email: string
+          experience_years: number | null
+          full_name: string
+          id: string
+          linkedin_url: string | null
+          phone: string | null
+          portfolio_url: string | null
+          position_type: string
+          resume_url: string | null
+          salary_expectation: string | null
+          skills: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          availability?: string | null
+          bio?: string | null
+          created_at?: string
+          email: string
+          experience_years?: number | null
+          full_name: string
+          id?: string
+          linkedin_url?: string | null
+          phone?: string | null
+          portfolio_url?: string | null
+          position_type: string
+          resume_url?: string | null
+          salary_expectation?: string | null
+          skills?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          availability?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string
+          experience_years?: number | null
+          full_name?: string
+          id?: string
+          linkedin_url?: string | null
+          phone?: string | null
+          portfolio_url?: string | null
+          position_type?: string
+          resume_url?: string | null
+          salary_expectation?: string | null
+          skills?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_segments: {
         Row: {
           created_at: string
