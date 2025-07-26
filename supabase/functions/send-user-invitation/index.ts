@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { Resend } from "npm:resend@4.0.0";
+import { renderAsync } from "npm:@react-email/components@0.0.22";
+import React from "npm:react@18.3.1";
+import { InvitationEmail } from "./_templates/invitation-email.tsx";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,7 +153,10 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Send invitation for new users
+    // Initialize Resend
+    const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+
+    // Generate invitation token and create user record
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
       {
@@ -169,7 +176,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw inviteError;
     }
 
-    console.log("Invitation sent successfully:", inviteData);
+    console.log("Invitation user created:", inviteData);
 
     // Create invitation tracking record
     const { error: trackingError } = await supabaseAdmin
@@ -187,6 +194,33 @@ const handler = async (req: Request): Promise<Response> => {
     if (trackingError) {
       console.error('Failed to create invitation tracking record:', trackingError);
     }
+
+    // Generate the invitation email HTML using React Email
+    const invitationUrl = `${origin}/accept-invitation?token=${inviteData.user.confirmation_token || inviteData.user.id}`;
+    
+    const emailHtml = await renderAsync(
+      React.createElement(InvitationEmail, {
+        inviterName,
+        companyName,
+        roleName,
+        invitationUrl
+      })
+    );
+
+    // Send the invitation email using Resend
+    const { error: emailError } = await resend.emails.send({
+      from: `${companyName} <noreply@vibepos.shop>`,
+      to: [email],
+      subject: `You're invited to join ${companyName}`,
+      html: emailHtml,
+    });
+
+    if (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      throw new Error(`Failed to send invitation email: ${emailError.message}`);
+    }
+
+    console.log("Invitation email sent successfully to:", email);
 
     return new Response(JSON.stringify({ 
       success: true, 
