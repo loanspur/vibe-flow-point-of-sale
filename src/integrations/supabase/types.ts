@@ -2234,48 +2234,48 @@ export type Database = {
           },
         ]
       }
-      pending_verifications: {
+      pending_email_verifications: {
         Row: {
-          business_name: string | null
-          created_at: string
+          business_name: string
+          created_at: string | null
           email: string
           expires_at: string
           full_name: string
           id: string
-          invitation_data: Json | null
-          password_hash: string
+          is_verified: boolean | null
+          password: string
           plan_id: string | null
-          status: string
-          updated_at: string
+          updated_at: string | null
           verification_token: string
+          verified_at: string | null
         }
         Insert: {
-          business_name?: string | null
-          created_at?: string
+          business_name: string
+          created_at?: string | null
           email: string
           expires_at: string
           full_name: string
           id?: string
-          invitation_data?: Json | null
-          password_hash: string
+          is_verified?: boolean | null
+          password: string
           plan_id?: string | null
-          status?: string
-          updated_at?: string
+          updated_at?: string | null
           verification_token: string
+          verified_at?: string | null
         }
         Update: {
-          business_name?: string | null
-          created_at?: string
+          business_name?: string
+          created_at?: string | null
           email?: string
           expires_at?: string
           full_name?: string
           id?: string
-          invitation_data?: Json | null
-          password_hash?: string
+          is_verified?: boolean | null
+          password?: string
           plan_id?: string | null
-          status?: string
-          updated_at?: string
+          updated_at?: string | null
           verification_token?: string
+          verified_at?: string | null
         }
         Relationships: []
       }
