@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => ({
       }
     },
     target: 'es2020',
-    minify: 'terser',
+    minify: 'esbuild', // Use esbuild (faster and built-in)
     cssMinify: true,
     reportCompressedSize: false,
     chunkSizeWarningLimit: 1000
