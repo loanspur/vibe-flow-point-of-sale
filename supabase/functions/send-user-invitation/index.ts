@@ -153,6 +153,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    console.log("About to initialize Resend with API key:", Deno.env.get('RESEND_API_KEY') ? 'Key exists' : 'Key missing');
     // Initialize Resend
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -197,7 +198,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate the invitation email HTML using React Email
     const invitationUrl = `${origin}/accept-invitation?token=${inviteData.user.confirmation_token || inviteData.user.id}`;
+    console.log("Generated invitation URL:", invitationUrl);
     
+    console.log("About to render email template with props:", { inviterName, companyName, roleName, invitationUrl });
     const emailHtml = await renderAsync(
       React.createElement(InvitationEmail, {
         inviterName,
@@ -206,9 +209,11 @@ const handler = async (req: Request): Promise<Response> => {
         invitationUrl
       })
     );
+    console.log("Email HTML rendered successfully, length:", emailHtml.length);
 
     // Send the invitation email using Resend
-    const { error: emailError } = await resend.emails.send({
+    console.log("About to send email via Resend to:", email);
+    const { data: emailResult, error: emailError } = await resend.emails.send({
       from: `${companyName} <noreply@vibepos.shop>`,
       to: [email],
       subject: `You're invited to join ${companyName}`,
@@ -220,7 +225,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to send invitation email: ${emailError.message}`);
     }
 
-    console.log("Invitation email sent successfully to:", email);
+    console.log("Invitation email sent successfully to:", email, "Result:", emailResult);
 
     return new Response(JSON.stringify({ 
       success: true, 
