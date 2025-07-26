@@ -21,10 +21,16 @@ serve(async (req) => {
   let createdTenantId: string | null = null;
 
   try {
-    const { token }: VerifyRequest = await req.json();
+    const body = await req.json().catch(() => null);
+    
+    if (!body) {
+      throw new Error('Invalid request body - JSON required');
+    }
 
-    if (!token) {
-      throw new Error('Verification token is required');
+    const { token }: VerifyRequest = body;
+
+    if (!token || typeof token !== 'string') {
+      throw new Error('Verification token is required and must be a string');
     }
 
     console.log("Processing verification token:", token);
@@ -49,8 +55,15 @@ serve(async (req) => {
       .eq('status', 'pending')
       .single();
 
-    if (verificationError || !verification) {
-      throw new Error('Invalid or expired verification token');
+    if (verificationError) {
+      if (verificationError.code === 'PGRST116') {
+        throw new Error('Verification token not found or already used');
+      }
+      throw new Error(`Database error: ${verificationError.message}`);
+    }
+
+    if (!verification) {
+      throw new Error('Verification token not found or already used');
     }
 
     // Check if token is expired
@@ -61,7 +74,16 @@ serve(async (req) => {
         .delete()
         .eq('verification_token', token);
       
-      throw new Error('Verification token has expired');
+      throw new Error('Verification token has expired. Please request a new verification email.');
+    }
+
+    // Validate required fields
+    if (!verification.email || !verification.full_name || !verification.password_hash) {
+      throw new Error('Incomplete verification data. Please start the signup process again.');
+    }
+
+    if (!verification.invitation_data && !verification.business_name) {
+      throw new Error('Business name is required for new tenant signup');
     }
 
     console.log("Valid verification found for email:", verification.email);
@@ -81,8 +103,15 @@ serve(async (req) => {
         }
       });
 
-      if (userError || !userData.user) {
-        throw new Error(`Failed to create user: ${userError?.message}`);
+      if (userError) {
+        if (userError.message?.includes('already been registered')) {
+          throw new Error('An account with this email already exists. Please log in instead.');
+        }
+        throw new Error(`Failed to create user account: ${userError.message}`);
+      }
+
+      if (!userData.user) {
+        throw new Error('User creation failed - no user data returned');
       }
 
       createdUserId = userData.user.id;
@@ -184,8 +213,15 @@ serve(async (req) => {
         }
       });
 
-      if (userError || !userData.user) {
-        throw new Error(`Failed to create user: ${userError?.message}`);
+      if (userError) {
+        if (userError.message?.includes('already been registered')) {
+          throw new Error('An account with this email already exists. Please log in instead.');
+        }
+        throw new Error(`Failed to create user account: ${userError.message}`);
+      }
+
+      if (!userData.user) {
+        throw new Error('User creation failed - no user data returned');
       }
 
       createdUserId = userData.user.id;
@@ -200,8 +236,7 @@ serve(async (req) => {
           contact_email: verification.email,
           plan_type: 'basic',
           max_users: 10,
-          is_active: true,
-          status: 'trial'
+          is_active: true
         })
         .select()
         .single();
