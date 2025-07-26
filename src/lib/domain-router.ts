@@ -39,6 +39,16 @@ class DomainRouter {
       };
     }
 
+    // Check if it's the main vibepos.shop domain (landing page)
+    if (domain === 'vibepos.shop' || domain === 'www.vibepos.shop') {
+      return {
+        tenantId: null,
+        domain,
+        isCustomDomain: false,
+        isSubdomain: false
+      };
+    }
+
     // Check if it's a subdomain of your main app
     if (domain.endsWith('.vibepos.app') || domain.endsWith('.yourapp.com')) {
       const subdomain = domain.split('.')[0];
@@ -76,8 +86,11 @@ class DomainRouter {
     // Get domain info from parsed data
     const domainInfo = this.parseDomain(currentDomain);
 
-    // If it's a development domain, return as is
-    if (currentDomain === 'localhost' || currentDomain.endsWith('.lovableproject.com')) {
+    // If it's a development domain or main landing page, return as is
+    if (currentDomain === 'localhost' || 
+        currentDomain.endsWith('.lovableproject.com') ||
+        currentDomain === 'vibepos.shop' || 
+        currentDomain === 'www.vibepos.shop') {
       return domainInfo;
     }
 
