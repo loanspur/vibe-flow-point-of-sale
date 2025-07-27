@@ -1325,6 +1325,15 @@ export default function TenantAdminDashboard() {
           </Card>
         </div>
 
+        {/* Footer with system version */}
+        <footer className="mt-8 border-t border-border bg-muted/30 px-6 py-4">
+          <div className="flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">
+              VibePOS System Version 1.0.0
+            </p>
+          </div>
+        </footer>
+
       {/* Floating AI Assistant */}
       <FloatingAIAssistant />
     </div>
