@@ -192,7 +192,6 @@ export default function TenantAdminDashboard() {
             `)
             .eq('purchases.tenant_id', tenantId)
             .eq('purchases.status', 'completed')
-            .order('purchases.created_at', { ascending: true }) // FIFO ordering
         ]);
 
         console.log('Sales response:', salesResponse);
