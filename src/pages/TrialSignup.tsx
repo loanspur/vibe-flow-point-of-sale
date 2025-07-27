@@ -120,41 +120,56 @@ export default function TrialSignup() {
 
     setLoading(true);
     try {
-      console.log('Starting verification-based signup process...');
+      console.log('Starting direct signup process...');
       
-      // Send verification email using the unified verification flow
-      const { data, error } = await supabase.functions.invoke('send-verification-email', {
-        body: {
-          email: formData.email,
-          fullName: formData.ownerName,
-          businessName: formData.businessName,
-          password: formData.password,
-          planId: selectedPlan
+      // Create account directly without email verification
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.ownerName,
+            business_name: formData.businessName
+          }
         }
       });
 
-      if (error) {
-        console.error('Verification email error:', error);
-        throw error;
+      if (authError) {
+        console.error('Auth signup error:', authError);
+        throw authError;
       }
 
-      toast({
-        title: "Verification Email Sent!",
-        description: "Please check your email and click the verification link to complete your account setup.",
-        variant: "default"
-      });
+      // If signup successful, setup tenant
+      if (authData.user) {
+        const { data: tenantData, error: tenantError } = await supabase.functions.invoke('setup-missing-tenant', {
+          body: {
+            businessName: formData.businessName,
+            ownerName: formData.ownerName
+          }
+        });
 
-      // Navigate to success page
-      navigate('/success');
+        if (tenantError) {
+          console.error('Tenant setup error:', tenantError);
+          throw tenantError;
+        }
+
+        toast({
+          title: "Account Created Successfully!",
+          description: "Your account and business have been set up. You can now start your free trial.",
+          variant: "default"
+        });
+
+        // Navigate to dashboard
+        navigate('/dashboard');
+      }
 
     } catch (error: any) {
       console.error('Signup error:', error);
       
       // For specific known errors, provide better messages
-      let errorMessage = "Failed to send verification email. Please try again.";
+      let errorMessage = "Failed to create account. Please try again.";
       
-      if (error.message && error.message.includes('Edge Function returned a non-2xx status code')) {
-        // Common case: user already exists
+      if (error.message && error.message.includes('already registered')) {
         errorMessage = "An account with this email already exists. Please try signing in instead.";
       }
       
