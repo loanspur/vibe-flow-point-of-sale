@@ -218,6 +218,7 @@ export default function UserProfileSettings() {
 
     setSaving(true);
     try {
+      // First update the database profile
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -232,7 +233,7 @@ export default function UserProfileSettings() {
         return;
       }
 
-      // Update auth user metadata as well
+      // Then update auth user metadata and wait for it to complete
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           full_name: fullName.trim() || null
@@ -241,7 +242,12 @@ export default function UserProfileSettings() {
 
       if (authError) {
         console.error('Error updating auth metadata:', authError);
+        toast.error('Failed to update authentication profile');
+        return;
       }
+
+      // Wait a bit for the auth update to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       toast.success('Profile updated successfully');
       await fetchUserProfile();
