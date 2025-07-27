@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar } from "lucide-react";
+import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar, CheckCircle } from "lucide-react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import QuickCreateCustomerDialog from './QuickCreateCustomerDialog';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +67,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [remainingBalance, setRemainingBalance] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mode, setMode] = useState<"sale" | "quote">("sale");
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const form = useForm<z.infer<typeof saleSchema>>({
     resolver: zodResolver(saleSchema),
@@ -385,7 +387,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     }
   };
 
-  const onSubmit = async (values: z.infer<typeof saleSchema>) => {
+  const validateAndPrepareSubmit = (values: z.infer<typeof saleSchema>) => {
     if (mode === "quote") {
       return saveAsQuote(values);
     }
@@ -421,7 +423,16 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       return;
     }
 
+    // Show confirmation before completing sale
+    setShowConfirmation(true);
+  };
+
+  const completeSale = async () => {
+    const values = form.getValues();
+    const hasCreditPayment = payments.some(p => p.method === 'credit');
+
     setIsSubmitting(true);
+    setShowConfirmation(false);
 
     try {
       // Get current user profile to get cashier_id and tenant_id
@@ -732,7 +743,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(validateAndPrepareSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="sale_type"
@@ -1005,6 +1016,47 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           </Form>
         </CardContent>
       </Card>
+
+      {/* Sale Confirmation Dialog */}
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Confirm Sale Completion
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to complete this sale? This action cannot be undone.
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Items:</span>
+                    <span>{saleItems.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Amount:</span>
+                    <span className="font-semibold">{formatAmount(calculateTotal())}</span>
+                  </div>
+                  {payments.length > 0 && (
+                    <div className="flex justify-between">
+                      <span>Payment Method:</span>
+                      <span>{payments.length > 1 ? "Multiple" : payments[0]?.method}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={completeSale} disabled={isSubmitting}>
+              {isSubmitting ? "Processing..." : "Yes, Complete Sale"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
