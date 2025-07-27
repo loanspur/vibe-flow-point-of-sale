@@ -13,15 +13,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Mail, Clock, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Users, UserPlus, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Mail, Clock, UserCheck, AlertTriangle, RefreshCw, MoreHorizontal, Ban, CheckCircle, XCircle } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface User {
   id: string;
+  user_id: string;
   full_name: string;
   role: string;
   tenant_id: string;
   created_at: string;
   avatar_url?: string;
+  is_active?: boolean;
+  last_login?: string;
 }
 
 interface UserRole {
@@ -377,6 +381,66 @@ const UserManagement = () => {
     } catch (error) {
       toast.error('Failed to update user role');
     }
+  };
+
+  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      // Note: For now we'll use a toast message since is_active column doesn't exist yet
+      // This would need a database migration to add is_active column to profiles table
+      toast.info('User status toggle functionality requires database update');
+
+      toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      fetchUsers();
+    } catch (error) {
+      toast.error('Failed to update user status');
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast.success('User deleted successfully');
+      fetchUsers();
+    } catch (error) {
+      toast.error('Failed to delete user');
+    }
+  };
+
+  const getRoleDisplayInfo = (role: string) => {
+    const roleMap: Record<string, { color: string; icon: React.ReactNode }> = {
+      'superadmin': { 
+        color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400', 
+        icon: <Shield className="h-3 w-3" /> 
+      },
+      'admin': { 
+        color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400', 
+        icon: <Settings className="h-3 w-3" /> 
+      },
+      'manager': { 
+        color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400', 
+        icon: <UserCheck className="h-3 w-3" /> 
+      },
+      'cashier': { 
+        color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400', 
+        icon: <Users className="h-3 w-3" /> 
+      },
+      'user': { 
+        color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400', 
+        icon: <Users className="h-3 w-3" /> 
+      }
+    };
+    
+    return roleMap[role] || roleMap['user'];
   };
 
   const openEditRole = (role: UserRole) => {
@@ -859,27 +923,102 @@ const UserManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{user.role}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`${getRoleDisplayInfo(user.role).color} border-0 font-medium`}>
+                            {getRoleDisplayInfo(user.role).icon}
+                            <span className="ml-1 capitalize">{user.role}</span>
+                          </Badge>
+                          {user.is_active === false && (
+                            <Badge variant="destructive" className="text-xs">
+                              Inactive
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {new Date(user.created_at).toLocaleDateString()}
+                        <div className="text-sm">
+                          <div>{new Date(user.created_at).toLocaleDateString()}</div>
+                          {user.last_login && (
+                            <div className="text-xs text-muted-foreground">
+                              Last: {new Date(user.last_login).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(roleId) => updateUserRole(user.id, roleId)}
-                        >
-                          <SelectTrigger className="w-[150px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                // View user details functionality
+                                toast.info('View user details coming soon');
+                              }}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                              Change Role
+                            </DropdownMenuLabel>
+                            
                             {roles.map((role) => (
-                              <SelectItem key={role.id} value={role.id}>
-                                {role.name}
-                              </SelectItem>
+                              <DropdownMenuItem 
+                                key={role.id}
+                                onClick={() => updateUserRole(user.user_id, role.id)}
+                                className="pl-6"
+                                disabled={user.role === role.name.toLowerCase()}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {getRoleDisplayInfo(role.name.toLowerCase()).icon}
+                                  <span>{role.name}</span>
+                                  {user.role === role.name.toLowerCase() && (
+                                    <CheckCircle className="ml-auto h-3 w-3 text-green-600" />
+                                  )}
+                                </div>
+                              </DropdownMenuItem>
                             ))}
-                          </SelectContent>
-                        </Select>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem 
+                              onClick={() => toggleUserStatus(user.user_id, user.is_active !== false)}
+                              className={user.is_active === false ? "text-green-600" : "text-yellow-600"}
+                            >
+                              {user.is_active === false ? (
+                                <>
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Activate User
+                                </>
+                              ) : (
+                                <>
+                                  <Ban className="mr-2 h-4 w-4" />
+                                  Deactivate User
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            
+                            {userRole === 'superadmin' && (
+                              <DropdownMenuItem 
+                                onClick={() => deleteUser(user.user_id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete User
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}

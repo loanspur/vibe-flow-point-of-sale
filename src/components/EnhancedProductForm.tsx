@@ -196,7 +196,7 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         brand_id: existingProduct.brand_id || '',
         unit_id: existingProduct.unit_id || '',
         price: existingProduct.price || 0,
-        cost: existingProduct.cost || 0,
+        default_profit_margin: existingProduct.default_profit_margin || 0,
         stock_quantity: existingProduct.stock_quantity || 0,
         is_combo_product: existingProduct.is_combo_product || false,
         allow_negative_stock: existingProduct.allow_negative_stock || false,
