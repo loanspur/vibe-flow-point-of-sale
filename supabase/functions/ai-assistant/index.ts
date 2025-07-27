@@ -135,6 +135,10 @@ serve(async (req) => {
       throw new Error('Message is required');
     }
 
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key is not configured. Please contact your administrator.');
+    }
+
     // Build contextual system prompt
     let contextualPrompt = SYSTEM_KNOWLEDGE;
     
@@ -157,7 +161,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           {
             role: 'system',

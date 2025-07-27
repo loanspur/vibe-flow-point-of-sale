@@ -253,7 +253,8 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
       });
 
       if (error) {
-        throw new Error(error.message);
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Failed to send a request to the Edge Function');
       }
 
       let assistantMessage: Message = {
