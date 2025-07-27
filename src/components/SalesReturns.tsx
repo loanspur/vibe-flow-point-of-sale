@@ -29,7 +29,7 @@ interface Sale {
   customers?: {
     name: string;
     email?: string;
-  };
+  } | null;
   sale_items: SaleItem[];
 }
 
@@ -206,7 +206,7 @@ export default function SalesReturns() {
         .from('sales')
         .select(`
           *,
-          customers(name, email),
+          customers!customer_id(name, email),
           sale_items(
             *,
             products(name, sku)
@@ -231,6 +231,7 @@ export default function SalesReturns() {
       // Transform the data to match our interface
       const transformedData = {
         ...data,
+        customers: data.customers || null,
         sale_items: data.sale_items.map((item: any) => ({
           ...item,
           product: item.products

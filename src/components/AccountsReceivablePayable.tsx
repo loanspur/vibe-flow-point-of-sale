@@ -245,7 +245,7 @@ const AccountsReceivablePayable: React.FC = () => {
           total_amount, 
           created_at, 
           customer_id,
-          customers(name)
+          customers!customer_id(name)
         `).eq('tenant_id', tenantId).eq('status', 'completed'),
         supabase.from('purchases').select(`
           id, 

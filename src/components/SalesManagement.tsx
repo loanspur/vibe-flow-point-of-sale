@@ -37,7 +37,7 @@ interface Sale {
     email?: string;
     phone?: string;
     address?: string;
-  };
+  } | null;
   profiles?: {
     full_name: string;
   } | null;
@@ -98,7 +98,7 @@ export default function SalesManagement() {
         .from('sales')
         .select(`
           *,
-          customers (
+          customers!customer_id (
             id,
             name,
             email,
@@ -130,7 +130,8 @@ export default function SalesManagement() {
       
       const invoicesWithProfiles = (data || []).map(invoice => ({
         ...invoice,
-        profiles: profilesMap[invoice.cashier_id] || null
+        profiles: profilesMap[invoice.cashier_id] || null,
+        customers: invoice.customers || null
       }));
 
       setInvoices(invoicesWithProfiles);
@@ -148,7 +149,7 @@ export default function SalesManagement() {
         .from('sales')
         .select(`
           *,
-          customers (
+          customers!customer_id (
             id,
             name,
             email,
@@ -178,10 +179,11 @@ export default function SalesManagement() {
         profilesMap[profile.user_id] = profile;
       });
       
-      // Add profile data to sales
+      // Add profile data to sales and ensure customers is properly handled
       const salesWithProfiles = (data || []).map(sale => ({
         ...sale,
-        profiles: profilesMap[sale.cashier_id] || null
+        profiles: profilesMap[sale.cashier_id] || null,
+        customers: sale.customers || null
       }));
 
       setSales(salesWithProfiles);
