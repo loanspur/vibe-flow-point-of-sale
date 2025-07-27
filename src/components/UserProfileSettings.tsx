@@ -9,6 +9,8 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { 
   User, 
@@ -20,7 +22,15 @@ import {
   Camera,
   Save,
   Eye,
-  EyeOff
+  EyeOff,
+  Smartphone,
+  Activity,
+  LogOut,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Monitor
 } from 'lucide-react';
 
 interface UserProfile {
@@ -44,16 +54,29 @@ interface ContactProfile {
   notes: string | null;
 }
 
+interface LoginActivity {
+  id: string;
+  action_type: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  details: any;
+}
+
 export default function UserProfileSettings() {
-  const { user, userRole, tenantId } = useAuth();
+  const { user, userRole, tenantId, signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [contactProfile, setContactProfile] = useState<ContactProfile | null>(null);
+  const [loginActivity, setLoginActivity] = useState<LoginActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [showEmailChange, setShowEmailChange] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState(0);
   
   // Form states
   const [fullName, setFullName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -70,8 +93,15 @@ export default function UserProfileSettings() {
     if (user) {
       fetchUserProfile();
       fetchContactProfile();
+      fetchLoginActivity();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (newPassword) {
+      setPasswordStrength(calculatePasswordStrength(newPassword));
+    }
+  }, [newPassword]);
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -124,6 +154,63 @@ export default function UserProfileSettings() {
     } catch (error) {
       console.error('Error fetching contact profile:', error);
     }
+  };
+
+  const fetchLoginActivity = async () => {
+    if (!user || !tenantId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_activity_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('action_type', 'login')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching login activity:', error);
+        return;
+      }
+
+      setLoginActivity((data || []).map(item => ({
+        ...item,
+        ip_address: item.ip_address as string | null,
+        user_agent: item.user_agent as string | null
+      })));
+    } catch (error) {
+      console.error('Error fetching login activity:', error);
+    }
+  };
+
+  const calculatePasswordStrength = (password: string): number => {
+    let strength = 0;
+    
+    // Length check
+    if (password.length >= 8) strength += 25;
+    if (password.length >= 12) strength += 15;
+    
+    // Character variety checks
+    if (/[a-z]/.test(password)) strength += 15;
+    if (/[A-Z]/.test(password)) strength += 15;
+    if (/[0-9]/.test(password)) strength += 15;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 15;
+    
+    return Math.min(100, strength);
+  };
+
+  const getPasswordStrengthColor = (strength: number): string => {
+    if (strength < 30) return 'bg-red-500';
+    if (strength < 60) return 'bg-yellow-500';
+    if (strength < 80) return 'bg-blue-500';
+    return 'bg-green-500';
+  };
+
+  const getPasswordStrengthText = (strength: number): string => {
+    if (strength < 30) return 'Weak';
+    if (strength < 60) return 'Fair';
+    if (strength < 80) return 'Good';
+    return 'Strong';
   };
 
   const handleUpdateProfile = async () => {
@@ -249,6 +336,75 @@ export default function UserProfileSettings() {
     }
   };
 
+  const handleEmailChange = async () => {
+    if (!newEmail.trim()) {
+      toast.error('Please enter a new email address');
+      return;
+    }
+
+    if (newEmail === user?.email) {
+      toast.error('New email is the same as current email');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: newEmail.trim()
+      });
+
+      if (error) {
+        toast.error('Failed to update email');
+        console.error('Error updating email:', error);
+        return;
+      }
+
+      toast.success('Email update initiated. Please check your new email for verification.');
+      setNewEmail('');
+      setShowEmailChange(false);
+    } catch (error) {
+      toast.error('Failed to update email');
+      console.error('Error updating email:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAccountDeactivation = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to deactivate your account? This action cannot be undone and you will be signed out immediately.'
+    );
+
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      // Log the deactivation activity
+      if (tenantId) {
+        await supabase
+          .from('user_activity_logs')
+          .insert({
+            tenant_id: tenantId,
+            user_id: user?.id,
+            action_type: 'account_deactivation',
+            details: {
+              timestamp: new Date().toISOString(),
+              self_deactivated: true
+            }
+          });
+      }
+
+      // Sign out the user
+      await signOut();
+      toast.success('Account deactivated successfully');
+    } catch (error) {
+      toast.error('Failed to deactivate account');
+      console.error('Error deactivating account:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'superadmin': return 'bg-destructive text-destructive-foreground';
@@ -257,6 +413,18 @@ export default function UserProfileSettings() {
       case 'cashier': return 'bg-secondary text-secondary-foreground';
       default: return 'bg-muted text-muted-foreground';
     }
+  };
+
+  const formatUserAgent = (userAgent: string | null): string => {
+    if (!userAgent) return 'Unknown device';
+    
+    if (userAgent.includes('Chrome')) return 'Chrome Browser';
+    if (userAgent.includes('Firefox')) return 'Firefox Browser';
+    if (userAgent.includes('Safari')) return 'Safari Browser';
+    if (userAgent.includes('Edge')) return 'Edge Browser';
+    if (userAgent.includes('Mobile')) return 'Mobile Device';
+    
+    return 'Desktop Browser';
   };
 
   if (loading) {
@@ -313,10 +481,11 @@ export default function UserProfileSettings() {
 
       {/* Profile Management Tabs */}
       <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="personal">Personal Info</TabsTrigger>
           <TabsTrigger value="contact">Contact Profile</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         {/* Personal Information Tab */}
@@ -540,16 +709,34 @@ export default function UserProfileSettings() {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="newPassword">New Password</Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new password (min. 6 characters)"
-                      />
-                    </div>
+                     <div className="space-y-2">
+                       <Label htmlFor="newPassword">New Password</Label>
+                       <Input
+                         id="newPassword"
+                         type="password"
+                         value={newPassword}
+                         onChange={(e) => setNewPassword(e.target.value)}
+                         placeholder="Enter new password (min. 8 characters)"
+                       />
+                       {newPassword && (
+                         <div className="space-y-2">
+                           <div className="flex items-center justify-between text-sm">
+                             <span className="text-muted-foreground">Password strength:</span>
+                             <span className={`font-medium ${
+                               passwordStrength < 30 ? 'text-red-500' :
+                               passwordStrength < 60 ? 'text-yellow-500' :
+                               passwordStrength < 80 ? 'text-blue-500' : 'text-green-500'
+                             }`}>
+                               {getPasswordStrengthText(passwordStrength)}
+                             </span>
+                           </div>
+                           <Progress 
+                             value={passwordStrength} 
+                             className="h-2"
+                           />
+                         </div>
+                       )}
+                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="confirmPassword">Confirm New Password</Label>
@@ -585,7 +772,69 @@ export default function UserProfileSettings() {
                 )}
               </div>
 
-              <Separator />
+               <Separator />
+
+               {/* Email Change Section */}
+               <div className="space-y-4">
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <h4 className="font-medium">Email Address</h4>
+                     <p className="text-sm text-muted-foreground">
+                       Current: {user?.email}
+                     </p>
+                   </div>
+                   <Button
+                     variant="outline"
+                     onClick={() => setShowEmailChange(!showEmailChange)}
+                     className="flex items-center space-x-2"
+                   >
+                     <Mail className="h-4 w-4" />
+                     <span>{showEmailChange ? 'Cancel' : 'Change Email'}</span>
+                   </Button>
+                 </div>
+
+                 {showEmailChange && (
+                   <div className="border rounded-lg p-4 space-y-4">
+                     <Alert>
+                       <AlertTriangle className="h-4 w-4" />
+                       <AlertDescription>
+                         Changing your email will require verification. You'll receive a confirmation email at your new address.
+                       </AlertDescription>
+                     </Alert>
+                     
+                     <div className="space-y-2">
+                       <Label htmlFor="newEmail">New Email Address</Label>
+                       <Input
+                         id="newEmail"
+                         type="email"
+                         value={newEmail}
+                         onChange={(e) => setNewEmail(e.target.value)}
+                         placeholder="Enter new email address"
+                       />
+                     </div>
+
+                     <div className="flex justify-end space-x-2">
+                       <Button
+                         variant="outline"
+                         onClick={() => {
+                           setShowEmailChange(false);
+                           setNewEmail('');
+                         }}
+                       >
+                         Cancel
+                       </Button>
+                       <Button 
+                         onClick={handleEmailChange}
+                         disabled={saving || !newEmail.trim()}
+                       >
+                         {saving ? 'Updating...' : 'Update Email'}
+                       </Button>
+                     </div>
+                   </div>
+                 )}
+               </div>
+
+               <Separator />
 
               <div className="bg-muted/50 rounded-lg p-4">
                 <h4 className="font-medium mb-2">Account Information</h4>
@@ -604,10 +853,115 @@ export default function UserProfileSettings() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+               
+               {/* Account Deactivation */}
+               <div className="border border-red-200 rounded-lg p-4 bg-red-50/50">
+                 <h4 className="font-medium text-red-800 mb-2">Danger Zone</h4>
+                 <p className="text-sm text-red-600 mb-4">
+                   Deactivating your account will sign you out and may restrict access to some features.
+                 </p>
+                 <Button 
+                   variant="destructive" 
+                   onClick={handleAccountDeactivation}
+                   disabled={saving}
+                   className="flex items-center space-x-2"
+                 >
+                   <XCircle className="h-4 w-4" />
+                   <span>{saving ? 'Deactivating...' : 'Deactivate Account'}</span>
+                 </Button>
+               </div>
+             </CardContent>
+           </Card>
+         </TabsContent>
+
+         {/* Activity Tab */}
+         <TabsContent value="activity">
+           <Card>
+             <CardHeader>
+               <CardTitle className="flex items-center space-x-2">
+                 <Activity className="h-5 w-5" />
+                 <span>Login Activity</span>
+               </CardTitle>
+               <CardDescription>
+                 View your recent login activity and session information
+               </CardDescription>
+             </CardHeader>
+             <CardContent className="space-y-6">
+               {loginActivity.length > 0 ? (
+                 <div className="space-y-4">
+                   {loginActivity.map((activity) => (
+                     <div key={activity.id} className="flex items-center justify-between p-4 border rounded-lg">
+                       <div className="flex items-center space-x-3">
+                         <div className="p-2 bg-green-100 rounded-full">
+                           <CheckCircle className="h-4 w-4 text-green-600" />
+                         </div>
+                         <div>
+                           <div className="flex items-center space-x-2">
+                             <Monitor className="h-4 w-4 text-muted-foreground" />
+                             <span className="font-medium">
+                               {formatUserAgent(activity.user_agent)}
+                             </span>
+                           </div>
+                           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                             <span>IP: {activity.ip_address || 'Unknown'}</span>
+                             <span className="flex items-center space-x-1">
+                               <Clock className="h-3 w-3" />
+                               <span>{new Date(activity.created_at).toLocaleString()}</span>
+                             </span>
+                           </div>
+                         </div>
+                       </div>
+                       <Badge variant="outline" className="text-green-600 border-green-200">
+                         Successful
+                       </Badge>
+                     </div>
+                   ))}
+                 </div>
+               ) : (
+                 <div className="text-center py-8">
+                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                   <p className="text-muted-foreground">No recent login activity found</p>
+                 </div>
+               )}
+
+               <Separator />
+
+               {/* Session Information */}
+               <div className="space-y-4">
+                 <h4 className="font-medium">Current Session</h4>
+                 <div className="border rounded-lg p-4 space-y-3">
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center space-x-3">
+                       <div className="p-2 bg-blue-100 rounded-full">
+                         <Smartphone className="h-4 w-4 text-blue-600" />
+                       </div>
+                       <div>
+                         <p className="font-medium">This Device</p>
+                         <p className="text-sm text-muted-foreground">Current session</p>
+                       </div>
+                     </div>
+                     <Badge className="bg-green-100 text-green-800">
+                       Active
+                     </Badge>
+                   </div>
+                   
+                   <div className="flex justify-end">
+                     <Button 
+                       variant="outline" 
+                       size="sm"
+                       onClick={() => signOut()}
+                       className="flex items-center space-x-2"
+                     >
+                       <LogOut className="h-4 w-4" />
+                       <span>Sign Out</span>
+                     </Button>
+                   </div>
+                 </div>
+               </div>
+             </CardContent>
+           </Card>
+         </TabsContent>
+       </Tabs>
+     </div>
   );
 }
