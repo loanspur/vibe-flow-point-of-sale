@@ -53,5 +53,23 @@ export default function ProtectedRoute({
     return <Navigate to="/superadmin" replace />;
   }
 
+  // Redirect tenant admin/manager users to their dashboard if they're on root or other public pages
+  if ((userRole === 'admin' || userRole === 'manager') && 
+      (window.location.pathname === '/' || 
+       window.location.pathname === '/demo' ||
+       window.location.pathname.startsWith('/signup') ||
+       window.location.pathname.startsWith('/success'))) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  // Redirect cashier/user to POS if they're on root or other public pages
+  if ((userRole === 'cashier' || userRole === 'user') && 
+      (window.location.pathname === '/' || 
+       window.location.pathname === '/demo' ||
+       window.location.pathname.startsWith('/signup') ||
+       window.location.pathname.startsWith('/success'))) {
+    return <Navigate to="/pos" replace />;
+  }
+
   return <>{children}</>;
 }
