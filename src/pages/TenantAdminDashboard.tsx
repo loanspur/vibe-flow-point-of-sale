@@ -179,7 +179,7 @@ export default function TenantAdminDashboard() {
             .order('created_at', { ascending: false })
             .limit(100),
             
-          // Purchase items for FIFO costing
+          // Purchase items for FIFO costing - include both completed and received purchases
           supabase
             .from('purchase_items')
             .select(`
@@ -191,7 +191,7 @@ export default function TenantAdminDashboard() {
               purchases!inner(created_at, status, tenant_id)
             `)
             .eq('purchases.tenant_id', tenantId)
-            .eq('purchases.status', 'completed')
+            .in('purchases.status', ['completed', 'received'])
         ]);
 
         console.log('Sales response:', salesResponse);
@@ -252,7 +252,7 @@ export default function TenantAdminDashboard() {
         // FIFO (First In, First Out) cost calculation with proper prorata distribution
         const calculateFIFOCost = (productId: string, requiredQty: number) => {
           const productPurchases = purchaseItems
-            .filter(item => item.product_id === productId && item.unit_cost > 0)
+            .filter(item => item.product_id === productId)
             .sort((a, b) => new Date(a.purchases.created_at).getTime() - new Date(b.purchases.created_at).getTime());
           
           console.log(`FIFO calculation for product ${productId}:`, {
