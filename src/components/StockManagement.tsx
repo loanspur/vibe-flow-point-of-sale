@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
-  ClipboardCheck, 
   ArrowUpDown, 
   RotateCw, 
   Package, 
-  TrendingUp, 
-  TrendingDown,
-  Plus
+  TrendingDown
 } from 'lucide-react';
 import { StockTaking } from './stock/StockTaking';
 import { StockAdjustments } from './stock/StockAdjustments';
@@ -51,29 +46,6 @@ export const StockManagement: React.FC<StockManagementProps> = ({ className }) =
     }
   ];
 
-  const quickActions = [
-    {
-      title: 'Start Stock Taking',
-      description: 'Begin physical count session',
-      icon: ClipboardCheck,
-      action: () => setActiveTab('stock-taking'),
-      color: 'bg-green-500'
-    },
-    {
-      title: 'Create Adjustment',
-      description: 'Adjust stock quantities',
-      icon: RotateCw,
-      action: () => setActiveTab('adjustments'),
-      color: 'bg-yellow-500'
-    },
-    {
-      title: 'Transfer Stock',
-      description: 'Move stock between locations',
-      icon: ArrowUpDown,
-      action: () => setActiveTab('transfers'),
-      color: 'bg-purple-500'
-    }
-  ];
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -108,39 +80,6 @@ export const StockManagement: React.FC<StockManagementProps> = ({ className }) =
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Quick Actions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {quickActions.map((action, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                className="h-auto p-4 justify-start"
-                onClick={action.action}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`${action.color} p-2 rounded-full`}>
-                    <action.icon className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">{action.title}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {action.description}
-                    </div>
-                  </div>
-                </div>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
