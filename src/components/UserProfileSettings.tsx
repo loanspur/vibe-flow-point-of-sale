@@ -270,7 +270,7 @@ export default function UserProfileSettings() {
         company: contactCompany.trim() || null,
         address: contactAddress.trim() || null,
         notes: contactNotes.trim() || null,
-        type: 'employee',
+        type: 'customer', // Valid type from the database constraint
         tenant_id: tenantId,
         user_id: user.id,
         updated_at: new Date().toISOString()
