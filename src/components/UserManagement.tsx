@@ -130,6 +130,7 @@ const UserManagement = () => {
   const [isInviteUserOpen, setIsInviteUserOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRoleId, setInviteRoleId] = useState('');
+  const [selectedUserDetails, setSelectedUserDetails] = useState<User | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -223,7 +224,27 @@ const UserManagement = () => {
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      
+      // Also fetch tenant_users to get is_active status
+      const userIds = data?.map(user => user.user_id) || [];
+      if (userIds.length > 0) {
+        const { data: tenantUsersData } = await supabase
+          .from('tenant_users')
+          .select('user_id, is_active')
+          .in('user_id', userIds)
+          .eq('tenant_id', tenantId);
+        
+        const tenantUsersMap = new Map(tenantUsersData?.map(tu => [tu.user_id, tu.is_active]) || []);
+        
+        const usersWithStatus = data?.map(user => ({
+          ...user,
+          is_active: tenantUsersMap.get(user.user_id) ?? true
+        })) || [];
+        
+        setUsers(usersWithStatus);
+      } else {
+        setUsers(data || []);
+      }
     } catch (error) {
       toast.error('Failed to load users');
     }
@@ -385,9 +406,13 @@ const UserManagement = () => {
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      // Note: For now we'll use a toast message since is_active column doesn't exist yet
-      // This would need a database migration to add is_active column to profiles table
-      toast.info('User status toggle functionality requires database update');
+      const { error } = await supabase
+        .from('tenant_users')
+        .update({ is_active: !currentStatus })
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
 
       toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
       fetchUsers();
@@ -958,10 +983,7 @@ const UserManagement = () => {
                             <DropdownMenuSeparator />
                             
                             <DropdownMenuItem 
-                              onClick={() => {
-                                // View user details functionality
-                                toast.info('View user details coming soon');
-                              }}
+                              onClick={() => setSelectedUserDetails(user)}
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
@@ -1531,6 +1553,91 @@ const UserManagement = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Details Dialog */}
+      <Dialog open={!!selectedUserDetails} onOpenChange={() => setSelectedUserDetails(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              View detailed information about this user
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUserDetails && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-lg font-medium">
+                    {selectedUserDetails.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="font-medium">{selectedUserDetails.full_name || 'Unnamed User'}</h3>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`${getRoleDisplayInfo(selectedUserDetails.role).color} border-0 font-medium`}>
+                      {getRoleDisplayInfo(selectedUserDetails.role).icon}
+                      <span className="ml-1 capitalize">{selectedUserDetails.role}</span>
+                    </Badge>
+                    {selectedUserDetails.is_active === false && (
+                      <Badge variant="destructive" className="text-xs">
+                        Inactive
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Label className="text-xs text-muted-foreground">User ID</Label>
+                  <p className="font-mono text-xs">{selectedUserDetails.user_id.slice(0, 8)}...</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <p>{selectedUserDetails.is_active !== false ? 'Active' : 'Inactive'}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Joined</Label>
+                  <p>{new Date(selectedUserDetails.created_at).toLocaleDateString()}</p>
+                </div>
+                {selectedUserDetails.last_login && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Last Login</Label>
+                    <p>{new Date(selectedUserDetails.last_login).toLocaleDateString()}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setSelectedUserDetails(null)}>
+                  Close
+                </Button>
+                <Button 
+                  variant={selectedUserDetails.is_active !== false ? "destructive" : "default"}
+                  onClick={() => {
+                    toggleUserStatus(selectedUserDetails.user_id, selectedUserDetails.is_active !== false);
+                    setSelectedUserDetails(null);
+                  }}
+                >
+                  {selectedUserDetails.is_active !== false ? (
+                    <>
+                      <Ban className="h-4 w-4 mr-2" />
+                      Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Activate
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
