@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/DashboardHeader';
 import PromotionManagement from '@/components/PromotionManagement';
@@ -12,30 +12,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
-  BarChart3, 
-  Users, 
-  Package, 
-  ShoppingCart,
   DollarSign,
-  FileText,
+  ShoppingCart,
+  Package,
+  Users,
+  Plus,
+  Settings,
   Calculator,
   UserPlus,
-  Phone,
-  ShoppingBag,
-  TrendingUp,
-  Plus,
-  Search,
-  Filter,
-  Edit,
-  Trash2,
-  Eye,
-  AlertCircle,
-  Building2,
-  Settings
+  Building2
 } from 'lucide-react';
 
 interface DashboardData {
@@ -48,7 +36,7 @@ interface DashboardData {
   products: any[];
 }
 
-export default function ComprehensivePOS() {
+export default function ComprehensivePOSOptimized() {
   const { formatPrice } = useCurrencyUpdate();
   const { user, tenantId, userRole, refreshUserInfo } = useAuth();
   const { toast } = useToast();
@@ -119,7 +107,7 @@ export default function ComprehensivePOS() {
         <DashboardHeader />
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-center min-h-[50vh]">
-            <Card className="max-w-md">
+            <Card className="max-w-md animate-fade-in">
               <CardHeader className="text-center">
                 <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
                   <Building2 className="h-6 w-6 text-yellow-600" />
@@ -170,99 +158,84 @@ export default function ComprehensivePOS() {
     );
   }
 
-  // Fetch real dashboard data
+  // Optimized dashboard data fetch with longer cache time
   const { data: dashboardData, loading: dashboardLoading } = useOptimizedQuery<DashboardData>(
     async () => {
       if (!tenantId) return { data: null, error: null };
       
       try {
-        // Get today's date
         const today = new Date().toISOString().split('T')[0];
         
-        // Fetch today's sales total
-        const { data: salesData, error: salesError } = await supabase
-          .from('sales')
-          .select('total_amount')
-          .eq('tenant_id', tenantId)
-          .gte('created_at', today + 'T00:00:00')
-          .lt('created_at', today + 'T23:59:59');
-        
-        if (salesError) throw salesError;
-        
-        // Count today's orders
-        const todaysSales = salesData?.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0) || 0;
-        const todaysOrders = salesData?.length || 0;
-        
-        // Get total products count
-        const { count: productsCount, error: productsCountError } = await supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId)
-          .eq('is_active', true);
-        
-        if (productsCountError) throw productsCountError;
-        
-        // Get low stock products count  
-        const { data: lowStockProducts, error: lowStockError } = await supabase
-          .from('products')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .filter('stock_quantity', 'lte', 'min_stock_level');
-        
-        if (lowStockError) throw lowStockError;
-        const lowStockCount = lowStockProducts?.length || 0;
-        
-        // Get total customers count
-        const { count: customersCount, error: customersError } = await supabase
-          .from('contacts')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId)
-          .eq('type', 'customer');
-        
-        if (customersError) throw customersError;
-        
-        // Get recent sales
-        const { data: recentSalesData, error: recentSalesError } = await supabase
-          .from('sales')
-          .select(`
-            id,
-            total_amount,
-            created_at,
-            contacts!inner (name)
-          `)
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (recentSalesError) throw recentSalesError;
-        
-        // Get recent products
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select(`
-            id,
-            name,
-            sku,
-            price,
-            stock_quantity,
-            product_categories (name)
-          `)
-          .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (productsError) throw productsError;
-        
+        // Batch all queries for better performance
+        const [salesResult, productsResult, customersResult, recentSalesResult, productsListResult] = await Promise.all([
+          // Sales data
+          supabase
+            .from('sales')
+            .select('total_amount')
+            .eq('tenant_id', tenantId)
+            .gte('created_at', today + 'T00:00:00')
+            .lt('created_at', today + 'T23:59:59'),
+          
+          // Products count and low stock
+          supabase
+            .from('products')
+            .select('id, stock_quantity, min_stock_level')
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true),
+            
+          // Customers count
+          supabase
+            .from('contacts')
+            .select('*', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .eq('type', 'customer'),
+            
+          // Recent sales
+          supabase
+            .from('sales')
+            .select(`
+              id,
+              total_amount,
+              created_at,
+              contacts!inner (name)
+            `)
+            .eq('tenant_id', tenantId)
+            .order('created_at', { ascending: false })
+            .limit(5),
+            
+          // Recent products
+          supabase
+            .from('products')
+            .select(`
+              id,
+              name,
+              sku,
+              price,
+              stock_quantity,
+              product_categories (name)
+            `)
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(5)
+        ]);
+
+        // Process results
+        const todaysSales = salesResult.data?.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0) || 0;
+        const todaysOrders = salesResult.data?.length || 0;
+        const productsCount = productsResult.data?.length || 0;
+        const lowStockCount = productsResult.data?.filter(p => 
+          (p.stock_quantity || 0) <= (p.min_stock_level || 0)
+        ).length || 0;
+
         const result: DashboardData = {
           todaysSales,
           todaysOrders,
-          productsCount: productsCount || 0,
-          lowStockCount: lowStockCount || 0,
-          customersCount: customersCount || 0,
-          recentSales: recentSalesData || [],
-          products: productsData || []
+          productsCount,
+          lowStockCount,
+          customersCount: customersResult.count || 0,
+          recentSales: recentSalesResult.data || [],
+          products: productsListResult.data || []
         };
         
         return { data: result, error: null };
@@ -273,12 +246,13 @@ export default function ComprehensivePOS() {
     [tenantId],
     {
       enabled: !!tenantId,
-      staleTime: 1000 * 60 * 2, // 2 minutes
-      cacheKey: `pos-dashboard-metrics-${tenantId}`
+      staleTime: 1000 * 60 * 5, // 5 minutes cache
+      cacheKey: `pos-dashboard-optimized-${tenantId}`
     }
   );
 
-  const stats = [
+  // Memoized calculations to prevent re-computation
+  const stats = useMemo(() => [
     { 
       title: "Today's Sales", 
       value: dashboardData?.todaysSales ? formatPrice(dashboardData.todaysSales) : formatPrice(0), 
@@ -307,27 +281,29 @@ export default function ComprehensivePOS() {
       icon: Users, 
       color: "text-orange-600" 
     }
-  ];
+  ], [dashboardData, formatPrice]);
 
-  const recentSales = dashboardData?.recentSales?.map((sale: any, index: number) => ({
-    id: `#${String(index + 1).padStart(3, '0')}`,
-    customer: sale.contacts?.name || 'Unknown Customer',
-    amount: formatPrice(Number(sale.total_amount || 0)),
-    time: new Date(sale.created_at).toLocaleString(),
-    status: 'completed'
-  })) || [];
+  const recentSales = useMemo(() => 
+    dashboardData?.recentSales?.map((sale: any, index: number) => ({
+      id: `#${String(index + 1).padStart(3, '0')}`,
+      customer: sale.contacts?.name || 'Unknown Customer',
+      amount: formatPrice(Number(sale.total_amount || 0)),
+      time: new Date(sale.created_at).toLocaleString(),
+      status: 'completed'
+    })) || [], [dashboardData?.recentSales, formatPrice]);
 
-  const products = dashboardData?.products?.map((product: any) => ({
-    id: product.id,
-    name: product.name,
-    sku: product.sku || 'N/A',
-    price: formatPrice(Number(product.price || 0)),
-    stock: product.stock_quantity || 0,
-    category: product.product_categories?.name || 'Uncategorized'
-  })) || [];
+  const products = useMemo(() =>
+    dashboardData?.products?.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      sku: product.sku || 'N/A',
+      price: formatPrice(Number(product.price || 0)),
+      stock: product.stock_quantity || 0,
+      category: product.product_categories?.name || 'Uncategorized'
+    })) || [], [dashboardData?.products, formatPrice]);
 
   const ActionButton = ({ icon: Icon, children, onClick, variant = "outline" }: any) => (
-    <Button variant={variant} size="sm" onClick={onClick} className="flex items-center gap-2">
+    <Button variant={variant} size="sm" onClick={onClick} className="flex items-center gap-2 hover-scale">
       <Icon className="h-4 w-4" />
       {children}
     </Button>
@@ -336,7 +312,7 @@ export default function ComprehensivePOS() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       <DashboardHeader />
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-6 animate-fade-in">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
@@ -375,7 +351,7 @@ export default function ComprehensivePOS() {
               {stats.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
-                  <Card key={index}>
+                  <Card key={index} className="hover-scale">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
                       <Icon className={`h-4 w-4 ${stat.color}`} />
@@ -404,7 +380,7 @@ export default function ComprehensivePOS() {
                       </div>
                     ) : recentSales.length > 0 ? (
                       recentSales.map((sale, index) => (
-                        <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                        <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0 animate-fade-in" style={{animationDelay: `${index * 100}ms`}}>
                           <div className="flex items-center space-x-3">
                             <div className="w-2 h-2 rounded-full bg-green-500" />
                             <div>
@@ -451,9 +427,6 @@ export default function ComprehensivePOS() {
                     <ActionButton icon={Settings} onClick={() => navigate('/admin/settings')}>
                       Settings
                     </ActionButton>
-                    <ActionButton icon={Calculator} onClick={() => navigate('/admin/purchases')}>
-                      Purchases
-                    </ActionButton>
                     <ActionButton icon={Calculator} onClick={() => navigate('/admin/accounting')}>
                       Accounting
                     </ActionButton>
@@ -463,31 +436,10 @@ export default function ComprehensivePOS() {
             </div>
           </TabsContent>
 
-
-
-
-
-
-
           {/* Promotions Tab */}
           <TabsContent value="promotions" className="space-y-6">
-            {tenantId ? (
-              <PromotionManagement />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Tenant Required</h3>
-                  <p className="text-muted-foreground text-center">
-                    Promotion management requires an active tenant. Please contact your administrator.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            <PromotionManagement />
           </TabsContent>
-
-
-
         </Tabs>
       </div>
     </div>
