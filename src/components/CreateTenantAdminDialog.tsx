@@ -76,29 +76,23 @@ export default function CreateTenantAdminDialog({ onUserCreated }: CreateTenantA
       const selectedTenant = tenants.find(t => t.id === formData.tenantId);
       const tenantName = selectedTenant?.name || 'Your Company';
 
-      // Use verification-based signup for tenant admin creation
-      const { data, error } = await supabase.functions.invoke('send-verification-email', {
+      // Send welcome email with login details
+      const { data, error } = await supabase.functions.invoke('send-welcome-email', {
         body: {
           email: formData.email,
-          fullName: formData.fullName,
-          businessName: '', // Not required for tenant admin
           password: formData.password,
-          invitationData: {
-            roleId: formData.role,
-            tenantId: formData.tenantId,
-            inviterName: user?.user_metadata?.full_name || 'Admin',
-            inviterId: user?.id || '',
-            companyName: tenantName,
-            roleName: formData.role === 'admin' ? 'Administrator' : 'Manager'
-          }
+          fullName: formData.fullName,
+          tenantName: tenantName,
+          role: formData.role === 'admin' ? 'Administrator' : 'Manager',
+          loginUrl: `${window.location.origin}/auth`
         }
       });
 
       if (error) throw error;
 
       toast({
-        title: "Invitation Sent",
-        description: `Verification email sent to ${formData.email}. They will receive an invitation to join ${tenantName} as ${formData.role === 'admin' ? 'Administrator' : 'Manager'}.`,
+        title: "Welcome Email Sent",
+        description: `Welcome email with login details sent to ${formData.email} for ${tenantName}.`,
       });
 
       // Reset form
