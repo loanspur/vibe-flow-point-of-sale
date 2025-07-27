@@ -109,7 +109,7 @@ export default function TenantAdminDashboard() {
             .gte('created_at', startDate)
             .lte('created_at', endDate),
           
-          // Products with complete stock and pricing info
+          // Products with complete stock and pricing info including variants
           supabase
             .from('products')
             .select(`
@@ -121,7 +121,8 @@ export default function TenantAdminDashboard() {
               price, 
               cost_price, 
               is_active,
-              created_at
+              created_at,
+              product_variants(id, stock_quantity)
             `)
             .eq('tenant_id', tenantId)
             .eq('is_active', true),
@@ -219,22 +220,40 @@ export default function TenantAdminDashboard() {
         const completedPurchases = purchases.filter(purchase => purchase.status !== 'cancelled');
         const totalPurchases = completedPurchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
         
-        // Enhanced stock value calculations with comprehensive analysis
-        const productsWithStock = products.filter(product => (product.stock_quantity || 0) > 0);
-        const productsWithoutStock = products.filter(product => (product.stock_quantity || 0) === 0);
+        // Enhanced stock value calculations including product variants
+        const productsWithVariants = products.map(product => {
+          // Calculate total stock from main product and variants
+          const mainStock = product.stock_quantity || 0;
+          const variantStock = (product.product_variants || []).reduce((sum, variant) => sum + (variant.stock_quantity || 0), 0);
+          const totalStock = mainStock + variantStock;
+          
+          // Calculate cost and sale values (variants use main product pricing)
+          const productCostPrice = product.cost_price || 0;
+          const productSalePrice = product.price || 0;
+          
+          let totalCostValue = mainStock * productCostPrice;
+          let totalSaleValue = mainStock * productSalePrice;
+          
+          // Add variant values using main product pricing
+          (product.product_variants || []).forEach(variant => {
+            totalCostValue += (variant.stock_quantity || 0) * productCostPrice;
+            totalSaleValue += (variant.stock_quantity || 0) * productSalePrice;
+          });
+          
+          return {
+            ...product,
+            totalStock,
+            totalCostValue,
+            totalSaleValue
+          };
+        });
         
-        // Calculate actual inventory values
-        const totalInventoryAtCost = products.reduce((sum, product) => {
-          const stockQty = product.stock_quantity || 0;
-          const costPrice = product.cost_price || 0;
-          return sum + (stockQty * costPrice);
-        }, 0);
+        const productsWithStock = productsWithVariants.filter(product => product.totalStock > 0);
+        const productsWithoutStock = productsWithVariants.filter(product => product.totalStock === 0);
         
-        const totalInventoryAtSale = products.reduce((sum, product) => {
-          const stockQty = product.stock_quantity || 0;
-          const salePrice = product.price || 0;
-          return sum + (stockQty * salePrice);
-        }, 0);
+        // Calculate actual inventory values including variants
+        const totalInventoryAtCost = productsWithVariants.reduce((sum, product) => sum + product.totalCostValue, 0);
+        const totalInventoryAtSale = productsWithVariants.reduce((sum, product) => sum + product.totalSaleValue, 0);
         
         // Calculate weighted average cost from recent purchases (simplified)
         const totalRecentPurchases = inventoryMovements.reduce((sum, purchase) => sum + (purchase.total_amount || 0), 0);
