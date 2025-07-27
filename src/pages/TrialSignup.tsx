@@ -26,7 +26,7 @@ interface BillingPlan {
 export default function TrialSignup() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUserInfo } = useAuth();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState(searchParams.get('plan') || '');
   const [loading, setLoading] = useState(false);
@@ -142,6 +142,8 @@ export default function TrialSignup() {
       // If signup successful, setup tenant
       if (authData.user) {
         console.log('Setting up tenant for user:', authData.user.id);
+        console.log('User metadata:', authData.user.user_metadata);
+        
         const { data: tenantData, error: tenantError } = await supabase.functions.invoke('setup-missing-tenant', {
           body: {
             businessName: formData.businessName,
@@ -153,8 +155,24 @@ export default function TrialSignup() {
 
         if (tenantError) {
           console.error('Tenant setup error:', tenantError);
-          throw tenantError;
+          throw new Error(`Failed to setup business: ${tenantError.message}`);
         }
+
+        if (!tenantData?.success) {
+          console.error('Tenant setup failed:', tenantData);
+          throw new Error(tenantData?.error || 'Failed to setup business');
+        }
+
+        // Force refresh user info to get updated tenant_id
+        console.log('Refreshing user info after tenant creation...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for DB to settle
+        
+        // Refresh user info in AuthContext to get updated tenant_id
+        await refreshUserInfo();
+        
+        // Get fresh session to ensure user data is updated
+        const { data: sessionData } = await supabase.auth.getSession();
+        console.log('Fresh session after tenant setup:', sessionData?.session?.user?.id);
 
         toast({
           title: "Account Created Successfully!",
