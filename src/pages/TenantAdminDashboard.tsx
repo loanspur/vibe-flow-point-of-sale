@@ -29,6 +29,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart, Tooltip, Legend } from "recharts";
 
 const getTimeBasedGreeting = () => {
   const hour = new Date().getHours();
@@ -580,6 +581,42 @@ export default function TenantAdminDashboard() {
     });
   }
 
+  // Chart colors
+  const chartColors = {
+    primary: "hsl(var(--primary))",
+    secondary: "hsl(var(--secondary))",
+    muted: "hsl(var(--muted-foreground))",
+    success: "#10b981",
+    warning: "#f59e0b",
+    danger: "#ef4444",
+    info: "#3b82f6"
+  };
+
+  // Prepare chart data
+  const revenueChartData = [
+    { name: 'Previous Period', revenue: 0, sales: 0 },
+    { name: 'Current Period', revenue: dashboardData?.revenue || 0, sales: dashboardData?.salesCount || 0 }
+  ];
+
+  const stockChartData = [
+    { name: 'Cost Value', value: dashboardData?.stockByPurchasePrice || 0, fill: chartColors.info },
+    { name: 'Sale Value', value: dashboardData?.stockBySalePrice || 0, fill: chartColors.success },
+    { name: 'Potential Value', value: dashboardData?.potentialStockValue || 0, fill: chartColors.warning }
+  ];
+
+  const performanceChartData = [
+    { metric: 'Revenue', value: dashboardData?.revenue || 0, target: (dashboardData?.potentialStockValue || 0) * 0.3 },
+    { metric: 'Profit', value: dashboardData?.profit || 0, target: (dashboardData?.revenue || 0) * 0.2 },
+    { metric: 'Stock Value', value: dashboardData?.stockBySalePrice || 0, target: dashboardData?.potentialStockValue || 0 },
+    { metric: 'Customers', value: dashboardData?.activeCustomers || 0, target: Math.max((dashboardData?.totalCustomers || 0) * 0.5, 10) }
+  ];
+
+  const profitabilityData = [
+    { name: 'Profitable', value: dashboardData?.profitableProducts || 0, fill: chartColors.success },
+    { name: 'Break Even', value: Math.max(0, (dashboardData?.totalProducts || 0) - (dashboardData?.profitableProducts || 0) - (dashboardData?.outOfStockCount || 0)), fill: chartColors.warning },
+    { name: 'Out of Stock', value: dashboardData?.outOfStockCount || 0, fill: chartColors.danger }
+  ];
+
   return (
     <div className="p-6 space-y-6">
       {/* Welcome Section */}
@@ -868,40 +905,151 @@ export default function TenantAdminDashboard() {
           
           <TabsContent value="trends" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Revenue Trend Chart */}
+              {/* Revenue & Sales Performance Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Revenue Trend</CardTitle>
-                  <CardDescription>Daily revenue for selected period</CardDescription>
+                  <CardTitle>Revenue & Sales Performance</CardTitle>
+                  <CardDescription>Revenue vs target performance</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
-                    <div className="text-center">
-                      <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">Chart visualization coming soon</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Current: {formatCurrency(dashboardData?.revenue || 0)}
-                      </p>
-                    </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={performanceChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartColors.muted} />
+                        <XAxis dataKey="metric" fontSize={12} />
+                        <YAxis fontSize={12} />
+                        <Tooltip 
+                          formatter={(value, name) => [formatCurrency(Number(value)), name === 'value' ? 'Actual' : 'Target']}
+                          labelStyle={{ color: 'hsl(var(--foreground))' }}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px'
+                          }}
+                        />
+                        <Legend />
+                        <Bar dataKey="value" fill={chartColors.primary} name="Actual" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="target" fill={chartColors.muted} name="Target" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
               
-              {/* Stock Movement Chart */}
+              {/* Stock Value Breakdown */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Stock Movement</CardTitle>
-                  <CardDescription>Inventory levels over time</CardDescription>
+                  <CardTitle>Stock Value Breakdown</CardTitle>
+                  <CardDescription>Cost vs Sale vs Potential values</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
-                    <div className="text-center">
-                      <Package className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">Chart visualization coming soon</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Stock Value: {formatCurrency(dashboardData?.stockBySalePrice || 0)}
-                      </p>
-                    </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={stockChartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {stockChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value) => [formatCurrency(Number(value)), 'Value']}
+                          labelStyle={{ color: 'hsl(var(--foreground))' }}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px'
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Product Profitability Analysis */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Profitability</CardTitle>
+                  <CardDescription>Distribution of profitable vs out-of-stock products</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={profitabilityData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          {profitabilityData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value) => [value, 'Products']}
+                          labelStyle={{ color: 'hsl(var(--foreground))' }}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px'
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Business Metrics Trend */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Business Overview</CardTitle>
+                  <CardDescription>Key performance indicators</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={revenueChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartColors.muted} />
+                        <XAxis dataKey="name" fontSize={12} />
+                        <YAxis fontSize={12} />
+                        <Tooltip 
+                          formatter={(value, name) => [
+                            name === 'revenue' ? formatCurrency(Number(value)) : value,
+                            name === 'revenue' ? 'Revenue' : 'Sales Count'
+                          ]}
+                          labelStyle={{ color: 'hsl(var(--foreground))' }}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px'
+                          }}
+                        />
+                        <Legend />
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stackId="1"
+                          stroke={chartColors.success}
+                          fill={chartColors.success}
+                          fillOpacity={0.6}
+                          name="Revenue"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
