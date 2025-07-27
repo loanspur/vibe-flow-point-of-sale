@@ -64,7 +64,7 @@ interface LoginActivity {
 }
 
 export default function UserProfileSettings() {
-  const { user, userRole, tenantId, signOut } = useAuth();
+  const { user, userRole, tenantId, signOut, refreshUserInfo } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [contactProfile, setContactProfile] = useState<ContactProfile | null>(null);
   const [loginActivity, setLoginActivity] = useState<LoginActivity[]>([]);
@@ -232,8 +232,24 @@ export default function UserProfileSettings() {
         return;
       }
 
+      // Update auth user metadata as well
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          full_name: fullName.trim() || null
+        }
+      });
+
+      if (authError) {
+        console.error('Error updating auth metadata:', authError);
+      }
+
       toast.success('Profile updated successfully');
       await fetchUserProfile();
+      
+      // Refresh auth context to update UI
+      if (refreshUserInfo) {
+        await refreshUserInfo();
+      }
     } catch (error) {
       toast.error('Failed to update profile');
       console.error('Error updating profile:', error);
