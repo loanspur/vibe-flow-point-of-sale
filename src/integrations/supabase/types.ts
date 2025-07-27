@@ -4773,7 +4773,8 @@ export type Database = {
           max_users: number | null
           name: string
           plan_type: string
-          subdomain: string | null
+          status: string
+          subdomain: string
           updated_at: string
         }
         Insert: {
@@ -4786,7 +4787,8 @@ export type Database = {
           max_users?: number | null
           name: string
           plan_type?: string
-          subdomain?: string | null
+          status?: string
+          subdomain: string
           updated_at?: string
         }
         Update: {
@@ -4799,7 +4801,8 @@ export type Database = {
           max_users?: number | null
           name?: string
           plan_type?: string
-          subdomain?: string | null
+          status?: string
+          subdomain?: string
           updated_at?: string
         }
         Relationships: []
