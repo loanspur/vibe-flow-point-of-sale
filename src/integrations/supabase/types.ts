@@ -4663,6 +4663,69 @@ export type Database = {
           },
         ]
       }
+      tenant_whatsapp_numbers: {
+        Row: {
+          business_profile: Json | null
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          id: string
+          is_active: boolean | null
+          last_verification_attempt: string | null
+          monthly_fee: number | null
+          phone_number: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          verification_attempts: number | null
+          verification_code: string | null
+          verified_at: string | null
+          waba_phone_number_id: string | null
+          webhook_url: string | null
+          webhook_verify_token: string | null
+        }
+        Insert: {
+          business_profile?: Json | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_verification_attempt?: string | null
+          monthly_fee?: number | null
+          phone_number: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          verification_attempts?: number | null
+          verification_code?: string | null
+          verified_at?: string | null
+          waba_phone_number_id?: string | null
+          webhook_url?: string | null
+          webhook_verify_token?: string | null
+        }
+        Update: {
+          business_profile?: Json | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_verification_attempt?: string | null
+          monthly_fee?: number | null
+          phone_number?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          verification_attempts?: number | null
+          verification_code?: string | null
+          verified_at?: string | null
+          waba_phone_number_id?: string | null
+          webhook_url?: string | null
+          webhook_verify_token?: string | null
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           address: string | null
@@ -5093,6 +5156,206 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_billing: {
+        Row: {
+          base_fee: number
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string
+          currency: string | null
+          id: string
+          message_count: number | null
+          message_fees: number | null
+          paid_at: string | null
+          phone_number_id: string
+          status: string
+          tenant_id: string
+          total_amount: number
+        }
+        Insert: {
+          base_fee?: number
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string
+          currency?: string | null
+          id?: string
+          message_count?: number | null
+          message_fees?: number | null
+          paid_at?: string | null
+          phone_number_id: string
+          status?: string
+          tenant_id: string
+          total_amount: number
+        }
+        Update: {
+          base_fee?: number
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string
+          currency?: string | null
+          id?: string
+          message_count?: number | null
+          message_fees?: number | null
+          paid_at?: string | null
+          phone_number_id?: string
+          status?: string
+          tenant_id?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_billing_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_message_logs: {
+        Row: {
+          cost: number | null
+          created_at: string
+          delivered_at: string | null
+          delivery_status: Json | null
+          error_code: string | null
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message_content: string | null
+          message_type: string
+          phone_number_id: string
+          read_at: string | null
+          recipient_phone: string
+          sent_at: string | null
+          status: string
+          template_id: string | null
+          tenant_id: string
+          waba_message_id: string | null
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_status?: Json | null
+          error_code?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_content?: string | null
+          message_type?: string
+          phone_number_id: string
+          read_at?: string | null
+          recipient_phone: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          tenant_id: string
+          waba_message_id?: string | null
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_status?: Json | null
+          error_code?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message_content?: string | null
+          message_type?: string
+          phone_number_id?: string
+          read_at?: string | null
+          recipient_phone?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          tenant_id?: string
+          waba_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_message_logs_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_message_logs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_message_templates: {
+        Row: {
+          body_text: string
+          buttons: Json | null
+          category: string
+          created_at: string
+          footer_text: string | null
+          header_content: string | null
+          header_type: string | null
+          id: string
+          is_system_template: boolean | null
+          language: string
+          quality_score: string | null
+          status: string
+          template_name: string
+          tenant_id: string | null
+          updated_at: string
+          variables: Json | null
+          waba_template_id: string | null
+        }
+        Insert: {
+          body_text: string
+          buttons?: Json | null
+          category?: string
+          created_at?: string
+          footer_text?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          is_system_template?: boolean | null
+          language?: string
+          quality_score?: string | null
+          status?: string
+          template_name: string
+          tenant_id?: string | null
+          updated_at?: string
+          variables?: Json | null
+          waba_template_id?: string | null
+        }
+        Update: {
+          body_text?: string
+          buttons?: Json | null
+          category?: string
+          created_at?: string
+          footer_text?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          is_system_template?: boolean | null
+          language?: string
+          quality_score?: string | null
+          status?: string
+          template_name?: string
+          tenant_id?: string | null
+          updated_at?: string
+          variables?: Json | null
+          waba_template_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -5218,6 +5481,15 @@ export type Database = {
           role_id_param: string
           invited_by_param: string
           expires_in_hours?: number
+        }
+        Returns: string
+      }
+      create_whatsapp_billing_record: {
+        Args: {
+          tenant_id_param: string
+          phone_number_id_param: string
+          billing_period_start_param: string
+          billing_period_end_param: string
         }
         Returns: string
       }
