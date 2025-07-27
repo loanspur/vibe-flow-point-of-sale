@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createTenantWithUser, generateUniqueSubdomain } from "../shared-tenant-creation/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,34 +90,36 @@ serve(async (req) => {
       throw new Error("Business name and owner name are required");
     }
 
-    // Generate unique subdomain using shared function
-    const subdomain = await generateUniqueSubdomain(businessName);
-
-
-    // Use shared tenant creation function
-    const tenantResult = await createTenantWithUser({
-      businessName,
-      ownerName,
-      ownerEmail: user.email,
-      subdomain,
-      userId: user.id,
-      planType: 'trial',
-      maxUsers: 10,
-      isAdminCreated: false
+    // Call the unified create-tenant function for existing users
+    const createTenantUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/create-tenant`;
+    const createTenantResponse = await fetch(createTenantUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+      },
+      body: JSON.stringify({
+        businessName,
+        ownerName,
+        email: user.email,
+        isExistingUser: true,
+        existingUserId: user.id,
+        planType: 'trial',
+        maxUsers: 10,
+        isAdminCreated: false
+      })
     });
 
-    if (!tenantResult.success || !tenantResult.tenant) {
-      throw new Error(tenantResult.error || "Failed to create tenant");
+    const createTenantResult = await createTenantResponse.json();
+    
+    if (!createTenantResult.success) {
+      throw new Error(createTenantResult.error || "Failed to create tenant");
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        tenant: {
-          id: tenantResult.tenant.id,
-          name: tenantResult.tenant.name,
-          subdomain: tenantResult.tenant.subdomain,
-        }
+        tenant: createTenantResult.tenant
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
