@@ -194,10 +194,22 @@ export default function TenantAdminDashboard() {
             .in('purchases.status', ['completed', 'received'])
         ]);
 
-        console.log('Sales response:', salesResponse);
-        console.log('Products response:', productsResponse);
-        console.log('Customers response:', customersResponse);
-        console.log('Purchases response:', purchasesResponse);
+        console.log('=== DASHBOARD DATA FETCH RESULTS ===');
+        console.log('Sales response:', { status: salesResponse.status, count: salesResponse.data?.length });
+        console.log('Products response:', { status: productsResponse.status, count: productsResponse.data?.length });
+        console.log('Customers response:', { status: customersResponse.status, count: customersResponse.count });
+        console.log('Purchases response:', { status: purchasesResponse.status, count: purchasesResponse.data?.length });
+        console.log('Purchase Items response:', { 
+          status: purchaseItemsResponse.status, 
+          count: purchaseItemsResponse.data?.length,
+          items: purchaseItemsResponse.data?.map(item => ({
+            product_id: item.product_id,
+            qty_received: item.quantity_received,
+            unit_cost: item.unit_cost,
+            purchase_date: item.purchases?.created_at,
+            purchase_status: item.purchases?.status
+          }))
+        });
         console.log('Sale items response:', saleItemsResponse);
         console.log('All sales response:', allSalesResponse);
 
@@ -464,7 +476,18 @@ export default function TenantAdminDashboard() {
           inventoryTurnover: totalInventoryAtCost > 0 ? cogs / totalInventoryAtCost : 0
         };
 
-        console.log('Calculated dashboard metrics:', result);
+        console.log('=== FINAL CARD VALUES ===');
+        console.log('📊 Stock Value (Purchase):', totalInventoryAtCost);
+        console.log('📊 Stock Value (Sale):', totalInventoryAtSale);
+        console.log('📊 Total Revenue:', revenue);
+        console.log('📊 Total Customers:', totalCustomers);
+        console.log('📊 Products with detailed calculation:', productsWithVariants.map(p => ({
+          name: p.name,
+          stock: p.totalStock,
+          costValue: p.totalCostValue,
+          saleValue: p.totalSaleValue,
+          avgUnitCost: p.averageUnitCost
+        })));
         console.log('🎯 Final dashboard data being returned:', result);
 
         return {
