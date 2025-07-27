@@ -29,7 +29,7 @@ const productSchema = z.object({
   brand_id: z.string().optional(),
   unit_id: z.string().optional(),
   price: z.number().min(0, 'Price must be positive'),
-  cost: z.number().min(0, 'Cost must be positive'),
+  default_profit_margin: z.number().min(0, 'Profit margin must be positive').max(100, 'Profit margin cannot exceed 100%').optional(),
   stock_quantity: z.number().min(0, 'Stock quantity must be positive'),
   is_combo_product: z.boolean().default(false),
   allow_negative_stock: z.boolean().default(false),
@@ -60,7 +60,7 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
       sku: '',
       barcode: '',
       price: 0,
-      cost: 0,
+      default_profit_margin: 0,
       stock_quantity: 0,
       is_combo_product: false,
       allow_negative_stock: false,
@@ -238,7 +238,7 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         brand_id: hasFeature('enable_brands') ? (data.brand_id || null) : null,
         unit_id: hasFeature('enable_product_units') ? (data.unit_id || null) : null,
         price: data.price,
-        cost: data.cost,
+        default_profit_margin: data.default_profit_margin || null,
         stock_quantity: data.stock_quantity,
         is_combo_product: hasFeature('enable_combo_products') ? data.is_combo_product : false,
         allow_negative_stock: hasFeature('enable_negative_stock') ? data.allow_negative_stock : false,
@@ -555,14 +555,16 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="cost"
+                    name="default_profit_margin"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Cost Price</FormLabel>
+                        <FormLabel>Default Profit Margin %</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
                             step="0.01"
+                            min="0"
+                            max="100"
                             placeholder="0.00" 
                             {...field} 
                             onChange={(e) => field.onChange(Number(e.target.value))}

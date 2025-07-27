@@ -48,7 +48,7 @@ interface Product {
   name: string;
   sku: string;
   price: number;
-  cost: number;
+  default_profit_margin?: number;
   stock_quantity: number;
   min_stock_level: number;
   description?: string;
@@ -86,7 +86,7 @@ export default function ProductManagement() {
           name,
           sku,
           price,
-          cost,
+          default_profit_margin,
           stock_quantity,
           min_stock_level,
           image_url,

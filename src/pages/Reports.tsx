@@ -89,7 +89,7 @@ const Reports = () => {
       // Fetch products data
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("id, name, price, cost, stock_quantity, min_stock_level")
+        .select("id, name, price, default_profit_margin, stock_quantity, min_stock_level")
         .eq("tenant_id", tenantId)
         .eq("is_active", true);
 
@@ -151,11 +151,11 @@ const Reports = () => {
 
       // Calculate inventory value
       const totalInventoryValue = productsData?.reduce((sum, product) => 
-        sum + (Number(product.cost || 0) * product.stock_quantity), 0) || 0;
+        sum + (Number(product.default_profit_margin || 0) * product.stock_quantity), 0) || 0;
 
       // Calculate gross profit (simplified)
       const grossProfit = productsData?.reduce((sum, product) => 
-        sum + ((Number(product.price) - Number(product.cost || 0)) * product.stock_quantity), 0) || 0;
+        sum + ((Number(product.price) - Number(product.default_profit_margin || 0)) * product.stock_quantity), 0) || 0;
 
       // Find top product
       const productSales = new Map();

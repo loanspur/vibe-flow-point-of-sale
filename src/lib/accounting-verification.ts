@@ -58,7 +58,7 @@ export const syncExistingTransactions = async (tenantId: string, userId: string)
       .select(`
         id, total_amount, discount_amount, tax_amount, payment_method,
         cashier_id, customer_id, created_at,
-        sale_items(product_id, quantity, products(cost)),
+        sale_items(product_id, quantity, products(default_profit_margin)),
         payments(payment_method, amount)
       `)
       .eq('tenant_id', tenantId)
@@ -76,7 +76,7 @@ export const syncExistingTransactions = async (tenantId: string, userId: string)
         const itemsWithCost = sale.sale_items?.map(item => ({
           productId: item.product_id,
           quantity: item.quantity,
-          unitCost: item.products?.cost || 0
+          unitCost: item.products?.default_profit_margin || 0
         })) || [];
 
         // Convert payments to new format, fallback to sale payment_method if no individual payments

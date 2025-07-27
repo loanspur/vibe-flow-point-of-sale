@@ -85,7 +85,7 @@ interface Product {
   id: string;
   name: string;
   sku: string;
-  cost: number;
+  default_profit_margin?: number;
   price: number;
   stock_quantity: number;
   product_variants?: ProductVariant[];
@@ -96,7 +96,7 @@ interface ProductVariant {
   name: string;
   value: string;
   sku: string;
-  purchase_price: number;
+  default_profit_margin?: number;
   sale_price: number;
   stock_quantity: number;
 }
@@ -195,7 +195,7 @@ const PurchaseManagement = () => {
           id, 
           name, 
           sku, 
-          cost, 
+          default_profit_margin, 
           price, 
           stock_quantity,
           product_variants (
@@ -203,7 +203,7 @@ const PurchaseManagement = () => {
             name,
             value,
             sku,
-            purchase_price,
+            default_profit_margin,
             sale_price,
             stock_quantity
           )
@@ -568,7 +568,7 @@ const PurchaseManagement = () => {
     if (field === 'product_id' && value) {
       const product = products.find(p => p.id === value);
       if (product) {
-        newItems[index].unit_cost = product.cost || 0;
+        newItems[index].unit_cost = product.default_profit_margin || 0;
         // Clear variant when product changes
         newItems[index].variant_id = '';
       }
@@ -578,7 +578,7 @@ const PurchaseManagement = () => {
       const product = products.find(p => p.id === newItems[index].product_id);
       const variant = product?.product_variants?.find(v => v.id === value);
       if (variant) {
-        newItems[index].unit_cost = variant.purchase_price || 0;
+        newItems[index].unit_cost = variant.default_profit_margin || 0;
       }
     }
     
