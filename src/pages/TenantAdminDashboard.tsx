@@ -97,38 +97,50 @@ export default function TenantAdminDashboard() {
           productsResponse, 
           customersResponse, 
           purchasesResponse,
-          saleItemsResponse
+          saleItemsResponse,
+          allSalesResponse,
+          inventoryMovementsResponse
         ] = await Promise.all([
           // Sales data for the date range including customer_id
           supabase
             .from('sales')
-            .select('total_amount, created_at, customer_id')
+            .select('total_amount, created_at, customer_id, status, payment_method, discount_amount, tax_amount')
             .eq('tenant_id', tenantId)
             .gte('created_at', startDate)
             .lte('created_at', endDate),
           
-          // Products with stock info
+          // Products with complete stock and pricing info
           supabase
             .from('products')
-            .select('id, stock_quantity, min_stock_level, price, cost_price')
+            .select(`
+              id, 
+              name,
+              sku,
+              stock_quantity, 
+              min_stock_level, 
+              price, 
+              cost_price, 
+              is_active,
+              created_at
+            `)
             .eq('tenant_id', tenantId)
             .eq('is_active', true),
           
-          // Customers count
+          // Total unique customers count
           supabase
             .from('customers')
-            .select('id', { count: 'exact', head: true })
+            .select('id, created_at', { count: 'exact', head: true })
             .eq('tenant_id', tenantId),
           
-          // Purchases data for the date range
+          // Purchases data for the date range with complete info
           supabase
             .from('purchases')
-            .select('total_amount, created_at')
+            .select('total_amount, created_at, status, supplier_id')
             .eq('tenant_id', tenantId)
             .gte('created_at', startDate)
             .lte('created_at', endDate),
           
-          // Sale items with product info for COGS calculation
+          // Sale items with detailed product info for accurate COGS calculation
           supabase
             .from('sale_items')
             .select(`
@@ -137,12 +149,32 @@ export default function TenantAdminDashboard() {
               total_price,
               product_id,
               variant_id,
-              products!inner(cost_price, price),
-              sales!inner(created_at, tenant_id)
+              products!inner(cost_price, price, name),
+              sales!inner(created_at, tenant_id, total_amount)
             `)
             .eq('sales.tenant_id', tenantId)
             .gte('sales.created_at', startDate)
             .lte('sales.created_at', endDate),
+          
+          // All sales for customer activity analysis
+          supabase
+            .from('sales')
+            .select('customer_id, created_at')
+            .eq('tenant_id', tenantId)
+            .not('customer_id', 'is', null),
+          
+          // Recent inventory movements for stock accuracy - using correct table structure
+          supabase
+            .from('purchases')
+            .select(`
+              total_amount,
+              created_at,
+              status
+            `)
+            .eq('tenant_id', tenantId)
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false })
+            .limit(100)
         ]);
 
         console.log('Sales response:', salesResponse);
@@ -150,6 +182,7 @@ export default function TenantAdminDashboard() {
         console.log('Customers response:', customersResponse);
         console.log('Purchases response:', purchasesResponse);
         console.log('Sale items response:', saleItemsResponse);
+        console.log('All sales response:', allSalesResponse);
 
         // Check for errors
         if (salesResponse.error) throw salesResponse.error;
@@ -157,74 +190,95 @@ export default function TenantAdminDashboard() {
         if (customersResponse.error) throw customersResponse.error;
         if (purchasesResponse.error) throw purchasesResponse.error;
         if (saleItemsResponse.error) throw saleItemsResponse.error;
+        if (allSalesResponse.error) throw allSalesResponse.error;
+        if (inventoryMovementsResponse.error) throw inventoryMovementsResponse.error;
 
-        // Calculate metrics
-        const revenue = salesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0) || 0;
-        const salesCount = salesResponse.data?.length || 0;
+        // Enhanced metric calculations with better accuracy
+        const sales = salesResponse.data || [];
+        const products = productsResponse.data || [];
+        const purchases = purchasesResponse.data || [];
+        const saleItems = saleItemsResponse.data || [];
+        const allSales = allSalesResponse.data || [];
+        const inventoryMovements = inventoryMovementsResponse.data || [];
+
+        // Calculate accurate revenue (only completed sales)
+        const completedSales = sales.filter(sale => sale.status !== 'cancelled' && sale.status !== 'refunded');
+        const revenue = completedSales.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
+        const salesCount = completedSales.length;
+        
+        // Calculate total customers and active customers more accurately
         const totalCustomers = customersResponse.count || 0;
-        const totalPurchases = purchasesResponse.data?.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0) || 0;
+        const uniqueActiveCustomerIds = [...new Set(
+          allSales
+            .filter(sale => sale.customer_id)
+            .map(sale => sale.customer_id)
+        )];
+        const activeCustomers = uniqueActiveCustomerIds.length;
         
-        // Calculate active customers (unique customers who made purchases in the period)
-        const activeCustomers = [...new Set(salesResponse.data?.map(sale => sale.customer_id).filter(Boolean))].length || 0;
+        // Calculate accurate purchase totals (only completed purchases)
+        const completedPurchases = purchases.filter(purchase => purchase.status !== 'cancelled');
+        const totalPurchases = completedPurchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
         
-        // Enhanced stock value calculations with better data handling
-        const productsWithStock = productsResponse.data?.filter(product => 
-          (product.stock_quantity || 0) > 0
-        ) || [];
+        // Enhanced stock value calculations with comprehensive analysis
+        const productsWithStock = products.filter(product => (product.stock_quantity || 0) > 0);
+        const productsWithoutStock = products.filter(product => (product.stock_quantity || 0) === 0);
         
-        const allProducts = productsResponse.data || [];
-        
-        // Calculate stock values - only for products with actual stock
-        const stockByPurchasePrice = productsWithStock.reduce((sum, product) => {
+        // Calculate actual inventory values
+        const totalInventoryAtCost = products.reduce((sum, product) => {
           const stockQty = product.stock_quantity || 0;
           const costPrice = product.cost_price || 0;
           return sum + (stockQty * costPrice);
         }, 0);
         
-        const stockBySalePrice = productsWithStock.reduce((sum, product) => {
+        const totalInventoryAtSale = products.reduce((sum, product) => {
           const stockQty = product.stock_quantity || 0;
           const salePrice = product.price || 0;
           return sum + (stockQty * salePrice);
         }, 0);
         
-        // Calculate total inventory value (including zero stock items for comparison)
-        const totalInventoryAtCost = allProducts.reduce((sum, product) => {
-          const stockQty = product.stock_quantity || 0;
-          const costPrice = product.cost_price || 0;
-          return sum + (stockQty * costPrice);
-        }, 0);
+        // Calculate weighted average cost from recent purchases (simplified)
+        const totalRecentPurchases = inventoryMovements.reduce((sum, purchase) => sum + (purchase.total_amount || 0), 0);
+        const avgPurchaseCost = inventoryMovements.length > 0 ? totalRecentPurchases / inventoryMovements.length : 0;
         
-        const totalInventoryAtSale = allProducts.reduce((sum, product) => {
-          const stockQty = product.stock_quantity || 0;
-          const salePrice = product.price || 0;
-          return sum + (stockQty * salePrice);
-        }, 0);
-        
-        // Calculate COGS from actual sale items - if cost_price is 0, use unit_price as fallback
-        const cogs = saleItemsResponse.data?.reduce((sum, item) => {
+        // Calculate accurate COGS using multiple methods for validation
+        const cogsByActualCost = saleItems.reduce((sum, item) => {
           const costPrice = item.products?.cost_price || 0;
-          const unitPrice = item.unit_price || 0;
-          const actualCost = costPrice > 0 ? costPrice : unitPrice * 0.7; // Use 70% of selling price as estimated cost if no cost_price
-          return sum + ((item.quantity || 0) * actualCost);
-        }, 0) || 0;
-        const profit = revenue - cogs;
+          const quantity = item.quantity || 0;
+          return sum + (quantity * costPrice);
+        }, 0);
         
-        // Calculate profitable products (products with price > cost_price)
-        const profitableProducts = allProducts.filter(product => 
-          (product.price || 0) > (product.cost_price || 0) && (product.cost_price || 0) > 0
-        ).length || 0;
+        const cogsByWeightedAvg = saleItems.reduce((sum, item) => {
+          const quantity = item.quantity || 0;
+          const itemCost = item.products?.cost_price || avgPurchaseCost || (item.unit_price * 0.7);
+          return sum + (quantity * itemCost);
+        }, 0);
         
-        // Low stock count - products at or below minimum stock level
-        const lowStockCount = allProducts.filter(product => {
+        // Use the more accurate COGS calculation
+        const cogs = cogsByActualCost > 0 ? cogsByActualCost : cogsByWeightedAvg;
+        const grossProfit = revenue - cogs;
+        const profitMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+        
+        // Enhanced product analysis
+        const profitableProducts = products.filter(product => {
+          const price = product.price || 0;
+          const cost = product.cost_price || 0;
+          return price > cost && cost > 0;
+        }).length;
+        
+        const lowStockProducts = products.filter(product => {
           const currentStock = product.stock_quantity || 0;
           const minStock = product.min_stock_level || 0;
           return currentStock <= minStock && minStock > 0;
-        }).length || 0;
+        });
         
-        // Out of stock count
-        const outOfStockCount = allProducts.filter(product => 
-          (product.stock_quantity || 0) === 0
-        ).length || 0;
+        const outOfStockProducts = products.filter(product => (product.stock_quantity || 0) === 0);
+        
+        // Calculate potential stock value (what we could have if fully stocked)
+        const potentialStockValue = products.reduce((sum, product) => {
+          const minStock = Math.max(product.min_stock_level || 0, 10); // Assume minimum 10 units
+          const price = product.price || 0;
+          return sum + (minStock * price);
+        }, 0);
 
         const result = {
           revenue,
@@ -232,17 +286,25 @@ export default function TenantAdminDashboard() {
           totalCustomers,
           activeCustomers,
           totalPurchases,
-          stockByPurchasePrice: totalInventoryAtCost, // Use total inventory value
-          stockBySalePrice: totalInventoryAtSale, // Use total inventory value
-          stockInHandAtCost: stockByPurchasePrice, // Value of products actually in stock
-          stockInHandAtSale: stockBySalePrice, // Value of products actually in stock
-          profit,
+          stockByPurchasePrice: totalInventoryAtCost,
+          stockBySalePrice: totalInventoryAtSale,
+          potentialStockValue,
+          profit: grossProfit,
+          profitMargin,
           cogs,
-          lowStockCount,
-          outOfStockCount,
-          totalProducts: allProducts.length,
+          avgPurchaseCost,
+          lowStockCount: lowStockProducts.length,
+          outOfStockCount: outOfStockProducts.length,
+          totalProducts: products.length,
           productsWithStock: productsWithStock.length,
-          profitableProducts
+          profitableProducts,
+          // Additional metrics for drill-down accuracy
+          completedSalesCount: salesCount,
+          completedPurchasesCount: completedPurchases.length,
+          uniqueCustomerIds: uniqueActiveCustomerIds,
+          totalSaleItems: saleItems.length,
+          avgSaleValue: salesCount > 0 ? revenue / salesCount : 0,
+          inventoryTurnover: totalInventoryAtCost > 0 ? cogs / totalInventoryAtCost : 0
         };
 
         console.log('Calculated dashboard metrics:', result);
@@ -263,15 +325,22 @@ export default function TenantAdminDashboard() {
             totalPurchases: 0,
             stockByPurchasePrice: 0,
             stockBySalePrice: 0,
-            stockInHandAtCost: 0,
-            stockInHandAtSale: 0,
+            potentialStockValue: 0,
             profit: 0,
+            profitMargin: 0,
             cogs: 0,
+            avgPurchaseCost: 0,
             lowStockCount: 0,
             outOfStockCount: 0,
             totalProducts: 0,
             productsWithStock: 0,
-            profitableProducts: 0
+            profitableProducts: 0,
+            completedSalesCount: 0,
+            completedPurchasesCount: 0,
+            uniqueCustomerIds: [],
+            totalSaleItems: 0,
+            avgSaleValue: 0,
+            inventoryTurnover: 0
           },
           error: error
         };
@@ -280,8 +349,8 @@ export default function TenantAdminDashboard() {
     [tenantId, dateRange.startDate, dateRange.endDate],
     {
       enabled: !!tenantId,
-      staleTime: 1 * 60 * 1000, // 1 minute cache for more real-time data
-      cacheKey: `enhanced-dashboard-${tenantId}-${dateRange.startDate}-${dateRange.endDate}`
+      staleTime: 30 * 1000, // 30 seconds cache for more real-time accuracy
+      cacheKey: `enhanced-dashboard-v2-${tenantId}-${dateRange.startDate}-${dateRange.endDate}`
     }
   );
 
@@ -335,19 +404,27 @@ export default function TenantAdminDashboard() {
     {
       title: "Profit",
       value: formatCurrency(dashboardData?.profit || 0),
-      change: dashboardData?.profit && dashboardData.profit > 0 ? "profitable" : dashboardData?.profit && dashboardData.profit < 0 ? "loss" : "break even",
+      change: dashboardData?.profitMargin 
+        ? `${dashboardData.profitMargin.toFixed(1)}% margin` 
+        : dashboardData?.profit && dashboardData.profit > 0 
+        ? "profitable" 
+        : dashboardData?.profit && dashboardData.profit < 0 
+        ? "loss" 
+        : "break even",
       changeType: dashboardData?.profit && dashboardData.profit > 0 ? "positive" : dashboardData?.profit && dashboardData.profit < 0 ? "warning" : "neutral",
       icon: dashboardData?.profit && dashboardData.profit < 0 ? TrendingDown : PiggyBank,
-      description: "selected period",
+      description: "gross profit",
       trend: [0, 0, 0, Math.abs(dashboardData?.profit || 0)]
     },
     {
       title: "Active Customers",
       value: (dashboardData?.activeCustomers || 0).toString(),
-      change: dashboardData?.activeCustomers ? "purchased this period" : "no purchases",
+      change: dashboardData?.totalCustomers 
+        ? `${Math.round((dashboardData.activeCustomers / dashboardData.totalCustomers) * 100)}% of total` 
+        : "no customers",
       changeType: dashboardData?.activeCustomers ? "positive" : "neutral",
       icon: Users,
-      description: "selected period",
+      description: "unique buyers",
       trend: [0, 0, 0, dashboardData?.activeCustomers || 0]
     },
     {
@@ -667,19 +744,25 @@ export default function TenantAdminDashboard() {
                 const isNeutral = stat.changeType === 'neutral';
                 
                 const getNavigationPath = (title: string) => {
+                  const params = new URLSearchParams({
+                    startDate: dateRange.startDate,
+                    endDate: dateRange.endDate,
+                    tenantId: tenantId || ''
+                  });
+                  
                   switch (title) {
                     case 'Revenue':
                     case 'Profit':
-                      return '/admin/reports';
+                      return `/admin/reports?${params}&tab=financial`;
                     case 'Active Customers':
-                      return '/admin/customers';
+                      return `/admin/customers?${params}&filter=active`;
                     case 'Stock Value (Purchase)':
                     case 'Stock Value (Sale)':
-                      return '/admin/products';
+                      return `/admin/products?${params}&tab=inventory`;
                     case 'Total Purchases':
-                      return '/admin/purchases';
+                      return `/admin/purchases?${params}&status=completed`;
                     case 'Profitable Products':
-                      return '/admin/products';
+                      return `/admin/products?${params}&filter=profitable`;
                     default:
                       return '/admin';
                   }
