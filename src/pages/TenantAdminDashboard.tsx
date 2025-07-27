@@ -98,10 +98,10 @@ export default function TenantAdminDashboard() {
           purchasesResponse,
           saleItemsResponse
         ] = await Promise.all([
-          // Sales data for the date range
+          // Sales data for the date range including customer_id
           supabase
             .from('sales')
-            .select('total_amount, created_at')
+            .select('total_amount, created_at, customer_id')
             .eq('tenant_id', tenantId)
             .gte('created_at', startDate)
             .lte('created_at', endDate),
@@ -141,7 +141,7 @@ export default function TenantAdminDashboard() {
             `)
             .eq('sales.tenant_id', tenantId)
             .gte('sales.created_at', startDate)
-            .lte('sales.created_at', endDate)
+            .lte('sales.created_at', endDate),
         ]);
 
         console.log('Sales response:', salesResponse);
@@ -163,6 +163,9 @@ export default function TenantAdminDashboard() {
         const totalCustomers = customersResponse.count || 0;
         const totalPurchases = purchasesResponse.data?.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0) || 0;
         
+        // Calculate active customers (unique customers who made purchases in the period)
+        const activeCustomers = [...new Set(salesResponse.data?.map(sale => sale.customer_id).filter(Boolean))].length || 0;
+        
         // Calculate stock values using null coalescing
         const stockByPurchasePrice = productsResponse.data?.reduce((sum, product) => 
           sum + ((product.stock_quantity || 0) * (product.cost_price || 0)), 0) || 0;
@@ -178,6 +181,11 @@ export default function TenantAdminDashboard() {
         }, 0) || 0;
         const profit = revenue - cogs;
         
+        // Calculate profitable products (products with price > cost_price)
+        const profitableProducts = productsResponse.data?.filter(product => 
+          (product.price || 0) > (product.cost_price || 0) && (product.cost_price || 0) > 0
+        ).length || 0;
+        
         // Low stock count
         const lowStockCount = productsResponse.data?.filter(product => 
           (product.stock_quantity || 0) <= (product.min_stock_level || 0) && (product.min_stock_level || 0) > 0
@@ -187,13 +195,15 @@ export default function TenantAdminDashboard() {
           revenue,
           salesCount,
           totalCustomers,
+          activeCustomers,
           totalPurchases,
           stockByPurchasePrice,
           stockBySalePrice,
           profit,
           cogs,
           lowStockCount,
-          totalProducts: productsResponse.data?.length || 0
+          totalProducts: productsResponse.data?.length || 0,
+          profitableProducts
         };
 
         console.log('Calculated dashboard metrics:', result);
@@ -209,13 +219,15 @@ export default function TenantAdminDashboard() {
             revenue: 0,
             salesCount: 0,
             totalCustomers: 0,
+            activeCustomers: 0,
             totalPurchases: 0,
             stockByPurchasePrice: 0,
             stockBySalePrice: 0,
             profit: 0,
             cogs: 0,
             lowStockCount: 0,
-            totalProducts: 0
+            totalProducts: 0,
+            profitableProducts: 0
           },
           error: error
         };
@@ -276,13 +288,22 @@ export default function TenantAdminDashboard() {
       trend: [0, 0, 0, Math.abs(dashboardData?.profit || 0)]
     },
     {
-      title: "Active Products",
-      value: (dashboardData?.totalProducts || 0).toString(),
-      change: dashboardData?.lowStockCount ? `${dashboardData.lowStockCount} low stock` : "in stock",
-      changeType: dashboardData?.lowStockCount && dashboardData.lowStockCount > 0 ? "warning" : "positive",
-      icon: Package,
-      description: "need attention",
-      trend: [0, 0, 0, dashboardData?.totalProducts || 0]
+      title: "Active Customers",
+      value: (dashboardData?.activeCustomers || 0).toString(),
+      change: dashboardData?.activeCustomers ? "purchased this period" : "no purchases",
+      changeType: dashboardData?.activeCustomers ? "positive" : "neutral",
+      icon: Users,
+      description: "selected period",
+      trend: [0, 0, 0, dashboardData?.activeCustomers || 0]
+    },
+    {
+      title: "Profitable Products",
+      value: (dashboardData?.profitableProducts || 0).toString(),
+      change: dashboardData?.profitableProducts ? "with positive margin" : "no profitable items",
+      changeType: dashboardData?.profitableProducts ? "positive" : "warning",
+      icon: TrendingUp,
+      description: "in catalog",
+      trend: [0, 0, 0, dashboardData?.profitableProducts || 0]
     }
   ];
 
@@ -563,7 +584,7 @@ export default function TenantAdminDashboard() {
         )}
 
         {/* Enhanced Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
           {businessStats.map((stat, index) => {
             const Icon = stat.icon;
             const isPositive = stat.changeType === 'positive';
