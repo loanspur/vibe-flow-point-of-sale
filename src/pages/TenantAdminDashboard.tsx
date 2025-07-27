@@ -251,7 +251,8 @@ export default function TenantAdminDashboard() {
             requiredQty,
             availablePurchases: productPurchases.length,
             purchaseDetails: productPurchases.map(p => ({
-              qty: p.quantity_received || p.quantity_ordered,
+              qty_ordered: p.quantity_ordered,
+              qty_received: p.quantity_received,
               unitCost: p.unit_cost,
               date: p.purchases.created_at
             }))
@@ -265,17 +266,19 @@ export default function TenantAdminDashboard() {
             
             totalCost += availableQty * unitCost;
             remainingQty -= availableQty;
+            
+            console.log(`Processing purchase: ${availableQty} units @ ${unitCost} = ${availableQty * unitCost}`);
           }
           
-          // If we still need more qty and have no purchase history, use a fallback
+          // If we still need more qty and have purchase history, use the last known unit cost
           if (remainingQty > 0) {
             const lastPurchase = productPurchases[productPurchases.length - 1];
             const fallbackCost = lastPurchase?.unit_cost || 0;
-            console.log(`Using fallback cost for remaining ${remainingQty} units:`, fallbackCost);
+            console.log(`Using fallback cost for remaining ${remainingQty} units @ ${fallbackCost}`);
             totalCost += remainingQty * fallbackCost;
           }
           
-          console.log(`Final FIFO cost for ${productId}:`, totalCost);
+          console.log(`Final FIFO cost for ${productId}: ${totalCost} (for ${requiredQty} units)`);
           return totalCost;
         };
 
