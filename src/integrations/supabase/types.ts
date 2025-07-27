@@ -4768,7 +4768,9 @@ export type Database = {
           billing_plan_id: string
           contact_email: string | null
           contact_phone: string | null
+          country: string | null
           created_at: string
+          created_by: string | null
           id: string
           is_active: boolean
           max_users: number | null
@@ -4783,7 +4785,9 @@ export type Database = {
           billing_plan_id: string
           contact_email?: string | null
           contact_phone?: string | null
+          country?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
           max_users?: number | null
@@ -4798,7 +4802,9 @@ export type Database = {
           billing_plan_id?: string
           contact_email?: string | null
           contact_phone?: string | null
+          country?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
           max_users?: number | null

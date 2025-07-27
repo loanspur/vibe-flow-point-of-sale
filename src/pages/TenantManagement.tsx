@@ -55,7 +55,8 @@ export default function TenantManagement() {
     address: '',
     plan_type: 'basic',
     max_users: 10,
-    billing_plan_id: ''
+    billing_plan_id: '',
+    country: 'Kenya'
   });
 
   useEffect(() => {
@@ -69,7 +70,10 @@ export default function TenantManagement() {
       setError(null);
       const { data, error } = await supabase
         .from('tenants')
-        .select('*')
+        .select(`
+          *,
+          created_by_profile:profiles!tenants_created_by_fkey(full_name)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -128,7 +132,9 @@ export default function TenantManagement() {
         .insert([{
           ...newTenant,
           billing_plan_id: billingPlan.id,
-          status: 'active'
+          status: 'active',
+          created_by: user?.id,
+          country: 'Kenya' // Default country
         }])
         .select()
         .single();
@@ -145,7 +151,8 @@ export default function TenantManagement() {
         address: '',
         plan_type: 'basic',
         max_users: 10,
-        billing_plan_id: ''
+        billing_plan_id: '',
+        country: 'Kenya'
       });
 
       toast({
@@ -361,6 +368,9 @@ export default function TenantManagement() {
                 <TableHead>Current Plan</TableHead>
                 <TableHead>Subscription Status</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Country</TableHead>
+                <TableHead>Created By</TableHead>
+                <TableHead>Created Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -413,6 +423,29 @@ export default function TenantManagement() {
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {tenant.country ? (
+                        <span className="text-sm">{tenant.country}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(tenant as any).created_by_profile?.full_name ? (
+                        <span className="text-sm">{(tenant as any).created_by_profile.full_name}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">System</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">
+                        {new Date(tenant.created_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <Badge variant={tenant.is_active ? "default" : "secondary"}>

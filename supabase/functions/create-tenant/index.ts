@@ -61,13 +61,6 @@ serve(async (req) => {
       }
     );
 
-    // Check if user already exists
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(user => user.email === email);
-
-    if (existingUser) {
-      throw new Error('A user with this email already exists');
-    }
 
     // Generate unique subdomain
     const baseSubdomain = businessName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -179,7 +172,9 @@ serve(async (req) => {
         plan_type: planType,
         max_users: maxUsers,
         is_active: true,
-        status: isAdminCreated ? 'active' : 'trial'
+        status: isAdminCreated ? 'active' : 'trial',
+        created_by: createdUserId,
+        country: 'Kenya' // Default country, can be made configurable
       })
       .select()
       .single();
