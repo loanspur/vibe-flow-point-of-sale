@@ -74,6 +74,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Force refresh on window focus to catch external changes
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user && document.visibilityState === 'visible') {
+        fetchUserInfo(user.id);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleFocus);
+    return () => document.removeEventListener('visibilitychange', handleFocus);
+  }, [user]);
+
   // Optimized activity logging function
   const logUserActivity = async (actionType: string, userId: string) => {
     // Run activity logging asynchronously without blocking UI
