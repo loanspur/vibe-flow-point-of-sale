@@ -207,6 +207,7 @@ export default function TenantAdminDashboard() {
         };
 
         console.log('Calculated dashboard metrics:', result);
+        console.log('🎯 Final dashboard data being returned:', result);
 
         return {
           data: result,
@@ -390,6 +391,19 @@ export default function TenantAdminDashboard() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Debug Information */}
+      {loading && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">Loading dashboard data...</p>
+        </div>
+      )}
+      
+      {!loading && (
+        <div className="mb-4 p-2 bg-gray-50 border border-gray-200 rounded text-xs">
+          <p>📊 Dashboard Data: {JSON.stringify(dashboardData, null, 2)}</p>
+        </div>
+      )}
+
       {/* Welcome Section */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">
