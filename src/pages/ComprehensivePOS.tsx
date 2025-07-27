@@ -60,6 +60,9 @@ export default function ComprehensivePOS() {
     ownerName: ''
   });
 
+  // Debug logging
+  console.log('ComprehensivePOS render:', { user: !!user, tenantId, userRole });
+
   const handleSetupMissingTenant = async () => {
     if (!missingTenantForm.businessName || !missingTenantForm.ownerName) {
       toast({
@@ -436,25 +439,25 @@ export default function ComprehensivePOS() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-4">
-                    <ActionButton icon={ShoppingCart} onClick={() => window.location.href = '/admin/sales'}>
+                    <ActionButton icon={ShoppingCart} onClick={() => navigate('/admin/sales')}>
                       Manage Sales
                     </ActionButton>
-                    <ActionButton icon={Package} onClick={() => window.location.href = '/admin/products'}>
+                    <ActionButton icon={Package} onClick={() => navigate('/admin/products')}>
                       Manage Products
                     </ActionButton>
-                    <ActionButton icon={UserPlus} onClick={() => window.location.href = '/admin/customers'}>
+                    <ActionButton icon={UserPlus} onClick={() => navigate('/admin/customers')}>
                       Manage Contacts
                     </ActionButton>
-                    <ActionButton icon={Users} onClick={() => window.location.href = '/admin/team'}>
+                    <ActionButton icon={Users} onClick={() => navigate('/admin/team')}>
                       Manage Team
                     </ActionButton>
-                    <ActionButton icon={Settings} onClick={() => window.location.href = '/admin/settings'}>
+                    <ActionButton icon={Settings} onClick={() => navigate('/admin/settings')}>
                       Settings
                     </ActionButton>
-                    <ActionButton icon={Calculator} onClick={() => window.location.href = '/admin/purchases'}>
+                    <ActionButton icon={Calculator} onClick={() => navigate('/admin/purchases')}>
                       Purchases
                     </ActionButton>
-                    <ActionButton icon={Calculator} onClick={() => window.location.href = '/admin/accounting'}>
+                    <ActionButton icon={Calculator} onClick={() => navigate('/admin/accounting')}>
                       Accounting
                     </ActionButton>
                   </div>
