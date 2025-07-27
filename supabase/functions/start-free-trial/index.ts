@@ -61,19 +61,38 @@ serve(async (req) => {
 
     logStep("Tenant found", { tenantId: tenantUser.tenant_id });
 
-    // Get the selected billing plan
-    const { data: billingPlan, error: planError } = await supabase
+    // Get the Enterprise billing plan for trials (or fallback to selected plan)
+    const { data: enterprisePlan, error: enterpriseError } = await supabase
+      .from('billing_plans')
+      .select('*')
+      .eq('name', 'Enterprise')
+      .eq('is_active', true)
+      .single();
+
+    // If Enterprise plan exists, use it for trial, otherwise use selected plan
+    const trialPlan = enterprisePlan || null;
+    
+    // Get the originally selected plan for reference
+    const { data: selectedPlan, error: planError } = await supabase
       .from('billing_plans')
       .select('*')
       .eq('id', planId)
       .eq('is_active', true)
       .single();
 
-    if (planError || !billingPlan) {
+    if (planError || !selectedPlan) {
       throw new Error("Invalid billing plan");
     }
 
-    logStep("Billing plan found", { planName: billingPlan.name, price: billingPlan.price });
+    // Use Enterprise plan for trial if available, otherwise selected plan
+    const billingPlan = trialPlan || selectedPlan;
+    const finalPlanId = trialPlan ? trialPlan.id : planId;
+
+    logStep("Trial plan configured", { 
+      trialPlanName: billingPlan.name, 
+      originalPlanName: selectedPlan.name,
+      isEnterpriseTrial: !!trialPlan
+    });
 
     // Check if tenant already has a subscription
     const { data: existingSub, error: subCheckError } = await supabase
@@ -95,14 +114,19 @@ serve(async (req) => {
       const { error: updateError } = await supabase
         .from('tenant_subscriptions')
         .update({
-          billing_plan_id: planId,
+          billing_plan_id: finalPlanId,
           status: 'trial',
           trial_start: trialStart,
           trial_end: trialEnd,
           current_period_start: trialStart,
           current_period_end: trialEnd,
           next_billing_date: new Date(new Date(trialEnd).getFullYear(), new Date(trialEnd).getMonth() + 1, 1).toISOString().split('T')[0],
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          metadata: {
+            original_plan_id: planId,
+            original_plan_name: selectedPlan.name,
+            enterprise_trial: !!trialPlan
+          }
         })
         .eq('id', existingSub.id);
 
@@ -117,7 +141,7 @@ serve(async (req) => {
         .from('tenant_subscriptions')
         .insert({
           tenant_id: tenantUser.tenant_id,
-          billing_plan_id: planId,
+          billing_plan_id: finalPlanId,
           reference: `trial-${tenantUser.tenant_id}-${Date.now()}`,
           status: 'trial',
           amount: 0, // Free trial
@@ -128,7 +152,12 @@ serve(async (req) => {
           current_period_end: trialEnd,
           next_billing_date: trialEnd,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          metadata: {
+            original_plan_id: planId,
+            original_plan_name: selectedPlan.name,
+            enterprise_trial: !!trialPlan
+          }
         });
 
       if (createError) {
@@ -141,9 +170,11 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Free trial started successfully",
+        message: `Free trial started successfully with ${billingPlan.name} features`,
         trial_end: trialEnd,
-        plan_name: billingPlan.name
+        plan_name: billingPlan.name,
+        original_plan: selectedPlan.name,
+        enterprise_trial: !!trialPlan
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

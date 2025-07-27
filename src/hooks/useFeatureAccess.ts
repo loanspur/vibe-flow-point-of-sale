@@ -178,24 +178,30 @@ export const useFeatureAccess = () => {
 
       setSubscription(finalSubscription as any);
       
+      // Check subscription status and trial validity outside the if block
+      const isActive = finalSubscription?.status === 'active';
+      const isTrial = finalSubscription?.status === 'trial';
+      const trialEnd = (finalSubscription as any)?.trial_end;
+      const expiryDate = (finalSubscription as any)?.expires_at || 
+                       (finalSubscription as any)?.current_period_end;
+      
+      // Check if trial is still valid
+      const isTrialValid = isTrial && trialEnd && new Date(trialEnd) > new Date();
+      const isNotExpired = !expiryDate || new Date(expiryDate) > new Date();
+      const isValidSubscription = isActive && isNotExpired;
+      const isValidTrial = isTrialValid;
+      
       if (finalSubscription?.billing_plans?.features) {
         const planFeatures = finalSubscription.billing_plans.features;
         const accessibleFeatures = { ...DEFAULT_FEATURES };
-        
-        // Check if subscription is active and not expired
-        const isActive = finalSubscription.status === 'active';
-        const expiryDate = (finalSubscription as any).expires_at || 
-                         (finalSubscription as any).current_period_end;
-        const isNotExpired = !expiryDate || new Date(expiryDate) > new Date();
-        const isValidSubscription = isActive && isNotExpired;
 
-        if (isValidSubscription && Array.isArray(planFeatures)) {
+        if ((isValidSubscription || isValidTrial) && Array.isArray(planFeatures)) {
           // Map billing plan features to system features
           const planName = finalSubscription.billing_plans.name.toLowerCase();
           
-          // For Enterprise plan, enable all features by default
-          if (planName === 'enterprise') {
-            // Enable all boolean features for Enterprise
+          // For trial users or Enterprise plan, enable all features by default
+          if (planName === 'enterprise' || isValidTrial) {
+            // Enable all boolean features for Enterprise or trial users
             Object.keys(accessibleFeatures).forEach(key => {
               if (typeof accessibleFeatures[key] === 'boolean') {
                 accessibleFeatures[key] = true;
@@ -278,8 +284,19 @@ export const useFeatureAccess = () => {
         }
         
         setFeatures(accessibleFeatures);
+      } else if (finalSubscription && isValidTrial) {
+        // Trial user without billing plan features - give them Enterprise features
+        const enterpriseFeatures = { ...DEFAULT_FEATURES };
+        Object.keys(enterpriseFeatures).forEach(key => {
+          if (typeof enterpriseFeatures[key] === 'boolean') {
+            enterpriseFeatures[key] = true;
+          } else if (key === 'max_locations' || key === 'max_staff_users' || key === 'max_products') {
+            enterpriseFeatures[key] = 999999; // Unlimited
+          }
+        });
+        setFeatures(enterpriseFeatures);
       } else {
-        // No subscription or features, use defaults (trial/free tier)
+        // No subscription or features, use defaults (free tier)
         setFeatures(DEFAULT_FEATURES);
       }
     } catch (error) {
