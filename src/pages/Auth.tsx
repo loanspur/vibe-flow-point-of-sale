@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fixUserTenant } from '@/utils/fixUserTenant';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -169,6 +170,24 @@ const Auth = () => {
     }
 
     setResetLoading(false);
+  };
+
+  // Debug function to fix tenant issues
+  const handleFixTenant = async () => {
+    try {
+      const result = await fixUserTenant('');
+      toast({
+        title: result.success ? "Success" : "Error",
+        description: result.success ? result.message : result.error,
+        variant: result.success ? "default" : "destructive"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -346,6 +365,22 @@ const Auth = () => {
             </CardContent>
           </Card>
         )}
+        
+        {/* Debug button for fixing tenant issues */}
+        <Card className="mt-4">
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground mb-2">
+              Having trouble accessing your account after signup?
+            </p>
+            <Button 
+              onClick={handleFixTenant} 
+              variant="outline" 
+              className="w-full"
+            >
+              Fix Account Setup
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

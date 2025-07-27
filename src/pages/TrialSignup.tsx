@@ -141,12 +141,15 @@ export default function TrialSignup() {
 
       // If signup successful, setup tenant
       if (authData.user) {
+        console.log('Setting up tenant for user:', authData.user.id);
         const { data: tenantData, error: tenantError } = await supabase.functions.invoke('setup-missing-tenant', {
           body: {
             businessName: formData.businessName,
             ownerName: formData.ownerName
           }
         });
+
+        console.log('Tenant setup response:', { tenantData, tenantError });
 
         if (tenantError) {
           console.error('Tenant setup error:', tenantError);
