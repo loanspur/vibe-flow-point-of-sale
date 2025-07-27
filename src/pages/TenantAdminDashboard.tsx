@@ -249,47 +249,61 @@ export default function TenantAdminDashboard() {
         const completedPurchases = purchases.filter(purchase => purchase.status !== 'cancelled');
         const totalPurchases = completedPurchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
         
-        // FIFO (First In, First Out) cost calculation using purchase items
+        // FIFO (First In, First Out) cost calculation with proper prorata distribution
         const calculateFIFOCost = (productId: string, requiredQty: number) => {
           const productPurchases = purchaseItems
-            .filter(item => item.product_id === productId)
+            .filter(item => item.product_id === productId && item.unit_cost > 0)
             .sort((a, b) => new Date(a.purchases.created_at).getTime() - new Date(b.purchases.created_at).getTime());
-          
-          let totalCost = 0;
-          let remainingQty = requiredQty;
           
           console.log(`FIFO calculation for product ${productId}:`, {
             requiredQty,
             availablePurchases: productPurchases.length,
             purchaseDetails: productPurchases.map(p => ({
-              qty_ordered: p.quantity_ordered,
               qty_received: p.quantity_received,
               unitCost: p.unit_cost,
               date: p.purchases.created_at
             }))
           });
+
+          if (productPurchases.length === 0) {
+            console.log(`No purchase history found for product ${productId}`);
+            return 0;
+          }
           
+          let totalCost = 0;
+          let remainingQty = requiredQty;
+          
+          // Process purchases in FIFO order (oldest first)
           for (const purchase of productPurchases) {
             if (remainingQty <= 0) break;
             
-            const availableQty = Math.min(purchase.quantity_received || purchase.quantity_ordered || 0, remainingQty);
+            const availableQty = purchase.quantity_received || 0;
             const unitCost = purchase.unit_cost || 0;
             
-            totalCost += availableQty * unitCost;
-            remainingQty -= availableQty;
-            
-            console.log(`Processing purchase: ${availableQty} units @ ${unitCost} = ${availableQty * unitCost}`);
+            if (availableQty > 0 && unitCost > 0) {
+              // Take the minimum of what we need and what's available from this purchase
+              const qtyToTake = Math.min(availableQty, remainingQty);
+              const costForThisBatch = qtyToTake * unitCost;
+              
+              totalCost += costForThisBatch;
+              remainingQty -= qtyToTake;
+              
+              console.log(`FIFO batch: ${qtyToTake} units @ ${unitCost} = ${costForThisBatch}`);
+            }
           }
           
-          // If we still need more qty and have purchase history, use the last known unit cost
-          if (remainingQty > 0) {
+          // If we couldn't fulfill the entire requirement from purchase history,
+          // use the most recent unit cost for the remaining quantity
+          if (remainingQty > 0 && productPurchases.length > 0) {
             const lastPurchase = productPurchases[productPurchases.length - 1];
-            const fallbackCost = lastPurchase?.unit_cost || 0;
-            console.log(`Using fallback cost for remaining ${remainingQty} units @ ${fallbackCost}`);
-            totalCost += remainingQty * fallbackCost;
+            const fallbackCost = lastPurchase.unit_cost || 0;
+            const remainingCost = remainingQty * fallbackCost;
+            totalCost += remainingCost;
+            
+            console.log(`Remaining ${remainingQty} units valued at last purchase cost: ${fallbackCost} = ${remainingCost}`);
           }
           
-          console.log(`Final FIFO cost for ${productId}: ${totalCost} (for ${requiredQty} units)`);
+          console.log(`Final FIFO cost for ${productId}: ${totalCost} (${requiredQty} units)`);
           return totalCost;
         };
 
