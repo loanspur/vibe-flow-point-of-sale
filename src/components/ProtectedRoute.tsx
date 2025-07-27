@@ -45,8 +45,11 @@ export default function ProtectedRoute({
     }
   }
 
-  // Redirect superadmin users to superadmin dashboard from any other route
-  if (userRole === 'superadmin' && !window.location.pathname.startsWith('/superadmin')) {
+  // Redirect superadmin users to superadmin dashboard from any other route (except auth)
+  if (userRole === 'superadmin' && 
+      !window.location.pathname.startsWith('/superadmin') && 
+      !window.location.pathname.startsWith('/auth') &&
+      !window.location.pathname.startsWith('/profile')) {
     return <Navigate to="/superadmin" replace />;
   }
 
