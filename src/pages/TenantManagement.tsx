@@ -54,7 +54,8 @@ export default function TenantManagement() {
     contact_phone: '',
     address: '',
     plan_type: 'basic',
-    max_users: 10
+    max_users: 10,
+    billing_plan_id: ''
   });
 
   useEffect(() => {
@@ -110,9 +111,25 @@ export default function TenantManagement() {
 
   const createTenant = async () => {
     try {
+      // Get billing plan ID based on plan type
+      const { data: billingPlan, error: planError } = await supabase
+        .from('billing_plans')
+        .select('id')
+        .ilike('name', `%${newTenant.plan_type}%`)
+        .eq('is_active', true)
+        .single();
+
+      if (planError || !billingPlan) {
+        throw new Error(`Invalid plan type: ${newTenant.plan_type}`);
+      }
+
       const { data, error } = await supabase
         .from('tenants')
-        .insert([newTenant])
+        .insert([{
+          ...newTenant,
+          billing_plan_id: billingPlan.id,
+          status: 'active'
+        }])
         .select()
         .single();
 
@@ -127,7 +144,8 @@ export default function TenantManagement() {
         contact_phone: '',
         address: '',
         plan_type: 'basic',
-        max_users: 10
+        max_users: 10,
+        billing_plan_id: ''
       });
 
       toast({

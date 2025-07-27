@@ -4765,6 +4765,7 @@ export type Database = {
       tenants: {
         Row: {
           address: string | null
+          billing_plan_id: string
           contact_email: string | null
           contact_phone: string | null
           created_at: string
@@ -4779,6 +4780,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          billing_plan_id: string
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -4793,6 +4795,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          billing_plan_id?: string
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -4805,7 +4808,15 @@ export type Database = {
           subdomain?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_tenants_billing_plan"
+            columns: ["billing_plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_activity_logs: {
         Row: {

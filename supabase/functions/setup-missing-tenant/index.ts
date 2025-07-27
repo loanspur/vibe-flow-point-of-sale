@@ -112,6 +112,20 @@ serve(async (req) => {
       finalSubdomain = `${subdomain}-${suffix}`;
     }
 
+    // Get trial billing plan
+    const { data: trialPlan } = await supabaseAdmin
+      .from('billing_plans')
+      .select('id')
+      .or('name.ilike.%trial%,name.ilike.%basic%,name.ilike.%starter%')
+      .eq('is_active', true)
+      .order('price', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (!trialPlan) {
+      throw new Error('No trial billing plan available');
+    }
+
     // Create tenant record
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
@@ -119,9 +133,11 @@ serve(async (req) => {
         name: businessName,
         subdomain: finalSubdomain,
         contact_email: user.email,
+        billing_plan_id: trialPlan.id,
         is_active: true,
         plan_type: 'trial',
         max_users: 5,
+        status: 'trial'
       })
       .select()
       .single();

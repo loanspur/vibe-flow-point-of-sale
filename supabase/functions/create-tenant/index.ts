@@ -136,6 +136,18 @@ serve(async (req) => {
       }
     }
 
+    // Get billing plan ID based on plan type
+    const { data: billingPlan } = await supabaseAdmin
+      .from('billing_plans')
+      .select('id')
+      .ilike('name', `%${planType}%`)
+      .eq('is_active', true)
+      .single();
+
+    if (!billingPlan) {
+      throw new Error(`Invalid plan type: ${planType}`);
+    }
+
     // STEP 3: Create tenant record (only after email sending succeeds)
     const { data: tenantData, error: tenantError } = await supabaseAdmin
       .from('tenants')
@@ -143,6 +155,7 @@ serve(async (req) => {
         name: businessName,
         subdomain: subdomain,
         contact_email: email,
+        billing_plan_id: billingPlan.id,
         plan_type: planType,
         max_users: maxUsers,
         is_active: true,
