@@ -219,6 +219,17 @@ export default function TenantAdminDashboard() {
         const allSales = allSalesResponse.data || [];
         const inventoryMovements = inventoryMovementsResponse.data || [];
         const purchaseItems = purchaseItemsResponse.data || [];
+        
+        console.log('Purchase Items Data:', {
+          count: purchaseItems.length,
+          items: purchaseItems.map(item => ({
+            product_id: item.product_id,
+            qty_ordered: item.quantity_ordered,
+            qty_received: item.quantity_received,
+            unit_cost: item.unit_cost,
+            date: item.purchases?.created_at
+          }))
+        });
 
         // Calculate accurate revenue (only completed sales)
         const completedSales = sales.filter(sale => sale.status !== 'cancelled' && sale.status !== 'refunded');
@@ -289,32 +300,33 @@ export default function TenantAdminDashboard() {
           const variantStock = (product.product_variants || []).reduce((sum, variant) => sum + (variant.stock_quantity || 0), 0);
           const totalStock = mainStock + variantStock;
           
-          // Use FIFO cost calculation for accurate cost values with fallbacks
+          // Use FIFO cost calculation for accurate cost values with proper fallbacks
           let fifoCostValue = 0;
           
           if (totalStock > 0) {
             // Try FIFO calculation first
             fifoCostValue = calculateFIFOCost(product.id, totalStock);
             
-            // If FIFO returns 0 (no purchase data), use fallback calculations
+            console.log(`FIFO calculation result for ${product.name}: ${fifoCostValue} for ${totalStock} units`);
+            
+            // If FIFO returns 0, use fallback calculations
             if (fifoCostValue === 0) {
-              // Fallback 1: Use product cost price if available
+              // Fallback 1: Use product cost price if available and > 0
               if (product.cost_price && product.cost_price > 0) {
                 fifoCostValue = totalStock * product.cost_price;
-                console.log(`Using product cost price fallback for ${product.name}:`, fifoCostValue);
+                console.log(`Using product cost price fallback for ${product.name}: ${totalStock} * ${product.cost_price} = ${fifoCostValue}`);
               } 
-              // Fallback 2: Estimate cost from recent purchases (if any completed purchases exist)
+              // Fallback 2: Estimate from purchase amounts - but use a more conservative approach
               else if (purchases.length > 0) {
-                // Use the total purchase amount to estimate unit cost
-                const totalPurchaseAmount = purchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
-                const estimatedUnitCost = totalPurchaseAmount > 0 ? (totalPurchaseAmount / 100) : (product.price * 0.7); // Conservative estimate
-                fifoCostValue = totalStock * Math.max(estimatedUnitCost, product.price * 0.6); // Use 60% of sale price as minimum
-                console.log(`Using purchase estimate fallback for ${product.name}:`, fifoCostValue);
+                // Use a simple estimation: if we have recent purchases, estimate cost at 70% of sale price
+                const estimatedUnitCost = product.price * 0.7; // 70% of sale price
+                fifoCostValue = totalStock * estimatedUnitCost;
+                console.log(`Using conservative estimate for ${product.name}: ${totalStock} * ${estimatedUnitCost} = ${fifoCostValue}`);
               }
-              // Fallback 3: Use 70% of sale price as cost estimate
+              // Fallback 3: Use 60% of sale price as minimum cost estimate
               else {
-                fifoCostValue = totalStock * (product.price * 0.7);
-                console.log(`Using sale price estimate fallback for ${product.name}:`, fifoCostValue);
+                fifoCostValue = totalStock * (product.price * 0.6);
+                console.log(`Using minimum estimate for ${product.name}: ${totalStock} * ${product.price * 0.6} = ${fifoCostValue}`);
               }
             }
           }
@@ -326,17 +338,17 @@ export default function TenantAdminDashboard() {
           const totalSaleValue = totalStock * productSalePrice;
           
           // Enhanced debugging for cost calculations
-          if (totalStock > 0) {
-            console.log(`Product ${product.name}:`, {
-              totalStock,
-              fifoCostValue,
-              averageUnitCost,
-              productCostPrice: product.cost_price,
-              productSalePrice,
-              totalSaleValue,
-              hasProductVariants: (product.product_variants || []).length > 0
-            });
-          }
+          console.log(`Final calculation for ${product.name}:`, {
+            totalStock,
+            fifoCostValue,
+            averageUnitCost,
+            productCostPrice: product.cost_price,
+            productSalePrice,
+            totalSaleValue,
+            mainStock: product.stock_quantity,
+            variantStock: (product.product_variants || []).reduce((sum, v) => sum + (v.stock_quantity || 0), 0),
+            variants: (product.product_variants || []).map(v => ({ id: v.id, stock: v.stock_quantity }))
+          });
           
           return {
             ...product,
