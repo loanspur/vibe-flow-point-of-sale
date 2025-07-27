@@ -306,6 +306,8 @@ export default function TenantManagement() {
     }
 
     try {
+      console.log('Sending welcome email to:', tenant.contact_email, 'for tenant:', tenant.name);
+      
       const { data, error } = await supabase.functions.invoke('send-welcome-email', {
         body: {
           tenantName: tenant.name,
@@ -314,7 +316,12 @@ export default function TenantManagement() {
         }
       });
 
-      if (error) throw error;
+      console.log('Function response:', { data, error });
+
+      if (error) {
+        console.error('Function error:', error);
+        throw error;
+      }
 
       toast({
         title: "Success",
