@@ -136,16 +136,17 @@ serve(async (req) => {
       }
     }
 
-    // Get billing plan ID based on plan type
+    // Get billing plan ID - for trial accounts, always use Enterprise plan
+    const targetPlanName = !isAdminCreated ? 'Enterprise' : planType;
     const { data: billingPlan } = await supabaseAdmin
       .from('billing_plans')
       .select('id')
-      .ilike('name', `%${planType}%`)
+      .ilike('name', `%${targetPlanName}%`)
       .eq('is_active', true)
       .single();
 
     if (!billingPlan) {
-      throw new Error(`Invalid plan type: ${planType}`);
+      throw new Error(`Invalid plan type: ${targetPlanName}`);
     }
 
     // STEP 3: Create tenant record (only after email sending succeeds)

@@ -112,19 +112,18 @@ serve(async (req) => {
       finalSubdomain = `${subdomain}-${suffix}`;
     }
 
-    // Get trial billing plan
+    // Get Enterprise billing plan for trial accounts
     const { data: trialPlan } = await supabaseAdmin
       .from('billing_plans')
       .select('id')
-      .or('name.ilike.%trial%,name.ilike.%basic%,name.ilike.%starter%')
+      .ilike('name', '%Enterprise%')
       .eq('is_active', true)
-      .order('price', { ascending: true })
-      .limit(1)
       .single();
 
     if (!trialPlan) {
-      throw new Error('No trial billing plan available');
+      throw new Error('Enterprise billing plan not available for trial');
     }
+
 
     // Create tenant record
     const { data: tenant, error: tenantError } = await supabaseAdmin
