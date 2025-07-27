@@ -31,7 +31,7 @@ interface ProductVariant {
   sku: string;
   price_adjustment: string;
   stock_quantity: string;
-  purchase_price: string;
+  default_profit_margin: string;
   sale_price: string;
   image_url?: string;
   is_active: boolean;
@@ -62,7 +62,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     sku: '',
     description: '',
     price: '',
-    cost: '',
+    default_profit_margin: '',
     barcode: '',
     category_id: '',
     subcategory_id: '',
@@ -137,7 +137,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         sku: product.sku || '',
         description: product.description || '',
         price: product.price?.toString() || '',
-        cost: product.cost?.toString() || '',
+        default_profit_margin: product.default_profit_margin?.toString() || '',
         barcode: product.barcode || '',
         category_id: product.category_id || '',
         subcategory_id: product.subcategory_id || '',
@@ -232,7 +232,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     try {
       const { data, error } = await supabase
         .from('product_variants')
-        .select('*, purchase_price, sale_price, image_url')
+        .select('*, sale_price, image_url')
         .eq('product_id', productId)
         .order('created_at');
 
@@ -245,7 +245,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         sku: variant.sku || '',
         price_adjustment: variant.price_adjustment?.toString() || '0',
         stock_quantity: variant.stock_quantity?.toString() || '0',
-        purchase_price: variant.purchase_price?.toString() || '0',
+        default_profit_margin: variant.default_profit_margin?.toString() || '',
         sale_price: variant.sale_price?.toString() || '0',
         image_url: variant.image_url || '',
         is_active: variant.is_active ?? true,
@@ -349,7 +349,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         sku: finalSKU || null,
         description: formData.description || null,
         price: parseFloat(formData.price),
-        cost: formData.cost ? parseFloat(formData.cost) : null,
+        default_profit_margin: formData.default_profit_margin ? parseFloat(formData.default_profit_margin) : null,
         barcode: formData.barcode || null,
         category_id: formData.category_id || null,
         subcategory_id: formData.subcategory_id || null,
@@ -433,7 +433,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       sku: '',
       price_adjustment: '0',
       stock_quantity: '0',
-      purchase_price: '0',
+      default_profit_margin: '',
       sale_price: '0',
       image_url: '',
       is_active: true,
@@ -557,7 +557,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             sku: variant.sku || null,
             price_adjustment: parseFloat(variant.price_adjustment) || 0,
             stock_quantity: parseInt(variant.stock_quantity) || 0,
-            purchase_price: parseFloat(variant.purchase_price) || 0,
+            default_profit_margin: variant.default_profit_margin ? parseFloat(variant.default_profit_margin) : null,
             sale_price: parseFloat(variant.sale_price) || 0,
             image_url: imageUrl || null,
             is_active: variant.is_active,
@@ -762,13 +762,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cost">Cost Price</Label>
+              <Label htmlFor="default_profit_margin">Default Profit Margin %</Label>
               <Input
-                id="cost"
+                id="default_profit_margin"
                 type="number"
                 step="0.01"
-                value={formData.cost}
-                onChange={(e) => handleInputChange('cost', e.target.value)}
+                min="0"
+                max="100"
+                value={formData.default_profit_margin}
+                onChange={(e) => handleInputChange('default_profit_margin', e.target.value)}
                 placeholder="0.00"
               />
             </div>
@@ -1030,12 +1032,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                   
                    <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
-                       <Label>Purchase Price</Label>
+                       <Label>Default Profit Margin %</Label>
                        <Input
                          type="number"
                          step="0.01"
-                         value={variant.purchase_price}
-                         onChange={(e) => updateVariant(index, 'purchase_price', e.target.value)}
+                         min="0"
+                         max="100"
+                         value={variant.default_profit_margin}
+                         onChange={(e) => updateVariant(index, 'default_profit_margin', e.target.value)}
                          placeholder="0.00"
                        />
                      </div>
