@@ -60,9 +60,6 @@ export default function ComprehensivePOS() {
     ownerName: ''
   });
 
-  // Debug logging
-  console.log('ComprehensivePOS render:', { user: !!user, tenantId, userRole });
-
   const handleSetupMissingTenant = async () => {
     if (!missingTenantForm.businessName || !missingTenantForm.ownerName) {
       toast({
