@@ -169,9 +169,13 @@ export default function TenantAdminDashboard() {
         const stockBySalePrice = productsResponse.data?.reduce((sum, product) => 
           sum + ((product.stock_quantity || 0) * (product.price || 0)), 0) || 0;
         
-        // Calculate COGS from actual sale items
-        const cogs = saleItemsResponse.data?.reduce((sum, item) => 
-          sum + ((item.quantity || 0) * (item.products?.cost_price || 0)), 0) || 0;
+        // Calculate COGS from actual sale items - if cost_price is 0, use unit_price as fallback
+        const cogs = saleItemsResponse.data?.reduce((sum, item) => {
+          const costPrice = item.products?.cost_price || 0;
+          const unitPrice = item.unit_price || 0;
+          const actualCost = costPrice > 0 ? costPrice : unitPrice * 0.7; // Use 70% of selling price as estimated cost if no cost_price
+          return sum + ((item.quantity || 0) * actualCost);
+        }, 0) || 0;
         const profit = revenue - cogs;
         
         // Low stock count
