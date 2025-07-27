@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@4.0.0";
+import { createTenantWithUser, generateUniqueSubdomain } from "../shared-tenant-creation/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +25,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  let createdTenantId: string | null = null;
   let createdUserId: string | null = null;
 
   try {
@@ -65,23 +65,8 @@ serve(async (req) => {
       throw new Error('A user with this email already exists');
     }
 
-    // Generate unique subdomain
-    const baseSubdomain = businessName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    let subdomain = baseSubdomain;
-    let counter = 1;
-
-    while (true) {
-      const { data: existingTenant } = await supabaseAdmin
-        .from('tenants')
-        .select('id')
-        .eq('subdomain', subdomain)
-        .maybeSingle();
-
-      if (!existingTenant) break;
-      
-      subdomain = `${baseSubdomain}${counter}`;
-      counter++;
-    }
+    // Generate unique subdomain using shared function
+    const subdomain = await generateUniqueSubdomain(businessName);
 
     // STEP 1: Create user account first (but don't create any other records yet)
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -136,91 +121,23 @@ serve(async (req) => {
       }
     }
 
-    // Get billing plan ID - for trial accounts, always use Enterprise plan
-    const targetPlanName = !isAdminCreated ? 'Enterprise' : planType;
-    const { data: billingPlan } = await supabaseAdmin
-      .from('billing_plans')
-      .select('id')
-      .ilike('name', `%${targetPlanName}%`)
-      .eq('is_active', true)
-      .single();
+    // Use shared tenant creation function
+    const tenantResult = await createTenantWithUser({
+      businessName,
+      ownerName,
+      ownerEmail: email,
+      subdomain,
+      userId: createdUserId,
+      planType,
+      maxUsers,
+      isAdminCreated
+    });
 
-    if (!billingPlan) {
-      throw new Error(`Invalid plan type: ${targetPlanName}`);
-    }
-
-    // STEP 3: Create tenant record (only after email sending succeeds)
-    const { data: tenantData, error: tenantError } = await supabaseAdmin
-      .from('tenants')
-      .insert({
-        name: businessName,
-        subdomain: subdomain,
-        contact_email: email,
-        billing_plan_id: billingPlan.id,
-        plan_type: planType,
-        max_users: maxUsers,
-        is_active: true,
-        status: isAdminCreated ? 'active' : 'trial'
-      })
-      .select()
-      .single();
-
-    if (tenantError || !tenantData) {
+    if (!tenantResult.success || !tenantResult.tenant) {
       // Clean up created user if tenant creation fails
       await supabaseAdmin.auth.admin.deleteUser(createdUserId);
-      throw new Error(`Failed to create tenant: ${tenantError?.message}`);
+      throw new Error(tenantResult.error || "Failed to create tenant");
     }
-
-    createdTenantId = tenantData.id;
-    console.log("Tenant created successfully:", createdTenantId);
-
-    // STEP 4: Create user profile
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        user_id: createdUserId,
-        full_name: ownerName,
-        role: 'admin',
-        tenant_id: createdTenantId
-      });
-
-    if (profileError) {
-      console.error("Profile creation error:", profileError);
-      // Clean up on profile creation failure
-      await Promise.all([
-        supabaseAdmin.from('tenants').delete().eq('id', createdTenantId),
-        supabaseAdmin.auth.admin.deleteUser(createdUserId)
-      ]);
-      throw new Error(`Failed to create user profile: ${profileError.message}`);
-    }
-
-    // STEP 5: Add user to tenant_users table
-    const { error: tenantUserError } = await supabaseAdmin
-      .from('tenant_users')
-      .insert({
-        user_id: createdUserId,
-        tenant_id: createdTenantId,
-        role: 'admin',
-        is_active: true
-      });
-
-    if (tenantUserError) {
-      console.error("Tenant user creation error:", tenantUserError);
-      // Clean up on tenant user creation failure
-      await Promise.all([
-        supabaseAdmin.from('profiles').delete().eq('user_id', createdUserId),
-        supabaseAdmin.from('tenants').delete().eq('id', createdTenantId),
-        supabaseAdmin.auth.admin.deleteUser(createdUserId)
-      ]);
-      throw new Error(`Failed to associate user with tenant: ${tenantUserError.message}`);
-    }
-
-    // STEP 6: Set up default accounts and settings (this is handled by database triggers)
-    // The handle_new_tenant() trigger will automatically set up:
-    // - Default chart of accounts
-    // - Default features
-    // - Default user roles
-    // - Default business settings
 
     console.log("Tenant creation process completed successfully");
 
@@ -228,10 +145,10 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         tenant: {
-          id: createdTenantId,
-          name: businessName,
-          subdomain: subdomain,
-          url: `https://${subdomain}.vibepos.shop`
+          id: tenantResult.tenant.id,
+          name: tenantResult.tenant.name,
+          subdomain: tenantResult.tenant.subdomain,
+          url: `https://${tenantResult.tenant.subdomain}.vibepos.shop`
         },
         user: {
           id: createdUserId,
@@ -256,18 +173,6 @@ serve(async (req) => {
       if (createdUserId) {
         console.log("Cleaning up created user:", createdUserId);
         await supabaseAdmin.auth.admin.deleteUser(createdUserId);
-      }
-      if (createdTenantId) {
-        console.log("Cleaning up created tenant:", createdTenantId);
-        const supabaseAdmin = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-        await Promise.all([
-          supabaseAdmin.from('tenant_users').delete().eq('tenant_id', createdTenantId),
-          supabaseAdmin.from('profiles').delete().eq('tenant_id', createdTenantId),
-          supabaseAdmin.from('tenants').delete().eq('id', createdTenantId)
-        ]);
       }
     } catch (cleanupError) {
       console.error("Cleanup error:", cleanupError);

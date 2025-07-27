@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createTenantWithUser, generateUniqueSubdomain } from "../shared-tenant-creation/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,102 +91,33 @@ serve(async (req) => {
       throw new Error("Business name and owner name are required");
     }
 
-    // Generate subdomain from business name
-    const subdomain = businessName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 20);
+    // Generate unique subdomain using shared function
+    const subdomain = await generateUniqueSubdomain(businessName);
 
-    // Check if subdomain is already taken
-    const { data: existingTenant } = await supabaseAdmin
-      .from('tenants')
-      .select('id')
-      .eq('subdomain', subdomain)
-      .single();
 
-    let finalSubdomain = subdomain;
-    if (existingTenant) {
-      // Add random suffix if subdomain exists
-      const suffix = Math.random().toString(36).substring(2, 8);
-      finalSubdomain = `${subdomain}-${suffix}`;
+    // Use shared tenant creation function
+    const tenantResult = await createTenantWithUser({
+      businessName,
+      ownerName,
+      ownerEmail: user.email,
+      subdomain,
+      userId: user.id,
+      planType: 'trial',
+      maxUsers: 10,
+      isAdminCreated: false
+    });
+
+    if (!tenantResult.success || !tenantResult.tenant) {
+      throw new Error(tenantResult.error || "Failed to create tenant");
     }
-
-    // Get Enterprise billing plan for trial accounts
-    const { data: trialPlan } = await supabaseAdmin
-      .from('billing_plans')
-      .select('id')
-      .ilike('name', '%Enterprise%')
-      .eq('is_active', true)
-      .single();
-
-    if (!trialPlan) {
-      throw new Error('Enterprise billing plan not available for trial');
-    }
-
-
-    // Create tenant record (database trigger will handle default setup)
-    const { data: tenant, error: tenantError } = await supabaseAdmin
-      .from('tenants')
-      .insert({
-        name: businessName,
-        subdomain: finalSubdomain,
-        contact_email: user.email,
-        billing_plan_id: trialPlan.id,
-        is_active: true,
-        plan_type: 'trial',
-        max_users: 10, // Same default as superadmin creation
-        status: 'trial'
-      })
-      .select()
-      .single();
-
-    if (tenantError) {
-      throw new Error(`Failed to create tenant: ${tenantError.message}`);
-    }
-
-    // Update user profile with tenant_id and admin role
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({ 
-        tenant_id: tenant.id,
-        full_name: ownerName,
-        role: 'admin'
-      })
-      .eq('user_id', user.id);
-
-    if (profileError) {
-      throw new Error(`Failed to update profile: ${profileError.message}`);
-    }
-
-    // Create tenant_users association
-    const { error: tenantUserError } = await supabaseAdmin
-      .from('tenant_users')
-      .insert({
-        tenant_id: tenant.id,
-        user_id: user.id,
-        role: 'admin',
-        is_active: true,
-      });
-
-    if (tenantUserError) {
-      throw new Error(`Failed to create tenant user association: ${tenantUserError.message}`);
-    }
-
-    // The handle_new_tenant() trigger will automatically set up:
-    // - Default chart of accounts
-    // - Default features  
-    // - Default user roles
-    // - Default business settings
 
     return new Response(
       JSON.stringify({
         success: true,
         tenant: {
-          id: tenant.id,
-          name: tenant.name,
-          subdomain: tenant.subdomain,
+          id: tenantResult.tenant.id,
+          name: tenantResult.tenant.name,
+          subdomain: tenantResult.tenant.subdomain,
         }
       }),
       {
