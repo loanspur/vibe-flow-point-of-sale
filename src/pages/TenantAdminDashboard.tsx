@@ -534,6 +534,14 @@ export default function TenantAdminDashboard() {
     }
   );
 
+  console.log('🎯 CURRENT DASHBOARD DATA:', {
+    loading,
+    dashboardData,
+    tenantId,
+    dateRange,
+    dataKeys: dashboardData ? Object.keys(dashboardData) : 'no data'
+  });
+
   const businessStats = [
     {
       title: "Revenue",
@@ -951,7 +959,21 @@ export default function TenantAdminDashboard() {
           </TabsList>
           
           <TabsContent value="metrics" className="mt-6">
-            {/* Enhanced Stats Grid */}
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardHeader className="space-y-0 pb-2">
+                      <div className="h-4 bg-muted rounded w-3/4"></div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-8 bg-muted rounded w-1/2 mb-2"></div>
+                      <div className="h-3 bg-muted rounded w-full"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {businessStats.map((stat, index) => {
                 const Icon = stat.icon;
@@ -1019,6 +1041,7 @@ export default function TenantAdminDashboard() {
                 );
               })}
             </div>
+            )}
           </TabsContent>
           
           <TabsContent value="trends" className="mt-6">
