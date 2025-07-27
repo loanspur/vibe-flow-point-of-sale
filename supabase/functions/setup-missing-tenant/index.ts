@@ -125,7 +125,7 @@ serve(async (req) => {
     }
 
 
-    // Create tenant record
+    // Create tenant record (database trigger will handle default setup)
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
       .insert({
@@ -135,7 +135,7 @@ serve(async (req) => {
         billing_plan_id: trialPlan.id,
         is_active: true,
         plan_type: 'trial',
-        max_users: 5,
+        max_users: 10, // Same default as superadmin creation
         status: 'trial'
       })
       .select()
@@ -173,29 +173,11 @@ serve(async (req) => {
       throw new Error(`Failed to create tenant user association: ${tenantUserError.message}`);
     }
 
-    // Create business settings
-    await supabaseAdmin
-      .from('business_settings')
-      .insert({
-        tenant_id: tenant.id,
-        company_name: businessName,
-        email: user.email,
-        currency_code: 'KES',
-        currency_symbol: 'KES',
-        country: 'Kenya',
-        timezone: 'Africa/Nairobi',
-        tax_name: 'VAT',
-        default_tax_rate: 16.0000,
-      });
-
-    // Set up default chart of accounts
-    try {
-      await supabaseAdmin.rpc('setup_default_accounts', {
-        tenant_id_param: tenant.id
-      });
-    } catch (accountsErr) {
-      console.warn('Warning: Error setting up accounts', accountsErr);
-    }
+    // The handle_new_tenant() trigger will automatically set up:
+    // - Default chart of accounts
+    // - Default features  
+    // - Default user roles
+    // - Default business settings
 
     return new Response(
       JSON.stringify({
