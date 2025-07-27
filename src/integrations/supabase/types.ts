@@ -2272,6 +2272,42 @@ export type Database = {
           },
         ]
       }
+      pending_email_verifications: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          tenant_id: string | null
+          user_id: string | null
+          verification_token: string
+          verification_type: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+          verification_token: string
+          verification_type?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+          verification_token?: string
+          verification_type?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       permission_templates: {
         Row: {
           category: string
