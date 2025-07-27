@@ -88,13 +88,15 @@ export default function TenantAdminDashboard() {
       const endDate = `${dateRange.endDate}T23:59:59.999Z`;
       
       try {
+        console.log('Fetching dashboard data for tenant:', tenantId, 'Date range:', dateRange);
+        
         // Fetch all data in parallel for better performance
         const [
           salesResponse, 
           productsResponse, 
           customersResponse, 
           purchasesResponse,
-          stockValueResponse
+          saleItemsResponse
         ] = await Promise.all([
           // Sales data for the date range
           supabase
@@ -125,13 +127,16 @@ export default function TenantAdminDashboard() {
             .gte('created_at', startDate)
             .lte('created_at', endDate),
           
-          // Cost of goods sold calculation
+          // Sale items with product info for COGS calculation
           supabase
             .from('sale_items')
             .select(`
               quantity,
               unit_price,
-              products!inner(cost_price),
+              total_price,
+              product_id,
+              variant_id,
+              products!inner(cost_price, price),
               sales!inner(created_at, tenant_id)
             `)
             .eq('sales.tenant_id', tenantId)
@@ -139,52 +144,83 @@ export default function TenantAdminDashboard() {
             .lte('sales.created_at', endDate)
         ]);
 
+        console.log('Sales response:', salesResponse);
+        console.log('Products response:', productsResponse);
+        console.log('Customers response:', customersResponse);
+        console.log('Purchases response:', purchasesResponse);
+        console.log('Sale items response:', saleItemsResponse);
+
+        // Check for errors
+        if (salesResponse.error) throw salesResponse.error;
+        if (productsResponse.error) throw productsResponse.error;
+        if (customersResponse.error) throw customersResponse.error;
+        if (purchasesResponse.error) throw purchasesResponse.error;
+        if (saleItemsResponse.error) throw saleItemsResponse.error;
+
         // Calculate metrics
-        const revenue = salesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+        const revenue = salesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0) || 0;
         const salesCount = salesResponse.data?.length || 0;
         const totalCustomers = customersResponse.count || 0;
-        const totalPurchases = purchasesResponse.data?.reduce((sum, purchase) => sum + Number(purchase.total_amount), 0) || 0;
+        const totalPurchases = purchasesResponse.data?.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0) || 0;
         
-        // Calculate stock values
+        // Calculate stock values using null coalescing
         const stockByPurchasePrice = productsResponse.data?.reduce((sum, product) => 
-          sum + (product.stock_quantity * (product.cost_price || 0)), 0) || 0;
+          sum + ((product.stock_quantity || 0) * (product.cost_price || 0)), 0) || 0;
         const stockBySalePrice = productsResponse.data?.reduce((sum, product) => 
-          sum + (product.stock_quantity * (product.price || 0)), 0) || 0;
+          sum + ((product.stock_quantity || 0) * (product.price || 0)), 0) || 0;
         
-        // Calculate COGS and profit
-        const cogs = stockValueResponse.data?.reduce((sum, item) => 
-          sum + (item.quantity * (item.products?.cost_price || 0)), 0) || 0;
+        // Calculate COGS from actual sale items
+        const cogs = saleItemsResponse.data?.reduce((sum, item) => 
+          sum + ((item.quantity || 0) * (item.products?.cost_price || 0)), 0) || 0;
         const profit = revenue - cogs;
         
         // Low stock count
         const lowStockCount = productsResponse.data?.filter(product => 
-          product.stock_quantity <= product.min_stock_level && product.min_stock_level > 0
+          (product.stock_quantity || 0) <= (product.min_stock_level || 0) && (product.min_stock_level || 0) > 0
         ).length || 0;
 
+        const result = {
+          revenue,
+          salesCount,
+          totalCustomers,
+          totalPurchases,
+          stockByPurchasePrice,
+          stockBySalePrice,
+          profit,
+          cogs,
+          lowStockCount,
+          totalProducts: productsResponse.data?.length || 0
+        };
+
+        console.log('Calculated dashboard metrics:', result);
+
         return {
-          data: {
-            revenue,
-            salesCount,
-            totalCustomers,
-            totalPurchases,
-            stockByPurchasePrice,
-            stockBySalePrice,
-            profit,
-            cogs,
-            lowStockCount,
-            totalProducts: productsResponse.data?.length || 0
-          },
+          data: result,
           error: null
         };
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        throw error;
+        return {
+          data: {
+            revenue: 0,
+            salesCount: 0,
+            totalCustomers: 0,
+            totalPurchases: 0,
+            stockByPurchasePrice: 0,
+            stockBySalePrice: 0,
+            profit: 0,
+            cogs: 0,
+            lowStockCount: 0,
+            totalProducts: 0
+          },
+          error: error
+        };
       }
     },
     [tenantId, dateRange.startDate, dateRange.endDate],
     {
       enabled: !!tenantId,
-      staleTime: 2 * 60 * 1000, // 2 minutes cache
+      staleTime: 1 * 60 * 1000, // 1 minute cache for more real-time data
       cacheKey: `enhanced-dashboard-${tenantId}-${dateRange.startDate}-${dateRange.endDate}`
     }
   );
