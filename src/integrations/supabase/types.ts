@@ -2482,13 +2482,13 @@ export type Database = {
       product_variants: {
         Row: {
           created_at: string
+          default_profit_margin: number | null
           id: string
           image_url: string | null
           is_active: boolean | null
           name: string
           price_adjustment: number | null
           product_id: string
-          purchase_price: number | null
           sale_price: number | null
           sku: string | null
           stock_quantity: number | null
@@ -2497,13 +2497,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_profit_margin?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           name: string
           price_adjustment?: number | null
           product_id: string
-          purchase_price?: number | null
           sale_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
@@ -2512,13 +2512,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_profit_margin?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           name?: string
           price_adjustment?: number | null
           product_id?: string
-          purchase_price?: number | null
           sale_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
@@ -2541,9 +2541,9 @@ export type Database = {
           barcode: string | null
           brand_id: string | null
           category_id: string | null
-          cost: number | null
           cost_price: number | null
           created_at: string
+          default_profit_margin: number | null
           description: string | null
           id: string
           image_url: string | null
@@ -2565,9 +2565,9 @@ export type Database = {
           barcode?: string | null
           brand_id?: string | null
           category_id?: string | null
-          cost?: number | null
           cost_price?: number | null
           created_at?: string
+          default_profit_margin?: number | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -2589,9 +2589,9 @@ export type Database = {
           barcode?: string | null
           brand_id?: string | null
           category_id?: string | null
-          cost?: number | null
           cost_price?: number | null
           created_at?: string
+          default_profit_margin?: number | null
           description?: string | null
           id?: string
           image_url?: string | null
