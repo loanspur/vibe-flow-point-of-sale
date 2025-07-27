@@ -286,8 +286,36 @@ export default function TenantAdminDashboard() {
           const variantStock = (product.product_variants || []).reduce((sum, variant) => sum + (variant.stock_quantity || 0), 0);
           const totalStock = mainStock + variantStock;
           
-          // Use FIFO cost calculation for accurate cost values
-          const fifoCostValue = totalStock > 0 ? calculateFIFOCost(product.id, totalStock) : 0;
+          // Use FIFO cost calculation for accurate cost values with fallbacks
+          let fifoCostValue = 0;
+          
+          if (totalStock > 0) {
+            // Try FIFO calculation first
+            fifoCostValue = calculateFIFOCost(product.id, totalStock);
+            
+            // If FIFO returns 0 (no purchase data), use fallback calculations
+            if (fifoCostValue === 0) {
+              // Fallback 1: Use product cost price if available
+              if (product.cost_price && product.cost_price > 0) {
+                fifoCostValue = totalStock * product.cost_price;
+                console.log(`Using product cost price fallback for ${product.name}:`, fifoCostValue);
+              } 
+              // Fallback 2: Estimate cost from recent purchases (if any completed purchases exist)
+              else if (purchases.length > 0) {
+                // Use the total purchase amount to estimate unit cost
+                const totalPurchaseAmount = purchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
+                const estimatedUnitCost = totalPurchaseAmount > 0 ? (totalPurchaseAmount / 100) : (product.price * 0.7); // Conservative estimate
+                fifoCostValue = totalStock * Math.max(estimatedUnitCost, product.price * 0.6); // Use 60% of sale price as minimum
+                console.log(`Using purchase estimate fallback for ${product.name}:`, fifoCostValue);
+              }
+              // Fallback 3: Use 70% of sale price as cost estimate
+              else {
+                fifoCostValue = totalStock * (product.price * 0.7);
+                console.log(`Using sale price estimate fallback for ${product.name}:`, fifoCostValue);
+              }
+            }
+          }
+          
           const averageUnitCost = totalStock > 0 ? fifoCostValue / totalStock : 0;
           
           // Calculate sale values
@@ -302,7 +330,8 @@ export default function TenantAdminDashboard() {
               averageUnitCost,
               productCostPrice: product.cost_price,
               productSalePrice,
-              totalSaleValue
+              totalSaleValue,
+              hasProductVariants: (product.product_variants || []).length > 0
             });
           }
           
