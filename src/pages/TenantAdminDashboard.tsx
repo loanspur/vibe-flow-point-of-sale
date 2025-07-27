@@ -247,6 +247,16 @@ export default function TenantAdminDashboard() {
           let totalCost = 0;
           let remainingQty = requiredQty;
           
+          console.log(`FIFO calculation for product ${productId}:`, {
+            requiredQty,
+            availablePurchases: productPurchases.length,
+            purchaseDetails: productPurchases.map(p => ({
+              qty: p.quantity_received || p.quantity_ordered,
+              unitCost: p.unit_cost,
+              date: p.purchases.created_at
+            }))
+          });
+          
           for (const purchase of productPurchases) {
             if (remainingQty <= 0) break;
             
@@ -257,12 +267,15 @@ export default function TenantAdminDashboard() {
             remainingQty -= availableQty;
           }
           
-          // If we still need more qty, use the last known unit cost or fallback to product cost
-          if (remainingQty > 0 && productPurchases.length > 0) {
+          // If we still need more qty and have no purchase history, use a fallback
+          if (remainingQty > 0) {
             const lastPurchase = productPurchases[productPurchases.length - 1];
-            totalCost += remainingQty * (lastPurchase.unit_cost || 0);
+            const fallbackCost = lastPurchase?.unit_cost || 0;
+            console.log(`Using fallback cost for remaining ${remainingQty} units:`, fallbackCost);
+            totalCost += remainingQty * fallbackCost;
           }
           
+          console.log(`Final FIFO cost for ${productId}:`, totalCost);
           return totalCost;
         };
 
@@ -281,6 +294,18 @@ export default function TenantAdminDashboard() {
           const productSalePrice = product.price || 0;
           const totalSaleValue = totalStock * productSalePrice;
           
+          // Enhanced debugging for cost calculations
+          if (totalStock > 0) {
+            console.log(`Product ${product.name}:`, {
+              totalStock,
+              fifoCostValue,
+              averageUnitCost,
+              productCostPrice: product.cost_price,
+              productSalePrice,
+              totalSaleValue
+            });
+          }
+          
           return {
             ...product,
             totalStock,
@@ -296,6 +321,19 @@ export default function TenantAdminDashboard() {
         // Calculate actual inventory values using FIFO costing
         const totalInventoryAtCost = productsWithVariants.reduce((sum, product) => sum + product.totalCostValue, 0);
         const totalInventoryAtSale = productsWithVariants.reduce((sum, product) => sum + product.totalSaleValue, 0);
+        
+        console.log('Stock Value Calculations:', {
+          totalProducts: productsWithVariants.length,
+          productsWithStock: productsWithStock.length,
+          totalInventoryAtCost,
+          totalInventoryAtSale,
+          productsWithCostDetails: productsWithVariants.map(p => ({
+            name: p.name,
+            stock: p.totalStock,
+            costValue: p.totalCostValue,
+            saleValue: p.totalSaleValue
+          }))
+        });
         
         // Calculate weighted average cost from recent purchases (simplified)
         const totalRecentPurchases = inventoryMovements.reduce((sum, purchase) => sum + (purchase.total_amount || 0), 0);
