@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, Search, Plus, LogOut } from 'lucide-react';
+import { Bell, Search, Plus, LogOut, User, Settings } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
+import UserProfileSettings from './UserProfileSettings';
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
@@ -21,6 +28,7 @@ interface TenantAdminLayoutProps {
 export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -65,6 +73,10 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
                       <p className="text-muted-foreground truncate">{user?.email}</p>
                     </div>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setIsProfileOpen(true)}>
+                      <User className="mr-2 h-4 w-4" />
+                      Profile Settings
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/')}>
                       Home
                     </DropdownMenuItem>
@@ -84,6 +96,16 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
             {children}
           </main>
         </div>
+        
+        {/* Profile Settings Dialog */}
+        <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Profile Settings</DialogTitle>
+            </DialogHeader>
+            <UserProfileSettings />
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarProvider>
   );
