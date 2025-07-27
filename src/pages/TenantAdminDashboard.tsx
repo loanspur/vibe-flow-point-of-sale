@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   BarChart3, 
   Users, 
@@ -408,9 +409,6 @@ export default function TenantAdminDashboard() {
             <Calendar className="h-5 w-5" />
             Date Range Filter
           </CardTitle>
-          <CardDescription>
-            Select date range to view specific period metrics
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -437,7 +435,8 @@ export default function TenantAdminDashboard() {
           </div>
           <div className="flex gap-2 mt-4">
             <Button 
-              variant="outline" 
+              variant={dateRange.startDate === new Date().toISOString().split('T')[0] && 
+                       dateRange.endDate === new Date().toISOString().split('T')[0] ? "default" : "outline"}
               size="sm"
               onClick={() => setDateRange({
                 startDate: new Date().toISOString().split('T')[0],
@@ -447,7 +446,12 @@ export default function TenantAdminDashboard() {
               Today
             </Button>
             <Button 
-              variant="outline" 
+              variant={(() => {
+                const today = new Date();
+                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                return dateRange.startDate === lastWeek.toISOString().split('T')[0] && 
+                       dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
+              })()}
               size="sm"
               onClick={() => {
                 const today = new Date();
@@ -461,7 +465,12 @@ export default function TenantAdminDashboard() {
               Last 7 Days
             </Button>
             <Button 
-              variant="outline" 
+              variant={(() => {
+                const today = new Date();
+                const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                return dateRange.startDate === lastMonth.toISOString().split('T')[0] && 
+                       dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
+              })()}
               size="sm"
               onClick={() => {
                 const today = new Date();
@@ -502,11 +511,16 @@ export default function TenantAdminDashboard() {
                       <>Active subscription</>
                     )}
                   </p>
-                  {currentSubscription.next_billing_date && (
-                    <p className="text-xs text-blue-500 mt-1">
-                      Next billing: {new Date(currentSubscription.next_billing_date).toLocaleDateString()}
-                    </p>
-                  )}
+                   {currentSubscription.next_billing_date && (
+                     <p className="text-xs text-blue-500 mt-1">
+                       Next billing: {(() => {
+                         const nextBillingDate = new Date(currentSubscription.next_billing_date);
+                         // Ensure billing is always on the 1st of the month
+                         nextBillingDate.setDate(1);
+                         return nextBillingDate.toLocaleDateString();
+                       })()}
+                     </p>
+                   )}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -584,47 +598,120 @@ export default function TenantAdminDashboard() {
           </div>
         )}
 
-        {/* Enhanced Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
-          {businessStats.map((stat, index) => {
-            const Icon = stat.icon;
-            const isPositive = stat.changeType === 'positive';
-            const isWarning = stat.changeType === 'warning';
-            const isNeutral = stat.changeType === 'neutral';
-            
-            return (
-              <Card key={index} className="relative overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    isWarning ? 'bg-orange-100' : isPositive ? 'bg-green-100' : 'bg-gray-100'
-                  }`}>
-                    <Icon className={`h-4 w-4 ${
-                      isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-gray-600'
-                    }`} />
-                  </div>
+        {/* Dashboard Tabs */}
+        <Tabs defaultValue="metrics" className="mb-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="metrics">Business Metrics</TabsTrigger>
+            <TabsTrigger value="trends">Chart Trends</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="metrics" className="mt-6">
+            {/* Enhanced Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {businessStats.map((stat, index) => {
+                const Icon = stat.icon;
+                const isPositive = stat.changeType === 'positive';
+                const isWarning = stat.changeType === 'warning';
+                const isNeutral = stat.changeType === 'neutral';
+                
+                const getNavigationPath = (title: string) => {
+                  switch (title) {
+                    case 'Revenue':
+                    case 'Profit':
+                      return '/admin/reports';
+                    case 'Active Customers':
+                      return '/admin/customers';
+                    case 'Stock Value (Purchase)':
+                    case 'Stock Value (Sale)':
+                      return '/admin/products';
+                    case 'Total Purchases':
+                      return '/admin/purchases';
+                    case 'Profitable Products':
+                      return '/admin/products';
+                    default:
+                      return '/admin';
+                  }
+                };
+                
+                return (
+                  <Link key={index} to={getNavigationPath(stat.title)}>
+                    <Card className="relative overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1 cursor-pointer">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          {stat.title}
+                        </CardTitle>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          isWarning ? 'bg-orange-100' : isPositive ? 'bg-green-100' : 'bg-gray-100'
+                        }`}>
+                          <Icon className={`h-4 w-4 ${
+                            isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-gray-600'
+                          }`} />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold mb-1">{stat.value}</div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            {isPositive && <ArrowUpRight className="h-3 w-3 text-green-600" />}
+                            {isWarning && <AlertTriangle className="h-3 w-3 text-orange-600" />}
+                            <span className={`text-xs font-medium ${
+                              isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-muted-foreground'
+                            }`}>
+                              {stat.change}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{stat.description}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="trends" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Revenue Trend Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Revenue Trend</CardTitle>
+                  <CardDescription>Daily revenue for selected period</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold mb-1">{stat.value}</div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {isPositive && <ArrowUpRight className="h-3 w-3 text-green-600" />}
-                      {isWarning && <AlertTriangle className="h-3 w-3 text-orange-600" />}
-                      <span className={`text-xs font-medium ${
-                        isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-muted-foreground'
-                      }`}>
-                        {stat.change}
-                      </span>
+                  <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">Chart visualization coming soon</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Current: {formatCurrency(dashboardData?.revenue || 0)}
+                      </p>
                     </div>
-                    <span className="text-xs text-muted-foreground">{stat.description}</span>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
+              
+              {/* Stock Movement Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Stock Movement</CardTitle>
+                  <CardDescription>Inventory levels over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
+                    <div className="text-center">
+                      <Package className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">Chart visualization coming soon</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Stock Value: {formatCurrency(dashboardData?.stockBySalePrice || 0)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Quick Actions Grid */}
         <div className="mb-6">
