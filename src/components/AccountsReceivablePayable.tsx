@@ -1034,6 +1034,7 @@ const AccountsReceivablePayable: React.FC = () => {
                 <Input
                   id="invoice-date"
                   type="date"
+                  max={new Date().toISOString().split('T')[0]}
                   value={newReceivable.invoice_date}
                   onChange={(e) => setNewReceivable(prev => ({ ...prev, invoice_date: e.target.value }))}
                 />
@@ -1153,6 +1154,7 @@ const AccountsReceivablePayable: React.FC = () => {
                 <Input
                   id="invoice-date"
                   type="date"
+                  max={new Date().toISOString().split('T')[0]}
                   value={newPayable.invoice_date}
                   onChange={(e) => setNewPayable(prev => ({ ...prev, invoice_date: e.target.value }))}
                 />
@@ -1235,6 +1237,7 @@ const AccountsReceivablePayable: React.FC = () => {
               <Input
                 id="payment-date"
                 type="date"
+                max={new Date().toISOString().split('T')[0]}
                 value={newPayment.payment_date}
                 onChange={(e) => setNewPayment(prev => ({ ...prev, payment_date: e.target.value }))}
               />

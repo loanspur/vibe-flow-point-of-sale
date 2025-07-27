@@ -228,6 +228,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 <Input
                   id="payment-date"
                   type="date"
+                  max={new Date().toISOString().split('T')[0]}
                   value={newPayment.date}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, date: e.target.value }))}
                 />

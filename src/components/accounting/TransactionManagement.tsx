@@ -533,6 +533,7 @@ export default function TransactionManagement() {
                   <Input
                     id="transaction_date"
                     type="date"
+                    max={new Date().toISOString().split('T')[0]}
                     value={newTransaction.transaction_date}
                     onChange={(e) => setNewTransaction(prev => ({ ...prev, transaction_date: e.target.value }))}
                   />
@@ -773,6 +774,7 @@ export default function TransactionManagement() {
                 <Input
                   id="edit-transaction_date"
                   type="date"
+                  max={new Date().toISOString().split('T')[0]}
                   value={newTransaction.transaction_date}
                   onChange={(e) => setNewTransaction(prev => ({ ...prev, transaction_date: e.target.value }))}
                 />

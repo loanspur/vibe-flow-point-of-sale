@@ -308,6 +308,7 @@ export default function EssentialJournals() {
           <Input
             id="transaction_date"
             type="date"
+            max={new Date().toISOString().split('T')[0]}
             value={formData.transaction_date || new Date().toISOString().split('T')[0]}
             onChange={(e) => setFormData(prev => ({ ...prev, transaction_date: e.target.value }))}
           />
