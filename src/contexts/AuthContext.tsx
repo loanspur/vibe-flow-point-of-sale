@@ -69,8 +69,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Public function to refresh user info
   const refreshUserInfo = async () => {
-    if (user) {
-      await fetchUserInfo(user.id);
+    try {
+      // Refresh the entire session to get updated user metadata
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.warn('Error refreshing session:', error);
+        return;
+      }
+      
+      if (session?.user) {
+        setSession(session);
+        setUser(session.user);
+        await fetchUserInfo(session.user.id);
+      }
+    } catch (error) {
+      console.warn('Failed to refresh user info:', error);
     }
   };
 
