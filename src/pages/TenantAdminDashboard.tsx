@@ -99,7 +99,8 @@ export default function TenantAdminDashboard() {
           purchasesResponse,
           saleItemsResponse,
           allSalesResponse,
-          inventoryMovementsResponse
+          inventoryMovementsResponse,
+          purchaseItemsResponse
         ] = await Promise.all([
           // Sales data for the date range including customer_id
           supabase
@@ -175,7 +176,22 @@ export default function TenantAdminDashboard() {
             .eq('tenant_id', tenantId)
             .eq('status', 'completed')
             .order('created_at', { ascending: false })
-            .limit(100)
+            .limit(100),
+            
+          // Purchase items for FIFO costing
+          supabase
+            .from('purchase_items')
+            .select(`
+              product_id,
+              quantity_ordered,
+              quantity_received,
+              unit_cost,
+              total_cost,
+              purchases!inner(created_at, status, tenant_id)
+            `)
+            .eq('purchases.tenant_id', tenantId)
+            .eq('purchases.status', 'completed')
+            .order('purchases.created_at', { ascending: true }) // FIFO ordering
         ]);
 
         console.log('Sales response:', salesResponse);
@@ -193,6 +209,7 @@ export default function TenantAdminDashboard() {
         if (saleItemsResponse.error) throw saleItemsResponse.error;
         if (allSalesResponse.error) throw allSalesResponse.error;
         if (inventoryMovementsResponse.error) throw inventoryMovementsResponse.error;
+        if (purchaseItemsResponse.error) throw purchaseItemsResponse.error;
 
         // Enhanced metric calculations with better accuracy
         const sales = salesResponse.data || [];
@@ -201,6 +218,7 @@ export default function TenantAdminDashboard() {
         const saleItems = saleItemsResponse.data || [];
         const allSales = allSalesResponse.data || [];
         const inventoryMovements = inventoryMovementsResponse.data || [];
+        const purchaseItems = purchaseItemsResponse.data || [];
 
         // Calculate accurate revenue (only completed sales)
         const completedSales = sales.filter(sale => sale.status !== 'cancelled' && sale.status !== 'refunded');
@@ -220,38 +238,62 @@ export default function TenantAdminDashboard() {
         const completedPurchases = purchases.filter(purchase => purchase.status !== 'cancelled');
         const totalPurchases = completedPurchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
         
-        // Enhanced stock value calculations including product variants
+        // FIFO (First In, First Out) cost calculation using purchase items
+        const calculateFIFOCost = (productId: string, requiredQty: number) => {
+          const productPurchases = purchaseItems
+            .filter(item => item.product_id === productId)
+            .sort((a, b) => new Date(a.purchases.created_at).getTime() - new Date(b.purchases.created_at).getTime());
+          
+          let totalCost = 0;
+          let remainingQty = requiredQty;
+          
+          for (const purchase of productPurchases) {
+            if (remainingQty <= 0) break;
+            
+            const availableQty = Math.min(purchase.quantity_received || purchase.quantity_ordered || 0, remainingQty);
+            const unitCost = purchase.unit_cost || 0;
+            
+            totalCost += availableQty * unitCost;
+            remainingQty -= availableQty;
+          }
+          
+          // If we still need more qty, use the last known unit cost or fallback to product cost
+          if (remainingQty > 0 && productPurchases.length > 0) {
+            const lastPurchase = productPurchases[productPurchases.length - 1];
+            totalCost += remainingQty * (lastPurchase.unit_cost || 0);
+          }
+          
+          return totalCost;
+        };
+
+        // Enhanced stock value calculations using FIFO costing
         const productsWithVariants = products.map(product => {
           // Calculate total stock from main product and variants
           const mainStock = product.stock_quantity || 0;
           const variantStock = (product.product_variants || []).reduce((sum, variant) => sum + (variant.stock_quantity || 0), 0);
           const totalStock = mainStock + variantStock;
           
-          // Calculate cost and sale values (variants use main product pricing)
-          const productCostPrice = product.cost_price || 0;
+          // Use FIFO cost calculation for accurate cost values
+          const fifoCostValue = totalStock > 0 ? calculateFIFOCost(product.id, totalStock) : 0;
+          const averageUnitCost = totalStock > 0 ? fifoCostValue / totalStock : 0;
+          
+          // Calculate sale values
           const productSalePrice = product.price || 0;
-          
-          let totalCostValue = mainStock * productCostPrice;
-          let totalSaleValue = mainStock * productSalePrice;
-          
-          // Add variant values using main product pricing
-          (product.product_variants || []).forEach(variant => {
-            totalCostValue += (variant.stock_quantity || 0) * productCostPrice;
-            totalSaleValue += (variant.stock_quantity || 0) * productSalePrice;
-          });
+          const totalSaleValue = totalStock * productSalePrice;
           
           return {
             ...product,
             totalStock,
-            totalCostValue,
-            totalSaleValue
+            totalCostValue: fifoCostValue,
+            totalSaleValue,
+            averageUnitCost
           };
         });
         
         const productsWithStock = productsWithVariants.filter(product => product.totalStock > 0);
         const productsWithoutStock = productsWithVariants.filter(product => product.totalStock === 0);
         
-        // Calculate actual inventory values including variants
+        // Calculate actual inventory values using FIFO costing
         const totalInventoryAtCost = productsWithVariants.reduce((sum, product) => sum + product.totalCostValue, 0);
         const totalInventoryAtSale = productsWithVariants.reduce((sum, product) => sum + product.totalSaleValue, 0);
         
