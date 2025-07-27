@@ -3405,7 +3405,7 @@ export type Database = {
         Row: {
           cashier_id: string
           created_at: string
-          customer_id: string | null
+          customer_id: string
           discount_amount: number | null
           id: string
           payment_method: string
@@ -3419,7 +3419,7 @@ export type Database = {
         Insert: {
           cashier_id: string
           created_at?: string
-          customer_id?: string | null
+          customer_id: string
           discount_amount?: number | null
           id?: string
           payment_method?: string
@@ -3433,7 +3433,7 @@ export type Database = {
         Update: {
           cashier_id?: string
           created_at?: string
-          customer_id?: string | null
+          customer_id?: string
           discount_amount?: number | null
           id?: string
           payment_method?: string
@@ -3445,6 +3445,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_sales_customer"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_customer_id_fkey"
             columns: ["customer_id"]
