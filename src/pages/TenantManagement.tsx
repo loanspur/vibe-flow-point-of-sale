@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Building2, Users, Settings, Trash2, AlertCircle, CreditCard, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
+import { Plus, Building2, Users, Settings, Trash2, AlertCircle, CreditCard, ArrowUpCircle, ArrowDownCircle, RefreshCw, Mail } from 'lucide-react';
 import CreateTenantWithAdminDialog from '@/components/CreateTenantWithAdminDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -295,6 +295,41 @@ export default function TenantManagement() {
     }
   };
 
+  const sendWelcomeEmail = async (tenant: Tenant) => {
+    if (!tenant.contact_email) {
+      toast({
+        title: "Error",
+        description: "No contact email found for this tenant",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-welcome-email', {
+        body: {
+          tenantName: tenant.name,
+          contactEmail: tenant.contact_email,
+          tenantId: tenant.id
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Welcome email sent to ${tenant.contact_email}`,
+      });
+    } catch (error: any) {
+      console.error('Error sending welcome email:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send welcome email",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -469,6 +504,15 @@ export default function TenantManagement() {
                         >
                           <Users className="h-4 w-4 mr-1" />
                           Users
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => sendWelcomeEmail(tenant)}
+                          disabled={!tenant.contact_email}
+                        >
+                          <Mail className="h-4 w-4 mr-1" />
+                          Welcome Email
                         </Button>
                         <Button
                           variant="outline"
