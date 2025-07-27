@@ -72,7 +72,7 @@ export default function TenantManagement() {
         .from('tenants')
         .select(`
           *,
-          created_by_profile:profiles!tenants_created_by_fkey(full_name)
+          created_by_profile:profiles!inner(full_name)
         `)
         .order('created_at', { ascending: false });
 
