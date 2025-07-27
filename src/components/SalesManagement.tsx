@@ -98,7 +98,7 @@ export default function SalesManagement() {
         .from('sales')
         .select(`
           *,
-          customers!customer_id (
+          customers!sales_customer_id_fkey (
             id,
             name,
             email,
@@ -149,7 +149,7 @@ export default function SalesManagement() {
         .from('sales')
         .select(`
           *,
-          customers!customer_id (
+          customers!sales_customer_id_fkey (
             id,
             name,
             email,
