@@ -167,11 +167,38 @@ export default function TenantAdminDashboard() {
         // Calculate active customers (unique customers who made purchases in the period)
         const activeCustomers = [...new Set(salesResponse.data?.map(sale => sale.customer_id).filter(Boolean))].length || 0;
         
-        // Calculate stock values using null coalescing
-        const stockByPurchasePrice = productsResponse.data?.reduce((sum, product) => 
-          sum + ((product.stock_quantity || 0) * (product.cost_price || 0)), 0) || 0;
-        const stockBySalePrice = productsResponse.data?.reduce((sum, product) => 
-          sum + ((product.stock_quantity || 0) * (product.price || 0)), 0) || 0;
+        // Enhanced stock value calculations with better data handling
+        const productsWithStock = productsResponse.data?.filter(product => 
+          (product.stock_quantity || 0) > 0
+        ) || [];
+        
+        const allProducts = productsResponse.data || [];
+        
+        // Calculate stock values - only for products with actual stock
+        const stockByPurchasePrice = productsWithStock.reduce((sum, product) => {
+          const stockQty = product.stock_quantity || 0;
+          const costPrice = product.cost_price || 0;
+          return sum + (stockQty * costPrice);
+        }, 0);
+        
+        const stockBySalePrice = productsWithStock.reduce((sum, product) => {
+          const stockQty = product.stock_quantity || 0;
+          const salePrice = product.price || 0;
+          return sum + (stockQty * salePrice);
+        }, 0);
+        
+        // Calculate total inventory value (including zero stock items for comparison)
+        const totalInventoryAtCost = allProducts.reduce((sum, product) => {
+          const stockQty = product.stock_quantity || 0;
+          const costPrice = product.cost_price || 0;
+          return sum + (stockQty * costPrice);
+        }, 0);
+        
+        const totalInventoryAtSale = allProducts.reduce((sum, product) => {
+          const stockQty = product.stock_quantity || 0;
+          const salePrice = product.price || 0;
+          return sum + (stockQty * salePrice);
+        }, 0);
         
         // Calculate COGS from actual sale items - if cost_price is 0, use unit_price as fallback
         const cogs = saleItemsResponse.data?.reduce((sum, item) => {
@@ -183,13 +210,20 @@ export default function TenantAdminDashboard() {
         const profit = revenue - cogs;
         
         // Calculate profitable products (products with price > cost_price)
-        const profitableProducts = productsResponse.data?.filter(product => 
+        const profitableProducts = allProducts.filter(product => 
           (product.price || 0) > (product.cost_price || 0) && (product.cost_price || 0) > 0
         ).length || 0;
         
-        // Low stock count
-        const lowStockCount = productsResponse.data?.filter(product => 
-          (product.stock_quantity || 0) <= (product.min_stock_level || 0) && (product.min_stock_level || 0) > 0
+        // Low stock count - products at or below minimum stock level
+        const lowStockCount = allProducts.filter(product => {
+          const currentStock = product.stock_quantity || 0;
+          const minStock = product.min_stock_level || 0;
+          return currentStock <= minStock && minStock > 0;
+        }).length || 0;
+        
+        // Out of stock count
+        const outOfStockCount = allProducts.filter(product => 
+          (product.stock_quantity || 0) === 0
         ).length || 0;
 
         const result = {
@@ -198,12 +232,16 @@ export default function TenantAdminDashboard() {
           totalCustomers,
           activeCustomers,
           totalPurchases,
-          stockByPurchasePrice,
-          stockBySalePrice,
+          stockByPurchasePrice: totalInventoryAtCost, // Use total inventory value
+          stockBySalePrice: totalInventoryAtSale, // Use total inventory value
+          stockInHandAtCost: stockByPurchasePrice, // Value of products actually in stock
+          stockInHandAtSale: stockBySalePrice, // Value of products actually in stock
           profit,
           cogs,
           lowStockCount,
-          totalProducts: productsResponse.data?.length || 0,
+          outOfStockCount,
+          totalProducts: allProducts.length,
+          productsWithStock: productsWithStock.length,
           profitableProducts
         };
 
@@ -225,10 +263,14 @@ export default function TenantAdminDashboard() {
             totalPurchases: 0,
             stockByPurchasePrice: 0,
             stockBySalePrice: 0,
+            stockInHandAtCost: 0,
+            stockInHandAtSale: 0,
             profit: 0,
             cogs: 0,
             lowStockCount: 0,
+            outOfStockCount: 0,
             totalProducts: 0,
+            productsWithStock: 0,
             profitableProducts: 0
           },
           error: error
@@ -265,8 +307,16 @@ export default function TenantAdminDashboard() {
     {
       title: "Stock Value (Purchase)",
       value: formatCurrency(dashboardData?.stockByPurchasePrice || 0),
-      change: dashboardData?.lowStockCount ? `${dashboardData.lowStockCount} low stock` : "in stock",
-      changeType: dashboardData?.lowStockCount && dashboardData.lowStockCount > 0 ? "warning" : "positive",
+      change: dashboardData?.outOfStockCount > 0 
+        ? `${dashboardData.outOfStockCount} out of stock` 
+        : dashboardData?.lowStockCount > 0 
+        ? `${dashboardData.lowStockCount} low stock` 
+        : `${dashboardData?.productsWithStock || 0} in stock`,
+      changeType: dashboardData?.outOfStockCount > 0 
+        ? "warning" 
+        : dashboardData?.lowStockCount > 0 
+        ? "warning" 
+        : "positive",
       icon: Boxes,
       description: "at cost price",
       trend: [0, 0, 0, dashboardData?.stockByPurchasePrice || 0]
@@ -274,8 +324,10 @@ export default function TenantAdminDashboard() {
     {
       title: "Stock Value (Sale)",
       value: formatCurrency(dashboardData?.stockBySalePrice || 0),
-      change: "potential value",
-      changeType: "positive",
+      change: dashboardData?.stockBySalePrice > 0 
+        ? "potential revenue" 
+        : "no stock value",
+      changeType: dashboardData?.stockBySalePrice > 0 ? "positive" : "warning",
       icon: TrendingUp,
       description: "at selling price",
       trend: [0, 0, 0, dashboardData?.stockBySalePrice || 0]
