@@ -6,6 +6,8 @@ import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   BarChart3, 
   Users, 
@@ -17,7 +19,11 @@ import {
   Eye,
   AlertTriangle,
   Crown,
-  Settings
+  Settings,
+  Calendar,
+  TrendingDown,
+  Boxes,
+  PiggyBank
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
@@ -35,6 +41,10 @@ export default function TenantAdminDashboard() {
   const { formatCurrency } = useApp();
   const { formatPrice } = useCurrencyUpdate();
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
+  });
 
   // Fetch subscription data
   useEffect(() => {
@@ -69,62 +79,100 @@ export default function TenantAdminDashboard() {
     }
   };
 
-  // Fetch real dashboard data
+  // Fetch enhanced dashboard data with date filtering
   const { data: dashboardData, loading } = useOptimizedQuery(
     async () => {
       if (!tenantId) return { data: null, error: null };
       
-      const today = new Date().toISOString().split('T')[0];
+      const startDate = `${dateRange.startDate}T00:00:00.000Z`;
+      const endDate = `${dateRange.endDate}T23:59:59.999Z`;
       
       try {
         // Fetch all data in parallel for better performance
-        const [todaySalesResponse, totalOrdersResponse, productsResponse, customersResponse, lowStockResponse] = await Promise.all([
+        const [
+          salesResponse, 
+          productsResponse, 
+          customersResponse, 
+          purchasesResponse,
+          stockValueResponse
+        ] = await Promise.all([
+          // Sales data for the date range
           supabase
             .from('sales')
-            .select('total_amount')
+            .select('total_amount, created_at')
             .eq('tenant_id', tenantId)
-            .gte('created_at', today),
-          supabase
-            .from('sales')
-            .select('id', { count: 'exact', head: true })
-            .eq('tenant_id', tenantId)
-            .gte('created_at', today),
+            .gte('created_at', startDate)
+            .lte('created_at', endDate),
+          
+          // Products with stock info
           supabase
             .from('products')
-            .select('id, stock_quantity, min_stock_level', { count: 'exact' })
+            .select('id, stock_quantity, min_stock_level, price, cost_price')
             .eq('tenant_id', tenantId)
             .eq('is_active', true),
+          
+          // Customers count
           supabase
             .from('customers')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId),
+          
+          // Purchases data for the date range
           supabase
-            .from('products')
-            .select('id, stock_quantity, min_stock_level', { count: 'exact' })
+            .from('purchases')
+            .select('total_amount, created_at')
             .eq('tenant_id', tenantId)
-            .eq('is_active', true)
-            .then(response => {
-              if (response.error) throw response.error;
-              const lowStockProducts = response.data.filter(product => 
-                product.stock_quantity <= product.min_stock_level && product.min_stock_level > 0
-              );
-              return { ...response, count: lowStockProducts.length };
-            })
+            .gte('created_at', startDate)
+            .lte('created_at', endDate),
+          
+          // Cost of goods sold calculation
+          supabase
+            .from('sale_items')
+            .select(`
+              quantity,
+              unit_price,
+              products!inner(cost_price),
+              sales!inner(created_at, tenant_id)
+            `)
+            .eq('sales.tenant_id', tenantId)
+            .gte('sales.created_at', startDate)
+            .lte('sales.created_at', endDate)
         ]);
 
-        const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
-        const todayOrders = totalOrdersResponse.count || 0;
-        const totalProducts = productsResponse.count || 0;
+        // Calculate metrics
+        const revenue = salesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+        const salesCount = salesResponse.data?.length || 0;
         const totalCustomers = customersResponse.count || 0;
-        const lowStockCount = lowStockResponse.count || 0;
+        const totalPurchases = purchasesResponse.data?.reduce((sum, purchase) => sum + Number(purchase.total_amount), 0) || 0;
+        
+        // Calculate stock values
+        const stockByPurchasePrice = productsResponse.data?.reduce((sum, product) => 
+          sum + (product.stock_quantity * (product.cost_price || 0)), 0) || 0;
+        const stockBySalePrice = productsResponse.data?.reduce((sum, product) => 
+          sum + (product.stock_quantity * (product.price || 0)), 0) || 0;
+        
+        // Calculate COGS and profit
+        const cogs = stockValueResponse.data?.reduce((sum, item) => 
+          sum + (item.quantity * (item.products?.cost_price || 0)), 0) || 0;
+        const profit = revenue - cogs;
+        
+        // Low stock count
+        const lowStockCount = productsResponse.data?.filter(product => 
+          product.stock_quantity <= product.min_stock_level && product.min_stock_level > 0
+        ).length || 0;
 
         return {
           data: {
-            todayRevenue,
-            todayOrders,
-            totalProducts,
+            revenue,
+            salesCount,
             totalCustomers,
-            lowStockCount
+            totalPurchases,
+            stockByPurchasePrice,
+            stockBySalePrice,
+            profit,
+            cogs,
+            lowStockCount,
+            totalProducts: productsResponse.data?.length || 0
           },
           error: null
         };
@@ -133,32 +181,59 @@ export default function TenantAdminDashboard() {
         throw error;
       }
     },
-    [tenantId],
+    [tenantId, dateRange.startDate, dateRange.endDate],
     {
       enabled: !!tenantId,
       staleTime: 2 * 60 * 1000, // 2 minutes cache
-      cacheKey: `tenant-dashboard-${tenantId}`
+      cacheKey: `enhanced-dashboard-${tenantId}-${dateRange.startDate}-${dateRange.endDate}`
     }
   );
 
   const businessStats = [
     {
-      title: "Today's Revenue",
-      value: formatCurrency(dashboardData?.todayRevenue || 0),
-      change: dashboardData?.todayRevenue ? "+0%" : "No sales",
-      changeType: dashboardData?.todayRevenue ? "positive" : "neutral",
+      title: "Revenue",
+      value: formatCurrency(dashboardData?.revenue || 0),
+      change: dashboardData?.revenue ? `${dashboardData.salesCount} sales` : "No sales",
+      changeType: dashboardData?.revenue ? "positive" : "neutral",
       icon: DollarSign,
-      description: "vs yesterday",
-      trend: [0, 0, 0, dashboardData?.todayRevenue || 0]
+      description: "selected period",
+      trend: [0, 0, 0, dashboardData?.revenue || 0]
     },
     {
-      title: "Total Orders",
-      value: (dashboardData?.todayOrders || 0).toString(),
-      change: dashboardData?.todayOrders ? `+${dashboardData.todayOrders}` : "No orders",
-      changeType: dashboardData?.todayOrders ? "positive" : "neutral", 
+      title: "Total Purchases",
+      value: formatCurrency(dashboardData?.totalPurchases || 0),
+      change: dashboardData?.totalPurchases ? "purchases made" : "No purchases",
+      changeType: dashboardData?.totalPurchases ? "neutral" : "neutral", 
       icon: ShoppingCart,
-      description: "orders today",
-      trend: [0, 0, 0, dashboardData?.todayOrders || 0]
+      description: "selected period",
+      trend: [0, 0, 0, dashboardData?.totalPurchases || 0]
+    },
+    {
+      title: "Stock Value (Purchase)",
+      value: formatCurrency(dashboardData?.stockByPurchasePrice || 0),
+      change: dashboardData?.lowStockCount ? `${dashboardData.lowStockCount} low stock` : "in stock",
+      changeType: dashboardData?.lowStockCount && dashboardData.lowStockCount > 0 ? "warning" : "positive",
+      icon: Boxes,
+      description: "at cost price",
+      trend: [0, 0, 0, dashboardData?.stockByPurchasePrice || 0]
+    },
+    {
+      title: "Stock Value (Sale)",
+      value: formatCurrency(dashboardData?.stockBySalePrice || 0),
+      change: "potential value",
+      changeType: "positive",
+      icon: TrendingUp,
+      description: "at selling price",
+      trend: [0, 0, 0, dashboardData?.stockBySalePrice || 0]
+    },
+    {
+      title: "Profit",
+      value: formatCurrency(dashboardData?.profit || 0),
+      change: dashboardData?.profit && dashboardData.profit > 0 ? "profitable" : dashboardData?.profit && dashboardData.profit < 0 ? "loss" : "break even",
+      changeType: dashboardData?.profit && dashboardData.profit > 0 ? "positive" : dashboardData?.profit && dashboardData.profit < 0 ? "warning" : "neutral",
+      icon: dashboardData?.profit && dashboardData.profit < 0 ? TrendingDown : PiggyBank,
+      description: "selected period",
+      trend: [0, 0, 0, Math.abs(dashboardData?.profit || 0)]
     },
     {
       title: "Active Products",
@@ -168,15 +243,6 @@ export default function TenantAdminDashboard() {
       icon: Package,
       description: "need attention",
       trend: [0, 0, 0, dashboardData?.totalProducts || 0]
-    },
-    {
-      title: "Team Members",
-      value: "1", // Current user
-      change: "1 online",
-      changeType: "neutral",
-      icon: Users,
-      description: "currently active",
-      trend: [1, 1, 1, 1]
     }
   ];
 
@@ -219,25 +285,25 @@ export default function TenantAdminDashboard() {
   // Generate real activity based on actual data
   const recentActivity = [];
   
-  if (dashboardData?.todayRevenue && dashboardData.todayRevenue > 0) {
+  if (dashboardData?.revenue && dashboardData.revenue > 0) {
     recentActivity.push({
-      id: "#TODAY",
+      id: "#PERIOD",
       type: "sales_summary",
-      customer: "Today's Sales",
-      amount: formatCurrency(dashboardData.todayRevenue),
-      time: "Today",
+      customer: "Period Sales",
+      amount: formatCurrency(dashboardData.revenue),
+      time: "Selected Period",
       status: "completed",
-      description: `${dashboardData.todayOrders} order(s) completed`
+      description: `${dashboardData.salesCount} sale(s) completed`
     });
   } else {
     recentActivity.push({
       id: "#NONE",
       type: "info",
-      customer: "No Sales Today",
+      customer: "No Sales",
       amount: formatCurrency(0),
-      time: "Today",
+      time: "Selected Period",
       status: "info",
-      description: "No transactions recorded today"
+      description: "No transactions recorded for selected period"
     });
   }
 
@@ -252,10 +318,10 @@ export default function TenantAdminDashboard() {
     });
   }
 
-  if (!dashboardData?.todayRevenue || dashboardData.todayRevenue === 0) {
+  if (!dashboardData?.revenue || dashboardData.revenue === 0) {
     alerts.push({
       type: "info", 
-      message: "No sales recorded today - consider promoting your products",
+      message: "No sales recorded for selected period - consider promoting your products",
       action: "View promotions",
       time: "Now"
     });
@@ -269,9 +335,86 @@ export default function TenantAdminDashboard() {
           {getTimeBasedGreeting()}, {user?.user_metadata?.full_name || user?.email?.split('@')[0]}!
         </h1>
         <p className="text-muted-foreground">
-          Here's what's happening with your business today.
+          Here's what's happening with your business.
         </p>
       </div>
+
+      {/* Date Filter Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Date Range Filter
+          </CardTitle>
+          <CardDescription>
+            Select date range to view specific period metrics
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                type="date"
+                id="startDate"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input
+                type="date"
+                id="endDate"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setDateRange({
+                startDate: new Date().toISOString().split('T')[0],
+                endDate: new Date().toISOString().split('T')[0]
+              })}
+            >
+              Today
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                const today = new Date();
+                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                setDateRange({
+                  startDate: lastWeek.toISOString().split('T')[0],
+                  endDate: today.toISOString().split('T')[0]
+                });
+              }}
+            >
+              Last 7 Days
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                const today = new Date();
+                const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                setDateRange({
+                  startDate: lastMonth.toISOString().split('T')[0],
+                  endDate: today.toISOString().split('T')[0]
+                });
+              }}
+            >
+              Last 30 Days
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Billing Plan Display */}
       {currentSubscription ? (
@@ -507,30 +650,36 @@ export default function TenantAdminDashboard() {
           {/* Performance Overview */}
           <Card>
             <CardHeader>
-              <CardTitle>Today's Performance</CardTitle>
-              <CardDescription>Sales summary and key metrics</CardDescription>
+              <CardTitle>Period Performance</CardTitle>
+              <CardDescription>Sales summary and key metrics for selected period</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                   <div>
                     <p className="text-sm text-green-700 font-medium">Total Revenue</p>
-                    <p className="text-2xl font-bold text-green-900">{formatCurrency(dashboardData?.todayRevenue || 0)}</p>
+                    <p className="text-2xl font-bold text-green-900">{formatCurrency(dashboardData?.revenue || 0)}</p>
                   </div>
                   <div className="text-right">
                     <TrendingUp className="h-6 w-6 text-green-600 mb-1" />
-                    <Badge className="bg-green-100 text-green-700">Today</Badge>
+                    <Badge className="bg-green-100 text-green-700">Period</Badge>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Transactions</span>
-                    <span className="font-semibold">{dashboardData?.todayOrders || 0}</span>
+                    <span className="text-sm text-muted-foreground">Sales Count</span>
+                    <span className="font-semibold">{dashboardData?.salesCount || 0}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Average Order Value</span>
-                    <span className="font-semibold">{formatCurrency(dashboardData?.todayRevenue && dashboardData?.todayOrders ? dashboardData.todayRevenue / dashboardData.todayOrders : 0)}</span>
+                    <span className="text-sm text-muted-foreground">Average Sale Value</span>
+                    <span className="font-semibold">{formatCurrency(dashboardData?.revenue && dashboardData?.salesCount ? dashboardData.revenue / dashboardData.salesCount : 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total Profit</span>
+                    <span className={`font-semibold ${dashboardData?.profit && dashboardData.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(dashboardData?.profit || 0)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Products in Catalog</span>
