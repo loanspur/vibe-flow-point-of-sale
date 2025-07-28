@@ -608,13 +608,17 @@ const UserManagement = () => {
     console.log("✅ Validation passed, proceeding with invitation...");
 
     try {
+      console.log("🔐 Getting current user...");
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        console.log("❌ User not authenticated");
         toast.error('User not authenticated');
         return;
       }
+      console.log("✅ User authenticated:", user.id);
 
+      console.log("🔍 Checking for existing invitations...");
       // Check if invitation already exists for this email
       const { data: existingInvitation, error: invitationCheckError } = await supabase
         .from('user_invitations')
@@ -624,10 +628,25 @@ const UserManagement = () => {
         .eq('status', 'pending')
         .maybeSingle();
 
+      console.log("📋 Existing invitation check result:", { 
+        existingInvitation, 
+        invitationCheckError,
+        tenantId,
+        email: inviteEmail.trim()
+      });
+
+      if (invitationCheckError) {
+        console.log("❌ Error checking existing invitations:", invitationCheckError);
+        throw invitationCheckError;
+      }
+
       if (existingInvitation) {
+        console.log("⚠️ Existing invitation found - blocking new invitation");
         toast.error('An invitation has already been sent to this email address');
         return;
       }
+
+      console.log("✅ No existing invitation found, proceeding...");
 
       // Check if user already exists with this email
       const { data: existingUser } = await supabase
