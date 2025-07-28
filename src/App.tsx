@@ -166,6 +166,7 @@ const DomainRouter = () => {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/accept-invitation" element={<AcceptInvitation />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route 
