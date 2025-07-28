@@ -10,9 +10,11 @@ interface AuthContextType {
   loading: boolean;
   userRole: UserRole | null;
   tenantId: string | null;
+  requirePasswordChange: boolean;
   refreshUserInfo: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +33,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false);
 
   // Fetch user role and tenant info
   const fetchUserInfo = async (userId: string) => {
@@ -38,7 +41,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('role, tenant_id')
+        .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
         .maybeSingle(); // Use maybeSingle instead of single to avoid errors
 
@@ -46,6 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn('Error fetching user profile:', error);
         setUserRole('user');
         setTenantId(null);
+        setRequirePasswordChange(false);
         return;
       }
 
@@ -53,17 +57,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('User profile loaded:', profile);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
+        setRequirePasswordChange(profile.require_password_change || false);
       } else {
         console.log('No profile found, setting default role');
         // Fallback if no profile found
         setUserRole('user');
         setTenantId(null);
+        setRequirePasswordChange(false);
       }
     } catch (error) {
       console.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
+      setRequirePasswordChange(false);
     }
   };
 
@@ -226,11 +233,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setUserRole(null);
       setTenantId(null);
+      setRequirePasswordChange(false);
       
       await supabase.auth.signOut();
     } catch (error) {
       // Silent fail - user experience is more important than logout errors
       console.warn('Logout error (ignored):', error);
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) return { error };
+
+      // Update profile to remove password change requirement
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ require_password_change: false })
+          .eq('user_id', user.id);
+        
+        setRequirePasswordChange(false);
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error };
     }
   };
 
@@ -240,9 +272,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loading,
     userRole,
     tenantId,
+    requirePasswordChange,
     refreshUserInfo,
     signIn,
-    signOut
+    signOut,
+    updatePassword
   };
 
   // Don't render children until we've checked for an existing session

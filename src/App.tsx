@@ -15,6 +15,7 @@ import { SuperAdminLayout } from "./components/SuperAdminLayout";
 import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
+import { PasswordChangeModal } from "./components/PasswordChangeModal";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -544,6 +545,7 @@ const App = () => (
           <Sonner />
           <PerformanceMonitor />
           <CookieConsent />
+          <PasswordChangeModal />
           <BrowserRouter>
             <DomainRouter />
           </BrowserRouter>

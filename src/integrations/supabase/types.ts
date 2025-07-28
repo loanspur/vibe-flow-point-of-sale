@@ -2736,6 +2736,7 @@ export type Database = {
           email_verified_at: string | null
           full_name: string | null
           id: string
+          require_password_change: boolean | null
           role: Database["public"]["Enums"]["user_role"] | null
           tenant_id: string | null
           updated_at: string
@@ -2748,6 +2749,7 @@ export type Database = {
           email_verified_at?: string | null
           full_name?: string | null
           id?: string
+          require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           tenant_id?: string | null
           updated_at?: string
@@ -2760,6 +2762,7 @@ export type Database = {
           email_verified_at?: string | null
           full_name?: string | null
           id?: string
+          require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           tenant_id?: string | null
           updated_at?: string
