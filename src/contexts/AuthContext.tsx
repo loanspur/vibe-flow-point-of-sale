@@ -220,7 +220,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Clear session state immediately to prevent multiple calls
+      setSession(null);
+      setUser(null);
+      setUserRole(null);
+      setTenantId(null);
+      
+      await supabase.auth.signOut();
+    } catch (error) {
+      // Silent fail - user experience is more important than logout errors
+      console.warn('Logout error (ignored):', error);
+    }
   };
 
   const value = {

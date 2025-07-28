@@ -39,7 +39,10 @@ export default function ProtectedRoute({
     if (userRole === 'superadmin') {
       return <Navigate to="/superadmin" replace />;
     } else if (userRole === 'admin' || userRole === 'manager') {
-      return <Navigate to="/admin" replace />;
+      // Check if on subdomain, redirect to root for tenant-specific dashboard
+      const isOnSubdomain = window.location.hostname.includes('.vibepos.shop') && 
+                           window.location.hostname !== 'vibepos.shop';
+      return <Navigate to={isOnSubdomain ? "/" : "/admin"} replace />;
     } else {
       return <Navigate to="/pos" replace />;
     }
