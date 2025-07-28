@@ -215,9 +215,16 @@ const handler = async (req: Request): Promise<Response> => {
       html: htmlContent,
     });
 
+    console.log('Resend response:', emailData, emailError);
+
     if (emailError) {
-      console.error('Failed to send invitation email:', emailError);
-      throw new Error(`Failed to send invitation email: ${emailError.message || emailError}`);
+      console.error('Resend error details:', emailError);
+      throw new Error(`Email sending failed: ${emailError.message || emailError}`);
+    }
+
+    if (!emailData || emailData.error) {
+      console.error('Resend returned error in data:', emailData);
+      throw new Error(`Email sending failed: ${emailData?.error || 'Unknown error'}`);
     }
 
     console.log("Invitation email sent successfully to:", email);
