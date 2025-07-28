@@ -16,8 +16,8 @@ import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
 
-// Lazy load components for better performance
-const LandingPage = lazy(() => import("./pages/LandingPage"));
+// Import critical components directly to avoid dynamic import failures
+import LandingPage from "./pages/LandingPage";
 const Auth = lazy(() => import("./pages/Auth"));
 const AcceptInvitation = lazy(() => import("./pages/AcceptInvitation"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));

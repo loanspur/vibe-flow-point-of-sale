@@ -12,7 +12,7 @@ import Footer from "@/components/Footer";
 import { LazyImage } from "@/components/ui/image-lazy";
 import { PricingCardSkeleton } from "@/components/ui/skeleton-loader";
 import { useOptimizedPricing } from "@/hooks/useOptimizedPricing";
-import { usePreloader, preloadCriticalResources } from "@/hooks/usePreloader";
+import { usePreloader } from "@/hooks/usePreloader";
 import { TrialSignupModal } from "@/components/TrialSignupModal";
 
 interface BillingPlan {
@@ -44,10 +44,7 @@ const Index = () => {
     formatFeatures
   } = useOptimizedPricing();
 
-  // Preload critical resources on component mount
-  useEffect(() => {
-    preloadCriticalResources();
-  }, []);
+  // Images are now preloaded at component level for better performance
 
   const formatPrice = (price: number) => {
     return `KES ${price.toLocaleString()}`;
