@@ -194,114 +194,107 @@ const Auth = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Sign In</CardTitle>
+            <CardTitle>{showForgotPassword ? 'Reset Password' : 'Sign In'}</CardTitle>
             <CardDescription>
-              Access your vibePOS dashboard
+              {showForgotPassword 
+                ? 'Enter your email address and we\'ll send you a link to reset your password.'
+                : 'Access your vibePOS dashboard'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
             {/* Global sign-in error */}
-            {signInError && (
+            {signInError && !showForgotPassword && (
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{signInError}</AlertDescription>
               </Alert>
             )}
             
-            <div className="w-full">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={signInData.email}
-                    onChange={(e) => {
-                      setSignInData({ ...signInData, email: e.target.value });
-                      setEmailError(''); // Clear error when user types
-                    }}
-                    className={emailError ? 'border-destructive focus:border-destructive' : ''}
-                  />
-                  {emailError && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {emailError}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <div className="relative">
+            {/* Reset success message */}
+            {resetSuccess && showForgotPassword && (
+              <Alert className="mb-4 border-green-200 bg-green-50 text-green-800">
+                <Mail className="h-4 w-4" />
+                <AlertDescription>{resetSuccess}</AlertDescription>
+              </Alert>
+            )}
+            
+            {!showForgotPassword ? (
+              <div className="w-full">
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email">Email</Label>
                     <Input
-                      id="signin-password"
-                      type={showPassword ? "text" : "password"}
-                      value={signInData.password}
+                      id="signin-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={signInData.email}
                       onChange={(e) => {
-                        setSignInData({ ...signInData, password: e.target.value });
-                        setPasswordError(''); // Clear error when user types
+                        setSignInData({ ...signInData, email: e.target.value });
+                        setEmailError(''); // Clear error when user types
                       }}
-                      className={`pr-10 ${passwordError ? 'border-destructive focus:border-destructive' : ''}`}
-                      placeholder="Enter your password"
+                      className={emailError ? 'border-destructive focus:border-destructive' : ''}
                     />
+                    {emailError && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {emailError}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="signin-password"
+                        type={showPassword ? "text" : "password"}
+                        value={signInData.password}
+                        onChange={(e) => {
+                          setSignInData({ ...signInData, password: e.target.value });
+                          setPasswordError(''); // Clear error when user types
+                        }}
+                        className={`pr-10 ${passwordError ? 'border-destructive focus:border-destructive' : ''}`}
+                        placeholder="Enter your password"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                    {passwordError && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {passwordError}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      variant="link"
+                      className="px-0 h-auto text-sm text-muted-foreground hover:text-primary"
+                      onClick={() => setShowForgotPassword(true)}
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
+                      Forgot password?
                     </Button>
                   </div>
-                  {passwordError && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {passwordError}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="px-0 h-auto text-sm text-muted-foreground hover:text-primary"
-                    onClick={() => setShowForgotPassword(true)}
-                  >
-                    Forgot password?
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign In
                   </Button>
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
-                </Button>
-              </form>
-            </div>
-          </CardContent>
-        </Card>
-
-        {showForgotPassword && (
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle>Reset Password</CardTitle>
-              <CardDescription>
-                Enter your email address and we'll send you a link to reset your password.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Reset success message */}
-              {resetSuccess && (
-                <Alert className="mb-4 border-green-200 bg-green-50 text-green-800">
-                  <Mail className="h-4 w-4" />
-                  <AlertDescription>{resetSuccess}</AlertDescription>
-                </Alert>
-              )}
-              
+                </form>
+              </div>
+            ) : (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">Email</Label>
@@ -335,7 +328,7 @@ const Auth = () => {
                       setResetEmail('');
                     }}
                   >
-                    Cancel
+                    Back to Sign In
                   </Button>
                   <Button type="submit" className="flex-1" disabled={resetLoading}>
                     {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -343,9 +336,9 @@ const Auth = () => {
                   </Button>
                 </div>
               </form>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
