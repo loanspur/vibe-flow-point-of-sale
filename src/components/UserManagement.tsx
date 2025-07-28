@@ -112,6 +112,7 @@ const UserManagement = () => {
   // Dialog states
   const [isViewingUser, setIsViewingUser] = useState(false);
   const [isEditingRole, setIsEditingRole] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   
@@ -119,6 +120,13 @@ const UserManagement = () => {
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+
+  // User creation states
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState('');
+  const [newUserFullName, setNewUserFullName] = useState('');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (tenantId) {
@@ -396,6 +404,42 @@ const UserManagement = () => {
     }
   };
 
+  const createUser = async () => {
+    if (!newUserEmail || !newUserPassword || !newUserRole || !newUserFullName) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-user-account', {
+        body: {
+          email: newUserEmail,
+          password: newUserPassword,
+          fullName: newUserFullName,
+          role: newUserRole,
+          tenantId,
+          loginUrl: `${window.location.origin}/auth`
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('User created successfully and welcome email sent');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('');
+      setNewUserFullName('');
+      setIsCreatingUser(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast.error('Failed to create user');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const deactivateUserSession = async (sessionId: string) => {
     try {
       const { error } = await supabase
@@ -489,8 +533,88 @@ const UserManagement = () => {
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Team Members</CardTitle>
-              <CardDescription>Manage your team members and their roles</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Team Members</CardTitle>
+                  <CardDescription>Manage your team members and their roles</CardDescription>
+                </div>
+                {userRole === 'admin' && (
+                  <Dialog open={isCreatingUser} onOpenChange={setIsCreatingUser}>
+                    <DialogTrigger asChild>
+                      <Button onClick={() => {
+                        setNewUserEmail('');
+                        setNewUserPassword('');
+                        setNewUserRole('');
+                        setNewUserFullName('');
+                      }}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create User
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create New User</DialogTitle>
+                        <DialogDescription>
+                          Create a new user account and send them login credentials
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="user-full-name">Full Name</Label>
+                          <Input
+                            id="user-full-name"
+                            value={newUserFullName}
+                            onChange={(e) => setNewUserFullName(e.target.value)}
+                            placeholder="Enter full name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="user-email">Email Address</Label>
+                          <Input
+                            id="user-email"
+                            type="email"
+                            value={newUserEmail}
+                            onChange={(e) => setNewUserEmail(e.target.value)}
+                            placeholder="Enter email address"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="user-password">Password</Label>
+                          <Input
+                            id="user-password"
+                            type="password"
+                            value={newUserPassword}
+                            onChange={(e) => setNewUserPassword(e.target.value)}
+                            placeholder="Enter password"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="user-role">Role</Label>
+                          <Select value={newUserRole} onValueChange={setNewUserRole}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="manager">Manager</SelectItem>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="cashier">Cashier</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setIsCreatingUser(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={createUser} disabled={creating}>
+                            {creating ? 'Creating...' : 'Create User'}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4 mb-4">

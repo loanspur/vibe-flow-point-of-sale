@@ -1,0 +1,216 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
+import { Resend } from "npm:resend@2.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface CreateUserRequest {
+  email: string;
+  password: string;
+  fullName: string;
+  role: string;
+  tenantId: string;
+  loginUrl: string;
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const {
+      email,
+      password,
+      fullName,
+      role,
+      tenantId,
+      loginUrl
+    }: CreateUserRequest = await req.json();
+
+    console.log('Creating user with email:', email);
+
+    // Initialize Supabase admin client
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Create user with admin API
+    const { data: user, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: {
+        full_name: fullName
+      },
+      email_confirm: true // Auto-confirm email
+    });
+
+    if (createError) {
+      console.error('Error creating user:', createError);
+      throw createError;
+    }
+
+    if (!user?.user) {
+      throw new Error('Failed to create user');
+    }
+
+    console.log('User created successfully:', user.user.id);
+
+    // Create profile record
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
+        user_id: user.user.id,
+        full_name: fullName,
+        role: role as 'admin' | 'manager' | 'user' | 'cashier',
+        tenant_id: tenantId,
+        require_password_change: true
+      });
+
+    if (profileError) {
+      console.error('Error creating profile:', profileError);
+      // Don't throw here, we'll still send the email
+    }
+
+    // Create tenant_users record
+    const { error: tenantUserError } = await supabaseAdmin
+      .from('tenant_users')
+      .insert({
+        tenant_id: tenantId,
+        user_id: user.user.id,
+        role: role === 'admin' ? 'admin' : role === 'manager' ? 'manager' : 'user',
+        is_active: true
+      });
+
+    if (tenantUserError) {
+      console.error('Error creating tenant user:', tenantUserError);
+      // Don't throw here, we'll still send the email
+    }
+
+    // Send welcome email with credentials
+    const emailResponse = await resend.emails.send({
+      from: "VibePOS Team <noreply@vibepos.com>",
+      to: [email],
+      subject: "Welcome to VibePOS - Your Account Details",
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Welcome to VibePOS</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to VibePOS!</h1>
+            <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">Your account has been created successfully</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hello ${fullName}!</h2>
+            
+            <p>Your VibePOS account has been created with the following details:</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #495057;">Login Credentials</h3>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Password:</strong> ${password}</p>
+              <p><strong>Role:</strong> ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0;">
+              <h4 style="margin-top: 0; color: #856404;">⚠️ Important Security Notice</h4>
+              <p style="margin: 0; color: #856404;">You will be required to change your password on first login for security purposes.</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${loginUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to VibePOS</a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <h3 style="color: #495057;">What's Next?</h3>
+            <ul style="color: #6c757d;">
+              <li>Click the login button above to access your account</li>
+              <li>You'll be prompted to change your password on first login</li>
+              <li>Explore the VibePOS dashboard and features</li>
+              <li>Contact your administrator if you need any assistance</li>
+            </ul>
+            
+            <p style="color: #6c757d; margin-top: 30px;">
+              If you have any questions or need help getting started, don't hesitate to contact your system administrator.
+            </p>
+            
+            <p style="color: #6c757d; margin-top: 30px; font-size: 14px;">
+              Best regards,<br>
+              The VibePOS Team
+            </p>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    console.log('Welcome email sent:', emailResponse);
+
+    // Log the communication
+    await supabaseAdmin
+      .from('communication_logs')
+      .insert({
+        tenant_id: tenantId,
+        user_id: user.user.id,
+        type: 'email',
+        channel: 'email',
+        recipient: email,
+        subject: 'Welcome to VibePOS - Your Account Details',
+        content: 'User account creation notification with login credentials',
+        status: emailResponse.error ? 'failed' : 'sent',
+        external_id: emailResponse.data?.id,
+        error_message: emailResponse.error?.message
+      });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        user_id: user.user.id,
+        email_sent: !emailResponse.error
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error("Error in create-user-account function:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || 'Failed to create user account'
+      }),
+      {
+        status: 500,
+        headers: { 
+          "Content-Type": "application/json", 
+          ...corsHeaders 
+        },
+      }
+    );
+  }
+};
+
+serve(handler);
