@@ -24,12 +24,12 @@ export default function AcceptInvitation() {
   const type = searchParams.get('type');
 
   useEffect(() => {
-    // If no token or wrong type, redirect to home
-    if (!token || type !== 'invite') {
+    // Remove the type check since we're using custom invitation tokens
+    if (!token) {
       navigate('/');
       return;
     }
-  }, [token, type, navigate]);
+  }, [token, navigate]);
 
   const handleAcceptInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,96 +64,138 @@ export default function AcceptInvitation() {
     setLoading(true);
 
     try {
-      // Accept the invitation by verifying the token
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: token,
-        type: 'invite'
-      });
+      // First, validate the invitation token and get invitation details
+      const { data: invitation, error: invitationError } = await supabase
+        .from('user_invitations')
+        .select('*')
+        .eq('invitation_token', token)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .single();
 
-      if (error) {
-        throw error;
+      if (invitationError || !invitation) {
+        toast({
+          title: "Invalid or expired invitation",
+          description: "This invitation link is invalid or has expired. Please contact your administrator.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      if (data.user) {
-        // Update the user's password and profile
-        const { error: updateError } = await supabase.auth.updateUser({
-          password: formData.password
-        });
+      // Get role information
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('name')
+        .eq('id', invitation.role_id)
+        .single();
 
-        if (updateError) {
-          throw updateError;
-        }
+      // Get tenant information  
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('name')
+        .eq('id', invitation.tenant_id)
+        .single();
 
-        // Get the invitation metadata
-        const userData = data.user.user_metadata;
-        
-        // Create tenant-user relationship if it doesn't exist
-        if (userData?.tenant_id) {
-          const { error: tenantUserError } = await supabase
-            .from('tenant_users')
-            .insert({
-              user_id: data.user.id,
-              tenant_id: userData.tenant_id,
-              role: 'user',
-              is_active: true
-            });
-
-          if (tenantUserError && !tenantUserError.message.includes('duplicate key')) {
-            console.error('Tenant user creation error:', tenantUserError);
+      // Sign up the user with Supabase Auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: invitation.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            tenant_id: invitation.tenant_id,
+            role_id: invitation.role_id,
+            invited_by: invitation.invited_by
           }
         }
-        
-        // Update the user's profile with full name and tenant info
+      });
+
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      if (authData.user) {
+        // Determine the role based on role name
+        const roleName = roleData?.name || 'user';
+        const profileRole = roleName.toLowerCase() === 'admin' ? 'admin' : 
+                           roleName.toLowerCase() === 'manager' ? 'manager' : 'user';
+
+        // Create/update profile
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
-            user_id: data.user.id,
+            user_id: authData.user.id,
             full_name: formData.fullName,
-            tenant_id: userData?.tenant_id,
+            tenant_id: invitation.tenant_id,
+            role: profileRole,
             updated_at: new Date().toISOString()
           });
 
         if (profileError) {
-          console.error('Profile update error:', profileError);
+          console.error('Profile creation error:', profileError);
         }
 
-        // Assign the user their role if provided in metadata
-        if (userData?.role_id && userData?.tenant_id) {
-          const { error: roleError } = await supabase
-            .from('user_role_assignments')
-            .insert({
-              user_id: data.user.id,
-              role_id: userData.role_id,
-              tenant_id: userData.tenant_id,
-              assigned_by: userData.invited_by
-            });
+        // Create tenant-user relationship
+        const { error: tenantUserError } = await supabase
+          .from('tenant_users')
+          .insert({
+            user_id: authData.user.id,
+            tenant_id: invitation.tenant_id,
+            role: roleName.toLowerCase(),
+            is_active: true
+          });
 
-          if (roleError && !roleError.message.includes('duplicate key')) {
-            console.error('Role assignment error:', roleError);
-          }
+        if (tenantUserError && !tenantUserError.message.includes('duplicate key')) {
+          console.error('Tenant user creation error:', tenantUserError);
+        }
+
+        // Assign the user their role
+        const { error: roleError } = await supabase
+          .from('user_role_assignments')
+          .insert({
+            user_id: authData.user.id,
+            role_id: invitation.role_id,
+            tenant_id: invitation.tenant_id,
+            assigned_by: invitation.invited_by
+          });
+
+        if (roleError && !roleError.message.includes('duplicate key')) {
+          console.error('Role assignment error:', roleError);
         }
 
         // Update invitation status
-        const { error: invitationUpdateError } = await supabase
+        const { error: updateInvitationError } = await supabase
           .from('user_invitations')
           .update({ 
             status: 'accepted',
             accepted_at: new Date().toISOString()
           })
-          .eq('email', data.user.email)
-          .eq('tenant_id', userData?.tenant_id);
+          .eq('invitation_token', token);
 
-        if (invitationUpdateError) {
-          console.error('Invitation update error:', invitationUpdateError);
+        if (updateInvitationError) {
+          console.error('Invitation update error:', updateInvitationError);
         }
 
+        const companyName = tenantData?.name || 'the team';
         toast({
           title: "Welcome!",
-          description: "Your account has been set up successfully. Welcome to the team!",
+          description: `Your account has been set up successfully. Welcome to ${companyName}!`,
         });
 
-        // Redirect to admin dashboard
-        navigate('/admin');
+        // Sign in the user automatically
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: invitation.email,
+          password: formData.password
+        });
+
+        if (signInError) {
+          console.error('Auto sign-in error:', signInError);
+          // Redirect to auth page if auto sign-in fails
+          navigate('/auth');
+        } else {
+          // Redirect to admin dashboard
+          navigate('/admin');
+        }
       }
     } catch (error: any) {
       console.error('Accept invitation error:', error);
@@ -167,7 +209,7 @@ export default function AcceptInvitation() {
     }
   };
 
-  if (!token || type !== 'invite') {
+  if (!token) {
     return null;
   }
 
