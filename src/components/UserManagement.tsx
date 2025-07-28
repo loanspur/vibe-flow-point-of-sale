@@ -648,14 +648,18 @@ const UserManagement = () => {
 
       console.log("🚀 Proceeding to send invitation (edge function will handle resend logic)...");
 
+      console.log("👤 Checking if user already exists in this tenant...");
       // Check if user already exists with this email
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: userCheckError } = await supabase
         .from('profiles')
         .select('user_id')
         .eq('tenant_id', tenantId)
         .single();
 
+      console.log("👤 Existing user check result:", { existingUser, userCheckError });
+
       if (existingUser) {
+        console.log("👤 Found existing user in tenant, checking contact email match...");
         // Get user email from auth.users would require admin access, so we'll check by email in contacts
         const { data: contactWithEmail, error: contactError } = await supabase
           .from('contacts')
@@ -663,27 +667,18 @@ const UserManagement = () => {
           .eq('tenant_id', tenantId)
           .eq('email', inviteEmail.trim())
           .not('user_id', 'is', null)
-          .maybeSingle();
+          .single();
+
+        console.log("📧 Contact email check result:", { contactWithEmail, contactError });
 
         if (contactWithEmail) {
-          toast.error('A user with this email already exists in your organization');
+          console.log("⚠️ User already exists in tenant with this email");
+          toast.error('This user is already part of your organization');
           return;
         }
       }
 
-      // Check for existing pending invitations first
-      const { data: existingPendingInvitation, error: pendingInvitationError } = await supabase
-        .from('user_invitations')
-        .select('id')
-        .eq('email', inviteEmail.trim())
-        .eq('tenant_id', tenantId)
-        .eq('status', 'pending')
-        .maybeSingle();
-
-      if (existingPendingInvitation) {
-        toast.error('A pending invitation already exists for this email');
-        return;
-      }
+      console.log("✅ User check passed, proceeding to fetch data...");
 
       // Get role name for the invitation
       const { data: roleData } = await supabase
