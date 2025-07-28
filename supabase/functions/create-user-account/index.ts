@@ -90,27 +90,65 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Create profile record with proper error handling
     console.log('Creating profile record...');
-    const { data: profileData, error: profileError } = await supabaseAdmin
+    
+    let profileData;
+    
+    // Check if profile already exists
+    const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        user_id: userId,
-        full_name: fullName,
-        role: role as 'admin' | 'manager' | 'user' | 'cashier',
-        tenant_id: tenantId,
-        require_password_change: true,
-        email_verified: true
-      })
-      .select()
-      .single();
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (existingProfile) {
+      console.log('Profile already exists, updating it');
+      // Profile exists, just update it
+      const { data: updatedProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          full_name: fullName,
+          role: role as 'admin' | 'manager' | 'user' | 'cashier',
+          tenant_id: tenantId,
+          require_password_change: true,
+          email_verified: true
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+        
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw new Error(`Failed to update user profile: ${profileError.message}`);
+      }
+      
+      profileData = updatedProfile;
+    } else {
+      // Create new profile
+      const { data: newProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          full_name: fullName,
+          role: role as 'admin' | 'manager' | 'user' | 'cashier',
+          tenant_id: tenantId,
+          require_password_change: true,
+          email_verified: true
+        })
+        .select()
+        .single();
 
-    if (profileError) {
-      console.error('Error creating profile:', profileError);
-      // Try to clean up the auth user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-      throw new Error(`Failed to create user profile: ${profileError.message}`);
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+        // Try to clean up the auth user if profile creation fails
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw new Error(`Failed to create user profile: ${profileError.message}`);
+      }
+      
+      profileData = newProfile;
     }
 
-    console.log('Profile created successfully:', profileData);
+    console.log('Profile handled successfully:', profileData);
 
     // Create tenant_users record with proper role mapping
     console.log('Creating tenant_users record...');
