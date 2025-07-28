@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Mail, Clock, UserCheck, AlertTriangle, RefreshCw, MoreHorizontal, Ban, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Clock, AlertTriangle, Ban, CheckCircle, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface User {
@@ -71,18 +71,6 @@ interface UserActivityLog {
   user_name?: string;
 }
 
-interface UserInvitation {
-  id: string;
-  email: string;
-  role_id: string;
-  status: string;
-  expires_at: string;
-  created_at: string;
-  invited_by: string;
-  role_name?: string;
-  invited_by_name?: string;
-}
-
 interface UserSession {
   id: string;
   user_id: string;
@@ -98,8 +86,8 @@ const PERMISSION_CATEGORIES = [
   'dashboard',
   'inventory',
   'sales',
-  'purchasing',
-  'crm',
+  'customers',
+  'products',
   'financial',
   'reports',
   'administration',
@@ -116,136 +104,44 @@ const UserManagement = () => {
   const [systemPermissions, setSystemPermissions] = useState<SystemPermission[]>([]);
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [activityLogs, setActivityLogs] = useState<UserActivityLog[]>([]);
-  const [invitations, setInvitations] = useState<UserInvitation[]>([]);
   const [userSessions, setUserSessions] = useState<UserSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  
+  // Dialog states
+  const [isViewingUser, setIsViewingUser] = useState(false);
+  const [isEditingRole, setIsEditingRole] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  
+  // Role creation/editing states
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
-  const [editingRole, setEditingRole] = useState<UserRole | null>(null);
-  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
-  const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
-  const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
-  const [isInviteUserOpen, setIsInviteUserOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRoleId, setInviteRoleId] = useState('');
-  const [selectedUserDetails, setSelectedUserDetails] = useState<User | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     if (tenantId) {
-      // Load data in batches to improve performance
-      const loadInitialData = async () => {
-        setLoading(true);
-        try {
-          // First batch: Essential data
-          await Promise.all([
-            fetchUsers(),
-            fetchRoles(),
-            fetchSystemPermissions()
-          ]);
-          
-          // Second batch: Secondary data (load after initial render)
-          setTimeout(async () => {
-            await Promise.all([
-              fetchActivityLogs(),
-              fetchInvitations(),
-              fetchUserSessions()
-            ]);
-          }, 100);
-        } finally {
-          setLoading(false);
-        }
-      };
-      
-      loadInitialData();
+      fetchUsers();
+      fetchRoles();
+      fetchSystemPermissions();
+      fetchActivityLogs();
+      fetchUserSessions();
     }
   }, [tenantId]);
 
-  const fetchSystemPermissions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('system_permissions')
-        .select('*')
-        .order('category', { ascending: true })
-        .order('resource', { ascending: true })
-        .order('action', { ascending: true });
-
-      if (error) throw error;
-      setSystemPermissions(data || []);
-    } catch (error) {
-      toast.error('Failed to load system permissions');
-    }
-  };
-
-  const fetchRolePermissions = async (roleId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('role_permissions')
-        .select(`
-          *,
-          permission:system_permissions(*)
-        `)
-        .eq('role_id', roleId);
-
-      if (error) throw error;
-      setRolePermissions(data || []);
-      
-      // Update selected permissions
-      const granted = new Set(
-        data?.filter(rp => rp.granted).map(rp => rp.permission_id) || []
-      );
-      setSelectedPermissions(granted);
-    } catch (error) {
-      toast.error('Failed to load role permissions');
-    }
-  };
-
   const fetchUsers = async () => {
     try {
-      // Build query based on user role
-      let query = supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          user_id,
-          full_name,
-          role,
-          tenant_id,
-          created_at,
-          avatar_url
-        `);
-
-      // Only filter by tenant if not superadmin - superadmins can see all users
-      if (userRole !== 'superadmin') {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
+        .select('id, user_id, full_name, role, tenant_id, created_at, avatar_url')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Also fetch tenant_users to get is_active status
-      const userIds = data?.map(user => user.user_id) || [];
-      if (userIds.length > 0) {
-        const { data: tenantUsersData } = await supabase
-          .from('tenant_users')
-          .select('user_id, is_active')
-          .in('user_id', userIds)
-          .eq('tenant_id', tenantId);
-        
-        const tenantUsersMap = new Map(tenantUsersData?.map(tu => [tu.user_id, tu.is_active]) || []);
-        
-        const usersWithStatus = data?.map(user => ({
-          ...user,
-          is_active: tenantUsersMap.get(user.user_id) ?? true
-        })) || [];
-        
-        setUsers(usersWithStatus);
-      } else {
-        setUsers(data || []);
-      }
+      setUsers(data || []);
     } catch (error) {
+      console.error('Error fetching users:', error);
       toast.error('Failed to load users');
     }
   };
@@ -262,227 +158,42 @@ const UserManagement = () => {
       if (error) throw error;
       setRoles(data || []);
     } catch (error) {
+      console.error('Error fetching roles:', error);
       toast.error('Failed to load roles');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const createRole = async () => {
-    if (!newRoleName.trim()) {
-      toast.error('Role name is required');
-      return;
-    }
-
+  const fetchSystemPermissions = async () => {
     try {
-      // Create the role first
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          name: newRoleName,
-          description: newRoleDescription,
-          tenant_id: tenantId,
-          is_system_role: false,
-          is_active: true
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase
+        .from('system_permissions')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('resource', { ascending: true })
+        .order('action', { ascending: true });
 
-      if (roleError) throw roleError;
-
-      // Create role permissions
-      if (selectedPermissions.size > 0) {
-        const permissionsToInsert = Array.from(selectedPermissions).map(permissionId => ({
-          role_id: roleData.id,
-          permission_id: permissionId,
-          granted: true
-        }));
-
-        const { error: permError } = await supabase
-          .from('role_permissions')
-          .insert(permissionsToInsert);
-
-        if (permError) throw permError;
-      }
-
-      toast.success('Role created successfully');
-      setNewRoleName('');
-      setNewRoleDescription('');
-      setSelectedPermissions(new Set());
-      setIsCreateRoleOpen(false);
-      fetchRoles();
+      if (error) throw error;
+      setSystemPermissions(data || []);
     } catch (error) {
-      toast.error('Failed to create role');
+      console.error('Error fetching permissions:', error);
+      toast.error('Failed to load permissions');
     }
   };
 
-  const updateRole = async () => {
-    if (!editingRole) return;
-
+  const fetchRolePermissions = async () => {
     try {
-      // Update role description
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .update({
-          description: newRoleDescription
-        })
-        .eq('id', editingRole.id);
-
-      if (roleError) throw roleError;
-
-      // Delete existing role permissions
-      await supabase
+      const { data, error } = await supabase
         .from('role_permissions')
-        .delete()
-        .eq('role_id', editingRole.id);
-
-      // Insert new permissions
-      if (selectedPermissions.size > 0) {
-        const permissionsToInsert = Array.from(selectedPermissions).map(permissionId => ({
-          role_id: editingRole.id,
-          permission_id: permissionId,
-          granted: true
-        }));
-
-        const { error: permError } = await supabase
-          .from('role_permissions')
-          .insert(permissionsToInsert);
-
-        if (permError) throw permError;
-      }
-
-      toast.success('Role updated successfully');
-      setEditingRole(null);
-      setIsEditRoleOpen(false);
-      fetchRoles();
-    } catch (error) {
-      toast.error('Failed to update role');
-    }
-  };
-
-  const deleteRole = async (roleId: string) => {
-    try {
-      const { error } = await supabase
-        .from('user_roles')
-        .update({ is_active: false })
-        .eq('id', roleId);
+        .select(`
+          *,
+          permission:system_permissions(*)
+        `);
 
       if (error) throw error;
-
-      toast.success('Role deleted successfully');
-      fetchRoles();
+      setRolePermissions(data || []);
     } catch (error) {
-      toast.error('Failed to delete role');
+      console.error('Error fetching role permissions:', error);
     }
-  };
-
-  const updateUserRole = async (userId: string, roleId: string) => {
-    try {
-      // First, deactivate existing role assignments
-      await supabase
-        .from('user_role_assignments')
-        .update({ is_active: false })
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId);
-
-      // Create new role assignment
-      const { error } = await supabase
-        .from('user_role_assignments')
-        .insert({
-          user_id: userId,
-          role_id: roleId,
-          tenant_id: tenantId,
-          is_active: true
-        });
-
-      if (error) throw error;
-
-      toast.success('User role updated successfully');
-      fetchUsers();
-    } catch (error) {
-      toast.error('Failed to update user role');
-    }
-  };
-
-  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('tenant_users')
-        .update({ is_active: !currentStatus })
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId);
-
-      if (error) throw error;
-
-      toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
-      fetchUsers();
-    } catch (error) {
-      toast.error('Failed to update user status');
-    }
-  };
-
-  const deleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      toast.success('User deleted successfully');
-      fetchUsers();
-    } catch (error) {
-      toast.error('Failed to delete user');
-    }
-  };
-
-  const getRoleDisplayInfo = (role: string) => {
-    const roleMap: Record<string, { color: string; icon: React.ReactNode }> = {
-      'superadmin': { 
-        color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400', 
-        icon: <Shield className="h-3 w-3" /> 
-      },
-      'admin': { 
-        color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400', 
-        icon: <Settings className="h-3 w-3" /> 
-      },
-      'manager': { 
-        color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400', 
-        icon: <UserCheck className="h-3 w-3" /> 
-      },
-      'cashier': { 
-        color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400', 
-        icon: <Users className="h-3 w-3" /> 
-      },
-      'user': { 
-        color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400', 
-        icon: <Users className="h-3 w-3" /> 
-      }
-    };
-    
-    return roleMap[role] || roleMap['user'];
-  };
-
-  const openEditRole = (role: UserRole) => {
-    setEditingRole(role);
-    setNewRoleDescription(role.description || '');
-    fetchRolePermissions(role.id);
-    setIsEditRoleOpen(true);
-  };
-
-  const togglePermission = (permissionId: string) => {
-    const newSelected = new Set(selectedPermissions);
-    if (newSelected.has(permissionId)) {
-      newSelected.delete(permissionId);
-    } else {
-      newSelected.add(permissionId);
-    }
-    setSelectedPermissions(newSelected);
   };
 
   const fetchActivityLogs = async () => {
@@ -495,58 +206,12 @@ const UserManagement = () => {
         .limit(100);
 
       if (error) throw error;
-      
-      const userIds = [...new Set(data?.map(log => log.user_id) || [])];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', userIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
-      
-      const logsWithUserNames = data?.map(log => ({
+      setActivityLogs((data || []).map(log => ({
         ...log,
-        user_name: profileMap.get(log.user_id) || 'Unknown User',
-        ip_address: log.ip_address as string || undefined,
-        user_agent: log.user_agent as string || undefined
-      })) || [];
-      
-      setActivityLogs(logsWithUserNames);
+        ip_address: log.ip_address as string
+      })));
     } catch (error) {
-      // Error handled silently
-    }
-  };
-
-  const fetchInvitations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_invitations')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      const roleIds = [...new Set(data?.map(inv => inv.role_id).filter(Boolean) || [])];
-      const userIds = [...new Set(data?.map(inv => inv.invited_by) || [])];
-      
-      const [rolesData, profilesData] = await Promise.all([
-        supabase.from('user_roles').select('id, name').in('id', roleIds),
-        supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
-      ]);
-
-      const roleMap = new Map(rolesData.data?.map(r => [r.id, r.name]) || []);
-      const profileMap = new Map(profilesData.data?.map(p => [p.user_id, p.full_name]) || []);
-      
-      const invitationsWithNames = data?.map(invitation => ({
-        ...invitation,
-        role_name: roleMap.get(invitation.role_id) || 'Unknown Role',
-        invited_by_name: profileMap.get(invitation.invited_by) || 'Unknown User'
-      })) || [];
-      
-      setInvitations(invitationsWithNames);
-    } catch (error) {
-      // Error handled silently
+      console.error('Error fetching activity logs:', error);
     }
   };
 
@@ -560,298 +225,174 @@ const UserManagement = () => {
         .order('last_activity', { ascending: false });
 
       if (error) throw error;
-      
-      const userIds = [...new Set(data?.map(session => session.user_id) || [])];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', userIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
-      
-      const sessionsWithUserNames = data?.map(session => ({
+      setUserSessions((data || []).map(session => ({
         ...session,
-        user_name: profileMap.get(session.user_id) || 'Unknown User',
-        ip_address: session.ip_address as string || undefined
-      })) || [];
-      
-      setUserSessions(sessionsWithUserNames);
+        ip_address: session.ip_address as string
+      })));
     } catch (error) {
-      // Error handled silently
+      console.error('Error fetching user sessions:', error);
     }
   };
 
-  const sendUserInvitation = async () => {
-    console.log("🚀 Starting invitation process...");
-    console.log("📝 Current form values:", { 
-      inviteEmail: inviteEmail, 
-      inviteEmailTrimmed: inviteEmail.trim(), 
-      inviteRoleId: inviteRoleId,
-      emailLength: inviteEmail.length,
-      emailTrimmedLength: inviteEmail.trim().length
-    });
-    
-    setLoading(true);
-    if (!inviteEmail.trim() || !inviteRoleId) {
-      console.log("❌ Missing email or role:", { 
-        email: inviteEmail, 
-        emailTrimmed: inviteEmail.trim(),
-        roleId: inviteRoleId,
-        emailEmpty: !inviteEmail.trim(),
-        roleEmpty: !inviteRoleId
-      });
-      toast.error('Email and role are required');
-      setLoading(false);
-      return;
-    }
-
-    console.log("✅ Validation passed, proceeding with invitation...");
-
-    try {
-      console.log("🔐 Getting current user...");
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log("❌ User not authenticated");
-        toast.error('User not authenticated');
-        return;
-      }
-      console.log("✅ User authenticated:", user.id);
-
-      console.log("🔍 Checking for existing invitations (for info only)...");
-      // Check if invitation already exists for this email (for logging purposes)
-      const { data: existingInvitation, error: invitationCheckError } = await supabase
-        .from('user_invitations')
-        .select('id, status')
-        .eq('tenant_id', tenantId)
-        .eq('email', inviteEmail.trim())
-        .eq('status', 'pending')
-        .maybeSingle();
-
-      console.log("📋 Existing invitation check result:", { 
-        existingInvitation, 
-        invitationCheckError,
-        tenantId,
-        email: inviteEmail.trim()
-      });
-
-      if (invitationCheckError) {
-        console.log("❌ Error checking existing invitations:", invitationCheckError);
-        // Don't throw - just log the error and continue
-      }
-
-      if (existingInvitation) {
-        console.log("ℹ️ Existing invitation found - will be updated with new token by edge function");
-      } else {
-        console.log("✅ No existing invitation found, will create new one");
-      }
-
-      console.log("🚀 Proceeding to send invitation (edge function will handle resend logic)...");
-
-      console.log("👤 Checking if user already exists in this tenant...");
-      // Check if user already exists with this email
-      const { data: existingUser, error: userCheckError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('tenant_id', tenantId)
-        .single();
-
-      console.log("👤 Existing user check result:", { existingUser, userCheckError });
-
-      if (existingUser) {
-        console.log("👤 Found existing user in tenant, checking contact email match...");
-        // Get user email from auth.users would require admin access, so we'll check by email in contacts
-        const { data: contactWithEmail, error: contactError } = await supabase
-          .from('contacts')
-          .select('user_id')
-          .eq('tenant_id', tenantId)
-          .eq('email', inviteEmail.trim())
-          .not('user_id', 'is', null)
-          .single();
-
-        console.log("📧 Contact email check result:", { contactWithEmail, contactError });
-
-        if (contactWithEmail) {
-          console.log("⚠️ User already exists in tenant with this email");
-          toast.error('This user is already part of your organization');
-          return;
-        }
-      }
-
-      console.log("✅ User check passed, proceeding to fetch data...");
-
-      // Get role name for the invitation
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('name')
-        .eq('id', inviteRoleId)
-        .single();
-
-      // Get business settings for company name
-      const { data: businessSettings } = await supabase
-        .from('business_settings')
-        .select('company_name')
-        .eq('tenant_id', tenantId)
-        .single();
-
-      // Get inviter profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', user.id)
-        .single();
-
-      console.log("📧 About to call send-user-invitation function with data:", {
-        email: inviteEmail.trim(),
-        roleId: inviteRoleId,
-        tenantId: tenantId,
-        inviterName: profile?.full_name || 'Team Member',
-        inviterId: user.id,
-        companyName: businessSettings?.company_name || 'Your Company',
-        roleName: roleData?.name || 'Unknown Role'
-      });
-
-      // Send invitation using edge function
-      const { data: invitationResult, error: invitationError } = await supabase.functions.invoke('send-user-invitation', {
-        body: {
-          email: inviteEmail.trim(),
-          roleId: inviteRoleId,
-          tenantId: tenantId,
-          inviterName: profile?.full_name || 'Team Member',
-          inviterId: user.id,
-          companyName: businessSettings?.company_name || 'Your Company',
-          roleName: roleData?.name || 'Unknown Role'
-        }
-      });
-
-      console.log("📧 Function call completed, error:", invitationError);
-
-      if (invitationError) {
-        throw invitationError;
-      }
-
-      // Show success message based on whether it was a resend or new invitation
-      const isResend = invitationResult?.isResend || false;
-      const successMessage = isResend 
-        ? 'Invitation resent successfully with a new link'
-        : 'User invitation sent successfully';
-
-      toast.success(successMessage);
-      setInviteEmail('');
-      setInviteRoleId('');
-      setIsInviteUserOpen(false);
-      
-      // Refresh the user list to show any updates
-      fetchUsers();
-      fetchInvitations();
-    } catch (error) {
-      toast.error('Failed to send invitation');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const cancelInvitation = async (invitationId: string) => {
+  const updateUserRole = async (userId: string, newRole: string) => {
     try {
       const { error } = await supabase
-        .from('user_invitations')
-        .update({ status: 'cancelled' })
-        .eq('id', invitationId);
+        .from('profiles')
+        .update({ role: newRole as 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user' })
+        .eq('user_id', userId);
 
       if (error) throw error;
 
-      toast.success('Invitation cancelled');
-      fetchInvitations();
+      toast.success('User role updated successfully');
+      fetchUsers();
     } catch (error) {
-      toast.error('Failed to cancel invitation');
+      console.error('Error updating user role:', error);
+      toast.error('Failed to update user role');
     }
   };
 
-  const resendInvitation = async (invitationId: string) => {
+  const toggleUserStatus = async (userId: string, isActive: boolean) => {
     try {
-      // First get the invitation details
-      const { data: invitation, error: invitationError } = await supabase
-        .from('user_invitations')
-        .select('*')
-        .eq('id', invitationId)
-        .maybeSingle();
+      const { error } = await supabase
+        .from('tenant_users')
+        .update({ is_active: !isActive })
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
 
-      if (invitationError) throw invitationError;
-      if (!invitation) throw new Error('Invitation not found');
+      if (error) throw error;
 
-      // Update the existing invitation with new token and expiry instead of creating new one
-      const newToken = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-      
-      const newExpiryDate = new Date();
-      newExpiryDate.setHours(newExpiryDate.getHours() + 72);
+      toast.success(`User ${!isActive ? 'activated' : 'deactivated'} successfully`);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      toast.error('Failed to update user status');
+    }
+  };
 
-      const { error: updateError } = await supabase
-        .from('user_invitations')
-        .update({ 
-          invitation_token: newToken,
-          expires_at: newExpiryDate.toISOString(),
-          status: 'pending'
-        })
-        .eq('id', invitationId);
+  const deleteUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tenant_users')
+        .delete()
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
-      // Get role and inviter details separately with better error handling
-      const [roleData, inviterData, businessSettings] = await Promise.allSettled([
-        supabase
-          .from('user_roles')
-          .select('name')
-          .eq('id', invitation.role_id)
-          .maybeSingle(),
-        supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('user_id', invitation.invited_by)
-          .maybeSingle(),
-        supabase
-          .from('business_settings')
-          .select('company_name')
-          .eq('tenant_id', invitation.tenant_id)
-          .maybeSingle()
-      ]);
+      toast.success('User removed successfully');
+      fetchUsers();
+    } catch (error) {
+      console.error('Error removing user:', error);
+      toast.error('Failed to remove user');
+    }
+  };
 
-      // Extract values with fallbacks
-      const roleName = roleData.status === 'fulfilled' && roleData.value.data?.name 
-        ? roleData.value.data.name 
-        : 'Team Member';
-      const inviterName = inviterData.status === 'fulfilled' && inviterData.value.data?.full_name 
-        ? inviterData.value.data.full_name 
-        : 'Team Member';
-      const companyName = businessSettings.status === 'fulfilled' && businessSettings.value.data?.company_name 
-        ? businessSettings.value.data.company_name 
-        : 'Your Company';
+  const createRole = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .insert([{
+          tenant_id: tenantId,
+          name: newRoleName,
+          description: newRoleDescription,
+          is_system_role: false,
+          is_active: true
+        }])
+        .select()
+        .single();
 
-      // Send invitation using the new edge function
-      const { data: resendResult, error: emailError } = await supabase.functions.invoke('send-user-invitation', {
-        body: {
-          email: invitation.email,
-          roleId: invitation.role_id,
-          tenantId: invitation.tenant_id,
-          inviterName,
-          inviterId: user?.id || '', // Add the missing inviterId parameter
-          companyName,
-          roleName
-        }
-      });
+      if (error) throw error;
 
-      if (emailError) {
-        console.error('Email function error:', emailError);
-        throw new Error(`Failed to send invitation: ${emailError.message}`);
+      // Add permissions to role
+      if (selectedPermissions.length > 0) {
+        const permissionInserts = selectedPermissions.map(permissionId => ({
+          role_id: data.id,
+          permission_id: permissionId,
+          granted: true
+        }));
+
+        const { error: permissionError } = await supabase
+          .from('role_permissions')
+          .insert(permissionInserts);
+
+        if (permissionError) throw permissionError;
       }
 
-      // Always show resent message since this is specifically a resend action
-      toast.success('Invitation resent successfully with a new invitation link');
-      fetchInvitations();
-    } catch (error: any) {
-      console.error('Failed to resend invitation:', error);
-      toast.error(`Failed to resend invitation: ${error.message || 'Unknown error'}`);
+      toast.success('Role created successfully');
+      setNewRoleName('');
+      setNewRoleDescription('');
+      setSelectedPermissions([]);
+      setIsEditingRole(false);
+      fetchRoles();
+      fetchRolePermissions();
+    } catch (error) {
+      console.error('Error creating role:', error);
+      toast.error('Failed to create role');
+    }
+  };
+
+  const updateRole = async () => {
+    if (!selectedRole) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({
+          name: newRoleName,
+          description: newRoleDescription
+        })
+        .eq('id', selectedRole.id);
+
+      if (error) throw error;
+
+      // Update permissions
+      await supabase
+        .from('role_permissions')
+        .delete()
+        .eq('role_id', selectedRole.id);
+
+      if (selectedPermissions.length > 0) {
+        const permissionInserts = selectedPermissions.map(permissionId => ({
+          role_id: selectedRole.id,
+          permission_id: permissionId,
+          granted: true
+        }));
+
+        const { error: permissionError } = await supabase
+          .from('role_permissions')
+          .insert(permissionInserts);
+
+        if (permissionError) throw permissionError;
+      }
+
+      toast.success('Role updated successfully');
+      setSelectedRole(null);
+      setNewRoleName('');
+      setNewRoleDescription('');
+      setSelectedPermissions([]);
+      setIsEditingRole(false);
+      fetchRoles();
+      fetchRolePermissions();
+    } catch (error) {
+      console.error('Error updating role:', error);
+      toast.error('Failed to update role');
+    }
+  };
+
+  const deleteRole = async (roleId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('id', roleId);
+
+      if (error) throw error;
+
+      toast.success('Role deleted successfully');
+      fetchRoles();
+    } catch (error) {
+      console.error('Error deleting role:', error);
+      toast.error('Failed to delete role');
     }
   };
 
@@ -871,44 +412,62 @@ const UserManagement = () => {
     }
   };
 
+  const getRoleDisplayInfo = (role: string) => {
+    const roleMap: { [key: string]: { color: string; icon: React.ReactNode } } = {
+      'admin': { color: 'bg-red-100 text-red-800', icon: <Shield className="w-3 h-3" /> },
+      'manager': { color: 'bg-blue-100 text-blue-800', icon: <Settings className="w-3 h-3" /> },
+      'user': { color: 'bg-gray-100 text-gray-800', icon: <Users className="w-3 h-3" /> },
+      'cashier': { color: 'bg-green-100 text-green-800', icon: <Users className="w-3 h-3" /> }
+    };
+
+    return roleMap[role] || { color: 'bg-gray-100 text-gray-800', icon: <Users className="w-3 h-3" /> };
+  };
+
+  const togglePermission = (permissionId: string) => {
+    setSelectedPermissions(prev => 
+      prev.includes(permissionId) 
+        ? prev.filter(id => id !== permissionId)
+        : [...prev, permissionId]
+    );
+  };
+
+  const openEditRole = (role: UserRole) => {
+    setSelectedRole(role);
+    setNewRoleName(role.name);
+    setNewRoleDescription(role.description);
+    
+    // Get permissions for this role
+    const rolePerms = rolePermissions.filter(rp => rp.role_id === role.id && rp.granted);
+    setSelectedPermissions(rolePerms.map(rp => rp.permission_id));
+    setIsEditingRole(true);
+  };
+
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
-    const matchesRole = selectedRole === 'all' || user.role === selectedRole;
+    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.role?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
 
-  const groupedPermissions = systemPermissions.reduce((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = [];
-    }
-    acc[permission.category].push(permission);
-    return acc;
-  }, {} as Record<string, SystemPermission[]>);
+  useEffect(() => {
+    setLoading(false);
+  }, [users, roles, systemPermissions]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setIsInviteUserOpen(true)}>
-            <Mail className="h-4 w-4 mr-2" />
-            Invite User
-          </Button>
+          <h1 className="text-3xl font-bold">User Management</h1>
+          <p className="text-muted-foreground">Manage users, roles, and permissions</p>
         </div>
       </div>
 
-      <Tabs defaultValue="users" className="space-y-4">
-        <TabsList>
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Users
@@ -916,10 +475,6 @@ const UserManagement = () => {
           <TabsTrigger value="roles" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Roles & Permissions
-          </TabsTrigger>
-          <TabsTrigger value="invitations" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Invitations
           </TabsTrigger>
           <TabsTrigger value="activity" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
@@ -934,156 +489,135 @@ const UserManagement = () => {
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Users
-              </CardTitle>
+              <CardTitle>Team Members</CardTitle>
+              <CardDescription>Manage your team members and their roles</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4 mb-6">
+              <div className="flex items-center gap-4 mb-4">
                 <div className="flex-1">
                   <Input
                     placeholder="Search users..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm"
                   />
                 </div>
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger className="w-[200px]">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-48">
                     <SelectValue placeholder="Filter by role" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Roles</SelectItem>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.name}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="cashier">Cashier</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-sm font-medium">
-                              {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                            </span>
-                          </div>
-                          <span className="font-medium">{user.full_name || 'Unnamed User'}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge className={`${getRoleDisplayInfo(user.role).color} border-0 font-medium`}>
-                            {getRoleDisplayInfo(user.role).icon}
-                            <span className="ml-1 capitalize">{user.role}</span>
-                          </Badge>
-                          {user.is_active === false && (
-                            <Badge variant="destructive" className="text-xs">
-                              Inactive
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{new Date(user.created_at).toLocaleDateString()}</div>
-                          {user.last_login && (
-                            <div className="text-xs text-muted-foreground">
-                              Last: {new Date(user.last_login).toLocaleDateString()}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuItem 
-                              onClick={() => setSelectedUserDetails(user)}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuSeparator />
-                            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                              Change Role
-                            </DropdownMenuLabel>
-                            
-                            {roles.map((role) => (
-                              <DropdownMenuItem 
-                                key={role.id}
-                                onClick={() => updateUserRole(user.user_id, role.id)}
-                                className="pl-6"
-                                disabled={user.role === role.name.toLowerCase()}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {getRoleDisplayInfo(role.name.toLowerCase()).icon}
-                                  <span>{role.name}</span>
-                                  {user.role === role.name.toLowerCase() && (
-                                    <CheckCircle className="ml-auto h-3 w-3 text-green-600" />
-                                  )}
-                                </div>
-                              </DropdownMenuItem>
-                            ))}
-                            
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuItem 
-                              onClick={() => toggleUserStatus(user.user_id, user.is_active !== false)}
-                              className={user.is_active === false ? "text-green-600" : "text-yellow-600"}
-                            >
-                              {user.is_active === false ? (
-                                <>
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Activate User
-                                </>
-                              ) : (
-                                <>
-                                  <Ban className="mr-2 h-4 w-4" />
-                                  Deactivate User
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            
-                            {userRole === 'superadmin' && (
-                              <DropdownMenuItem 
-                                onClick={() => deleteUser(user.user_id)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete User
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          No users found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((user) => {
+                        const roleInfo = getRoleDisplayInfo(user.role);
+                        return (
+                          <TableRow key={user.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                  {user.full_name?.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-medium">{user.full_name}</div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={roleInfo.color}>
+                                <div className="flex items-center gap-1">
+                                  {roleInfo.icon}
+                                  {user.role}
+                                </div>
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {new Date(user.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={user.is_active !== false ? "default" : "secondary"}>
+                                {user.is_active !== false ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center gap-2 justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setIsViewingUser(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                {userRole === 'admin' && (
+                                  <>
+                                    <Select
+                                      value={user.role}
+                                      onValueChange={(newRole) => updateUserRole(user.user_id, newRole)}
+                                    >
+                                      <SelectTrigger className="w-32">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="admin">Admin</SelectItem>
+                                        <SelectItem value="manager">Manager</SelectItem>
+                                        <SelectItem value="user">User</SelectItem>
+                                        <SelectItem value="cashier">Cashier</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => toggleUserStatus(user.user_id, user.is_active !== false)}
+                                    >
+                                      {user.is_active !== false ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => deleteUser(user.user_id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1091,83 +625,80 @@ const UserManagement = () => {
         <TabsContent value="roles" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Roles & Permissions
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Roles & Permissions</CardTitle>
+                  <CardDescription>Manage user roles and their permissions</CardDescription>
                 </div>
-                <Dialog open={isCreateRoleOpen} onOpenChange={setIsCreateRoleOpen}>
+                <Dialog open={isEditingRole} onOpenChange={setIsEditingRole}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setSelectedPermissions(new Set())}>
+                    <Button onClick={() => {
+                      setSelectedRole(null);
+                      setNewRoleName('');
+                      setNewRoleDescription('');
+                      setSelectedPermissions([]);
+                    }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create Role
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Create New Role</DialogTitle>
+                      <DialogTitle>
+                        {selectedRole ? 'Edit Role' : 'Create New Role'}
+                      </DialogTitle>
                       <DialogDescription>
-                        Define a new role with specific permissions for your team
+                        {selectedRole ? 'Update role details and permissions' : 'Create a new role with custom permissions'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="roleName">Role Name</Label>
+                          <Label htmlFor="role-name">Role Name</Label>
                           <Input
-                            id="roleName"
+                            id="role-name"
                             value={newRoleName}
                             onChange={(e) => setNewRoleName(e.target.value)}
-                            placeholder="e.g., Sales Manager"
+                            placeholder="Enter role name"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="roleDescription">Description</Label>
+                          <Label htmlFor="role-description">Description</Label>
                           <Input
-                            id="roleDescription"
+                            id="role-description"
                             value={newRoleDescription}
                             onChange={(e) => setNewRoleDescription(e.target.value)}
-                            placeholder="Brief description of the role"
+                            placeholder="Enter role description"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <Label className="text-base font-medium">Permissions</Label>
-                        <div className="mt-3 space-y-6 border rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <Label>Permissions</Label>
+                        <div className="mt-2 space-y-4">
                           {PERMISSION_CATEGORIES.map(category => {
-                            const categoryPermissions = groupedPermissions[category] || [];
+                            const categoryPermissions = systemPermissions.filter(p => p.category === category);
                             if (categoryPermissions.length === 0) return null;
 
                             return (
-                              <div key={category} className="space-y-3">
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-medium text-sm uppercase tracking-wide text-primary">
-                                    {category.replace('_', ' ')}
-                                  </h4>
-                                  <Separator className="flex-1" />
-                                </div>
+                              <div key={category} className="border rounded-lg p-4">
+                                <h4 className="font-medium mb-2 capitalize">{category}</h4>
                                 <div className="grid grid-cols-2 gap-2">
-                                  {categoryPermissions.map((permission) => (
+                                  {categoryPermissions.map(permission => (
                                     <div key={permission.id} className="flex items-center space-x-2">
                                       <Checkbox
                                         id={permission.id}
-                                        checked={selectedPermissions.has(permission.id)}
+                                        checked={selectedPermissions.includes(permission.id)}
                                         onCheckedChange={() => togglePermission(permission.id)}
                                       />
                                       <Label
                                         htmlFor={permission.id}
-                                        className="text-sm cursor-pointer flex-1"
+                                        className="text-sm font-normal cursor-pointer"
                                       >
-                                        <span className="font-medium">{permission.name}</span>
+                                        {permission.name}
                                         {permission.is_critical && (
-                                          <Badge variant="destructive" className="ml-2 text-xs">
-                                            Critical
-                                          </Badge>
+                                          <AlertTriangle className="h-3 w-3 inline ml-1 text-red-500" />
                                         )}
-                                        <p className="text-xs text-muted-foreground">
-                                          {permission.description}
-                                        </p>
                                       </Label>
                                     </div>
                                   ))}
@@ -1179,214 +710,57 @@ const UserManagement = () => {
                       </div>
 
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setIsCreateRoleOpen(false)}>
+                        <Button variant="outline" onClick={() => setIsEditingRole(false)}>
                           Cancel
                         </Button>
-                        <Button onClick={createRole}>Create Role</Button>
+                        <Button onClick={selectedRole ? updateRole : createRole}>
+                          {selectedRole ? 'Update Role' : 'Create Role'}
+                        </Button>
                       </div>
                     </div>
                   </DialogContent>
                 </Dialog>
-              </CardTitle>
-              <CardDescription>Manage roles and their permissions</CardDescription>
+              </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Role Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roles.map((role) => (
-                    <TableRow key={role.id}>
-                      <TableCell className="font-medium">{role.name}</TableCell>
-                      <TableCell>{role.description}</TableCell>
-                      <TableCell>
-                        <Badge variant={role.is_system_role ? "default" : "secondary"}>
-                          {role.is_system_role ? 'System' : 'Custom'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+              <div className="grid gap-4">
+                {roles.map((role) => (
+                  <div key={role.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{role.name}</h4>
+                        <p className="text-sm text-muted-foreground">{role.description}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant={role.is_system_role ? "secondary" : "default"}>
+                            {role.is_system_role ? 'System Role' : 'Custom Role'}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            Created {new Date(role.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditRole(role)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {!role.is_system_role && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => openEditRole(role)}
+                            onClick={() => deleteRole(role.id)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                          {!role.is_system_role && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => deleteRole(role.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Edit Role Dialog */}
-          <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
-            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Edit Role: {editingRole?.name}</DialogTitle>
-                <DialogDescription>
-                  Modify permissions for this role
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6">
-                <div>
-                  <Label htmlFor="editRoleDescription">Description</Label>
-                  <Input
-                    id="editRoleDescription"
-                    value={newRoleDescription}
-                    onChange={(e) => setNewRoleDescription(e.target.value)}
-                    placeholder="Brief description of the role"
-                    disabled={editingRole?.is_system_role}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-base font-medium">Permissions</Label>
-                  <div className="mt-3 space-y-6 border rounded-lg p-4 max-h-96 overflow-y-auto">
-                    {PERMISSION_CATEGORIES.map(category => {
-                      const categoryPermissions = groupedPermissions[category] || [];
-                      if (categoryPermissions.length === 0) return null;
-
-                      return (
-                        <div key={category} className="space-y-3">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-sm uppercase tracking-wide text-primary">
-                              {category.replace('_', ' ')}
-                            </h4>
-                            <Separator className="flex-1" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            {categoryPermissions.map((permission) => (
-                              <div key={permission.id} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`edit-${permission.id}`}
-                                  checked={selectedPermissions.has(permission.id)}
-                                  onCheckedChange={() => togglePermission(permission.id)}
-                                  disabled={editingRole?.is_system_role}
-                                />
-                                <Label
-                                  htmlFor={`edit-${permission.id}`}
-                                  className="text-sm cursor-pointer flex-1"
-                                >
-                                  <span className="font-medium">{permission.name}</span>
-                                  {permission.is_critical && (
-                                    <Badge variant="destructive" className="ml-2 text-xs">
-                                      Critical
-                                    </Badge>
-                                  )}
-                                  <p className="text-xs text-muted-foreground">
-                                    {permission.description}
-                                  </p>
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsEditRoleOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={updateRole} disabled={editingRole?.is_system_role}>
-                    Update Role
-                  </Button>
-                </div>
+                ))}
               </div>
-            </DialogContent>
-          </Dialog>
-        </TabsContent>
-
-        {/* Invitations Tab */}
-        <TabsContent value="invitations" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  User Invitations
-                </div>
-              </CardTitle>
-              <CardDescription>Manage pending user invitations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Invited By</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invitations.map((invitation) => (
-                    <TableRow key={invitation.id}>
-                      <TableCell className="font-medium">{invitation.email}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{invitation.role_name}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          invitation.status === 'pending' ? 'default' :
-                          invitation.status === 'accepted' ? 'secondary' : 'destructive'
-                        }>
-                          {invitation.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{invitation.invited_by_name}</TableCell>
-                      <TableCell>
-                        {new Date(invitation.expires_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {invitation.status === 'pending' && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => resendInvitation(invitation.id)}
-                              >
-                                <RefreshCw className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => cancelInvitation(invitation.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1394,105 +768,46 @@ const UserManagement = () => {
         <TabsContent value="activity" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                User Activity Logs
-              </CardTitle>
-              <CardDescription>Track user actions and system events with detailed information</CardDescription>
+              <CardTitle>Activity Logs</CardTitle>
+              <CardDescription>Monitor user activities and system events</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Resource</TableHead>
-                    <TableHead>IP Address</TableHead>
-                    <TableHead>Device/Browser</TableHead>
-                    <TableHead>Details</TableHead>
-                    <TableHead>Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activityLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-medium">{log.user_name}</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          log.action_type === 'login' ? 'default' :
-                          log.action_type === 'logout' ? 'secondary' :
-                          log.action_type === 'create' ? 'default' :
-                          log.action_type === 'update' ? 'secondary' :
-                          log.action_type === 'delete' ? 'destructive' :
-                          'outline'
-                        }>
-                          {log.action_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {log.resource_type ? (
-                          <Badge variant="outline" className="text-xs">
-                            {log.resource_type}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">N/A</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm font-mono">
-                          {log.ip_address || 'Unknown'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground max-w-[200px] truncate">
-                          {log.user_agent ? (
-                            <span title={log.user_agent}>
-                              {log.user_agent.includes('Chrome') ? '🌐 Chrome' :
-                               log.user_agent.includes('Firefox') ? '🦊 Firefox' :
-                               log.user_agent.includes('Safari') ? '🧭 Safari' :
-                               log.user_agent.includes('Edge') ? '🔷 Edge' :
-                               log.user_agent.includes('Mobile') ? '📱 Mobile' : '💻 Desktop'}
-                            </span>
-                          ) : (
-                            'Unknown'
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {log.details ? (
-                          <div className="text-sm text-muted-foreground max-w-[150px]">
-                            <details>
-                              <summary className="cursor-pointer hover:text-foreground">
-                                View details
-                              </summary>
-                              <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-h-20">
-                                {JSON.stringify(log.details, null, 2)}
-                              </pre>
-                            </details>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">N/A</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{new Date(log.created_at).toLocaleDateString()}</div>
-                          <div className="text-muted-foreground text-xs">
-                            {new Date(log.created_at).toLocaleTimeString()}
-                          </div>
-                        </div>
-                      </TableCell>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Resource</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>IP Address</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {activityLogs.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No activity logs found</p>
-                  <p className="text-sm">User activities will appear here once users start using the system</p>
-                </div>
-              )}
+                  </TableHeader>
+                  <TableBody>
+                    {activityLogs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          No activity logs found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      activityLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell>{log.user_name || 'Unknown User'}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{log.action_type}</Badge>
+                          </TableCell>
+                          <TableCell>{log.resource_type || '-'}</TableCell>
+                          <TableCell>
+                            {new Date(log.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell>{log.ip_address || '-'}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1500,179 +815,109 @@ const UserManagement = () => {
         <TabsContent value="sessions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Active User Sessions
-              </CardTitle>
+              <CardTitle>Active User Sessions</CardTitle>
               <CardDescription>Monitor and manage active user sessions</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Device</TableHead>
-                    <TableHead>IP Address</TableHead>
-                    <TableHead>Last Activity</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {userSessions.map((session) => (
-                    <TableRow key={session.id}>
-                      <TableCell className="font-medium">{session.user_name}</TableCell>
-                      <TableCell>
-                        {session.device_info?.browser || 'Unknown'} on {session.device_info?.os || 'Unknown'}
-                      </TableCell>
-                      <TableCell>{session.ip_address || 'N/A'}</TableCell>
-                      <TableCell>
-                        {new Date(session.last_activity).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deactivateUserSession(session.id)}
-                        >
-                          <AlertTriangle className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Device</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Last Activity</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {userSessions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8">
+                          No active sessions found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      userSessions.map((session) => (
+                        <TableRow key={session.id}>
+                          <TableCell>{session.user_name || 'Unknown User'}</TableCell>
+                          <TableCell>
+                            {session.device_info?.browser || 'Unknown Device'}
+                          </TableCell>
+                          <TableCell>{session.ip_address || '-'}</TableCell>
+                          <TableCell>
+                            {new Date(session.last_activity).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={session.is_active ? "default" : "secondary"}>
+                              {session.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {session.is_active && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => deactivateUserSession(session.id)}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Invite User Dialog */}
-      <Dialog open={isInviteUserOpen} onOpenChange={setIsInviteUserOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite New User</DialogTitle>
-            <DialogDescription>
-              Send an invitation to join your organization
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="inviteEmail">Email Address</Label>
-              <Input
-                id="inviteEmail"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="user@example.com"
-              />
-            </div>
-            <div>
-              <Label htmlFor="inviteRole">Role</Label>
-              <Select value={inviteRoleId} onValueChange={setInviteRoleId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsInviteUserOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={sendUserInvitation} disabled={loading}>
-                <Mail className="h-4 w-4 mr-2" />
-                {loading ? 'Sending...' : 'Send Invitation'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* User Details Dialog */}
-      <Dialog open={!!selectedUserDetails} onOpenChange={() => setSelectedUserDetails(null)}>
-        <DialogContent className="max-w-md">
+      <Dialog open={isViewingUser} onOpenChange={setIsViewingUser}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
             <DialogDescription>
               View detailed information about this user
             </DialogDescription>
           </DialogHeader>
-          {selectedUserDetails && (
+          {selectedUser && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-lg font-medium">
-                    {selectedUserDetails.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                  </span>
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
+                  {selectedUser.full_name?.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="font-medium">{selectedUserDetails.full_name || 'Unnamed User'}</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge className={`${getRoleDisplayInfo(selectedUserDetails.role).color} border-0 font-medium`}>
-                      {getRoleDisplayInfo(selectedUserDetails.role).icon}
-                      <span className="ml-1 capitalize">{selectedUserDetails.role}</span>
-                    </Badge>
-                    {selectedUserDetails.is_active === false && (
-                      <Badge variant="destructive" className="text-xs">
-                        Inactive
-                      </Badge>
-                    )}
-                  </div>
+                  <h3 className="font-medium">{selectedUser.full_name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedUser.role}</p>
                 </div>
               </div>
-              
               <Separator />
-              
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">User ID</Label>
-                  <p className="font-mono text-xs">{selectedUserDetails.user_id.slice(0, 8)}...</p>
+                  <Label>User ID</Label>
+                  <p className="text-sm text-muted-foreground">{selectedUser.user_id}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Status</Label>
-                  <p>{selectedUserDetails.is_active !== false ? 'Active' : 'Inactive'}</p>
+                  <Label>Role</Label>
+                  <p className="text-sm text-muted-foreground">{selectedUser.role}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Joined</Label>
-                  <p>{new Date(selectedUserDetails.created_at).toLocaleDateString()}</p>
+                  <Label>Joined Date</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedUser.created_at).toLocaleDateString()}
+                  </p>
                 </div>
-                {selectedUserDetails.last_login && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Last Login</Label>
-                    <p>{new Date(selectedUserDetails.last_login).toLocaleDateString()}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setSelectedUserDetails(null)}>
-                  Close
-                </Button>
-                <Button 
-                  variant={selectedUserDetails.is_active !== false ? "destructive" : "default"}
-                  onClick={() => {
-                    toggleUserStatus(selectedUserDetails.user_id, selectedUserDetails.is_active !== false);
-                    setSelectedUserDetails(null);
-                  }}
-                >
-                  {selectedUserDetails.is_active !== false ? (
-                    <>
-                      <Ban className="h-4 w-4 mr-2" />
-                      Deactivate
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Activate
-                    </>
-                  )}
-                </Button>
+                <div>
+                  <Label>Status</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedUser.is_active !== false ? 'Active' : 'Inactive'}
+                  </p>
+                </div>
               </div>
             </div>
           )}

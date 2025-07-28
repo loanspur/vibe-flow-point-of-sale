@@ -19,7 +19,6 @@ import CookieConsent from "./components/CookieConsent";
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
 const Auth = lazy(() => import("./pages/Auth"));
-const AcceptInvitation = lazy(() => import("./pages/AcceptInvitation"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
@@ -166,7 +165,6 @@ const DomainRouter = () => {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
-          <Route path="/accept-invitation" element={<AcceptInvitation />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route 
@@ -256,7 +254,7 @@ const DomainRouter = () => {
         <Route path="/demo" element={<Demo />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/signup" element={<Navigate to="/" replace />} />
         <Route path="/success" element={<Success />} />
