@@ -900,11 +900,12 @@ const Index = () => {
                     <tr>
                       <td className="p-4"></td>
                       {plans.map((plan) => (
-                        <td key={plan.id} className="p-4 text-center">
-                          <Button className="w-full" asChild>
-                            <Link to={`/signup?plan=${plan.id}`}>
-                              Choose {plan.name}
-                            </Link>
+                       <td key={plan.id} className="p-4 text-center">
+                          <Button 
+                            className="w-full" 
+                            onClick={() => handleStartTrial(plan)}
+                          >
+                            Choose {plan.name}
                           </Button>
                         </td>
                       ))}
@@ -930,11 +931,13 @@ const Index = () => {
               Join hundreds of businesses already using VibePOS to streamline their operations
             </p>
             <div className="space-y-4">
-              <Button size="lg" className="text-lg px-8 py-6" asChild>
-                <Link to="/signup">
-                  Start Your Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-6"
+                onClick={() => handleStartTrial(plans[0] || {} as BillingPlan)}
+              >
+                Start Your Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <p className="text-sm text-muted-foreground">
                 14-day free trial • No credit card required • Paystack & M-Pesa accepted
