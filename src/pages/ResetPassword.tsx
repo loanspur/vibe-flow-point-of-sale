@@ -58,6 +58,12 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
+      console.log('Verifying OTP with data:', {
+        email: formData.email,
+        otpCode: formData.otpCode,
+        otpType: 'password_reset'
+      });
+      
       const { data, error } = await supabase.functions.invoke('verify-otp', {
         body: {
           email: formData.email,
@@ -68,7 +74,15 @@ const ResetPassword = () => {
 
       if (error) {
         console.error('Error verifying OTP:', error);
-        setOtpError('Invalid or expired verification code. Please try again.');
+        
+        // Handle specific error types
+        if (error.message?.includes('rate limit')) {
+          setOtpError('Too many attempts. Please wait before trying again.');
+        } else if (error.message?.includes('Invalid or expired')) {
+          setOtpError('Invalid or expired verification code. Please try again or request a new code.');
+        } else {
+          setOtpError('Failed to verify code. Please try again.');
+        }
       } else if (data?.success) {
         setStep('password');
         toast({
@@ -76,11 +90,11 @@ const ResetPassword = () => {
           description: "Please enter your new password."
         });
       } else {
-        setOtpError('Invalid or expired verification code. Please try again.');
+        setOtpError('Invalid or expired verification code. Please try again or request a new code.');
       }
     } catch (error: any) {
       console.error('OTP verification error:', error);
-      setOtpError('Failed to verify code. Please try again.');
+      setOtpError('Failed to verify code. Please try again or request a new code.');
     }
 
     setLoading(false);
