@@ -425,7 +425,10 @@ const UserManagement = () => {
 
       if (error) throw error;
 
-      toast.success('User created successfully and welcome email sent');
+      // Show success message based on the response
+      const successMessage = data?.message || 'User processed successfully and welcome email sent';
+      toast.success(successMessage);
+      
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserRole('');

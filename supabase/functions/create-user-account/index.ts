@@ -56,42 +56,78 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Creating user in auth system...');
     
+    let userId: string;
+    let isNewUser = true;
+    let userStatus = 'created';
+    
     // Check if user already exists by trying to get user by email
     try {
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const userExists = existingUsers?.users?.find(u => u.email === email);
+      const existingUser = existingUsers?.users?.find(u => u.email === email);
       
-      if (userExists) {
-        throw new Error('User with this email already exists');
+      if (existingUser) {
+        console.log('User already exists, checking status:', existingUser.id);
+        
+        // Check if user is active by looking at their profile
+        const { data: profileData } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .eq('user_id', existingUser.id)
+          .maybeSingle();
+        
+        // If user exists but has no profile or is inactive, reactivate them
+        if (!profileData || !profileData.tenant_id) {
+          console.log('Reactivating existing user:', existingUser.id);
+          userId = existingUser.id;
+          isNewUser = false;
+          userStatus = 'reactivated';
+          
+          // Update user metadata
+          await supabaseAdmin.auth.admin.updateUserById(userId, {
+            user_metadata: {
+              full_name: fullName,
+              tenant_id: tenantId,
+              role: role
+            }
+          });
+        } else {
+          // User is active, throw error
+          throw new Error('User with this email is already active in the system');
+        }
       }
-    } catch (checkError) {
-      // If listing fails, continue - it might be a permission issue but user creation will fail if duplicate
+    } catch (checkError: any) {
+      if (checkError.message.includes('already active')) {
+        throw checkError;
+      }
+      // If listing fails, continue - it might be a permission issue
       console.log('Could not check existing users, proceeding with creation:', checkError);
     }
     
-    // Create user with admin API
-    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: {
-        full_name: fullName,
-        tenant_id: tenantId,
-        role: role
-      },
-      email_confirm: true // Auto-confirm email
-    });
+    // Create new user if no existing user was found
+    if (isNewUser) {
+      const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        user_metadata: {
+          full_name: fullName,
+          tenant_id: tenantId,
+          role: role
+        },
+        email_confirm: true // Auto-confirm email
+      });
 
-    if (createError) {
-      console.error('Error creating user in auth:', createError);
-      throw new Error(`Failed to create user: ${createError.message}`);
+      if (createError) {
+        console.error('Error creating user in auth:', createError);
+        throw new Error(`Failed to create user: ${createError.message}`);
+      }
+
+      if (!authData?.user) {
+        throw new Error('User creation failed - no user data returned');
+      }
+
+      userId = authData.user.id;
+      console.log('New user created successfully in auth:', userId);
     }
-
-    if (!authData?.user) {
-      throw new Error('User creation failed - no user data returned');
-    }
-
-    const userId = authData.user.id;
-    console.log('User created successfully in auth:', userId);
 
     // Create profile record with proper error handling
     console.log('Creating profile record...');
@@ -184,35 +220,44 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send welcome email with credentials
     console.log('Sending welcome email...');
+    
+    const emailSubject = userStatus === 'reactivated' 
+      ? "Your VibePOS Account Has Been Reactivated" 
+      : "Welcome to VibePOS - Your Account Details";
+    
+    const welcomeMessage = userStatus === 'reactivated'
+      ? "Your VibePOS account has been reactivated and updated with new details:"
+      : "Your VibePOS account has been created with the following details:";
+    
     const emailResponse = await resend.emails.send({
       from: "VibePOS Team <noreply@vibepos.com>",
       to: [email],
-      subject: "Welcome to VibePOS - Your Account Details",
+      subject: emailSubject,
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to VibePOS</title>
+          <title>${emailSubject}</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to VibePOS!</h1>
-            <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">Your account has been created successfully</p>
+            <h1 style="color: white; margin: 0; font-size: 28px;">${userStatus === 'reactivated' ? 'Account Reactivated!' : 'Welcome to VibePOS!'}</h1>
+            <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">${userStatus === 'reactivated' ? 'Your account has been reactivated successfully' : 'Your account has been created successfully'}</p>
           </div>
           
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
             <h2 style="color: #495057; margin-top: 0;">Hello ${fullName}!</h2>
             
-            <p>Your VibePOS account has been created with the following details:</p>
+            <p>${welcomeMessage}</p>
             
             <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
               <h3 style="margin-top: 0; color: #495057;">Login Credentials</h3>
               <p><strong>Email:</strong> ${email}</p>
               <p><strong>Password:</strong> ${password}</p>
               <p><strong>Role:</strong> ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
-              <p><strong>Tenant:</strong> ${tenantId}</p>
+              <p><strong>Status:</strong> ${userStatus === 'reactivated' ? 'Reactivated' : 'New User'}</p>
             </div>
             
             <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0;">
@@ -281,10 +326,13 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({
         success: true,
         user_id: userId,
+        status: userStatus,
         profile_created: !!profileData,
         tenant_user_created: !!tenantUserData,
         email_sent: !emailResponse.error,
-        message: 'User created successfully and welcome email sent'
+        message: userStatus === 'reactivated' 
+          ? 'User account reactivated successfully and notification email sent'
+          : 'User created successfully and welcome email sent'
       }),
       {
         status: 200,
