@@ -143,7 +143,13 @@ const handler = async (req: Request): Promise<Response> => {
       html: htmlContent,
     });
 
-    console.log('OTP email sent successfully:', emailResponse);
+    console.log('Resend response:', emailResponse);
+
+    // Check if Resend returned an error
+    if (emailResponse.error) {
+      console.error('Resend error:', emailResponse.error);
+      throw new Error(`Email sending failed: ${emailResponse.error.message || emailResponse.error}`);
+    }
 
     // Log communication
     await supabaseAdmin
