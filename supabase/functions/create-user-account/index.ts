@@ -34,9 +34,14 @@ const handler = async (req: Request): Promise<Response> => {
       loginUrl
     }: CreateUserRequest = await req.json();
 
-    console.log('Creating user with email:', email);
+    console.log('Creating user with email:', email, 'for tenant:', tenantId);
 
-    // Initialize Supabase admin client
+    // Validate required fields
+    if (!email || !password || !fullName || !role || !tenantId) {
+      throw new Error('Missing required fields');
+    }
+
+    // Initialize Supabase admin client with service role key
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -48,59 +53,85 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
+    console.log('Creating user in auth system...');
+    
     // Create user with admin API
-    const { data: user, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       user_metadata: {
-        full_name: fullName
+        full_name: fullName,
+        tenant_id: tenantId,
+        role: role
       },
       email_confirm: true // Auto-confirm email
     });
 
     if (createError) {
-      console.error('Error creating user:', createError);
-      throw createError;
+      console.error('Error creating user in auth:', createError);
+      throw new Error(`Failed to create user: ${createError.message}`);
     }
 
-    if (!user?.user) {
-      throw new Error('Failed to create user');
+    if (!authData?.user) {
+      throw new Error('User creation failed - no user data returned');
     }
 
-    console.log('User created successfully:', user.user.id);
+    const userId = authData.user.id;
+    console.log('User created successfully in auth:', userId);
 
-    // Create profile record
-    const { error: profileError } = await supabaseAdmin
+    // Create profile record with proper error handling
+    console.log('Creating profile record...');
+    const { data: profileData, error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
-        user_id: user.user.id,
+        user_id: userId,
         full_name: fullName,
         role: role as 'admin' | 'manager' | 'user' | 'cashier',
         tenant_id: tenantId,
-        require_password_change: true
-      });
+        require_password_change: true,
+        email_verified: true
+      })
+      .select()
+      .single();
 
     if (profileError) {
       console.error('Error creating profile:', profileError);
-      // Don't throw here, we'll still send the email
+      // Try to clean up the auth user if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error(`Failed to create user profile: ${profileError.message}`);
     }
 
-    // Create tenant_users record
-    const { error: tenantUserError } = await supabaseAdmin
+    console.log('Profile created successfully:', profileData);
+
+    // Create tenant_users record with proper role mapping
+    console.log('Creating tenant_users record...');
+    const tenantRole = role === 'admin' ? 'admin' : 
+                      role === 'manager' ? 'manager' : 
+                      role === 'cashier' ? 'user' : 'user';
+
+    const { data: tenantUserData, error: tenantUserError } = await supabaseAdmin
       .from('tenant_users')
       .insert({
         tenant_id: tenantId,
-        user_id: user.user.id,
-        role: role === 'admin' ? 'admin' : role === 'manager' ? 'manager' : 'user',
+        user_id: userId,
+        role: tenantRole,
         is_active: true
-      });
+      })
+      .select()
+      .single();
 
     if (tenantUserError) {
       console.error('Error creating tenant user:', tenantUserError);
-      // Don't throw here, we'll still send the email
+      // Clean up on failure
+      await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error(`Failed to create tenant user: ${tenantUserError.message}`);
     }
 
+    console.log('Tenant user created successfully:', tenantUserData);
+
     // Send welcome email with credentials
+    console.log('Sending welcome email...');
     const emailResponse = await resend.emails.send({
       from: "VibePOS Team <noreply@vibepos.com>",
       to: [email],
@@ -129,6 +160,7 @@ const handler = async (req: Request): Promise<Response> => {
               <p><strong>Email:</strong> ${email}</p>
               <p><strong>Password:</strong> ${password}</p>
               <p><strong>Role:</strong> ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
+              <p><strong>Tenant:</strong> ${tenantId}</p>
             </div>
             
             <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0;">
@@ -164,29 +196,43 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log('Welcome email sent:', emailResponse);
+    if (emailResponse.error) {
+      console.error('Email sending failed:', emailResponse.error);
+    } else {
+      console.log('Welcome email sent successfully:', emailResponse.data?.id);
+    }
 
     // Log the communication
-    await supabaseAdmin
-      .from('communication_logs')
-      .insert({
-        tenant_id: tenantId,
-        user_id: user.user.id,
-        type: 'email',
-        channel: 'email',
-        recipient: email,
-        subject: 'Welcome to VibePOS - Your Account Details',
-        content: 'User account creation notification with login credentials',
-        status: emailResponse.error ? 'failed' : 'sent',
-        external_id: emailResponse.data?.id,
-        error_message: emailResponse.error?.message
-      });
+    try {
+      await supabaseAdmin
+        .from('communication_logs')
+        .insert({
+          tenant_id: tenantId,
+          user_id: userId,
+          type: 'email',
+          channel: 'email',
+          recipient: email,
+          subject: 'Welcome to VibePOS - Your Account Details',
+          content: 'User account creation notification with login credentials',
+          status: emailResponse.error ? 'failed' : 'sent',
+          external_id: emailResponse.data?.id,
+          error_message: emailResponse.error?.message
+        });
+    } catch (logError) {
+      console.error('Failed to log communication:', logError);
+      // Don't throw here, user was created successfully
+    }
+
+    console.log('User creation process completed successfully');
 
     return new Response(
       JSON.stringify({
         success: true,
-        user_id: user.user.id,
-        email_sent: !emailResponse.error
+        user_id: userId,
+        profile_created: !!profileData,
+        tenant_user_created: !!tenantUserData,
+        email_sent: !emailResponse.error,
+        message: 'User created successfully and welcome email sent'
       }),
       {
         status: 200,
@@ -200,7 +246,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.error("Error in create-user-account function:", error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to create user account'
+        error: error.message || 'Failed to create user account',
+        details: error.toString()
       }),
       {
         status: 500,
