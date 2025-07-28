@@ -49,7 +49,9 @@ const Hero = () => {
   }, []);
 
   const handleStartTrial = () => {
-    setSelectedPlan(plans[0] || null); // Use first plan as default
+    // Find Enterprise plan and set it as selected
+    const enterprisePlan = plans.find(plan => plan.name === 'Enterprise');
+    setSelectedPlan(enterprisePlan || plans[0] || null);
     setIsSignupModalOpen(true);
   };
 

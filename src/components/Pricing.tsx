@@ -40,9 +40,9 @@ const Pricing = () => {
   }, []);
 
   const handleStartTrial = (planName: string) => {
-    // Find the corresponding plan in the database
-    const dbPlan = dbPlans.find(p => p.name.toLowerCase() === planName.toLowerCase());
-    setSelectedPlan(dbPlan || null);
+    // Always redirect to Enterprise plan regardless of which button was clicked
+    const enterprisePlan = dbPlans.find(p => p.name.toLowerCase() === 'enterprise');
+    setSelectedPlan(enterprisePlan || null);
     setIsSignupModalOpen(true);
   };
 

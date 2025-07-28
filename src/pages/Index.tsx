@@ -50,7 +50,14 @@ const Index = () => {
   };
 
   const handleStartTrial = () => {
-    setIsSignupModalOpen(true);
+    // Find Enterprise plan and set it as selected
+    const enterprisePlan = plans.find(plan => plan.name === 'Enterprise');
+    if (enterprisePlan) {
+      // For TenantCreationModal, we need to pass the plan id
+      setIsSignupModalOpen(true);
+    } else {
+      setIsSignupModalOpen(true);
+    }
   };
 
   const handleCloseSignupModal = () => {
