@@ -246,84 +246,37 @@ const handler = async (req: Request): Promise<Response> => {
       ? "Your VibePOS Account Has Been Reactivated" 
       : "Welcome to VibePOS - Your Account Details";
     
-    const welcomeMessage = userStatus === 'reactivated'
-      ? "Your VibePOS account has been reactivated and updated with new details:"
-      : "Your VibePOS account has been created with the following details:";
-    
     let emailResponse;
     try {
+      console.log('Attempting to send email to:', email);
       emailResponse = await resend.emails.send({
         from: "VibePOS Team <noreply@vibepos.shop>",
         to: [email],
         subject: emailSubject,
         html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${emailSubject}</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">${userStatus === 'reactivated' ? 'Account Reactivated!' : 'Welcome to VibePOS!'}</h1>
-            <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">${userStatus === 'reactivated' ? 'Your account has been reactivated successfully' : 'Your account has been created successfully'}</p>
-          </div>
-          
-          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
-            <h2 style="color: #495057; margin-top: 0;">Hello ${fullName}!</h2>
-            
-            <p>${welcomeMessage}</p>
-            
-            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
-              <h3 style="margin-top: 0; color: #495057;">Login Credentials</h3>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #333;">Welcome to VibePOS!</h1>
+            <p>Hello ${fullName},</p>
+            <p>Your VibePOS account has been ${userStatus === 'reactivated' ? 'reactivated' : 'created'} with the following details:</p>
+            <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
+              <h3>Login Credentials</h3>
               <p><strong>Email:</strong> ${email}</p>
               <p><strong>Password:</strong> ${password}</p>
-              <p><strong>Role:</strong> ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
+              <p><strong>Role:</strong> ${role}</p>
               <p><strong>Status:</strong> ${userStatus === 'reactivated' ? 'Reactivated' : 'New User'}</p>
             </div>
-            
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0;">
-              <h4 style="margin-top: 0; color: #856404;">⚠️ Important Security Notice</h4>
-              <p style="margin: 0; color: #856404;">You will be required to change your password on first login for security purposes.</p>
+            <div style="background: #fff3cd; padding: 15px; margin: 20px 0;">
+              <p><strong>⚠️ Important:</strong> You will be required to change your password on first login.</p>
             </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${loginUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to VibePOS</a>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
-            
-            <h3 style="color: #495057;">What's Next?</h3>
-            <ul style="color: #6c757d;">
-              <li>Click the login button above to access your account</li>
-              <li>You'll be prompted to change your password on first login</li>
-              <li>Explore the VibePOS dashboard and features</li>
-              <li>Contact your administrator if you need any assistance</li>
-            </ul>
-            
-            <p style="color: #6c757d; margin-top: 30px;">
-              If you have any questions or need help getting started, don't hesitate to contact your system administrator.
-            </p>
-            
-            <p style="color: #6c757d; margin-top: 30px; font-size: 14px;">
-              Best regards,<br>
-              The VibePOS Team
-            </p>
+            <p><a href="${loginUrl}" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none;">Login to VibePOS</a></p>
+            <p>Best regards,<br>The VibePOS Team</p>
           </div>
-        </body>
-        </html>
-      `,
+        `,
       });
+      console.log('Email sent successfully:', emailResponse?.data?.id);
     } catch (emailError: any) {
       console.error('Email sending error:', emailError);
       emailResponse = { error: emailError };
-    }
-
-    if (emailResponse?.error) {
-      console.error('Email sending failed:', emailResponse.error);
-    } else {
-      console.log('Welcome email sent successfully:', emailResponse?.data?.id);
     }
 
     // Log the communication (skip if table doesn't exist)
