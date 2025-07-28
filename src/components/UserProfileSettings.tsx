@@ -219,6 +219,13 @@ export default function UserProfileSettings() {
       return;
     }
 
+    // Check if we have a valid session before proceeding
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      toast.error('Session expired. Please log in again.');
+      return;
+    }
+
     setSaving(true);
     try {
       console.log('Updating profile for user:', user.id, 'with full_name:', fullName);
@@ -241,20 +248,22 @@ export default function UserProfileSettings() {
 
       console.log('Database update successful:', data);
 
-      // Then update auth user metadata and wait for it to complete
-      const { error: authError } = await supabase.auth.updateUser({
-        data: {
-          full_name: fullName.trim() || null
+      // Only update auth metadata if we have a valid session
+      if (session) {
+        const { error: authError } = await supabase.auth.updateUser({
+          data: {
+            full_name: fullName.trim() || null
+          }
+        });
+
+        if (authError) {
+          console.error('Auth metadata update error:', authError);
+          // Don't fail the whole operation if auth metadata update fails
+          console.warn('Auth metadata update failed but profile was updated successfully');
+        } else {
+          console.log('Auth metadata update successful');
         }
-      });
-
-      if (authError) {
-        console.error('Auth metadata update error:', authError);
-        toast.error(`Failed to update authentication profile: ${authError.message}`);
-        return;
       }
-
-      console.log('Auth metadata update successful');
 
       // Wait a bit for the auth update to propagate
       await new Promise(resolve => setTimeout(resolve, 500));
