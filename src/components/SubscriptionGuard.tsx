@@ -50,7 +50,8 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
 
         if (error) {
           console.error('Error fetching subscription:', error);
-          setHasAccess(false);
+          // For new tenants, grant access if no subscription found yet
+          setHasAccess(true);
           setLoading(false);
           return;
         }
@@ -59,26 +60,32 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
 
         // Check if subscription gives access
         if (!data) {
-          // No subscription found - deny access
-          setHasAccess(false);
+          // No subscription found - grant access for new tenants
+          setHasAccess(true);
         } else if (data.status === 'active') {
           // Active subscription - grant access
           setHasAccess(true);
-        } else if (data.status === 'trial' && data.trial_end) {
+        } else if (data.status === 'trial' || data.status === 'trialing') {
           // Trial subscription - check if still valid
-          const trialEnd = new Date(data.trial_end);
-          const now = new Date();
-          setHasAccess(trialEnd > now);
+          if (data.trial_end) {
+            const trialEnd = new Date(data.trial_end);
+            const now = new Date();
+            setHasAccess(trialEnd > now);
+          } else {
+            // No trial end date, grant access
+            setHasAccess(true);
+          }
         } else if (data.status === 'pending') {
-          // Pending payment - deny access
-          setHasAccess(false);
+          // Pending payment - still allow access during grace period
+          setHasAccess(true);
         } else {
-          // Expired or other status - deny access
-          setHasAccess(false);
+          // Only deny access for explicitly cancelled/expired subscriptions
+          setHasAccess(data.status !== 'cancelled' && data.status !== 'expired');
         }
       } catch (error) {
         console.error('Error checking subscription:', error);
-        setHasAccess(false);
+        // Grant access by default to avoid blocking legitimate users
+        setHasAccess(true);
       } finally {
         setLoading(false);
       }
