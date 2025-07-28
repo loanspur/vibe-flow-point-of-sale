@@ -430,25 +430,48 @@ export default function BillingManagement() {
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <CardTitle className="text-green-800">Active Subscription</CardTitle>
               </div>
-              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                {currentSubscription.status?.toUpperCase()}
-              </Badge>
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                  {currentSubscription.status?.toUpperCase()}
+                </Badge>
+                {customPricing && (
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                    Custom Pricing
+                  </Badge>
+                )}
+              </div>
             </div>
             <CardDescription className="text-green-700">
               You're currently subscribed to the {currentSubscription.billing_plans?.name} plan
+              {customPricing && ' with custom pricing applied'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              {/* Current Amount */}
               <div className="flex items-center space-x-2">
                 <CurrencyIcon currency={currencyCode} className="h-4 w-4 text-green-600" />
                 <div>
                   <p className="text-sm font-medium text-green-800">Amount</p>
-                   <p className="text-sm text-green-600">
-                     {currentSubscription.billing_plans?.price ? 
-                       formatPrice(currentSubscription.billing_plans.price) 
-                       : 'N/A'}
-                   </p>
+                  <p className="text-lg font-bold text-green-600">
+                    {customPricing ? 
+                      formatPrice(customPricing.custom_amount) :
+                      (currentSubscription.billing_plans?.price ? 
+                        formatPrice(currentSubscription.billing_plans.price) : 'N/A')
+                    }
+                  </p>
+                  {customPricing && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground line-through">
+                        Original: {formatPrice(customPricing.original_amount)}
+                      </p>
+                      {customPricing.discount_percentage && (
+                        <Badge variant="outline" className="text-green-600 text-xs">
+                          {customPricing.discount_percentage}% off
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   {currentSubscription.is_prorated_period && (
                     <p className="text-xs text-orange-600">
                       Prorated for this billing cycle
@@ -456,6 +479,8 @@ export default function BillingManagement() {
                   )}
                 </div>
               </div>
+
+              {/* Next Billing */}
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-green-600" />
                 <div>
@@ -469,6 +494,8 @@ export default function BillingManagement() {
                   </p>
                 </div>
               </div>
+
+              {/* Reference */}
               <div className="flex items-center space-x-2">
                 <CreditCard className="h-4 w-4 text-green-600" />
                 <div>
@@ -478,6 +505,8 @@ export default function BillingManagement() {
                   </p>
                 </div>
               </div>
+
+              {/* Action Button */}
               <div className="flex flex-col items-end space-y-2">
                 {(() => {
                   // Check if user is on trial
@@ -509,9 +538,12 @@ export default function BillingManagement() {
                             </>
                           ) : (
                               <>
-                               Pay {currentSubscription.billing_plans?.price ? 
-                                 formatPrice(currentSubscription.billing_plans.price) 
-                                 : 'Current Plan'}
+                               Pay {customPricing ? 
+                                 formatPrice(customPricing.custom_amount) :
+                                 (currentSubscription.billing_plans?.price ? 
+                                   formatPrice(currentSubscription.billing_plans.price) : 
+                                   'Current Plan')
+                               }
                                 <ExternalLink className="h-4 w-4 ml-2" />
                               </>
                            )}
@@ -588,6 +620,84 @@ export default function BillingManagement() {
                 })()}
               </div>
             </div>
+
+            {/* Billing Details Section */}
+            <div className="border-t pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Current Plan Rate */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-green-800">Current Plan Rate</h4>
+                  {customPricing ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-green-600">
+                          {formatPrice(customPricing.custom_amount)}
+                        </span>
+                        <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Reason: {customPricing.reason}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Effective: {formatDate(customPricing.effective_date)}
+                        {customPricing.expires_at && ` - ${formatDate(customPricing.expires_at)}`}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-green-600">
+                          {formatPrice(currentSubscription.billing_plans?.price || 0)}
+                        </span>
+                        <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Standard pricing</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Setup Fee */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-green-800">Setup Fee</h4>
+                  <div className="space-y-1">
+                    <span className="text-2xl font-bold text-green-600">
+                      {customPricing?.setup_fee ? formatPrice(customPricing.setup_fee) : formatPrice(0)}
+                    </span>
+                    <p className="text-sm text-muted-foreground">
+                      {customPricing?.setup_fee ? 'One-time fee' : 'No setup fee'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Next Billing Amount */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-green-800">Next Billing Amount</h4>
+                  <div className="space-y-1">
+                    <span className="text-2xl font-bold text-orange-600">
+                      {(() => {
+                        const recurringAmount = customPricing ? customPricing.custom_amount : (currentSubscription.billing_plans?.price || 0);
+                        const setupFee = customPricing?.setup_fee || 0;
+                        const totalAmount = recurringAmount + setupFee;
+                        return formatPrice(totalAmount);
+                      })()}
+                    </span>
+                    <div className="text-sm text-muted-foreground">
+                      <p>
+                        Due: {currentSubscription.next_billing_date ? 
+                          formatDate(currentSubscription.next_billing_date) : 
+                          'Next billing cycle'
+                        }
+                      </p>
+                      {customPricing?.setup_fee && (
+                        <p className="text-xs">
+                          Includes setup fee: {formatPrice(customPricing.setup_fee)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -597,114 +707,6 @@ export default function BillingManagement() {
             You don't have an active subscription. Choose a plan below to get started.
           </AlertDescription>
         </Alert>
-      )}
-
-      {/* Custom Pricing & Next Billing Information */}
-      {currentSubscription && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CreditCard className="h-5 w-5 text-blue-600" />
-                <CardTitle className="text-blue-800">Billing Information</CardTitle>
-              </div>
-              {customPricing && (
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                  Custom Pricing
-                </Badge>
-              )}
-            </div>
-            <CardDescription className="text-blue-700">
-              {customPricing ? 'You have custom pricing applied to your subscription' : 'Standard pricing is applied to your subscription'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Current Plan Pricing */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-blue-800">Current Plan Rate</h4>
-                {customPricing ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold text-green-600">
-                        {formatPrice(customPricing.custom_amount)}
-                      </span>
-                      <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground line-through">
-                        Original: {formatPrice(customPricing.original_amount)}
-                      </span>
-                      {customPricing.discount_percentage && (
-                        <Badge variant="outline" className="text-green-600 text-xs">
-                          {customPricing.discount_percentage}% off
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-blue-600 mt-1">
-                      Reason: {customPricing.reason}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Effective: {formatDate(customPricing.effective_date)}
-                      {customPricing.expires_at && ` - ${formatDate(customPricing.expires_at)}`}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold text-blue-600">
-                        {formatPrice(currentSubscription.billing_plans?.price || 0)}
-                      </span>
-                      <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Standard pricing</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Setup Fee */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-blue-800">Setup Fee</h4>
-                <div className="space-y-1">
-                  <span className="text-2xl font-bold text-blue-600">
-                    {customPricing?.setup_fee ? formatPrice(customPricing.setup_fee) : formatPrice(0)}
-                  </span>
-                  <p className="text-sm text-muted-foreground">
-                    {customPricing?.setup_fee ? 'One-time fee' : 'No setup fee'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Next Billing Amount */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-blue-800">Next Billing Amount</h4>
-                <div className="space-y-1">
-                  <span className="text-2xl font-bold text-orange-600">
-                    {(() => {
-                      const recurringAmount = customPricing ? customPricing.custom_amount : (currentSubscription.billing_plans?.price || 0);
-                      const setupFee = customPricing?.setup_fee || 0;
-                      const totalAmount = recurringAmount + setupFee;
-                      return formatPrice(totalAmount);
-                    })()}
-                  </span>
-                  <div className="text-sm text-muted-foreground">
-                    <p>
-                      Due: {currentSubscription.next_billing_date ? 
-                        formatDate(currentSubscription.next_billing_date) : 
-                        'Next billing cycle'
-                      }
-                    </p>
-                    {customPricing?.setup_fee && (
-                      <p className="text-xs">
-                        Includes setup fee: {formatPrice(customPricing.setup_fee)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       )}
 
       <div>
