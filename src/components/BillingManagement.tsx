@@ -17,7 +17,8 @@ import {
   Clock, 
   AlertTriangle,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  DollarSign
 } from 'lucide-react';
 
 interface BillingPlan {
@@ -48,6 +49,7 @@ interface TenantSubscription {
   is_prorated_period?: boolean;
   billing_day?: number;
   next_billing_amount?: number;
+  setup_fee?: number;
   billing_plans?: {
     id: string;
     name: string;
@@ -423,18 +425,21 @@ export default function BillingManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-              {/* Current Amount */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {/* Current Plan Rate */}
               <div className="flex items-center space-x-2">
                 <CurrencyIcon currency={currencyCode} className="h-4 w-4 text-green-600" />
                 <div>
-                  <p className="text-sm font-medium text-green-800">Amount</p>
+                  <p className="text-sm font-medium text-green-800">Current Plan Rate</p>
                   <p className="text-lg font-bold text-green-600">
                     {effectivePricing ? 
                       formatPrice(effectivePricing.effective_amount) :
                       (currentSubscription.billing_plans?.price ? 
                         formatPrice(currentSubscription.billing_plans.price) : 'N/A')
                     }
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    per {currentSubscription.billing_plans?.period}
                   </p>
                   {effectivePricing?.is_custom && (
                     <div className="space-y-1">
@@ -456,210 +461,177 @@ export default function BillingManagement() {
                 </div>
               </div>
 
-              {/* Next Billing */}
+              {/* Setup Fee */}
               <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-green-600" />
+                <DollarSign className="h-4 w-4 text-green-600" />
                 <div>
-                  <p className="text-sm font-medium text-green-800">Next Billing</p>
-                  <p className="text-sm text-green-600">
-                    {currentSubscription.next_billing_date ? formatDate(currentSubscription.next_billing_date) : 
-                     currentSubscription.expires_at ? formatDate(currentSubscription.expires_at) : 'Not set'}
+                  <p className="text-sm font-medium text-green-800">Setup Fee</p>
+                  <p className="text-lg font-bold text-green-600">
+                    {formatPrice(currentSubscription.setup_fee || 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentSubscription.setup_fee ? 'One-time fee' : 'No setup fee'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Next Billing Amount */}
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-orange-600" />
+                <div>
+                  <p className="text-sm font-medium text-orange-800">Next Billing</p>
+                  <p className="text-lg font-bold text-orange-600">
+                    {formatPrice((effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0) + (currentSubscription.setup_fee || 0))}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Due: {currentSubscription.next_billing_date ? 
+                      formatDate(currentSubscription.next_billing_date) : 
+                      'Next billing cycle'
+                    }
                   </p>
                   <p className="text-xs text-blue-600">
-                    Bills on 1st of each month
+                    Setup fee + recurring charge
                   </p>
                 </div>
-              </div>
-
-              {/* Reference */}
-              <div className="flex items-center space-x-2">
-                <CreditCard className="h-4 w-4 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-green-800">Reference</p>
-                  <p className="text-sm text-green-600 font-mono">
-                    {currentSubscription.reference || 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div className="flex flex-col items-end space-y-2">
-                {(() => {
-                  // Check if user is on trial
-                  const trialEnd = currentSubscription.trial_end ? new Date(currentSubscription.trial_end) : null;
-                  const now = new Date();
-                  const isOnTrial = trialEnd && now < trialEnd;
-                  const daysLeftInTrial = trialEnd ? Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                  const isTrialEnding = isOnTrial && daysLeftInTrial <= 7;
-                  
-                  // Check subscription expiry
-                  const expiryDate = currentSubscription.expires_at ? new Date(currentSubscription.expires_at) : 
-                                   currentSubscription.current_period_end ? new Date(currentSubscription.current_period_end) : null;
-                  const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                  const isExpired = expiryDate && daysLeft <= 0;
-                  const isPending = currentSubscription.status === 'pending';
-                  
-                  if (isOnTrial || isPending) {
-                    return (
-                      <>
-                        <Button 
-                          className="bg-green-600 hover:bg-green-700 text-white w-full"
-                          onClick={() => handleUpgrade(currentSubscription.billing_plan_id)}
-                          disabled={upgrading === currentSubscription.billing_plan_id}
-                        >
-                          {upgrading === currentSubscription.billing_plan_id ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Processing...
-                            </>
-                          ) : (
-                              <>
-                                Pay {effectivePricing ? 
-                                  formatPrice(effectivePricing.effective_amount) :
-                                  (currentSubscription.billing_plans?.price ? 
-                                    formatPrice(currentSubscription.billing_plans.price) : 
-                                    'Current Plan')
-                                }
-                                <ExternalLink className="h-4 w-4 ml-2" />
-                              </>
-                           )}
-                        </Button>
-                        {isOnTrial && (
-                          <p className="text-xs text-orange-600 text-center">
-                            {isTrialEnding ? 
-                              `Trial ends in ${daysLeftInTrial} day${daysLeftInTrial !== 1 ? 's' : ''}` :
-                              `${daysLeftInTrial} days left in trial`
-                            }
-                          </p>
-                        )}
-                        {isPending && (
-                          <p className="text-xs text-blue-600 text-center">
-                            Subscription pending payment
-                          </p>
-                        )}
-                      </>
-                    );
-                  }
-                  
-                  if (isExpired) {
-                    return (
-                      <>
-                        <Button 
-                          className="bg-red-600 hover:bg-red-700 text-white w-full"
-                          onClick={() => handleUpgrade(currentSubscription.billing_plan_id)}
-                          disabled={upgrading === currentSubscription.billing_plan_id}
-                        >
-                          {upgrading === currentSubscription.billing_plan_id ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              Renew Plan
-                              <ExternalLink className="h-4 w-4 ml-2" />
-                            </>
-                          )}
-                        </Button>
-                        <p className="text-xs text-red-600 text-center">
-                          Subscription expired - Renew to continue
-                        </p>
-                      </>
-                    );
-                  }
-                  
-                  return (
-                    <Button 
-                      variant="outline"
-                      className="border-blue-200 text-blue-700 hover:bg-blue-100"
-                      onClick={() => {
-                        const upgradePlan = convertedPlans.find(plan => plan.price > (currentSubscription.billing_plans?.price || 0));
-                        if (upgradePlan) {
-                          handleUpgrade(upgradePlan.id);
-                        }
-                      }}
-                      disabled={upgrading !== null || !convertedPlans.some(plan => plan.price > (currentSubscription.billing_plans?.price || 0))}
-                    >
-                      {upgrading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          Upgrade Plan
-                          <ExternalLink className="h-4 w-4 ml-2" />
-                        </>
-                      )}
-                    </Button>
-                  );
-                })()}
               </div>
             </div>
 
-            {/* Billing Details Section */}
-            <div className="border-t pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Current Plan Rate */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-green-800">Current Plan Rate</h4>
-                  {effectivePricing?.is_custom ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-green-600">
-                          {formatPrice(effectivePricing.effective_amount)}
-                        </span>
-                        <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
-                      </div>
-                      {effectivePricing.discount_percentage && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          {effectivePricing.discount_percentage}% discount applied
+            {/* Action Buttons */}
+            <div className="flex justify-end mb-6">
+              {(() => {
+                // Check if user is on trial
+                const trialEnd = currentSubscription.trial_end ? new Date(currentSubscription.trial_end) : null;
+                const now = new Date();
+                const isOnTrial = trialEnd && now < trialEnd;
+                const daysLeftInTrial = trialEnd ? Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                const isTrialEnding = isOnTrial && daysLeftInTrial <= 7;
+                
+                // Check subscription expiry
+                const expiryDate = currentSubscription.expires_at ? new Date(currentSubscription.expires_at) : 
+                                 currentSubscription.current_period_end ? new Date(currentSubscription.current_period_end) : null;
+                const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                const isExpired = expiryDate && daysLeft <= 0;
+                const isPending = currentSubscription.status === 'pending';
+                
+                if (isOnTrial || isPending) {
+                  return (
+                    <div className="flex flex-col items-end space-y-2">
+                      <Button 
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => handleUpgrade(currentSubscription.billing_plan_id)}
+                        disabled={upgrading === currentSubscription.billing_plan_id}
+                      >
+                        {upgrading === currentSubscription.billing_plan_id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                            <>
+                              Pay {effectivePricing ? 
+                                formatPrice(effectivePricing.effective_amount) :
+                                (currentSubscription.billing_plans?.price ? 
+                                  formatPrice(currentSubscription.billing_plans.price) : 
+                                  'Current Plan')
+                              }
+                              <ExternalLink className="h-4 w-4 ml-2" />
+                            </>
+                         )}
+                      </Button>
+                      {isOnTrial && (
+                        <p className="text-xs text-orange-600 text-center">
+                          {isTrialEnding ? 
+                            `Trial ends in ${daysLeftInTrial} day${daysLeftInTrial !== 1 ? 's' : ''}` :
+                            `${daysLeftInTrial} days left in trial`
+                          }
+                        </p>
+                      )}
+                      {isPending && (
+                        <p className="text-xs text-blue-600 text-center">
+                          Subscription pending payment
                         </p>
                       )}
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-green-600">
-                          {formatPrice(currentSubscription.billing_plans?.price || 0)}
-                        </span>
-                        <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">Standard pricing</p>
+                  );
+                }
+                
+                if (isExpired) {
+                  return (
+                    <div className="flex flex-col items-end space-y-2">
+                      <Button 
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() => handleUpgrade(currentSubscription.billing_plan_id)}
+                        disabled={upgrading === currentSubscription.billing_plan_id}
+                      >
+                        {upgrading === currentSubscription.billing_plan_id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            Renew Plan
+                            <ExternalLink className="h-4 w-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-red-600 text-center">
+                        Subscription expired - Renew to continue
+                      </p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <Button 
+                    variant="outline"
+                    className="border-blue-200 text-blue-700 hover:bg-blue-100"
+                    onClick={() => {
+                      const upgradePlan = convertedPlans.find(plan => plan.price > (currentSubscription.billing_plans?.price || 0));
+                      if (upgradePlan) {
+                        handleUpgrade(upgradePlan.id);
+                      }
+                    }}
+                    disabled={upgrading !== null || !convertedPlans.some(plan => plan.price > (currentSubscription.billing_plans?.price || 0))}
+                  >
+                    {upgrading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Upgrade Plan
+                        <ExternalLink className="h-4 w-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                );
+              })()}
+            </div>
+
+            {/* Custom Pricing Details */}
+            {effectivePricing?.is_custom && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-green-800 mb-3">Custom Pricing Details</h4>
+                <div className="bg-blue-50 p-4 rounded-lg space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Custom Amount:</span>
+                    <span className="font-medium">{formatPrice(effectivePricing.effective_amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Original Amount:</span>
+                    <span className="text-sm line-through">{formatPrice(effectivePricing.original_amount)}</span>
+                  </div>
+                  {effectivePricing.discount_percentage && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Discount:</span>
+                      <span className="text-green-600 font-medium">{effectivePricing.discount_percentage}%</span>
                     </div>
                   )}
                 </div>
-
-                {/* Setup Fee */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-green-800">Setup Fee</h4>
-                  <div className="space-y-1">
-                    <span className="text-2xl font-bold text-green-600">
-                      {formatPrice(0)}
-                    </span>
-                    <p className="text-sm text-muted-foreground">No setup fee</p>
-                  </div>
-                </div>
-
-                {/* Next Billing Amount */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-green-800">Next Billing Amount</h4>
-                  <div className="space-y-1">
-                    <span className="text-2xl font-bold text-orange-600">
-                      {formatPrice(effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0)}
-                    </span>
-                    <div className="text-sm text-muted-foreground">
-                      <p>
-                        Due: {currentSubscription.next_billing_date ? 
-                          formatDate(currentSubscription.next_billing_date) : 
-                          'Next billing cycle'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       ) : (
