@@ -50,7 +50,7 @@ class DomainRouter {
     }
 
     // Check if it's a subdomain of your main app
-    if (domain.endsWith('.vibepos.app') || domain.endsWith('.yourapp.com')) {
+    if (domain.endsWith('.vibepos.shop')) {
       const subdomain = domain.split('.')[0];
       return {
         tenantId: null, // Will be resolved later
@@ -78,8 +78,8 @@ class DomainRouter {
       return {
         tenantId: cached.tenantId,
         domain: currentDomain,
-        isCustomDomain: !currentDomain.endsWith('.vibepos.app') && !currentDomain.endsWith('.yourapp.com'),
-        isSubdomain: currentDomain.endsWith('.vibepos.app') || currentDomain.endsWith('.yourapp.com')
+        isCustomDomain: !currentDomain.endsWith('.vibepos.shop') && currentDomain !== 'vibepos.shop',
+        isSubdomain: currentDomain.endsWith('.vibepos.shop') && currentDomain !== 'vibepos.shop'
       };
     }
 
@@ -163,11 +163,11 @@ class DomainRouter {
     }
     
     if (subdomain) {
-      return `https://${subdomain}.vibepos.app`;
+      return `https://${subdomain}.vibepos.shop`;
     }
 
     // Fallback to tenant ID based subdomain
-    return `https://tenant-${tenantId}.vibepos.app`;
+    return `https://tenant-${tenantId}.vibepos.shop`;
   }
 
   generateSubdomainFromTenantName(tenantName: string): string {
@@ -228,13 +228,13 @@ export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
 };
 
 export const isCustomDomain = (domain: string = getCurrentDomain()) => {
-  return !domain.endsWith('.vibepos.app') && 
-         !domain.endsWith('.yourapp.com') && 
+  return !domain.endsWith('.vibepos.shop') && 
+         domain !== 'vibepos.shop' &&
          !isDevelopmentDomain(domain);
 };
 
 export const isSubdomain = (domain: string = getCurrentDomain()) => {
-  return domain.endsWith('.vibepos.app') || domain.endsWith('.yourapp.com');
+  return domain.endsWith('.vibepos.shop') && domain !== 'vibepos.shop';
 };
 
 export const getSubdomainName = (domain: string = getCurrentDomain()) => {
