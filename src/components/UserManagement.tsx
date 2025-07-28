@@ -682,7 +682,7 @@ const UserManagement = () => {
       });
 
       // Send invitation using edge function
-      const { error: invitationError } = await supabase.functions.invoke('send-user-invitation', {
+      const { data: invitationResult, error: invitationError } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email: inviteEmail.trim(),
           roleId: inviteRoleId,
@@ -700,7 +700,13 @@ const UserManagement = () => {
         throw invitationError;
       }
 
-      toast.success('User invitation sent successfully');
+      // Show success message based on whether it was a resend or new invitation
+      const isResend = invitationResult?.isResend || false;
+      const successMessage = isResend 
+        ? 'Invitation resent successfully with a new link'
+        : 'User invitation sent successfully';
+
+      toast.success(successMessage);
       setInviteEmail('');
       setInviteRoleId('');
       setIsInviteUserOpen(false);
@@ -793,7 +799,7 @@ const UserManagement = () => {
         : 'Your Company';
 
       // Send invitation using the new edge function
-      const { error: emailError } = await supabase.functions.invoke('send-user-invitation', {
+      const { data: resendResult, error: emailError } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email: invitation.email,
           roleId: invitation.role_id,
@@ -809,7 +815,8 @@ const UserManagement = () => {
         throw new Error(`Failed to send invitation: ${emailError.message}`);
       }
 
-      toast.success('Invitation resent successfully');
+      // Always show resent message since this is specifically a resend action
+      toast.success('Invitation resent successfully with a new invitation link');
       fetchInvitations();
     } catch (error: any) {
       console.error('Failed to resend invitation:', error);

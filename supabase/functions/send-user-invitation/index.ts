@@ -239,28 +239,95 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Invitation email sent successfully to:", email);
 
-    // STEP 2: Create invitation tracking record
-    const { error: trackingError } = await supabaseAdmin
+    // STEP 2: Handle invitation tracking record (create new or update existing pending)
+    
+    // First, check if there's an accepted invitation (prevent resending to accepted users)
+    const { data: acceptedInvitation, error: acceptedCheckError } = await supabaseAdmin
       .from('user_invitations')
-      .insert([{
-        email: email,
-        role_id: roleId,
-        tenant_id: tenantId,
-        invited_by: inviterId,
-        invitation_token: invitationToken,
-        expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-        status: 'pending'
-      }]);
+      .select('*')
+      .eq('email', email)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'accepted')
+      .maybeSingle();
 
-    if (trackingError) {
-      console.error('Failed to create invitation tracking record:', trackingError);
-      throw trackingError;
+    if (acceptedCheckError) {
+      console.error('Error checking accepted invitation:', acceptedCheckError);
+      throw acceptedCheckError;
     }
+
+    if (acceptedInvitation) {
+      console.log("User has already accepted an invitation for this tenant");
+      throw new Error(`${email} has already accepted an invitation and is part of your organization. They can sign in directly at the login page.`);
+    }
+    
+    // Next, check if there's an existing pending invitation
+    const { data: existingInvitation, error: checkError } = await supabaseAdmin
+      .from('user_invitations')
+      .select('*')
+      .eq('email', email)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking existing invitation:', checkError);
+      throw checkError;
+    }
+
+    let trackingResponse;
+    let isResend = false;
+
+    if (existingInvitation) {
+      // Update existing pending invitation with new token and expiration
+      console.log("Updating existing pending invitation with new token");
+      isResend = true;
+      
+      const { error: updateError } = await supabaseAdmin
+        .from('user_invitations')
+        .update({
+          invitation_token: invitationToken,
+          expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+          invited_by: inviterId, // Update inviter in case it changed
+          role_id: roleId, // Update role in case it changed
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingInvitation.id);
+
+      if (updateError) {
+        console.error('Failed to update invitation tracking record:', updateError);
+        throw updateError;
+      }
+    } else {
+      // Create new invitation tracking record
+      console.log("Creating new invitation tracking record");
+      
+      const { error: insertError } = await supabaseAdmin
+        .from('user_invitations')
+        .insert([{
+          email: email,
+          role_id: roleId,
+          tenant_id: tenantId,
+          invited_by: inviterId,
+          invitation_token: invitationToken,
+          expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+          status: 'pending'
+        }]);
+
+      if (insertError) {
+        console.error('Failed to create invitation tracking record:', insertError);
+        throw insertError;
+      }
+    }
+
+    const responseMessage = isResend 
+      ? "Invitation resent successfully with new token" 
+      : "Invitation sent successfully";
 
     return new Response(JSON.stringify({ 
       success: true, 
       invitationToken: invitationToken,
-      message: "Invitation sent successfully" 
+      isResend: isResend,
+      message: responseMessage
     }), {
       status: 200,
       headers: {
