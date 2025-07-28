@@ -291,19 +291,21 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
             <div className="flex space-x-2">
               <div className="w-24">
                 <Select 
-                  value={selectedCountryData?.dialCode || ''} 
+                  value={selectedCountryData?.dialCode || 'none'} 
                   disabled={!selectedCountryData}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="+1" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={selectedCountryData?.dialCode || ''}>
-                      <div className="flex items-center space-x-2">
-                        <span>{selectedCountryData?.flag}</span>
-                        <span>{selectedCountryData?.dialCode}</span>
-                      </div>
-                    </SelectItem>
+                    {selectedCountryData?.dialCode && (
+                      <SelectItem value={selectedCountryData.dialCode}>
+                        <div className="flex items-center space-x-2">
+                          <span>{selectedCountryData.flag}</span>
+                          <span>{selectedCountryData.dialCode}</span>
+                        </div>
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
