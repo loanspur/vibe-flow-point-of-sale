@@ -2,19 +2,6 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 import { Resend } from "npm:resend@4.0.0";
 
-console.log('Starting create-user-account function...');
-
-// Check if required environment variables are present
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-
-console.log('Environment check:', {
-  hasSupabaseUrl: !!SUPABASE_URL,
-  hasServiceKey: !!SUPABASE_SERVICE_ROLE_KEY,
-  hasResendKey: !!RESEND_API_KEY
-});
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name",
@@ -37,9 +24,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('Parsing request body...');
+    console.log('Starting user creation process...');
     const requestBody = await req.json();
-    console.log('Request body received:', { ...requestBody, password: '[REDACTED]' });
+    console.log('Request received for email:', requestBody.email);
 
     const {
       email,
@@ -50,14 +37,14 @@ const handler = async (req: Request): Promise<Response> => {
       loginUrl
     }: CreateUserRequest = requestBody;
 
-    console.log('Creating user with email:', email, 'for tenant:', tenantId);
-
     // Validate required fields
     if (!email || !password || !fullName || !role || !tenantId) {
       throw new Error('Missing required fields');
     }
 
-    // Initialize Supabase admin client with service role key
+    console.log('Creating user with email:', email, 'for tenant:', tenantId);
+
+    // Initialize Supabase admin client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -69,144 +56,67 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    console.log('Creating user in auth system...');
-    
+    console.log('Supabase client initialized');
+
     let userId: string;
     let isNewUser = true;
     let userStatus = 'created';
-    
-    // Check if user already exists by trying to get user by email
-    try {
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email === email);
-      
-      if (existingUser) {
-        console.log('User already exists, checking status:', existingUser.id);
-        
-        // Check if user is active by looking at their profile
-        const { data: profileData } = await supabaseAdmin
-          .from('profiles')
-          .select('*')
-          .eq('user_id', existingUser.id)
-          .maybeSingle();
-        
-        // If user exists but has no profile or is inactive, reactivate them
-        if (!profileData || !profileData.tenant_id) {
-          console.log('Reactivating existing user:', existingUser.id);
-          userId = existingUser.id;
-          isNewUser = false;
-          userStatus = 'reactivated';
-          
-          // Update user metadata
-          await supabaseAdmin.auth.admin.updateUserById(userId, {
-            user_metadata: {
-              full_name: fullName,
-              tenant_id: tenantId,
-              role: role
-            }
-          });
-        } else {
-          // User is active, throw error
-          throw new Error('User with this email is already active in the system');
-        }
-      }
-    } catch (checkError: any) {
-      if (checkError.message.includes('already active')) {
-        throw checkError;
-      }
-      // If listing fails, continue - it might be a permission issue
-      console.log('Could not check existing users, proceeding with creation:', checkError);
-    }
-    
-    // Create new user if no existing user was found
-    if (isNewUser) {
-      const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        user_metadata: {
-          full_name: fullName,
-          tenant_id: tenantId,
-          role: role
-        },
-        email_confirm: true // Auto-confirm email
-      });
 
-      if (createError) {
-        console.error('Error creating user in auth:', createError);
-        throw new Error(`Failed to create user: ${createError.message}`);
-      }
+    console.log('Creating user in auth system...');
 
-      if (!authData?.user) {
-        throw new Error('User creation failed - no user data returned');
-      }
+    // Create user with admin API
+    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: {
+        full_name: fullName,
+        tenant_id: tenantId,
+        role: role
+      },
+      email_confirm: true
+    });
 
-      userId = authData.user.id;
-      console.log('New user created successfully in auth:', userId);
+    if (createError) {
+      console.error('Error creating user in auth:', createError);
+      throw new Error(`Failed to create user: ${createError.message}`);
     }
 
-    // Create profile record with proper error handling
+    if (!authData?.user) {
+      throw new Error('User creation failed - no user data returned');
+    }
+
+    userId = authData.user.id;
+    console.log('User created successfully in auth:', userId);
+
+    // Create profile record
     console.log('Creating profile record...');
-    
-    let profileData;
-    
-    // Check if profile already exists
-    const { data: existingProfile } = await supabaseAdmin
+    const { data: profileData, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (existingProfile) {
-      console.log('Profile already exists, updating it');
-      // Profile exists, just update it
-      const { data: updatedProfile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          role: role as 'admin' | 'manager' | 'user' | 'cashier',
-          tenant_id: tenantId,
-          require_password_change: true,
-          email_verified: true
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-        
-      if (profileError) {
-        console.error('Error updating profile:', profileError);
-        await supabaseAdmin.auth.admin.deleteUser(userId);
-        throw new Error(`Failed to update user profile: ${profileError.message}`);
-      }
-      
-      profileData = updatedProfile;
-    } else {
-      // Create new profile
-      const { data: newProfile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          user_id: userId,
-          full_name: fullName,
-          role: role as 'admin' | 'manager' | 'user' | 'cashier',
-          tenant_id: tenantId,
-          require_password_change: true,
-          email_verified: true
-        })
-        .select()
-        .single();
+      .insert({
+        user_id: userId,
+        full_name: fullName,
+        role: role as 'admin' | 'manager' | 'user' | 'cashier',
+        tenant_id: tenantId,
+        require_password_change: true,
+        email_verified: true
+      })
+      .select()
+      .single();
 
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-        // Try to clean up the auth user if profile creation fails
+    if (profileError) {
+      console.error('Error creating profile:', profileError);
+      // Clean up auth user if profile creation fails
+      try {
         await supabaseAdmin.auth.admin.deleteUser(userId);
-        throw new Error(`Failed to create user profile: ${profileError.message}`);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup auth user:', cleanupError);
       }
-      
-      profileData = newProfile;
+      throw new Error(`Failed to create user profile: ${profileError.message}`);
     }
 
-    console.log('Profile handled successfully:', profileData);
+    console.log('Profile created successfully:', profileData);
 
-    // Create tenant_users record with proper role mapping
+    // Create tenant_users record
     console.log('Creating tenant_users record...');
     const tenantRole = role === 'admin' ? 'admin' : 
                       role === 'manager' ? 'manager' : 
@@ -226,92 +136,85 @@ const handler = async (req: Request): Promise<Response> => {
     if (tenantUserError) {
       console.error('Error creating tenant user:', tenantUserError);
       // Clean up on failure
-      await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
-      await supabaseAdmin.auth.admin.deleteUser(userId);
+      try {
+        await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup on tenant user creation failure:', cleanupError);
+      }
       throw new Error(`Failed to create tenant user: ${tenantUserError.message}`);
     }
 
     console.log('Tenant user created successfully:', tenantUserData);
 
-    // Send welcome email using same approach as OTP emails
-    console.log('Sending welcome email directly via Resend...');
+    // Send welcome email using exact OTP approach
+    console.log('Sending welcome email...');
     
     const emailSubject = userStatus === 'reactivated' 
       ? "Your VibePOS Account Has Been Reactivated" 
       : "Welcome to VibePOS - Your Account Details";
-    
-    const emailHtml = `
+
+    const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #333;">Welcome to VibePOS!</h1>
+        <h1 style="color: #333; text-align: center;">Welcome to VibePOS!</h1>
         <p>Hello ${fullName},</p>
-        <p>Your VibePOS account has been ${userStatus === 'reactivated' ? 'reactivated' : 'created'} with the following details:</p>
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
+        <p>Your VibePOS account has been created with the following details:</p>
+        <div style="background-color: #f4f4f4; padding: 20px; text-align: center; margin: 20px 0;">
           <h3>Login Credentials</h3>
           <p><strong>Email:</strong> ${email}</p>
           <p><strong>Password:</strong> ${password}</p>
           <p><strong>Role:</strong> ${role}</p>
-          <p><strong>Status:</strong> ${userStatus === 'reactivated' ? 'Reactivated' : 'New User'}</p>
         </div>
         <div style="background: #fff3cd; padding: 15px; margin: 20px 0;">
           <p><strong>⚠️ Important:</strong> You will be required to change your password on first login.</p>
         </div>
-        <p><a href="${loginUrl}" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none;">Login to VibePOS</a></p>
+        <p style="text-align: center;">
+          <a href="${loginUrl}" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Login to VibePOS</a>
+        </p>
         <p>Best regards,<br>The VibePOS Team</p>
       </div>
     `;
-    
-    let emailResponse;
+
+    // Initialize Resend (exactly as in OTP function)
+    const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+
+    const emailResponse = await resend.emails.send({
+      from: 'VibePOS <noreply@vibepos.shop>',
+      to: [email],
+      subject: emailSubject,
+      html: htmlContent,
+    });
+
+    console.log('Resend response:', emailResponse);
+
+    // Check if Resend returned an error (exactly as in OTP function)
+    if (emailResponse.error) {
+      console.error('Resend error:', emailResponse.error);
+      throw new Error(`Email sending failed: ${emailResponse.error.message || emailResponse.error}`);
+    }
+
+    // Log communication (optional - don't fail if this fails)
     try {
-      console.log('Attempting to send email to:', email);
-      
-      // Initialize Resend (same as OTP function)
-      const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
-      
-      emailResponse = await resend.emails.send({
-        from: 'VibePOS <noreply@vibepos.shop>', // Same as OTP function
-        to: [email],
-        subject: emailSubject,
-        html: emailHtml,
-      });
-      
-      console.log('Resend response:', emailResponse);
-      
-      // Check if Resend returned an error (same as OTP function)
-      if (emailResponse.error) {
-        console.error('Resend error:', emailResponse.error);
-        throw new Error(`Email sending failed: ${emailResponse.error.message || emailResponse.error}`);
-      }
-      
-      console.log('Email sent successfully:', emailResponse?.data?.id);
-      
-      // Log communication (optional, same as OTP function)
-      try {
-        await supabaseAdmin
-          .from('communication_logs')
-          .insert({
-            type: 'email',
-            channel: 'email',
-            recipient: email,
-            subject: emailSubject,
-            content: emailHtml,
-            status: 'sent',
-            user_id: userId,
-            tenant_id: tenantId,
-            sent_at: new Date().toISOString(),
-            metadata: {
-              user_creation: true,
-              user_status: userStatus,
-              resend_id: emailResponse.data?.id
-            }
-          });
-      } catch (logError) {
-        console.error('Failed to log communication (optional):', logError);
-        // Don't throw - email was sent successfully
-      }
-      
-    } catch (emailError: any) {
-      console.error('Email sending error:', emailError);
-      emailResponse = { error: emailError };
+      await supabaseAdmin
+        .from('communication_logs')
+        .insert({
+          type: 'email',
+          channel: 'email',
+          recipient: email,
+          subject: emailSubject,
+          content: htmlContent,
+          status: 'sent',
+          user_id: userId,
+          tenant_id: tenantId,
+          sent_at: new Date().toISOString(),
+          metadata: {
+            user_creation: true,
+            user_status: userStatus,
+            resend_id: emailResponse.data?.id
+          }
+        });
+    } catch (logError) {
+      console.error('Failed to log communication (non-fatal):', logError);
     }
 
     console.log('User creation process completed successfully');
