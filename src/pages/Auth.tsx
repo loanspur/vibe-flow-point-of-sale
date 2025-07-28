@@ -146,22 +146,31 @@ const Auth = () => {
         return;
       }
 
-      // If user exists, send the reset email
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      // Send OTP for password reset using our custom function
+      const { data: otpResult, error: otpError } = await supabase.functions.invoke(
+        'send-otp-verification',
+        {
+          body: { 
+            email: resetEmail,
+            otpType: 'password_reset'
+          }
+        }
+      );
 
-      if (error) {
-        if (error.message.includes('rate limit')) {
+      if (otpError) {
+        console.error('Error sending OTP:', otpError);
+        if (otpError.message?.includes('rate limit')) {
           setResetEmailError('Too many password reset requests. Please wait before trying again.');
-        } else if (error.message.includes('network')) {
+        } else if (otpError.message?.includes('network') || otpError.message?.includes('Failed to fetch')) {
           setResetEmailError('Network error. Please check your connection and try again.');
         } else {
-          setResetEmailError(error.message || 'Failed to send reset email. Please try again.');
+          setResetEmailError(otpError.message || 'Failed to send reset email. Please try again.');
         }
       } else {
-        setResetSuccess('Password reset instructions have been sent to your email address. Please check your inbox and follow the link to reset your password.');
+        setResetSuccess('A password reset code has been sent to your email address. Please check your inbox and use the verification code to reset your password.');
         setResetEmail('');
+        // Redirect to reset password page with email pre-filled
+        navigate(`/reset-password?email=${encodeURIComponent(resetEmail)}`);
       }
     } catch (error: any) {
       console.error('Forgot password error:', error);
