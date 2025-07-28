@@ -43,6 +43,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('Parsing request body...');
+    const requestBody = await req.json();
+    console.log('Request body received:', { ...requestBody, password: '[REDACTED]' });
+
     const {
       email,
       password,
@@ -50,7 +54,7 @@ const handler = async (req: Request): Promise<Response> => {
       role,
       tenantId,
       loginUrl
-    }: CreateUserRequest = await req.json();
+    }: CreateUserRequest = requestBody;
 
     console.log('Creating user with email:', email, 'for tenant:', tenantId);
 
@@ -322,8 +326,9 @@ const handler = async (req: Request): Promise<Response> => {
       console.log('Welcome email sent successfully:', emailResponse?.data?.id);
     }
 
-    // Log the communication
+    // Log the communication (skip if table doesn't exist)
     try {
+      console.log('Attempting to log communication...');
       await supabaseAdmin
         .from('communication_logs')
         .insert({
@@ -338,9 +343,10 @@ const handler = async (req: Request): Promise<Response> => {
           external_id: emailResponse?.data?.id || null,
           error_message: emailResponse?.error?.message || null
         });
-    } catch (logError) {
-      console.error('Failed to log communication:', logError);
-      // Don't throw here, user was created successfully
+      console.log('Communication logged successfully');
+    } catch (logError: any) {
+      console.error('Failed to log communication (table may not exist):', logError);
+      // Don't throw here, user was created successfully - this is optional logging
     }
 
     console.log('User creation process completed successfully');
