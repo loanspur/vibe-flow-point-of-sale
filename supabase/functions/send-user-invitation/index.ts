@@ -55,17 +55,20 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Using Lovable project URL for invitation:", customDomain);
 
-    // Check if user already exists
-    console.log("🔍 Checking if user already exists in Supabase auth...");
-    const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
+    // Check if user already exists by looking at profiles table
+    console.log("🔍 Checking if user already exists in profiles...");
+    const { data: userProfile, error: getUserError } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id, email')
+      .ilike('email', email)
+      .maybeSingle();
     
     if (getUserError) {
       console.error("❌ Error checking existing users:", getUserError);
       throw getUserError;
     }
 
-    console.log("👥 Total users in system:", existingUser.users.length);
-    const userExists = existingUser.users.find(user => user.email === email);
+    const userExists = userProfile ? { id: userProfile.user_id, email: userProfile.email } : null;
     console.log("🔎 User exists check for", email, ":", userExists ? 'YES' : 'NO');
     
     if (userExists) {
