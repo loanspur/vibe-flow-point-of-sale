@@ -52,11 +52,19 @@ const systemItems = [
 
 export function TenantAdminSidebar() {
   const { state } = useSidebar();
-  const { hasFeature } = useFeatureAccess();
+  const { hasFeature, subscription } = useFeatureAccess();
   const location = useLocation();
   const { user } = useAuth();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
+
+  // Get the appropriate badge text based on subscription plan
+  const getUpgradeBadge = () => {
+    const planName = subscription?.billing_plans?.name?.toLowerCase();
+    if (!planName || planName === 'starter') return 'Pro';
+    if (planName === 'professional') return 'Enterprise';
+    return 'Pro';
+  };
 
   const isActive = (path: string) => {
     if (path === "/admin") {
@@ -134,7 +142,7 @@ export function TenantAdminSidebar() {
                             <span>{item.title}</span>
                             {!hasAccess && (
                               <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-                                Pro
+                                {getUpgradeBadge()}
                               </Badge>
                             )}
                           </div>

@@ -181,15 +181,16 @@ export const useFeatureAccess = () => {
       // Check subscription status and trial validity outside the if block
       const isActive = finalSubscription?.status === 'active';
       const isTrial = finalSubscription?.status === 'trial';
+      const isTrialing = finalSubscription?.status === 'trialing'; // Handle "trialing" status
       const trialEnd = (finalSubscription as any)?.trial_end;
       const expiryDate = (finalSubscription as any)?.expires_at || 
                        (finalSubscription as any)?.current_period_end;
       
       // Check if trial is still valid
-      const isTrialValid = isTrial && trialEnd && new Date(trialEnd) > new Date();
+      const isTrialValid = (isTrial || isTrialing) && (!trialEnd || new Date(trialEnd) > new Date());
       const isNotExpired = !expiryDate || new Date(expiryDate) > new Date();
       const isValidSubscription = isActive && isNotExpired;
-      const isValidTrial = isTrialValid;
+      const isValidTrial = isTrialValid || isTrialing; // "trialing" status is considered valid
       
       if (finalSubscription?.billing_plans?.features) {
         const planFeatures = finalSubscription.billing_plans.features;
@@ -199,7 +200,7 @@ export const useFeatureAccess = () => {
           // Map billing plan features to system features
           const planName = finalSubscription.billing_plans.name.toLowerCase();
           
-          // For trial users or Enterprise plan, enable all features by default
+          // For Enterprise plan (regardless of status) or trial users, enable all features by default
           if (planName === 'enterprise' || isValidTrial) {
             // Enable all boolean features for Enterprise or trial users
             Object.keys(accessibleFeatures).forEach(key => {
@@ -209,6 +210,16 @@ export const useFeatureAccess = () => {
                 accessibleFeatures[key] = 999999; // Unlimited
               }
             });
+          } else if (planName === 'professional') {
+            // Professional plan features
+            Object.keys(accessibleFeatures).forEach(key => {
+              if (typeof accessibleFeatures[key] === 'boolean' && key !== 'white_labeling' && key !== 'custom_domains' && key !== 'phone_support' && key !== 'dedicated_account_manager') {
+                accessibleFeatures[key] = true;
+              }
+            });
+            accessibleFeatures['max_locations'] = 5;
+            accessibleFeatures['max_staff_users'] = 999999; // Unlimited
+            accessibleFeatures['max_products'] = 5000;
           }
           
           planFeatures.forEach((feature: { name: string; included: boolean; limit?: number | string }) => {
