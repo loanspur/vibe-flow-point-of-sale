@@ -206,6 +206,32 @@ serve(async (req) => {
       console.error('Features creation error:', featuresError);
     }
 
+    // Send welcome email as background task (don't wait for it)
+    const sendWelcomeEmail = async () => {
+      try {
+        console.log('Sending welcome email to:', email, 'for tenant:', businessName);
+        
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-welcome-email', {
+          body: {
+            tenantName: businessName,
+            contactEmail: email,
+            tenantId: tenant.id
+          }
+        });
+        
+        if (emailError) {
+          console.error('Welcome email failed:', emailError);
+        } else {
+          console.log('Welcome email sent successfully:', emailData);
+        }
+      } catch (emailError) {
+        console.error('Welcome email error:', emailError);
+      }
+    };
+
+    // Start background email task - don't await it to avoid blocking account creation
+    sendWelcomeEmail().catch(err => console.error('Background email task failed:', err));
+
     console.log('Tenant created successfully:', {
       tenantId: tenant.id,
       userId: userData.user.id,
