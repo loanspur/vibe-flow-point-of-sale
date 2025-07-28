@@ -67,8 +67,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPricing, setSelectedPricing] = useState<TenantCustomPricing | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -213,12 +212,6 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           .eq('id', selectedPricing.id);
 
         if (error) throw error;
-
-        toast({
-          title: "Success",
-          description: "Custom pricing updated successfully."
-        });
-        setIsEditDialogOpen(false);
       } else {
         // Create new
         const { error } = await supabase
@@ -226,16 +219,15 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           .insert([pricingData]);
 
         if (error) throw error;
-
-        toast({
-          title: "Success", 
-          description: "Custom pricing created successfully."
-        });
-        setIsCreateDialogOpen(false);
       }
 
-      await fetchCustomPricing();
+      toast({
+        title: "Success",
+        description: `Custom pricing ${selectedPricing ? 'updated' : 'created'} successfully.`
+      });
+      setIsDialogOpen(false);
       resetForm();
+      await fetchCustomPricing();
     } catch (error: any) {
       console.error('Error saving custom pricing:', error);
       toast({
@@ -259,7 +251,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
       expires_at: pricing.expires_at ? new Date(pricing.expires_at) : undefined,
       is_active: pricing.is_active
     });
-    setIsEditDialogOpen(true);
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -503,8 +495,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           type="button" 
           variant="outline" 
           onClick={() => {
-            setIsCreateDialogOpen(false);
-            setIsEditDialogOpen(false);
+            setIsDialogOpen(false);
             resetForm();
           }}
         >
@@ -524,18 +515,23 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           <h2 className="text-2xl font-bold">Tenant Custom Pricing</h2>
           <p className="text-muted-foreground">Manage custom pricing overrides for specific tenants</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
               <Plus className="h-4 w-4 mr-2" />
               Add Custom Pricing
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Custom Pricing</DialogTitle>
+              <DialogTitle>
+                {selectedPricing ? "Edit" : "Create"} Custom Pricing
+              </DialogTitle>
               <DialogDescription>
-                Set a custom pricing override for a specific tenant and billing plan.
+                {selectedPricing 
+                  ? "Update the custom pricing override for this tenant and billing plan."
+                  : "Set a custom pricing override for a specific tenant and billing plan."
+                }
               </DialogDescription>
             </DialogHeader>
             <PricingForm />
@@ -668,18 +664,6 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Custom Pricing</DialogTitle>
-            <DialogDescription>
-              Update the custom pricing override for this tenant and billing plan.
-            </DialogDescription>
-          </DialogHeader>
-          <PricingForm />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
