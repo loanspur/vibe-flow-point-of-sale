@@ -4438,6 +4438,7 @@ export type Database = {
           notes: string | null
           original_amount: number
           reason: string | null
+          setup_fee: number | null
           tenant_id: string
           updated_at: string
         }
@@ -4456,6 +4457,7 @@ export type Database = {
           notes?: string | null
           original_amount: number
           reason?: string | null
+          setup_fee?: number | null
           tenant_id: string
           updated_at?: string
         }
@@ -4474,6 +4476,7 @@ export type Database = {
           notes?: string | null
           original_amount?: number
           reason?: string | null
+          setup_fee?: number | null
           tenant_id?: string
           updated_at?: string
         }

@@ -358,7 +358,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="custom_amount">Custom Amount</Label>
           <Input
@@ -366,7 +366,22 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
             type="number"
             step="0.01"
             value={formData.custom_amount}
-            onChange={(e) => setFormData({...formData, custom_amount: e.target.value})}
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData({...formData, custom_amount: value});
+              
+              // Auto-calculate discount percentage
+              const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
+              if (selectedPlan && value) {
+                const customAmount = parseFloat(value);
+                const discountPercentage = ((selectedPlan.price - customAmount) / selectedPlan.price) * 100;
+                setFormData(prev => ({
+                  ...prev, 
+                  custom_amount: value,
+                  discount_percentage: discountPercentage > 0 ? discountPercentage.toFixed(2) : ""
+                }));
+              }
+            }}
             placeholder="Enter custom amount"
             required
           />
@@ -379,8 +394,35 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
             type="number"
             step="0.01"
             value={formData.discount_percentage}
-            onChange={(e) => setFormData({...formData, discount_percentage: e.target.value})}
-            placeholder="Auto-calculated"
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData({...formData, discount_percentage: value});
+              
+              // Auto-calculate custom amount
+              const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
+              if (selectedPlan && value) {
+                const discountPercentage = parseFloat(value);
+                const customAmount = selectedPlan.price * (1 - discountPercentage / 100);
+                setFormData(prev => ({
+                  ...prev,
+                  discount_percentage: value,
+                  custom_amount: customAmount > 0 ? customAmount.toFixed(2) : ""
+                }));
+              }
+            }}
+            placeholder="Discount percentage"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="setup_fee">Setup Fee</Label>
+          <Input
+            id="setup_fee"
+            type="number"
+            step="0.01"
+            value={formData.setup_fee}
+            onChange={(e) => setFormData({...formData, setup_fee: e.target.value})}
+            placeholder="One-time setup fee"
           />
         </div>
       </div>
@@ -395,17 +437,6 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="setup_fee">Setup Fee</Label>
-        <Input
-          id="setup_fee"
-          type="number"
-          step="0.01"
-          value={formData.setup_fee}
-          onChange={(e) => setFormData({...formData, setup_fee: e.target.value})}
-          placeholder="One-time setup fee (optional)"
-        />
-      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -555,6 +586,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
                   <TableHead>Plan</TableHead>
                   <TableHead>Original Price</TableHead>
                   <TableHead>Custom Price</TableHead>
+                  <TableHead>Setup Fee</TableHead>
                   <TableHead>Discount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Effective Date</TableHead>
@@ -574,6 +606,9 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
                     <TableCell>{formatPrice(pricing.original_amount)}</TableCell>
                     <TableCell className="font-medium">
                       {formatPrice(pricing.custom_amount)}
+                    </TableCell>
+                    <TableCell>
+                      {pricing.setup_fee ? formatPrice(pricing.setup_fee) : '-'}
                     </TableCell>
                     <TableCell>
                       {pricing.discount_percentage && (
@@ -613,7 +648,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
                 ))}
                 {filteredPricing.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No custom pricing overrides found.
                     </TableCell>
                   </TableRow>
