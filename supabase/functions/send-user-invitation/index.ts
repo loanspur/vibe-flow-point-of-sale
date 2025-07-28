@@ -195,34 +195,34 @@ const handler = async (req: Request): Promise<Response> => {
     const invitationUrl = `${origin}/accept-invitation?token=${invitationToken}`;
     console.log("Generated invitation URL:", invitationUrl);
     
-    // STEP 1: Send verification email with invitation data (before creating any database records)
-    console.log("Sending verification email with invitation data to:", email);
+    // STEP 1: Send invitation email directly using Resend
+    console.log("Sending invitation email to:", email);
     
-    const { data: verificationData, error: verificationError } = await supabaseAdmin.functions.invoke('send-verification-email', {
-      body: {
-        email: email,
-        fullName: email.split('@')[0], // Default name from email
-        businessName: companyName,
-        password: crypto.randomUUID(), // Generate random password for invitation
-        invitationData: {
-          roleId: roleId,
-          tenantId: tenantId,
-          inviterName: inviterName,
-          inviterId: inviterId,
-          companyName: companyName,
-          roleName: roleName
-        }
-      }
+    // Render the invitation email
+    const htmlContent = await renderAsync(
+      React.createElement(InvitationEmail, {
+        inviterName,
+        companyName,
+        invitationUrl,
+        roleName
+      })
+    );
+
+    const { data: emailData, error: emailError } = await resend.emails.send({
+      from: 'VibePOS <noreply@vibepos.shop>',
+      to: [email],
+      subject: `You're invited to join ${companyName} on VibePOS`,
+      html: htmlContent,
     });
 
-    if (verificationError) {
-      console.error('Failed to send verification email:', verificationError);
-      throw new Error(`Failed to send verification email: ${verificationError.message}`);
+    if (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      throw new Error(`Failed to send invitation email: ${emailError.message || emailError}`);
     }
 
-    console.log("Verification email sent successfully to:", email);
+    console.log("Invitation email sent successfully to:", email);
 
-    // STEP 2: Only create invitation tracking record AFTER email sending succeeds
+    // STEP 2: Create invitation tracking record
     const { error: trackingError } = await supabaseAdmin
       .from('user_invitations')
       .insert([{
@@ -230,7 +230,7 @@ const handler = async (req: Request): Promise<Response> => {
         role_id: roleId,
         tenant_id: tenantId,
         invited_by: inviterId,
-        invitation_token: verificationData.token,
+        invitation_token: invitationToken,
         expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
         status: 'pending'
       }]);
