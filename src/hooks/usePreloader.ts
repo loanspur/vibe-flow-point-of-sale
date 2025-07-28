@@ -45,22 +45,17 @@ export const usePreloader = ({ images = [], delay = 0 }: PreloaderOptions = {}) 
 
 // Preload critical resources
 export const preloadCriticalResources = () => {
-  // Preload critical fonts
-  const fontLink = document.createElement('link');
-  fontLink.rel = 'preload';
-  fontLink.as = 'font';
-  fontLink.type = 'font/woff2';
-  fontLink.crossOrigin = 'anonymous';
-  document.head.appendChild(fontLink);
-
-  // Preload critical images
+  // Preload critical images only (fonts are handled by index.html)
   const criticalImages = [heroPos, dashboardPreview];
 
   criticalImages.forEach(src => {
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    link.href = src;
-    document.head.appendChild(link);
+    // Check if src is valid before creating preload link
+    if (src && typeof src === 'string' && src.length > 0) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = src;
+      document.head.appendChild(link);
+    }
   });
 };

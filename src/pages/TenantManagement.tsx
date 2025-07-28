@@ -112,12 +112,16 @@ export default function TenantManagement() {
       // Fetch additional data separately to avoid relationship issues
       const tenantsWithExtendedData = await Promise.all(
         (data || []).map(async (tenant) => {
-          // Fetch creator profile
-          const { data: creatorProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('user_id', tenant.created_by)
-            .single();
+          // Fetch creator profile only if created_by exists
+          let creatorProfile = null;
+          if (tenant.created_by) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('user_id', tenant.created_by)
+              .maybeSingle();
+            creatorProfile = profile;
+          }
 
           // Fetch tenant domains
           const { data: domains } = await supabase
