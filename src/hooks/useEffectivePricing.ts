@@ -7,6 +7,7 @@ interface EffectivePricing {
   custom_pricing_id?: string;
   discount_percentage?: number;
   original_amount: number;
+  setup_fee?: number;
 }
 
 export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) => {
@@ -34,7 +35,24 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setEffectivePricing(data[0]);
+        // Fetch setup fee from custom pricing if available
+        let setupFee = 0;
+        if (data[0].is_custom) {
+          const { data: customPricing } = await supabase
+            .from('tenant_custom_pricing')
+            .select('setup_fee')
+            .eq('tenant_id', tenantId)
+            .eq('billing_plan_id', billingPlanId)
+            .eq('is_active', true)
+            .single();
+          
+          setupFee = customPricing?.setup_fee || 0;
+        }
+        
+        setEffectivePricing({
+          ...data[0],
+          setup_fee: setupFee
+        });
       } else {
         setEffectivePricing(null);
       }

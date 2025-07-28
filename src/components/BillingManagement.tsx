@@ -467,10 +467,10 @@ export default function BillingManagement() {
                 <div>
                   <p className="text-sm font-medium text-green-800">Setup Fee</p>
                   <p className="text-lg font-bold text-green-600">
-                    {formatPrice(currentSubscription.setup_fee || 0)}
+                    {formatPrice(effectivePricing?.setup_fee || currentSubscription.setup_fee || 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {currentSubscription.setup_fee ? 'One-time fee' : 'No setup fee'}
+                    {(effectivePricing?.setup_fee || currentSubscription.setup_fee) ? 'One-time fee' : 'No setup fee'}
                   </p>
                 </div>
               </div>
@@ -481,7 +481,7 @@ export default function BillingManagement() {
                 <div>
                   <p className="text-sm font-medium text-orange-800">Next Billing</p>
                   <p className="text-lg font-bold text-orange-600">
-                    {formatPrice((effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0) + (currentSubscription.setup_fee || 0))}
+                    {formatPrice((effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0) + (effectivePricing?.setup_fee || currentSubscription.setup_fee || 0))}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Due: {currentSubscription.next_billing_date ? 
