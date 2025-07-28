@@ -110,7 +110,7 @@ const PERMISSION_CATEGORIES = [
 ];
 
 const UserManagement = () => {
-  const { tenantId, userRole } = useAuth();
+  const { tenantId, userRole, user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [systemPermissions, setSystemPermissions] = useState<SystemPermission[]>([]);
@@ -835,6 +835,7 @@ const UserManagement = () => {
           roleId: invitation.role_id,
           tenantId: invitation.tenant_id,
           inviterName,
+          inviterId: user?.id || '', // Add the missing inviterId parameter
           companyName,
           roleName
         }
