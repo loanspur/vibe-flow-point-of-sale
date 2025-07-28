@@ -2,7 +2,24 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+console.log('Starting create-user-account function...');
+
+// Check if required environment variables are present
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+console.log('Environment check:', {
+  hasResendKey: !!RESEND_API_KEY,
+  hasSupabaseUrl: !!SUPABASE_URL,
+  hasServiceKey: !!SUPABASE_SERVICE_ROLE_KEY
+});
+
+if (!RESEND_API_KEY) {
+  console.error('RESEND_API_KEY is not configured!');
+}
+
+const resend = new Resend(RESEND_API_KEY);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
