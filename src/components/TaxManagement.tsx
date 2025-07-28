@@ -315,7 +315,7 @@ export const TaxManagement = () => {
             <SelectValue placeholder="Select jurisdiction (optional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Jurisdictions</SelectItem>
+            <SelectItem value="all">All Jurisdictions</SelectItem>
             {taxJurisdictions.map((jurisdiction) => (
               <SelectItem key={jurisdiction.id} value={jurisdiction.id}>
                 {jurisdiction.name}
