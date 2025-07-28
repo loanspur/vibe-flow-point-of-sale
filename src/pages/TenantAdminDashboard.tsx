@@ -131,7 +131,8 @@ export default function TenantAdminDashboard() {
           saleItemsResponse,
           allSalesResponse,
           inventoryMovementsResponse,
-          purchaseItemsResponse
+          purchaseItemsResponse,
+          expiryProductsResponse
         ] = await Promise.all([
           // Sales data for the date range including customer_id
           supabase
@@ -220,8 +221,24 @@ export default function TenantAdminDashboard() {
               total_cost,
               purchases!inner(created_at, status, tenant_id)
             `)
-            .eq('purchases.tenant_id', tenantId)
-            .in('purchases.status', ['completed', 'received'])
+             .eq('purchases.tenant_id', tenantId)
+             .in('purchases.status', ['completed', 'received']),
+             
+           // Products with expiry tracking and upcoming/past expiry dates
+           supabase
+             .from('purchase_items')
+             .select(`
+               id,
+               product_id,
+               expiry_date,
+               quantity_received,
+               products!inner(name, has_expiry_date, tenant_id)
+             `)
+             .eq('products.tenant_id', tenantId)
+             .eq('products.has_expiry_date', true)
+             .not('expiry_date', 'is', null)
+             .gte('expiry_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // From 30 days ago
+             .lte('expiry_date', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // To 30 days from now
         ]);
 
         console.log('=== DASHBOARD DATA FETCH RESULTS ===');
@@ -252,6 +269,7 @@ export default function TenantAdminDashboard() {
         if (allSalesResponse.error) throw allSalesResponse.error;
         if (inventoryMovementsResponse.error) throw inventoryMovementsResponse.error;
         if (purchaseItemsResponse.error) throw purchaseItemsResponse.error;
+        if (expiryProductsResponse.error) throw expiryProductsResponse.error;
 
         // Enhanced metric calculations with better accuracy
         const sales = salesResponse.data || [];
@@ -261,6 +279,7 @@ export default function TenantAdminDashboard() {
         const allSales = allSalesResponse.data || [];
         const inventoryMovements = inventoryMovementsResponse.data || [];
         const purchaseItems = purchaseItemsResponse.data || [];
+        const expiryProducts = expiryProductsResponse.data || [];
         
         console.log('Purchase Items Data:', {
           count: purchaseItems.length,
@@ -479,6 +498,26 @@ export default function TenantAdminDashboard() {
           return sum + (minStock * price);
         }, 0);
 
+        // Calculate expiry alerts
+        const today = new Date();
+        const sevenDaysFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        const expiredProducts = expiryProducts.filter(item => {
+          const expiryDate = new Date(item.expiry_date);
+          return expiryDate < today;
+        });
+        
+        const nearExpiryProducts = expiryProducts.filter(item => {
+          const expiryDate = new Date(item.expiry_date);
+          return expiryDate >= today && expiryDate <= sevenDaysFromNow;
+        });
+        
+        const soonExpiryProducts = expiryProducts.filter(item => {
+          const expiryDate = new Date(item.expiry_date);
+          return expiryDate > sevenDaysFromNow && expiryDate <= thirtyDaysFromNow;
+        });
+
         const result = {
           revenue,
           salesCount,
@@ -503,7 +542,14 @@ export default function TenantAdminDashboard() {
           uniqueCustomerIds: uniqueActiveCustomerIds,
           totalSaleItems: saleItems.length,
           avgSaleValue: salesCount > 0 ? revenue / salesCount : 0,
-          inventoryTurnover: totalInventoryAtCost > 0 ? cogs / totalInventoryAtCost : 0
+          inventoryTurnover: totalInventoryAtCost > 0 ? cogs / totalInventoryAtCost : 0,
+          // Expiry tracking
+          expiredProducts,
+          nearExpiryProducts,
+          soonExpiryProducts,
+          expiredCount: expiredProducts.length,
+          nearExpiryCount: nearExpiryProducts.length,
+          soonExpiryCount: soonExpiryProducts.length
         };
 
         console.log('=== FINAL CARD VALUES ===');
@@ -550,7 +596,13 @@ export default function TenantAdminDashboard() {
             uniqueCustomerIds: [],
             totalSaleItems: 0,
             avgSaleValue: 0,
-            inventoryTurnover: 0
+            inventoryTurnover: 0,
+            expiredProducts: [],
+            nearExpiryProducts: [],
+            soonExpiryProducts: [],
+            expiredCount: 0,
+            nearExpiryCount: 0,
+            soonExpiryCount: 0
           },
           error: error
         };
@@ -733,6 +785,34 @@ export default function TenantAdminDashboard() {
       type: "info", 
       message: "No sales recorded for selected period - consider promoting your products",
       action: "View promotions",
+      time: "Now"
+    });
+  }
+
+  // Expiry alerts
+  if (dashboardData?.expiredCount && dashboardData.expiredCount > 0) {
+    alerts.push({
+      type: "error",
+      message: `${dashboardData.expiredCount} product batch${dashboardData.expiredCount > 1 ? 'es have' : ' has'} expired and should be removed`,
+      action: "View expired items",
+      time: "Now"
+    });
+  }
+  
+  if (dashboardData?.nearExpiryCount && dashboardData.nearExpiryCount > 0) {
+    alerts.push({
+      type: "warning",
+      message: `${dashboardData.nearExpiryCount} product batch${dashboardData.nearExpiryCount > 1 ? 'es expire' : ' expires'} within 7 days`,
+      action: "View expiring soon",
+      time: "Now"
+    });
+  }
+  
+  if (dashboardData?.soonExpiryCount && dashboardData.soonExpiryCount > 0) {
+    alerts.push({
+      type: "info",
+      message: `${dashboardData.soonExpiryCount} product batch${dashboardData.soonExpiryCount > 1 ? 'es expire' : ' expires'} within 30 days`,
+      action: "View upcoming expiry",
       time: "Now"
     });
   }
@@ -971,21 +1051,41 @@ export default function TenantAdminDashboard() {
           <div className="mb-6 space-y-2">
             {alerts.map((alert, index) => (
               <div key={index} className={`flex items-center justify-between rounded-lg p-3 ${
-                alert.type === 'warning' ? 'bg-orange-50 border border-orange-200' : 'bg-blue-50 border border-blue-200'
+                alert.type === 'error' 
+                  ? 'bg-red-50 border border-red-200' 
+                  : alert.type === 'warning' 
+                  ? 'bg-orange-50 border border-orange-200' 
+                  : 'bg-blue-50 border border-blue-200'
               }`}>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className={`h-4 w-4 ${
-                    alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'
+                    alert.type === 'error' 
+                      ? 'text-red-600' 
+                      : alert.type === 'warning' 
+                      ? 'text-orange-600' 
+                      : 'text-blue-600'
                   }`} />
                   <span className={`text-sm font-medium ${
-                    alert.type === 'warning' ? 'text-orange-900' : 'text-blue-900'
+                    alert.type === 'error' 
+                      ? 'text-red-900' 
+                      : alert.type === 'warning' 
+                      ? 'text-orange-900' 
+                      : 'text-blue-900'
                   }`}>{alert.message}</span>
                   <span className={`text-xs ${
-                    alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'
+                    alert.type === 'error' 
+                      ? 'text-red-600' 
+                      : alert.type === 'warning' 
+                      ? 'text-orange-600' 
+                      : 'text-blue-600'
                   }`}>• {alert.time}</span>
                 </div>
                 <Button variant="ghost" size="sm" className={`${
-                  alert.type === 'warning' ? 'text-orange-700 hover:text-orange-900' : 'text-blue-700 hover:text-blue-900'
+                  alert.type === 'error' 
+                    ? 'text-red-700 hover:text-red-900' 
+                    : alert.type === 'warning' 
+                    ? 'text-orange-700 hover:text-orange-900' 
+                    : 'text-blue-700 hover:text-blue-900'
                 }`}>
                   {alert.action}
                 </Button>
