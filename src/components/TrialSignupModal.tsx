@@ -128,42 +128,9 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
 
       if (authError) throw authError;
 
-      // If signup successful, setup tenant
+      // Signup successful - user can now log in
       if (authData.user) {
-        console.log('Setting up tenant for user:', authData.user.id);
-        
-        const { data: tenantData, error: tenantError } = await supabase.functions.invoke('setup-missing-tenant', {
-          body: {
-            businessName: formData.businessName,
-            ownerName: formData.fullName,
-            email: formData.email
-          }
-        });
-
-        console.log('Tenant setup response:', { tenantData, tenantError });
-
-        if (tenantError) {
-          console.error('Tenant setup error:', tenantError);
-          throw new Error(`Failed to setup business: ${tenantError.message}`);
-        }
-
-        if (!tenantData?.success) {
-          console.error('Tenant setup failed:', tenantData);
-          throw new Error(tenantData?.error || 'Failed to setup business');
-        }
-
-        // Sign in the user automatically after successful account creation
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password
-        });
-
-        if (signInError) {
-          console.error('Auto sign-in failed:', signInError);
-          // Don't throw error here, just show success message and let user log in manually
-        }
-
-        console.log('Tenant created successfully:', tenantData.tenant?.id);
+        console.log('User account created successfully:', authData.user.id);
       }
 
       toast({

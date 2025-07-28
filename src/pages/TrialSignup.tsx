@@ -139,49 +139,15 @@ export default function TrialSignup() {
         throw authError;
       }
 
-      // If signup successful, setup tenant
+      // Signup successful - user can now log in
       if (authData.user) {
-        console.log('Setting up tenant for user:', authData.user.id);
-        console.log('User metadata:', authData.user.user_metadata);
+        console.log('User account created successfully:', authData.user.id);
         
-        const { data: tenantData, error: tenantError } = await supabase.functions.invoke('setup-missing-tenant', {
-          body: {
-            businessName: formData.businessName,
-            ownerName: formData.ownerName
-          }
-        });
-
-        console.log('Tenant setup response:', { tenantData, tenantError });
-
-        if (tenantError) {
-          console.error('Tenant setup error:', tenantError);
-          throw new Error(`Failed to setup business: ${tenantError.message}`);
-        }
-
-        if (!tenantData?.success) {
-          console.error('Tenant setup failed:', tenantData);
-          throw new Error(tenantData?.error || 'Failed to setup business');
-        }
-
-        // Force refresh user info to get updated tenant_id
-        console.log('Refreshing user info after tenant creation...');
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for DB to settle
-        
-        // Refresh user info in AuthContext to get updated tenant_id
-        await refreshUserInfo();
-        
-        // Get fresh session to ensure user data is updated
-        const { data: sessionData } = await supabase.auth.getSession();
-        console.log('Fresh session after tenant setup:', sessionData?.session?.user?.id);
-
         toast({
           title: "Account Created Successfully!",
-          description: "Your account and business have been set up. You can now start your free trial.",
+          description: "Your account has been created. Please contact support for business setup.",
           variant: "default"
         });
-
-        // Navigate to dashboard
-        navigate('/dashboard');
       }
 
     } catch (error: any) {

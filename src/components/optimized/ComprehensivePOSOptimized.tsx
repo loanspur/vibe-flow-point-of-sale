@@ -49,55 +49,13 @@ export default function ComprehensivePOSOptimized() {
   });
 
   const handleSetupMissingTenant = async () => {
-    if (!missingTenantForm.businessName || !missingTenantForm.ownerName) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setTenantSetupLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('setup-missing-tenant', {
-        body: {
-          businessName: missingTenantForm.businessName,
-          ownerName: missingTenantForm.ownerName,
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data?.success) {
-        throw new Error(data?.error || 'Failed to setup tenant');
-      }
-
-      toast({
-        title: "Success!",
-        description: "Your business has been set up successfully. Redirecting to admin dashboard...",
-      });
-
-      // Refresh user info to get the new role and tenant_id, then redirect
-      await refreshUserInfo();
-      
-      // Navigate to admin dashboard
-      setTimeout(() => {
-        navigate('/admin');
-      }, 500);
-
-    } catch (error: any) {
-      console.error('Tenant setup error:', error);
-      toast({
-        title: "Setup Error",
-        description: error.message || "Failed to setup your business. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setTenantSetupLoading(false);
-    }
+    // Tenant setup functionality removed
+    toast({
+      title: "Error",
+      description: "Please contact support for business setup",
+      variant: "destructive"
+    });
+    setTenantSetupLoading(false);
   };
 
   // Show setup warning if no tenant is configured

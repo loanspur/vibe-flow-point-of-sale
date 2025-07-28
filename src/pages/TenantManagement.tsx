@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Building2, Users, Settings, Trash2, AlertCircle, CreditCard, ArrowUpCircle, ArrowDownCircle, RefreshCw, Mail } from 'lucide-react';
-import CreateTenantWithAdminDialog from '@/components/CreateTenantWithAdminDialog';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -169,60 +169,6 @@ export default function TenantManagement() {
     }
   };
 
-  const createTenant = async () => {
-    try {
-      // Get billing plan ID based on plan type
-      const { data: billingPlan, error: planError } = await supabase
-        .from('billing_plans')
-        .select('id')
-        .ilike('name', `%${newTenant.plan_type}%`)
-        .eq('is_active', true)
-        .single();
-
-      if (planError || !billingPlan) {
-        throw new Error(`Invalid plan type: ${newTenant.plan_type}`);
-      }
-
-      const { data, error } = await supabase
-        .from('tenants')
-        .insert([{
-          ...newTenant,
-          billing_plan_id: billingPlan.id,
-          status: 'active',
-          created_by: user?.id,
-          country: 'Kenya' // Default country
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setTenants([data, ...tenants]);
-      setCreateDialogOpen(false);
-      setNewTenant({
-        name: '',
-        subdomain: '',
-        contact_email: '',
-        contact_phone: '',
-        address: '',
-        plan_type: 'basic',
-        max_users: 10,
-        billing_plan_id: '',
-        country: 'Kenya'
-      });
-
-      toast({
-        title: "Success",
-        description: "Tenant created successfully"
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create tenant",
-        variant: "destructive"
-      });
-    }
-  };
 
   const toggleTenantStatus = async (tenant: Tenant) => {
     try {
@@ -445,9 +391,6 @@ export default function TenantManagement() {
           <p className="text-muted-foreground">Manage tenants and their configurations</p>
         </div>
         
-        <div className="flex gap-2">
-          <CreateTenantWithAdminDialog onTenantCreated={fetchTenants} />
-        </div>
       </div>
 
       <Card>
