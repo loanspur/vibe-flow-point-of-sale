@@ -6,10 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Check, Star, Zap, Building2, Mail, User, Phone, Globe, Lock, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { countriesData, CountryData, getCountryByName } from '@/lib/countries-data';
 
 interface TenantCreationModalProps {
   isOpen: boolean;
@@ -27,14 +29,18 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
   onClose
 }) => {
   const [loading, setLoading] = useState(false);
+  const [selectedCountryData, setSelectedCountryData] = useState<CountryData | null>(null);
   const [formData, setFormData] = useState({
     fullName: '',
     businessName: '',
     email: '',
     mobileNumber: '',
     country: '',
+    currency: '',
+    timezone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    acceptTerms: false
   });
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -46,10 +52,15 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
     });
   };
 
-  const handleCountryChange = (value: string) => {
+  const handleCountryChange = (countryName: string) => {
+    const countryData = getCountryByName(countryName);
+    setSelectedCountryData(countryData || null);
+    
     setFormData({
       ...formData,
-      country: value
+      country: countryName,
+      currency: countryData?.currency || '',
+      timezone: countryData?.timezone || ''
     });
   };
 
@@ -117,6 +128,15 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
       return false;
     }
 
+    if (!formData.acceptTerms) {
+      toast({
+        title: "Error",
+        description: "Please accept the Terms of Service and Privacy Policy",
+        variant: "destructive"
+      });
+      return false;
+    }
+
     return true;
   };
 
@@ -135,6 +155,8 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
           email: formData.email,
           mobileNumber: formData.mobileNumber,
           country: formData.country,
+          currency: formData.currency,
+          timezone: formData.timezone,
           password: formData.password
         }
       });
@@ -181,212 +203,199 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Start Your 14-Day Enterprise Trial</DialogTitle>
+          <DialogTitle className="text-2xl">Start Your Free Trial</DialogTitle>
           <DialogDescription>
             Create your VibePOS account and get immediate access to all Enterprise features. No credit card required.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Enterprise Plan Summary */}
-          <div className="order-2 md:order-1">
-            <Card className="border-2 border-primary/20">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Enterprise Plan</CardTitle>
-                  <Badge className="bg-primary">
-                    <Star className="h-3 w-3 mr-1 fill-current" />
-                    Premium
-                  </Badge>
-                </div>
-                <div className="text-2xl font-bold text-primary">
-                  KES 19,900
-                  <span className="text-sm text-muted-foreground font-normal">/month</span>
-                </div>
-                <p className="text-sm text-muted-foreground">For large businesses requiring advanced features</p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex items-center space-x-2 text-green-700 dark:text-green-400">
-                    <Zap className="h-4 w-4" />
-                    <span className="font-medium text-sm">14-day free trial included</span>
-                  </div>
-                  <p className="text-xs text-green-600 dark:text-green-500 mt-1">
-                    Full access to all Enterprise features. No credit card required.
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Enterprise includes:</h4>
-                  <ul className="space-y-1">
-                    {[
-                      'Unlimited Locations & Users',
-                      'Unlimited Products',
-                      'White-label Solutions',
-                      'Custom Integrations',
-                      '24/7 Phone Support',
-                      'Dedicated Account Manager'
-                    ].map((feature, index) => (
-                      <li key={index} className="flex items-center space-x-2 text-sm">
-                        <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full Name</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="fullName"
+                name="fullName"
+                type="text"
+                placeholder="John Doe"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                className="pl-10"
+                required
+              />
+            </div>
           </div>
 
-          {/* Signup Form */}
-          <div className="order-1 md:order-2">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    placeholder="John Doe"
-                    value={formData.fullName}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name</Label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="businessName"
-                    name="businessName"
-                    type="text"
-                    placeholder="Your Business Name"
-                    value={formData.businessName}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="john@business.com"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="mobileNumber">Mobile Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="mobileNumber"
-                    name="mobileNumber"
-                    type="tel"
-                    placeholder="+254 700 000 000"
-                    value={formData.mobileNumber}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <div className="relative">
-                  <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
-                  <Select value={formData.country} onValueChange={handleCountryChange} required>
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Select your country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((country) => (
-                        <SelectItem key={country} value={country}>
-                          {country}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Enter a secure password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type="password"
-                    placeholder="Confirm your password"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Account...
-                  </>
-                ) : (
-                  <>
-                    Start Free Trial
-                    <Zap className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-
-              <p className="text-xs text-center text-muted-foreground">
-                By signing up, you agree to our{' '}
-                <a href="/terms" className="text-primary hover:underline">Terms of Service</a>
-                {' '}and{' '}
-                <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
-              </p>
-            </form>
+          <div className="space-y-2">
+            <Label htmlFor="businessName">Business Name</Label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="businessName"
+                name="businessName"
+                type="text"
+                placeholder="Your Business Name"
+                value={formData.businessName}
+                onChange={handleInputChange}
+                className="pl-10"
+                required
+              />
+            </div>
           </div>
-        </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email Address</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="john@business.com"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="pl-10"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="country">Country</Label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
+              <Select value={formData.country} onValueChange={handleCountryChange}>
+                <SelectTrigger className="pl-10">
+                  <SelectValue placeholder="Select your country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countriesData.map((country) => (
+                    <SelectItem key={country.code} value={country.name}>
+                      <div className="flex items-center space-x-2">
+                        <span>{country.flag}</span>
+                        <span>{country.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mobileNumber">Mobile Number</Label>
+            <div className="flex space-x-2">
+              <div className="w-24">
+                <Select 
+                  value={selectedCountryData?.dialCode || ''} 
+                  disabled={!selectedCountryData}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="+1" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={selectedCountryData?.dialCode || ''}>
+                      <div className="flex items-center space-x-2">
+                        <span>{selectedCountryData?.flag}</span>
+                        <span>{selectedCountryData?.dialCode}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 relative">
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="mobileNumber"
+                  name="mobileNumber"
+                  type="tel"
+                  placeholder="712345678"
+                  value={formData.mobileNumber}
+                  onChange={handleInputChange}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {formData.currency && formData.timezone && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Input value={formData.currency} disabled className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label>Timezone</Label>
+                <Input value={formData.timezone} disabled className="bg-muted" />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Enter a secure password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className="pl-10"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="pl-10"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="acceptTerms"
+              checked={formData.acceptTerms}
+              onCheckedChange={(checked) => 
+                setFormData({ ...formData, acceptTerms: checked as boolean })
+              }
+            />
+            <Label htmlFor="acceptTerms" className="text-sm">
+              I accept the{' '}
+              <a href="/terms" className="text-primary hover:underline">Terms of Service</a>
+              {' '}and{' '}
+              <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
+            </Label>
+          </div>
+
+          <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Account...
+              </>
+            ) : (
+              'Start Free Trial'
+            )}
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
