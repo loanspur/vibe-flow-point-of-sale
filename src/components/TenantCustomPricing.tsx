@@ -26,7 +26,7 @@ interface TenantCustomPricing {
   original_amount: number;
   discount_percentage?: number;
   reason?: string;
-  notes?: string;
+  setup_fee?: number;
   effective_date: string;
   expires_at?: string;
   is_active: boolean;
@@ -82,7 +82,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
     custom_amount: "",
     discount_percentage: "",
     reason: "",
-    notes: "",
+    setup_fee: "",
     effective_date: new Date(),
     expires_at: undefined as Date | undefined,
     is_active: true
@@ -196,7 +196,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
         original_amount: originalAmount,
         discount_percentage: discountPercentage,
         reason: formData.reason,
-        notes: formData.notes,
+        setup_fee: formData.setup_fee ? parseFloat(formData.setup_fee) : null,
         effective_date: format(formData.effective_date, 'yyyy-MM-dd'),
         expires_at: formData.expires_at ? format(formData.expires_at, 'yyyy-MM-dd') : null,
         is_active: formData.is_active,
@@ -254,7 +254,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
       custom_amount: pricing.custom_amount.toString(),
       discount_percentage: pricing.discount_percentage?.toString() || "",
       reason: pricing.reason || "",
-      notes: pricing.notes || "",
+      setup_fee: pricing.setup_fee?.toString() || "",
       effective_date: new Date(pricing.effective_date),
       expires_at: pricing.expires_at ? new Date(pricing.expires_at) : undefined,
       is_active: pricing.is_active
@@ -288,12 +288,12 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
 
   const resetForm = () => {
     setFormData({
-      tenant_id: "",
+      tenant_id: tenantId || "",
       billing_plan_id: "",
       custom_amount: "",
       discount_percentage: "",
       reason: "",
-      notes: "",
+      setup_fee: "",
       effective_date: new Date(),
       expires_at: undefined,
       is_active: true
@@ -396,13 +396,14 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="notes">Notes</Label>
-        <Textarea
-          id="notes"
-          value={formData.notes}
-          onChange={(e) => setFormData({...formData, notes: e.target.value})}
-          placeholder="Additional notes"
-          rows={3}
+        <Label htmlFor="setup_fee">Setup Fee</Label>
+        <Input
+          id="setup_fee"
+          type="number"
+          step="0.01"
+          value={formData.setup_fee}
+          onChange={(e) => setFormData({...formData, setup_fee: e.target.value})}
+          placeholder="One-time setup fee (optional)"
         />
       </div>
 
