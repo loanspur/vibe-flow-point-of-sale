@@ -42,6 +42,7 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
     confirmPassword: '',
     acceptTerms: false
   });
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
