@@ -246,11 +246,13 @@ const handler = async (req: Request): Promise<Response> => {
       ? "Your VibePOS account has been reactivated and updated with new details:"
       : "Your VibePOS account has been created with the following details:";
     
-    const emailResponse = await resend.emails.send({
-      from: "VibePOS Team <noreply@vibepos.com>",
-      to: [email],
-      subject: emailSubject,
-      html: `
+    let emailResponse;
+    try {
+      emailResponse = await resend.emails.send({
+        from: "VibePOS <onboarding@resend.dev>", // Using verified Resend domain
+        to: [email],
+        subject: emailSubject,
+        html: `
         <!DOCTYPE html>
         <html>
         <head>
@@ -308,12 +310,16 @@ const handler = async (req: Request): Promise<Response> => {
         </body>
         </html>
       `,
-    });
+      });
+    } catch (emailError: any) {
+      console.error('Email sending error:', emailError);
+      emailResponse = { error: emailError };
+    }
 
-    if (emailResponse.error) {
+    if (emailResponse?.error) {
       console.error('Email sending failed:', emailResponse.error);
     } else {
-      console.log('Welcome email sent successfully:', emailResponse.data?.id);
+      console.log('Welcome email sent successfully:', emailResponse?.data?.id);
     }
 
     // Log the communication
@@ -326,11 +332,11 @@ const handler = async (req: Request): Promise<Response> => {
           type: 'email',
           channel: 'email',
           recipient: email,
-          subject: 'Welcome to VibePOS - Your Account Details',
+          subject: emailSubject,
           content: 'User account creation notification with login credentials',
-          status: emailResponse.error ? 'failed' : 'sent',
-          external_id: emailResponse.data?.id,
-          error_message: emailResponse.error?.message
+          status: emailResponse?.error ? 'failed' : 'sent',
+          external_id: emailResponse?.data?.id || null,
+          error_message: emailResponse?.error?.message || null
         });
     } catch (logError) {
       console.error('Failed to log communication:', logError);
