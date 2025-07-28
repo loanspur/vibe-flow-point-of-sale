@@ -56,6 +56,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Creating user in auth system...');
     
+    // Check if user already exists
+    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+    const userExists = existingUser.users.find(u => u.email === email);
+    
+    if (userExists) {
+      throw new Error('User with this email already exists');
+    }
+    
     // Create user with admin API
     const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
