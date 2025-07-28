@@ -1143,7 +1143,9 @@ export function QuoteManagement() {
                           valid_until: date?.toISOString() || null
                         })
                       }
+                      disabled={(date) => date < new Date()}
                       initialFocus
+                      className="p-3 pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>

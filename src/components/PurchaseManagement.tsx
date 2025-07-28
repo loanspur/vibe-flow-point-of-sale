@@ -956,7 +956,9 @@ const PurchaseManagement = () => {
                           mode="single"
                           selected={formData.expected_date ? new Date(formData.expected_date) : undefined}
                           onSelect={(date) => setFormData({...formData, expected_date: date ? format(date, 'yyyy-MM-dd') : ''})}
+                          disabled={(date) => date < new Date()}
                           initialFocus
+                          className="p-3 pointer-events-auto"
                         />
                       </PopoverContent>
                     </Popover>
@@ -1066,7 +1068,9 @@ const PurchaseManagement = () => {
                                   mode="single"
                                   selected={item.expiry_date ? new Date(item.expiry_date) : undefined}
                                   onSelect={(date) => updateItem(index, 'expiry_date', date ? format(date, 'yyyy-MM-dd') : '')}
+                                  disabled={(date) => date < new Date()}
                                   initialFocus
+                                  className="p-3 pointer-events-auto"
                                 />
                               </PopoverContent>
                             </Popover>

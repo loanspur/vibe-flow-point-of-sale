@@ -405,7 +405,9 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
                   mode="single"
                   selected={formData.expires_at}
                   onSelect={(date) => setFormData({...formData, expires_at: date})}
+                  disabled={(date) => date < new Date()}
                   initialFocus
+                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
