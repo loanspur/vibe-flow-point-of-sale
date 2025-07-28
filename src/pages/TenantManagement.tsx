@@ -227,7 +227,7 @@ export default function TenantManagement() {
             id, name, price, period, badge, badge_color
           )
         `)
-        .in('status', ['active', 'pending']);
+        .in('status', ['active', 'pending', 'trial', 'trialing']);
 
       if (error) throw error;
       setTenantSubscriptions(data || []);
@@ -251,45 +251,72 @@ export default function TenantManagement() {
       
       if (existingSubscription) {
         // Update existing subscription
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('tenant_subscription_details')
           .update({
             billing_plan_id: newPlanId,
             updated_at: new Date().toISOString()
           })
-          .eq('tenant_id', tenantId);
+          .eq('tenant_id', tenantId)
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update subscription error:', error);
+          throw new Error(`Failed to update subscription: ${error.message}`);
+        }
+
+        console.log('Subscription updated:', data);
       } else {
         // Create new subscription
-        const { error } = await supabase
+        const selectedPlan = billingPlans.find(plan => plan.id === newPlanId);
+        if (!selectedPlan) {
+          throw new Error('Selected plan not found');
+        }
+
+        const currentDate = new Date();
+        const nextMonth = new Date(currentDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        const { data, error } = await supabase
           .from('tenant_subscription_details')
           .insert({
             tenant_id: tenantId,
             billing_plan_id: newPlanId,
             status: 'active',
-            current_period_start: new Date().toISOString().split('T')[0],
-            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            next_billing_amount: billingPlans.find(plan => plan.id === newPlanId)?.price || 0
-          });
+            current_period_start: currentDate.toISOString().split('T')[0],
+            current_period_end: nextMonth.toISOString().split('T')[0],
+            next_billing_date: nextMonth.toISOString().split('T')[0],
+            next_billing_amount: selectedPlan.price,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Create subscription error:', error);
+          throw new Error(`Failed to create subscription: ${error.message}`);
+        }
+
+        console.log('Subscription created:', data);
       }
 
       // Refresh data
-      await fetchTenantSubscriptions();
+      await Promise.all([
+        fetchTenantSubscriptions(),
+        fetchTenants()
+      ]);
+      
       setSubscriptionDialogOpen(false);
       
       toast({
         title: "Success",
         description: "Subscription updated successfully"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update subscription:', error);
       toast({
         title: "Error",
-        description: "Failed to update subscription",
+        description: error.message || "Failed to update subscription",
         variant: "destructive"
       });
     } finally {
