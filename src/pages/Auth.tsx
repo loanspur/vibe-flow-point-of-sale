@@ -120,28 +120,6 @@ const Auth = () => {
     setResetLoading(true);
 
     try {
-      // First, verify if the email exists in our system
-      const { data: verificationResult, error: verificationError } = await supabase.functions.invoke(
-        'verify-email-exists',
-        {
-          body: { email: resetEmail }
-        }
-      );
-
-      if (verificationError) {
-        console.error('Error verifying email:', verificationError);
-        setResetEmailError('Unable to verify email address. Please try again.');
-        setResetLoading(false);
-        return;
-      }
-
-      // If no user found with this email
-      if (!verificationResult?.exists) {
-        setResetEmailError('No account found with this email address. Please check your email or sign up for a new account.');
-        setResetLoading(false);
-        return;
-      }
-
       // Send OTP for password reset using our custom function
       const { data: otpResult, error: otpError } = await supabase.functions.invoke(
         'send-otp-verification',
@@ -155,9 +133,9 @@ const Auth = () => {
 
       if (otpError) {
         console.error('Error sending OTP:', otpError);
-        setResetEmailError('Failed to send reset code. Please try again.');
+        setResetEmailError('Failed to send verification code. Please try again.');
       } else {
-        setResetSuccess('A password reset code has been sent to your email address. Please check your inbox.');
+        setResetSuccess('A verification code has been sent to your email address. Please check your inbox.');
         // Redirect to reset password page with email pre-filled
         setTimeout(() => {
           navigate(`/reset-password?email=${encodeURIComponent(resetEmail)}`);
@@ -197,7 +175,7 @@ const Auth = () => {
             <CardTitle>{showForgotPassword ? 'Reset Password' : 'Sign In'}</CardTitle>
             <CardDescription>
               {showForgotPassword 
-                ? 'Enter your email address and we\'ll send you a link to reset your password.'
+                ? 'Enter your email address and we\'ll send you a verification code to reset your password.'
                 : 'Access your vibePOS dashboard'
               }
             </CardDescription>
@@ -332,7 +310,7 @@ const Auth = () => {
                   </Button>
                   <Button type="submit" className="flex-1" disabled={resetLoading}>
                     {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Send Reset Link
+                    Send Verification Code
                   </Button>
                 </div>
               </form>
