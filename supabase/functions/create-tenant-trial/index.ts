@@ -79,16 +79,31 @@ serve(async (req) => {
       );
     }
 
-    // Create tenant
+    // Generate subdomain before creating tenant
+    const subdomainName = businessName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    // Create tenant with all required fields for tenant management compatibility
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .insert({
         name: businessName,
+        subdomain: subdomainName,
+        contact_email: email,
+        contact_phone: mobileNumber,
+        address: null,
+        plan_type: 'enterprise',
+        max_users: 50, // Enterprise default
+        billing_plan_id: enterprisePlan.id,
+        country: country,
         status: 'trial',
         is_active: true,
-        billing_plan_id: enterprisePlan.id,
         trial_starts_at: new Date().toISOString(),
-        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days
+        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days
+        created_by: userData.user.id
       })
       .select()
       .single();
@@ -129,12 +144,8 @@ serve(async (req) => {
       console.error('Profile creation error:', profileError);
     }
 
-    // Generate subdomain
-    const subdomain = businessName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '') + '.vibepos.shop';
+    // Use the generated subdomain name with domain suffix
+    const subdomain = subdomainName + '.vibepos.shop';
 
     // Create domain entry
     const { error: domainError } = await supabase
