@@ -72,7 +72,8 @@ export default function TenantManagement() {
         .from('tenants')
         .select(`
           *,
-          created_by_profile:profiles!inner(full_name)
+          created_by_profile:profiles!inner(full_name),
+          tenant_domains!left(domain_name, domain_type, is_primary)
         `)
         .order('created_at', { ascending: false });
 
@@ -430,13 +431,16 @@ export default function TenantManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {tenant.subdomain ? (
-                        <span className="text-sm text-muted-foreground">
-                          {tenant.subdomain}.vibepos.com
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
+                      {(() => {
+                        const subdomain = (tenant as any).tenant_domains?.find((d: any) => d.domain_type === 'subdomain')?.domain_name;
+                        return subdomain ? (
+                          <span className="text-sm text-muted-foreground">{subdomain}</span>
+                        ) : tenant.subdomain ? (
+                          <span className="text-sm text-muted-foreground">{tenant.subdomain}.vibepos.shop</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {subscription?.billing_plans ? (

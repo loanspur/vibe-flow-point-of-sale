@@ -145,7 +145,7 @@ export default function CreateTenantWithAdminDialog({ onTenantCreated }: CreateT
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Will create: {formData.subdomain || 'subdomain'}.vibepos.com
+                  Will create: {formData.subdomain || 'subdomain'}.vibepos.shop
                 </p>
               </div>
 
