@@ -21,6 +21,7 @@ import LandingPage from "./pages/LandingPage";
 const Auth = lazy(() => import("./pages/Auth"));
 const AcceptInvitation = lazy(() => import("./pages/AcceptInvitation"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -166,6 +167,7 @@ const DomainRouter = () => {
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route 
             path="/" 
             element={

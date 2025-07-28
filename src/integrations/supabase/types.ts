@@ -1754,6 +1754,39 @@ export type Database = {
           },
         ]
       }
+      email_verification_otps: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          otp_code: string
+          otp_type: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          otp_code: string
+          otp_type: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          otp_type?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       exchange_items: {
         Row: {
           created_at: string
@@ -2699,6 +2732,8 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          email_verified: boolean | null
+          email_verified_at: string | null
           full_name: string | null
           id: string
           role: Database["public"]["Enums"]["user_role"] | null
@@ -2709,6 +2744,8 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          email_verified?: boolean | null
+          email_verified_at?: string | null
           full_name?: string | null
           id?: string
           role?: Database["public"]["Enums"]["user_role"] | null
@@ -2719,6 +2756,8 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          email_verified?: boolean | null
+          email_verified_at?: string | null
           full_name?: string | null
           id?: string
           role?: Database["public"]["Enums"]["user_role"] | null
@@ -5599,6 +5638,17 @@ export type Database = {
         }
         Returns: string
       }
+      create_otp_verification: {
+        Args: {
+          user_id_param: string
+          email_param: string
+          otp_type_param: string
+        }
+        Returns: {
+          otp_code: string
+          expires_at: string
+        }[]
+      }
       create_payment_record: {
         Args: {
           tenant_id_param: string
@@ -5638,6 +5688,10 @@ export type Database = {
         Returns: string
       }
       generate_invitation_token: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_otp_code: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
@@ -5833,6 +5887,14 @@ export type Database = {
           user_id_param: string
           resource_param: Database["public"]["Enums"]["permission_resource"]
           action_param: Database["public"]["Enums"]["permission_action"]
+        }
+        Returns: boolean
+      }
+      verify_otp_code: {
+        Args: {
+          user_id_param: string
+          otp_code_param: string
+          otp_type_param: string
         }
         Returns: boolean
       }

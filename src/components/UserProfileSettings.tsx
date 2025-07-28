@@ -42,6 +42,8 @@ interface UserProfile {
   tenant_id: string | null;
   created_at: string;
   updated_at: string;
+  email_verified: boolean;
+  email_verified_at: string | null;
 }
 
 interface ContactProfile {
@@ -88,6 +90,12 @@ export default function UserProfileSettings() {
   const [contactCompany, setContactCompany] = useState('');
   const [contactAddress, setContactAddress] = useState('');
   const [contactNotes, setContactNotes] = useState('');
+  
+  // Email verification states
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [verificationOTP, setVerificationOTP] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendTimeout, setResendTimeout] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -411,6 +419,86 @@ export default function UserProfileSettings() {
     } catch (error) {
       toast.error('Failed to update email');
       console.error('Error updating email:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSendVerificationOTP = async () => {
+    if (!user?.email) {
+      toast.error('No email address found');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-otp-verification', {
+        body: {
+          email: user.email,
+          otpType: 'email_verification',
+          userId: user.id
+        }
+      });
+
+      if (error) {
+        toast.error('Failed to send verification code');
+        console.error('Error sending OTP:', error);
+        return;
+      }
+
+      toast.success('Verification code sent to your email');
+      setOtpSent(true);
+      setShowEmailVerification(true);
+      
+      // Start resend timeout
+      setResendTimeout(60);
+      const timer = setInterval(() => {
+        setResendTimeout(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (error) {
+      toast.error('Failed to send verification code');
+      console.error('Error sending OTP:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleVerifyEmail = async () => {
+    if (!verificationOTP || verificationOTP.length !== 6) {
+      toast.error('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.functions.invoke('verify-otp', {
+        body: {
+          userId: user?.id,
+          otpCode: verificationOTP,
+          otpType: 'email_verification'
+        }
+      });
+
+      if (error) {
+        toast.error('Invalid or expired verification code');
+        console.error('Error verifying OTP:', error);
+        return;
+      }
+
+      toast.success('Email verified successfully!');
+      setShowEmailVerification(false);
+      setVerificationOTP('');
+      setOtpSent(false);
+      await fetchUserProfile(); // Refresh profile to show verification status
+    } catch (error) {
+      toast.error('Failed to verify email');
+      console.error('Error verifying email:', error);
     } finally {
       setSaving(false);
     }
@@ -817,6 +905,102 @@ export default function UserProfileSettings() {
                   </div>
                 )}
               </div>
+
+               <Separator />
+
+               {/* Email Verification Section */}
+               <div className="space-y-4">
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <h4 className="font-medium">Email Verification</h4>
+                     <div className="flex items-center space-x-2">
+                       {profile.email_verified ? (
+                         <>
+                           <CheckCircle className="h-4 w-4 text-green-500" />
+                           <span className="text-sm text-green-600">Email verified</span>
+                           {profile.email_verified_at && (
+                             <span className="text-xs text-muted-foreground">
+                               on {new Date(profile.email_verified_at).toLocaleDateString()}
+                             </span>
+                           )}
+                         </>
+                       ) : (
+                         <>
+                           <XCircle className="h-4 w-4 text-red-500" />
+                           <span className="text-sm text-red-600">Email not verified</span>
+                         </>
+                       )}
+                     </div>
+                   </div>
+                   {!profile.email_verified && (
+                     <Button
+                       variant="outline"
+                       onClick={handleSendVerificationOTP}
+                       disabled={saving || resendTimeout > 0}
+                       className="flex items-center space-x-2"
+                     >
+                       <Mail className="h-4 w-4" />
+                       <span>
+                         {resendTimeout > 0 ? `Resend in ${resendTimeout}s` : 'Verify Email'}
+                       </span>
+                     </Button>
+                   )}
+                 </div>
+
+                 {showEmailVerification && (
+                   <div className="border rounded-lg p-4 space-y-4">
+                     <Alert>
+                       <Mail className="h-4 w-4" />
+                       <AlertDescription>
+                         We've sent a 6-digit verification code to {user?.email}. Please enter it below.
+                       </AlertDescription>
+                     </Alert>
+                     
+                     <div className="space-y-2">
+                       <Label htmlFor="verificationOTP">Verification Code</Label>
+                       <Input
+                         id="verificationOTP"
+                         value={verificationOTP}
+                         onChange={(e) => setVerificationOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                         placeholder="Enter 6-digit code"
+                         maxLength={6}
+                         className="text-center text-lg tracking-wider"
+                       />
+                       <p className="text-xs text-muted-foreground">
+                         Code expires in 10 minutes
+                       </p>
+                     </div>
+
+                     <div className="flex justify-between">
+                       <Button
+                         variant="ghost"
+                         onClick={handleSendVerificationOTP}
+                         disabled={saving || resendTimeout > 0}
+                         size="sm"
+                       >
+                         {resendTimeout > 0 ? `Resend in ${resendTimeout}s` : 'Resend Code'}
+                       </Button>
+                       <div className="flex space-x-2">
+                         <Button
+                           variant="outline"
+                           onClick={() => {
+                             setShowEmailVerification(false);
+                             setVerificationOTP('');
+                           }}
+                         >
+                           Cancel
+                         </Button>
+                         <Button 
+                           onClick={handleVerifyEmail}
+                           disabled={saving || verificationOTP.length !== 6}
+                         >
+                           {saving ? 'Verifying...' : 'Verify Email'}
+                         </Button>
+                       </div>
+                     </div>
+                   </div>
+                 )}
+               </div>
 
                <Separator />
 

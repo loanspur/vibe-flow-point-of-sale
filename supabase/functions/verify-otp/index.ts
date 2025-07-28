@@ -1,0 +1,172 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface VerifyOTPRequest {
+  userId?: string;
+  email?: string;
+  otpCode: string;
+  otpType: 'email_verification' | 'password_reset';
+  newPassword?: string; // Required for password_reset
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { userId, email, otpCode, otpType, newPassword }: VerifyOTPRequest = await req.json();
+
+    // Initialize Supabase client
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    let targetUserId = userId;
+
+    // For password reset, find user by email if no userId provided
+    if (!targetUserId && email && otpType === 'password_reset') {
+      const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+      const user = users?.find(u => u.email === email);
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: 'User not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+      targetUserId = user.id;
+    }
+
+    // Verify OTP
+    const { data: isValid, error: verifyError } = await supabaseAdmin
+      .rpc('verify_otp_code', {
+        user_id_param: targetUserId,
+        otp_code_param: otpCode,
+        otp_type_param: otpType
+      });
+
+    if (verifyError) {
+      throw new Error(`Failed to verify OTP: ${verifyError.message}`);
+    }
+
+    if (!isValid) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired OTP code' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    // Handle password reset
+    if (otpType === 'password_reset') {
+      if (!newPassword) {
+        return new Response(
+          JSON.stringify({ error: 'New password is required for password reset' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          }
+        );
+      }
+
+      // Update user password
+      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
+        targetUserId,
+        { password: newPassword }
+      );
+
+      if (passwordError) {
+        throw new Error(`Failed to update password: ${passwordError.message}`);
+      }
+
+      // Log the password reset
+      await supabaseAdmin
+        .from('communication_logs')
+        .insert({
+          type: 'system',
+          channel: 'system',
+          recipient: targetUserId,
+          subject: 'Password Reset Completed',
+          content: 'User password was successfully reset using OTP verification',
+          status: 'completed',
+          user_id: targetUserId,
+          sent_at: new Date().toISOString(),
+          metadata: {
+            action: 'password_reset_completed'
+          }
+        });
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Password reset successfully' 
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    // Handle email verification
+    if (otpType === 'email_verification') {
+      // Email verification is handled in the verify_otp_code function
+      // Log the email verification
+      await supabaseAdmin
+        .from('communication_logs')
+        .insert({
+          type: 'system',
+          channel: 'system',
+          recipient: targetUserId,
+          subject: 'Email Verification Completed',
+          content: 'User email was successfully verified using OTP',
+          status: 'completed',
+          user_id: targetUserId,
+          sent_at: new Date().toISOString(),
+          metadata: {
+            action: 'email_verification_completed'
+          }
+        });
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Email verified successfully' 
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Invalid OTP type' }),
+      {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    );
+
+  } catch (error: any) {
+    console.error('Error in verify-otp function:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    );
+  }
+};
+
+serve(handler);
