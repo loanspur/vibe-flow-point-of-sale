@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart, Tooltip, Legend } from "recharts";
 
@@ -48,6 +49,12 @@ export default function TenantAdminDashboard() {
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   });
+
+  // Get effective pricing for the current subscription
+  const { effectivePricing } = useEffectivePricing(
+    tenantId, 
+    currentSubscription?.billing_plan_id
+  );
 
   // Fetch subscription data and user profile
   useEffect(() => {
@@ -903,12 +910,22 @@ export default function TenantAdminDashboard() {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-blue-900">
-                    {formatPrice(currentSubscription.billing_plans?.price || 0)}
-                  </p>
-                  <p className="text-sm text-blue-600">per {currentSubscription.billing_plans?.period}</p>
-                </div>
+               <div className="text-right">
+                   <p className="text-2xl font-bold text-blue-900">
+                     {formatPrice(effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0)}
+                   </p>
+                   <p className="text-sm text-blue-600">
+                     per {currentSubscription.billing_plans?.period}
+                     {effectivePricing?.is_custom && (
+                       <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 rounded">Custom</span>
+                     )}
+                   </p>
+                   {effectivePricing?.is_custom && effectivePricing?.discount_percentage && (
+                     <p className="text-xs text-blue-500">
+                       {effectivePricing.discount_percentage}% discount applied
+                     </p>
+                   )}
+                 </div>
                 <Link to="/admin/settings?tab=billing">
                   <Button variant="outline" size="sm" className="border-blue-200 text-blue-700 hover:bg-blue-100">
                     <Settings className="h-4 w-4 mr-2" />

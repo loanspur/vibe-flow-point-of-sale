@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -110,15 +111,19 @@ export default function BillingManagement() {
   const [convertedPlans, setConvertedPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
-  const [customPricing, setCustomPricing] = useState<TenantCustomPricing | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
+  
+  // Use effective pricing hook
+  const { effectivePricing, loading: pricingLoading } = useEffectivePricing(
+    tenantId, 
+    currentSubscription?.billing_plan_id
+  );
 
   useEffect(() => {
     fetchBillingPlans();
     fetchCurrentSubscription();
     fetchPaymentHistory();
-    fetchCustomPricing();
   }, [tenantId]);
 
   // Re-fetch data when currency changes to ensure proper formatting
@@ -127,16 +132,8 @@ export default function BillingManagement() {
       fetchBillingPlans();
       fetchCurrentSubscription();
       fetchPaymentHistory();
-      fetchCustomPricing();
     }
   }, [updateCounter]);
-
-  // Fetch custom pricing when currentSubscription changes
-  useEffect(() => {
-    if (currentSubscription?.billing_plan_id) {
-      fetchCustomPricing();
-    }
-  }, [currentSubscription]);
 
   const fetchBillingPlans = async () => {
     try {
@@ -254,27 +251,6 @@ export default function BillingManagement() {
     }
   };
 
-  const fetchCustomPricing = async () => {
-    try {
-      if (!tenantId || !currentSubscription?.billing_plan_id) return;
-      
-      const { data, error } = await supabase
-        .from('tenant_custom_pricing')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('billing_plan_id', currentSubscription.billing_plan_id)
-        .eq('is_active', true)
-        .lte('effective_date', new Date().toISOString().split('T')[0])
-        .or('expires_at.is.null,expires_at.gte.' + new Date().toISOString().split('T')[0])
-        .maybeSingle();
-
-      if (!error && data) {
-        setCustomPricing(data);
-      }
-    } catch (error) {
-      console.error('Error fetching custom pricing:', error);
-    }
-  };
 
   const handleUpgrade = async (planId: string) => {
     if (!user?.email) {
@@ -434,7 +410,7 @@ export default function BillingManagement() {
                 <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
                   {currentSubscription.status?.toUpperCase()}
                 </Badge>
-                {customPricing && (
+                {effectivePricing?.is_custom && (
                   <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
                     Custom Pricing
                   </Badge>
@@ -443,7 +419,7 @@ export default function BillingManagement() {
             </div>
             <CardDescription className="text-green-700">
               You're currently subscribed to the {currentSubscription.billing_plans?.name} plan
-              {customPricing && ' with custom pricing applied'}
+              {effectivePricing?.is_custom && ' with custom pricing applied'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -454,20 +430,20 @@ export default function BillingManagement() {
                 <div>
                   <p className="text-sm font-medium text-green-800">Amount</p>
                   <p className="text-lg font-bold text-green-600">
-                    {customPricing ? 
-                      formatPrice(customPricing.custom_amount) :
+                    {effectivePricing ? 
+                      formatPrice(effectivePricing.effective_amount) :
                       (currentSubscription.billing_plans?.price ? 
                         formatPrice(currentSubscription.billing_plans.price) : 'N/A')
                     }
                   </p>
-                  {customPricing && (
+                  {effectivePricing?.is_custom && (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground line-through">
-                        Original: {formatPrice(customPricing.original_amount)}
+                        Original: {formatPrice(effectivePricing.original_amount)}
                       </p>
-                      {customPricing.discount_percentage && (
+                      {effectivePricing.discount_percentage && (
                         <Badge variant="outline" className="text-green-600 text-xs">
-                          {customPricing.discount_percentage}% off
+                          {effectivePricing.discount_percentage}% off
                         </Badge>
                       )}
                     </div>
@@ -538,12 +514,12 @@ export default function BillingManagement() {
                             </>
                           ) : (
                               <>
-                               Pay {customPricing ? 
-                                 formatPrice(customPricing.custom_amount) :
-                                 (currentSubscription.billing_plans?.price ? 
-                                   formatPrice(currentSubscription.billing_plans.price) : 
-                                   'Current Plan')
-                               }
+                                Pay {effectivePricing ? 
+                                  formatPrice(effectivePricing.effective_amount) :
+                                  (currentSubscription.billing_plans?.price ? 
+                                    formatPrice(currentSubscription.billing_plans.price) : 
+                                    'Current Plan')
+                                }
                                 <ExternalLink className="h-4 w-4 ml-2" />
                               </>
                            )}
@@ -627,21 +603,19 @@ export default function BillingManagement() {
                 {/* Current Plan Rate */}
                 <div className="space-y-2">
                   <h4 className="font-medium text-green-800">Current Plan Rate</h4>
-                  {customPricing ? (
+                  {effectivePricing?.is_custom ? (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl font-bold text-green-600">
-                          {formatPrice(customPricing.custom_amount)}
+                          {formatPrice(effectivePricing.effective_amount)}
                         </span>
                         <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
                       </div>
-                      <p className="text-xs text-blue-600 mt-1">
-                        Reason: {customPricing.reason}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Effective: {formatDate(customPricing.effective_date)}
-                        {customPricing.expires_at && ` - ${formatDate(customPricing.expires_at)}`}
-                      </p>
+                      {effectivePricing.discount_percentage && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          {effectivePricing.discount_percentage}% discount applied
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-1">
@@ -661,11 +635,9 @@ export default function BillingManagement() {
                   <h4 className="font-medium text-green-800">Setup Fee</h4>
                   <div className="space-y-1">
                     <span className="text-2xl font-bold text-green-600">
-                      {customPricing?.setup_fee ? formatPrice(customPricing.setup_fee) : formatPrice(0)}
+                      {formatPrice(0)}
                     </span>
-                    <p className="text-sm text-muted-foreground">
-                      {customPricing?.setup_fee ? 'One-time fee' : 'No setup fee'}
-                    </p>
+                    <p className="text-sm text-muted-foreground">No setup fee</p>
                   </div>
                 </div>
 
@@ -674,12 +646,7 @@ export default function BillingManagement() {
                   <h4 className="font-medium text-green-800">Next Billing Amount</h4>
                   <div className="space-y-1">
                     <span className="text-2xl font-bold text-orange-600">
-                      {(() => {
-                        const recurringAmount = customPricing ? customPricing.custom_amount : (currentSubscription.billing_plans?.price || 0);
-                        const setupFee = customPricing?.setup_fee || 0;
-                        const totalAmount = recurringAmount + setupFee;
-                        return formatPrice(totalAmount);
-                      })()}
+                      {formatPrice(effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0)}
                     </span>
                     <div className="text-sm text-muted-foreground">
                       <p>
@@ -688,11 +655,6 @@ export default function BillingManagement() {
                           'Next billing cycle'
                         }
                       </p>
-                      {customPricing?.setup_fee && (
-                        <p className="text-xs">
-                          Includes setup fee: {formatPrice(customPricing.setup_fee)}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </div>
