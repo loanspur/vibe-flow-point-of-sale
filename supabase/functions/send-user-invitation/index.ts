@@ -55,20 +55,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Using Lovable project URL for invitation:", customDomain);
 
-    // Check if user already exists by looking at profiles table
-    console.log("🔍 Checking if user already exists in profiles...");
-    const { data: userProfile, error: getUserError } = await supabaseAdmin
-      .from('profiles')
-      .select('user_id, email')
-      .ilike('email', email)
+    // Check if user already exists by checking if there's an accepted invitation or active tenant user
+    console.log("🔍 Checking if user already exists by looking for accepted invitations or active users...");
+    
+    // First check if there's already an accepted invitation for this email and tenant
+    const { data: acceptedInvitation, error: invitationCheckError } = await supabaseAdmin
+      .from('user_invitations')
+      .select('*')
+      .eq('email', email)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'accepted')
       .maybeSingle();
     
-    if (getUserError) {
-      console.error("❌ Error checking existing users:", getUserError);
-      throw getUserError;
+    if (invitationCheckError) {
+      console.error("❌ Error checking accepted invitations:", invitationCheckError);
     }
 
-    const userExists = userProfile ? { id: userProfile.user_id, email: userProfile.email } : null;
+    const userExists = acceptedInvitation ? { id: acceptedInvitation.user_id, email: email } : null;
     console.log("🔎 User exists check for", email, ":", userExists ? 'YES' : 'NO');
     
     if (userExists) {
