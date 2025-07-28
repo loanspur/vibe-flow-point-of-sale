@@ -52,7 +52,7 @@ serve(async (req) => {
 
     console.log("Existing profile check:", existingProfile, profileCheckError);
 
-    // If no profile exists, create one
+    // If no profile exists, create one; if exists but no tenant, we'll update it later
     if (!existingProfile && !profileCheckError) {
       console.log("Creating new profile for user");
       const { error: createProfileError } = await supabaseAdmin
@@ -71,14 +71,17 @@ serve(async (req) => {
       console.log("User already has tenant:", existingProfile.tenant_id);
       return new Response(
         JSON.stringify({
-          success: false,
-          error: "User already has a tenant associated"
+          success: true,
+          message: "User already has a tenant associated",
+          tenantId: existingProfile.tenant_id
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
+          status: 200,
         }
       );
+    } else {
+      console.log("User has profile but no tenant, will update after tenant creation");
     }
 
     const requestBody = await req.json();

@@ -135,7 +135,8 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
         const { data: tenantData, error: tenantError } = await supabase.functions.invoke('setup-missing-tenant', {
           body: {
             businessName: formData.businessName,
-            ownerName: formData.fullName
+            ownerName: formData.fullName,
+            email: formData.email
           }
         });
 
@@ -151,17 +152,32 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
           throw new Error(tenantData?.error || 'Failed to setup business');
         }
 
+        // Sign in the user automatically after successful account creation
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        });
+
+        if (signInError) {
+          console.error('Auto sign-in failed:', signInError);
+          // Don't throw error here, just show success message and let user log in manually
+        }
+
         console.log('Tenant created successfully:', tenantData.tenant?.id);
       }
 
       toast({
         title: "Account Created Successfully!",
-        description: "Welcome to VibePOS! Your business has been set up successfully.",
+        description: "Welcome to VibePOS! Your business has been set up successfully. Redirecting to your dashboard...",
         variant: "default"
       });
 
       onClose();
-      navigate('/admin');
+      
+      // Redirect to admin dashboard after a short delay
+      setTimeout(() => {
+        navigate('/admin');
+      }, 2000);
     } catch (error: any) {
       let errorMessage = "Failed to create account. Please try again.";
       

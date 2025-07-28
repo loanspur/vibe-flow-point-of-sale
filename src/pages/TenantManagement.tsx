@@ -535,8 +535,10 @@ export default function TenantManagement() {
                     <TableCell>
                       {(tenant as any).created_by_profile?.full_name ? (
                         <span className="text-sm">{(tenant as any).created_by_profile.full_name}</span>
+                      ) : tenant.created_by ? (
+                        <span className="text-sm text-muted-foreground">User (ID: {tenant.created_by.slice(0, 8)}...)</span>
                       ) : (
-                        <span className="text-sm text-muted-foreground">System</span>
+                        <span className="text-sm text-muted-foreground">System/SuperAdmin</span>
                       )}
                     </TableCell>
                     <TableCell>

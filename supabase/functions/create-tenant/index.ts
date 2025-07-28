@@ -189,20 +189,23 @@ serve(async (req) => {
 
     console.log("Tenant created successfully:", tenantData.id);
 
-    // STEP 4: Create user profile
+    // STEP 4: Create or update user profile
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert({
         user_id: createdUserId,
         full_name: ownerName,
         role: 'admin',
-        tenant_id: tenantData.id
+        tenant_id: tenantData.id,
+        email: email // Add email to profile for easier queries
       });
 
     if (profileError) {
-      console.error("Profile creation error:", profileError);
-      throw new Error(`Failed to create user profile: ${profileError.message}`);
+      console.error("Profile creation/update error:", profileError);
+      throw new Error(`Failed to create/update user profile: ${profileError.message}`);
     }
+
+    console.log("Profile created/updated successfully");
 
     // STEP 5: Add user to tenant_users table
     const { error: tenantUserError } = await supabaseAdmin

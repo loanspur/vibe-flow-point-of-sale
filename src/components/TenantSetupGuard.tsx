@@ -28,9 +28,11 @@ export const TenantSetupGuard = ({ children }: TenantSetupGuardProps) => {
 
     setIsCreatingTenant(true);
     try {
-      // Get user metadata for business name
-      const businessName = user.user_metadata?.business_name || "My Business";
+      // Get user metadata for business name, with fallback
+      const businessName = user.user_metadata?.business_name || `${user.email?.split('@')[0]} Business` || "My Business";
       const ownerName = user.user_metadata?.full_name || user.email?.split('@')[0] || "Business Owner";
+
+      console.log('Creating tenant with data:', { businessName, ownerName, email: user.email });
 
       const { data, error } = await supabase.functions.invoke('setup-missing-tenant', {
         body: {
@@ -39,6 +41,8 @@ export const TenantSetupGuard = ({ children }: TenantSetupGuardProps) => {
           email: user.email
         }
       });
+
+      console.log('Tenant setup response:', { data, error });
 
       if (error) {
         throw new Error(error.message);
@@ -50,17 +54,17 @@ export const TenantSetupGuard = ({ children }: TenantSetupGuardProps) => {
 
       toast({
         title: "Business Setup Complete!",
-        description: "Your business has been set up successfully. Redirecting...",
+        description: "Your business has been set up successfully. Redirecting to your dashboard...",
         variant: "default"
       });
 
       // Refresh user info to get updated tenant_id
       await refreshUserInfo();
       
-      // Redirect to admin dashboard
+      // Small delay to ensure auth context is updated
       setTimeout(() => {
-        navigate('/admin');
-      }, 2000);
+        window.location.href = '/admin'; // Force page reload to ensure fresh auth state
+      }, 1500);
 
     } catch (error: any) {
       console.error('Tenant setup error:', error);
