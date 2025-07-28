@@ -242,7 +242,11 @@ const DomainRouter = () => {
             path="/profile" 
             element={
               <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-                <Profile />
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Profile />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
               </ProtectedRoute>
             } 
           />
@@ -537,7 +541,11 @@ const DomainRouter = () => {
           path="/profile" 
           element={
             <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-              <Profile />
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Profile />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
             </ProtectedRoute>
           } 
         />
