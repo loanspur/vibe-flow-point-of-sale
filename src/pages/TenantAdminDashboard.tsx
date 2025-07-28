@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   BarChart3, 
   Users, 
@@ -24,7 +25,9 @@ import {
   Calendar,
   TrendingDown,
   Boxes,
-  PiggyBank
+  PiggyBank,
+  Clock,
+  XCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
@@ -49,6 +52,7 @@ export default function TenantAdminDashboard() {
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   });
+  const [openDialog, setOpenDialog] = useState<string | null>(null);
 
   // Get effective pricing for the current subscription
   const { effectivePricing } = useEffectivePricing(
@@ -483,8 +487,8 @@ export default function TenantAdminDashboard() {
           return price > cost && cost > 0;
         }).length;
         
-        const lowStockProducts = products.filter(product => {
-          const currentStock = product.stock_quantity || 0;
+        const lowStockProducts = productsWithVariants.filter(product => {
+          const currentStock = product.totalStock || 0;
           const minStock = product.min_stock_level || 0;
           return currentStock <= minStock && minStock > 0;
         });
@@ -543,6 +547,15 @@ export default function TenantAdminDashboard() {
           totalSaleItems: saleItems.length,
           avgSaleValue: salesCount > 0 ? revenue / salesCount : 0,
           inventoryTurnover: totalInventoryAtCost > 0 ? cogs / totalInventoryAtCost : 0,
+          // Enhanced data for low stock products  
+          lowStockProducts: lowStockProducts.map(p => ({
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            totalStock: p.totalStock,
+            min_stock_level: p.min_stock_level,
+            price: p.price
+          })),
           // Expiry tracking
           expiredProducts,
           nearExpiryProducts,
@@ -597,6 +610,7 @@ export default function TenantAdminDashboard() {
             totalSaleItems: 0,
             avgSaleValue: 0,
             inventoryTurnover: 0,
+            lowStockProducts: [],
             expiredProducts: [],
             nearExpiryProducts: [],
             soonExpiryProducts: [],
@@ -776,7 +790,8 @@ export default function TenantAdminDashboard() {
       type: "warning",
       message: `${dashboardData.lowStockCount} products are running low on stock`,
       action: "View inventory",
-      time: "Now"
+      time: "Now",
+      dialogType: "low-stock"
     });
   }
 
@@ -785,7 +800,8 @@ export default function TenantAdminDashboard() {
       type: "info", 
       message: "No sales recorded for selected period - consider promoting your products",
       action: "View promotions",
-      time: "Now"
+      time: "Now",
+      dialogType: null
     });
   }
 
@@ -795,7 +811,8 @@ export default function TenantAdminDashboard() {
       type: "error",
       message: `${dashboardData.expiredCount} product batch${dashboardData.expiredCount > 1 ? 'es have' : ' has'} expired and should be removed`,
       action: "View expired items",
-      time: "Now"
+      time: "Now",
+      dialogType: "expired"
     });
   }
   
@@ -804,7 +821,8 @@ export default function TenantAdminDashboard() {
       type: "warning",
       message: `${dashboardData.nearExpiryCount} product batch${dashboardData.nearExpiryCount > 1 ? 'es expire' : ' expires'} within 7 days`,
       action: "View expiring soon",
-      time: "Now"
+      time: "Now",
+      dialogType: "near-expiry"
     });
   }
   
@@ -813,7 +831,8 @@ export default function TenantAdminDashboard() {
       type: "info",
       message: `${dashboardData.soonExpiryCount} product batch${dashboardData.soonExpiryCount > 1 ? 'es expire' : ' expires'} within 30 days`,
       action: "View upcoming expiry",
-      time: "Now"
+      time: "Now",
+      dialogType: "soon-expiry"
     });
   }
 
@@ -1080,13 +1099,19 @@ export default function TenantAdminDashboard() {
                       : 'text-blue-600'
                   }`}>• {alert.time}</span>
                 </div>
-                <Button variant="ghost" size="sm" className={`${
-                  alert.type === 'error' 
-                    ? 'text-red-700 hover:text-red-900' 
-                    : alert.type === 'warning' 
-                    ? 'text-orange-700 hover:text-orange-900' 
-                    : 'text-blue-700 hover:text-blue-900'
-                }`}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={`${
+                    alert.type === 'error' 
+                      ? 'text-red-700 hover:text-red-900' 
+                      : alert.type === 'warning' 
+                      ? 'text-orange-700 hover:text-orange-900' 
+                      : 'text-blue-700 hover:text-blue-900'
+                  }`}
+                  onClick={() => alert.dialogType && setOpenDialog(alert.dialogType)}
+                  disabled={!alert.dialogType}
+                >
                   {alert.action}
                 </Button>
               </div>
@@ -1479,6 +1504,156 @@ export default function TenantAdminDashboard() {
 
       {/* Floating AI Assistant */}
       <FloatingAIAssistant />
+
+      {/* Alert Detail Modals */}
+      <Dialog open={openDialog === 'low-stock'} onOpenChange={() => setOpenDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              Low Stock Products
+            </DialogTitle>
+            <DialogDescription>
+              These products are running low on stock and need restocking.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            <div className="space-y-3">
+              {dashboardData?.lowStockProducts?.map((product) => (
+                <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-medium">{product.name}</h4>
+                    <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm">
+                        <span className="font-medium text-orange-600">{product.totalStock}</span>
+                        <span className="text-muted-foreground"> / {product.min_stock_level} min</span>
+                      </div>
+                      <Badge variant="outline" className="text-orange-600 border-orange-200">
+                        Low Stock
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Price: {formatCurrency(product.price)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openDialog === 'expired'} onOpenChange={() => setOpenDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-600" />
+              Expired Products
+            </DialogTitle>
+            <DialogDescription>
+              These product batches have expired and should be removed from inventory.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            <div className="space-y-3">
+              {dashboardData?.expiredProducts?.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg bg-red-50 border-red-200">
+                  <div className="flex-1">
+                    <h4 className="font-medium">{item.products.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Expired: {new Date(item.expiry_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-red-600">{item.quantity_received} units</span>
+                      <Badge variant="destructive">Expired</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Days overdue: {Math.floor((new Date().getTime() - new Date(item.expiry_date).getTime()) / (1000 * 60 * 60 * 24))}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openDialog === 'near-expiry'} onOpenChange={() => setOpenDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-orange-600" />
+              Products Expiring Soon
+            </DialogTitle>
+            <DialogDescription>
+              These product batches expire within 7 days and should be prioritized for sale.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            <div className="space-y-3">
+              {dashboardData?.nearExpiryProducts?.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg bg-orange-50 border-orange-200">
+                  <div className="flex-1">
+                    <h4 className="font-medium">{item.products.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Expires: {new Date(item.expiry_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-orange-600">{item.quantity_received} units</span>
+                      <Badge variant="outline" className="text-orange-600 border-orange-200">
+                        {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openDialog === 'soon-expiry'} onOpenChange={() => setOpenDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-600" />
+              Upcoming Expiry Products
+            </DialogTitle>
+            <DialogDescription>
+              These product batches expire within 30 days. Monitor closely for planning.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            <div className="space-y-3">
+              {dashboardData?.soonExpiryProducts?.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-medium">{item.products.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Expires: {new Date(item.expiry_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{item.quantity_received} units</span>
+                      <Badge variant="outline" className="text-blue-600 border-blue-200">
+                        {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
