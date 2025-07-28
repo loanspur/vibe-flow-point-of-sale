@@ -214,24 +214,32 @@ export default function UserProfileSettings() {
   };
 
   const handleUpdateProfile = async () => {
-    if (!user || !profile) return;
+    if (!user || !profile) {
+      toast.error('User not found or not logged in');
+      return;
+    }
 
     setSaving(true);
     try {
+      console.log('Updating profile for user:', user.id, 'with full_name:', fullName);
+      
       // First update the database profile
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           full_name: fullName.trim() || null,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
 
       if (error) {
-        toast.error('Failed to update profile');
-        console.error('Error updating profile:', error);
+        console.error('Database update error:', error);
+        toast.error(`Failed to update profile: ${error.message}`);
         return;
       }
+
+      console.log('Database update successful:', data);
 
       // Then update auth user metadata and wait for it to complete
       const { error: authError } = await supabase.auth.updateUser({
@@ -241,10 +249,12 @@ export default function UserProfileSettings() {
       });
 
       if (authError) {
-        console.error('Error updating auth metadata:', authError);
-        toast.error('Failed to update authentication profile');
+        console.error('Auth metadata update error:', authError);
+        toast.error(`Failed to update authentication profile: ${authError.message}`);
         return;
       }
+
+      console.log('Auth metadata update successful');
 
       // Wait a bit for the auth update to propagate
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -256,9 +266,9 @@ export default function UserProfileSettings() {
       if (refreshUserInfo) {
         await refreshUserInfo();
       }
-    } catch (error) {
-      toast.error('Failed to update profile');
-      console.error('Error updating profile:', error);
+    } catch (error: any) {
+      console.error('Unexpected error updating profile:', error);
+      toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
