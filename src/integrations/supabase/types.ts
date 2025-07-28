@@ -5067,48 +5067,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_invitations: {
-        Row: {
-          accepted_at: string | null
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          invitation_token: string
-          invited_by: string
-          role_id: string | null
-          status: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          accepted_at?: string | null
-          created_at?: string
-          email: string
-          expires_at: string
-          id?: string
-          invitation_token: string
-          invited_by: string
-          role_id?: string | null
-          status?: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          accepted_at?: string | null
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          invitation_token?: string
-          invited_by?: string
-          role_id?: string | null
-          status?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       user_legal_acceptances: {
         Row: {
           accepted_at: string
@@ -5707,16 +5665,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      create_user_invitation: {
-        Args: {
-          tenant_id_param: string
-          email_param: string
-          role_id_param: string
-          invited_by_param: string
-          expires_in_hours?: number
-        }
-        Returns: string
-      }
       create_whatsapp_billing_record: {
         Args: {
           tenant_id_param: string
@@ -5727,10 +5675,6 @@ export type Database = {
         Returns: string
       }
       generate_domain_verification_token: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      generate_invitation_token: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
