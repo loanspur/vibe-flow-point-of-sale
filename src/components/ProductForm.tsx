@@ -69,6 +69,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     revenue_account_id: '',
     stock_quantity: '',
     min_stock_level: '',
+    expiry_date: '',
     is_active: true,
   });
 
@@ -144,6 +145,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         revenue_account_id: product.revenue_account_id || '',
         stock_quantity: product.stock_quantity?.toString() || '',
         min_stock_level: product.min_stock_level?.toString() || '',
+        expiry_date: product.expiry_date || '',
         is_active: product.is_active ?? true,
       });
       if (product.image_url) {
@@ -797,6 +799,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 placeholder="0"
               />
             </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="expiry_date">Expiry Date (Optional)</Label>
+            <Input
+              id="expiry_date"
+              type="date"
+              value={formData.expiry_date || ''}
+              onChange={(e) => handleInputChange('expiry_date', e.target.value)}
+              placeholder="Select expiry date for perishable items"
+            />
           </div>
         </CardContent>
       </Card>

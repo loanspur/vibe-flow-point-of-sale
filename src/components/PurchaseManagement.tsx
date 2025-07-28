@@ -67,6 +67,7 @@ interface PurchaseItem {
   quantity_received: number;
   unit_cost: number;
   total_cost: number;
+  expiry_date?: string;
   notes?: string;
 }
 
@@ -339,7 +340,8 @@ const PurchaseManagement = () => {
         quantity_ordered: item.quantity,
         quantity_received: 0,
         unit_cost: item.unit_cost,
-        total_cost: item.quantity * item.unit_cost
+        total_cost: item.quantity * item.unit_cost,
+        expiry_date: item.expiry_date || null
        }));
 
       console.log('Inserting purchase items:', items);
@@ -991,7 +993,7 @@ const PurchaseManagement = () => {
                         <Label>Items *</Label>
                         <div className="space-y-3 border rounded-lg p-4">
                           {selectedItems.map((item, index) => (
-                            <div key={index} className="grid grid-cols-6 gap-2 items-end">
+                            <div key={index} className="grid grid-cols-7 gap-2 items-end">
                                <div>
                                  <Select 
                                    value={item.product_id || ''} 
@@ -1039,21 +1041,29 @@ const PurchaseManagement = () => {
                                   min="1"
                                 />
                               </div>
-                              <div>
-                                <Input
-                                  type="number"
-                                  placeholder="Unit Cost"
-                                  value={item.unit_cost}
-                                  onChange={(e) => updateItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
-                                  step="0.01"
-                                />
-                              </div>
                                <div>
                                  <Input
-                                   value={formatCurrency(item.quantity * item.unit_cost)}
-                                   disabled
+                                   type="number"
+                                   placeholder="Unit Cost"
+                                   value={item.unit_cost}
+                                   onChange={(e) => updateItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
+                                   step="0.01"
                                  />
                                </div>
+                               <div>
+                                 <Input
+                                   type="date"
+                                   placeholder="Expiry Date"
+                                   value={item.expiry_date || ''}
+                                   onChange={(e) => updateItem(index, 'expiry_date', e.target.value)}
+                                 />
+                               </div>
+                                <div>
+                                  <Input
+                                    value={formatCurrency(item.quantity * item.unit_cost)}
+                                    disabled
+                                  />
+                                </div>
                               <div>
                                 <Button
                                   variant="outline"
@@ -1351,15 +1361,16 @@ const PurchaseManagement = () => {
           </DialogHeader>
           <div className="space-y-4">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Ordered</TableHead>
-                  <TableHead>Received</TableHead>
-                  <TableHead>Unit Cost</TableHead>
-                  <TableHead>Total</TableHead>
-                </TableRow>
-              </TableHeader>
+               <TableHeader>
+                 <TableRow>
+                   <TableHead>Product</TableHead>
+                   <TableHead>Ordered</TableHead>
+                   <TableHead>Received</TableHead>
+                   <TableHead>Expiry Date</TableHead>
+                   <TableHead>Unit Cost</TableHead>
+                   <TableHead>Total</TableHead>
+                 </TableRow>
+               </TableHeader>
               <TableBody>
                 {purchaseItems.map((item, index) => (
                   <TableRow key={item.id}>
@@ -1372,18 +1383,25 @@ const PurchaseManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell>{item.quantity_ordered}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={item.quantity_received}
-                        onChange={(e) => updateReceiveQuantity(index, parseInt(e.target.value) || 0)}
-                        max={item.quantity_ordered}
-                        min="0"
-                        className="w-20"
-                      />
-                    </TableCell>
-                    <TableCell>${item.unit_cost.toFixed(2)}</TableCell>
-                    <TableCell>${(item.quantity_received * item.unit_cost).toFixed(2)}</TableCell>
+                     <TableCell>
+                       <Input
+                         type="number"
+                         value={item.quantity_received}
+                         onChange={(e) => updateReceiveQuantity(index, parseInt(e.target.value) || 0)}
+                         max={item.quantity_ordered}
+                         min="0"
+                         className="w-20"
+                       />
+                     </TableCell>
+                     <TableCell>
+                       {item.expiry_date ? (
+                         <span className="text-sm">{new Date(item.expiry_date).toLocaleDateString()}</span>
+                       ) : (
+                         <span className="text-muted-foreground">-</span>
+                       )}
+                     </TableCell>
+                     <TableCell>${item.unit_cost.toFixed(2)}</TableCell>
+                     <TableCell>${(item.quantity_received * item.unit_cost).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

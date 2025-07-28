@@ -2581,6 +2581,7 @@ export type Database = {
           created_at: string
           default_profit_margin: number | null
           description: string | null
+          expiry_date: string | null
           id: string
           image_url: string | null
           is_active: boolean | null
@@ -2605,6 +2606,7 @@ export type Database = {
           created_at?: string
           default_profit_margin?: number | null
           description?: string | null
+          expiry_date?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
@@ -2629,6 +2631,7 @@ export type Database = {
           created_at?: string
           default_profit_margin?: number | null
           description?: string | null
+          expiry_date?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
@@ -2878,6 +2881,7 @@ export type Database = {
       purchase_items: {
         Row: {
           created_at: string
+          expiry_date: string | null
           id: string
           notes: string | null
           product_id: string
@@ -2891,6 +2895,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          expiry_date?: string | null
           id?: string
           notes?: string | null
           product_id: string
@@ -2904,6 +2909,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          expiry_date?: string | null
           id?: string
           notes?: string | null
           product_id?: string

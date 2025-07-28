@@ -31,6 +31,7 @@ const productSchema = z.object({
   price: z.number().min(0, 'Price must be positive'),
   default_profit_margin: z.number().min(0, 'Profit margin must be positive').max(100, 'Profit margin cannot exceed 100%').optional(),
   stock_quantity: z.number().min(0, 'Stock quantity must be positive'),
+  expiry_date: z.string().optional(),
   is_combo_product: z.boolean().default(false),
   allow_negative_stock: z.boolean().default(false),
   warranty_period_months: z.number().min(0).optional(),
@@ -523,6 +524,24 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
                     )}
                   />
                 )}
+
+                <FormField
+                  control={form.control}
+                  name="expiry_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expiry Date (Optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          placeholder="Select expiry date for perishable items" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {hasFeature('enable_negative_stock') && (
                   <FormField
