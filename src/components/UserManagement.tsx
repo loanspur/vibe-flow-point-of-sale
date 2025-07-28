@@ -583,13 +583,29 @@ const UserManagement = () => {
 
   const sendUserInvitation = async () => {
     console.log("🚀 Starting invitation process...");
+    console.log("📝 Current form values:", { 
+      inviteEmail: inviteEmail, 
+      inviteEmailTrimmed: inviteEmail.trim(), 
+      inviteRoleId: inviteRoleId,
+      emailLength: inviteEmail.length,
+      emailTrimmedLength: inviteEmail.trim().length
+    });
+    
     setLoading(true);
     if (!inviteEmail.trim() || !inviteRoleId) {
-      console.log("❌ Missing email or role:", { email: inviteEmail, roleId: inviteRoleId });
+      console.log("❌ Missing email or role:", { 
+        email: inviteEmail, 
+        emailTrimmed: inviteEmail.trim(),
+        roleId: inviteRoleId,
+        emailEmpty: !inviteEmail.trim(),
+        roleEmpty: !inviteRoleId
+      });
       toast.error('Email and role are required');
       setLoading(false);
       return;
     }
+
+    console.log("✅ Validation passed, proceeding with invitation...");
 
     try {
       // Get current user
