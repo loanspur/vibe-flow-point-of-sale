@@ -195,21 +195,29 @@ const handler = async (req: Request): Promise<Response> => {
     const invitationUrl = `${origin}/accept-invitation?token=${invitationToken}`;
     console.log("Generated invitation URL:", invitationUrl);
     
-    // STEP 1: Send invitation email directly using Resend
-    console.log("Sending invitation email to:", email);
+    // STEP 1: Send invitation email directly using Resend with verified vibepos.shop domain
+    console.log("Sending invitation email to:", email, "from verified vibepos.shop domain");
     
     // Render the invitation email
-    const htmlContent = await renderAsync(
-      React.createElement(InvitationEmail, {
-        inviterName,
-        companyName,
-        invitationUrl,
-        roleName
-      })
-    );
+    let htmlContent;
+    try {
+      htmlContent = await renderAsync(
+        React.createElement(InvitationEmail, {
+          inviterName,
+          companyName,
+          invitationUrl,
+          roleName
+        })
+      );
+      console.log("Email template rendered successfully");
+    } catch (renderError) {
+      console.error("Email template rendering failed:", renderError);
+      throw new Error(`Failed to render email template: ${renderError.message}`);
+    }
 
+    console.log("Sending email with Resend using verified vibepos.shop domain...");
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: 'VibePOS <noreply@vibepos.shop>',
+      from: 'VibePOS <noreply@vibepos.shop>', // Using verified domain
       to: [email],
       subject: `You're invited to join ${companyName} on VibePOS`,
       html: htmlContent,
@@ -226,6 +234,8 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Resend returned error in data:', emailData);
       throw new Error(`Email sending failed: ${emailData?.error || 'Unknown error'}`);
     }
+
+    console.log("✅ Invitation email sent successfully via vibepos.shop to:", email, "Email ID:", emailData.id);
 
     console.log("Invitation email sent successfully to:", email);
 
