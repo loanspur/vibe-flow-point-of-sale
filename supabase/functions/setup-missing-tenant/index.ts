@@ -84,9 +84,14 @@ serve(async (req) => {
     const requestBody = await req.json();
     console.log("Request body:", requestBody);
 
-    const { businessName, ownerName } = requestBody;
+    const { businessName, ownerName, email } = requestBody;
     
-    if (!businessName || !ownerName) {
+    // Use email from request body if provided, otherwise use authenticated user's email
+    const targetEmail = email || user.email;
+    const targetBusinessName = businessName;
+    const targetOwnerName = ownerName || user.user_metadata?.full_name || 'Business Owner';
+    
+    if (!targetBusinessName || !targetOwnerName) {
       throw new Error("Business name and owner name are required");
     }
 
@@ -99,9 +104,9 @@ serve(async (req) => {
         'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
       },
       body: JSON.stringify({
-        businessName,
-        ownerName,
-        email: user.email,
+        businessName: targetBusinessName,
+        ownerName: targetOwnerName,
+        email: targetEmail,
         isExistingUser: true,
         existingUserId: user.id,
         planType: 'trial',

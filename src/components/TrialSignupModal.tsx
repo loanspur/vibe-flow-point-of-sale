@@ -128,9 +128,35 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
 
       if (authError) throw authError;
 
+      // If signup successful, setup tenant
+      if (authData.user) {
+        console.log('Setting up tenant for user:', authData.user.id);
+        
+        const { data: tenantData, error: tenantError } = await supabase.functions.invoke('setup-missing-tenant', {
+          body: {
+            businessName: formData.businessName,
+            ownerName: formData.fullName
+          }
+        });
+
+        console.log('Tenant setup response:', { tenantData, tenantError });
+
+        if (tenantError) {
+          console.error('Tenant setup error:', tenantError);
+          throw new Error(`Failed to setup business: ${tenantError.message}`);
+        }
+
+        if (!tenantData?.success) {
+          console.error('Tenant setup failed:', tenantData);
+          throw new Error(tenantData?.error || 'Failed to setup business');
+        }
+
+        console.log('Tenant created successfully:', tenantData.tenant?.id);
+      }
+
       toast({
         title: "Account Created Successfully!",
-        description: "Welcome to VibePOS! You can now start your free trial.",
+        description: "Welcome to VibePOS! Your business has been set up successfully.",
         variant: "default"
       });
 
