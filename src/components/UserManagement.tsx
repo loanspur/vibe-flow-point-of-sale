@@ -435,21 +435,39 @@ const UserManagement = () => {
     } catch (error: any) {
       console.error('Error creating user:', error);
       
-      // Extract detailed error message
+      // Extract detailed error message from edge function response
       let errorMessage = 'Failed to create user';
+      let errorDetails = '';
       
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (error?.error?.message) {
-        errorMessage = error.error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
+      try {
+        // Handle FunctionsHttpError specifically
+        if (error.name === 'FunctionsHttpError') {
+          // Try to parse the error response
+          const errorText = await error.context?.response?.text?.() || '';
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+              errorDetails = errorJson.details || '';
+            } catch {
+              errorMessage = errorText;
+            }
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+        } else if (error?.error?.message) {
+          errorMessage = error.error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        }
+      } catch (parseError) {
+        console.error('Error parsing edge function error:', parseError);
       }
       
       // Show detailed error in toast
       toast.error(`Failed to create user: ${errorMessage}`, {
-        duration: 5000, // Show for 5 seconds
-        description: error?.details || error?.code || 'Please check the console for more details'
+        duration: 10000, // Show for 10 seconds
+        description: errorDetails || 'Please check the console for more details'
       });
     } finally {
       setCreating(false);

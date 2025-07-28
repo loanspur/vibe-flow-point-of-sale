@@ -291,13 +291,28 @@ const handler = async (req: Request): Promise<Response> => {
     );
   } catch (error: any) {
     console.error("Error in create-user-account function:", error);
+    
+    let errorMessage = error.message || 'Failed to create user account';
+    let statusCode = 500;
+    
+    // Handle specific error types
+    if (error.message?.includes('User with this email already exists')) {
+      statusCode = 409; // Conflict
+    } else if (error.message?.includes('duplicate key value violates unique constraint')) {
+      errorMessage = 'A user with this email already exists';
+      statusCode = 409;
+    } else if (error.message?.includes('Missing required fields')) {
+      statusCode = 400; // Bad Request
+    }
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to create user account',
-        details: error.toString()
+        error: errorMessage,
+        details: error.toString(),
+        code: error.code || 'UNKNOWN_ERROR'
       }),
       {
-        status: 500,
+        status: statusCode,
         headers: { 
           "Content-Type": "application/json", 
           ...corsHeaders 
