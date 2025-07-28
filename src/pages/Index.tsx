@@ -13,7 +13,7 @@ import { LazyImage } from "@/components/ui/image-lazy";
 import { PricingCardSkeleton } from "@/components/ui/skeleton-loader";
 import { useOptimizedPricing } from "@/hooks/useOptimizedPricing";
 import { usePreloader } from "@/hooks/usePreloader";
-import { TrialSignupModal } from "@/components/TrialSignupModal";
+import { TenantCreationModal } from "@/components/TenantCreationModal";
 
 interface BillingPlan {
   id: string;
@@ -29,7 +29,6 @@ interface BillingPlan {
 }
 
 const Index = () => {
-  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
   
   const {
@@ -50,14 +49,12 @@ const Index = () => {
     return `KES ${price.toLocaleString()}`;
   };
 
-  const handleStartTrial = (plan: BillingPlan) => {
-    setSelectedPlan(plan);
+  const handleStartTrial = () => {
     setIsSignupModalOpen(true);
   };
 
   const handleCloseSignupModal = () => {
     setIsSignupModalOpen(false);
-    setSelectedPlan(null);
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -86,7 +83,7 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button size="lg" className="text-lg px-8 py-6" onClick={() => handleStartTrial(plans[0] || {} as BillingPlan)}>
+              <Button size="lg" className="text-lg px-8 py-6" onClick={handleStartTrial}>
                 Start Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -249,7 +246,7 @@ const Index = () => {
                         className="w-full" 
                         size="lg"
                         variant={isPopular ? "default" : "outline"}
-                        onClick={() => handleStartTrial(plan)}
+                        onClick={handleStartTrial}
                       >
                         Start Free Trial
                         <Zap className="ml-2 h-4 w-4" />
@@ -897,10 +894,10 @@ const Index = () => {
                     <tr>
                       <td className="p-4"></td>
                       {plans.map((plan) => (
-                       <td key={plan.id} className="p-4 text-center">
+                         <td key={plan.id} className="p-4 text-center">
                           <Button 
                             className="w-full" 
-                            onClick={() => handleStartTrial(plan)}
+                            onClick={handleStartTrial}
                           >
                             Choose {plan.name}
                           </Button>
@@ -931,7 +928,7 @@ const Index = () => {
               <Button 
                 size="lg" 
                 className="text-lg px-8 py-6"
-                onClick={() => handleStartTrial(plans[0] || {} as BillingPlan)}
+                onClick={handleStartTrial}
               >
                 Start Your Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -944,14 +941,10 @@ const Index = () => {
         </div>
       </section>
       
-      {/* Trial Signup Modal */}
-      <TrialSignupModal
+      {/* Tenant Creation Modal */}
+      <TenantCreationModal
         isOpen={isSignupModalOpen}
         onClose={handleCloseSignupModal}
-        selectedPlan={selectedPlan}
-        getDisplayPrice={getDisplayPrice}
-        getDisplayPeriod={getDisplayPeriod}
-        formatFeatures={formatFeatures}
       />
       
       <Footer />
