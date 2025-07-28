@@ -31,7 +31,8 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { email, roleId, tenantId, inviterName, inviterId, companyName, roleName }: InvitationRequest = await req.json();
-    console.log("Sending invitation to:", email);
+    console.log("🎯 Processing invitation request for:", email);
+    console.log("📋 Request details:", { email, roleId, tenantId, inviterName, companyName, roleName });
 
     // Create admin Supabase client
     const supabaseAdmin = createClient(
@@ -52,16 +53,20 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Using custom domain for invitation:", customDomain);
 
     // Check if user already exists
+    console.log("🔍 Checking if user already exists in Supabase auth...");
     const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
     
     if (getUserError) {
-      console.error("Error checking existing users:", getUserError);
+      console.error("❌ Error checking existing users:", getUserError);
       throw getUserError;
     }
 
+    console.log("👥 Total users in system:", existingUser.users.length);
     const userExists = existingUser.users.find(user => user.email === email);
-
+    console.log("🔎 User exists check for", email, ":", userExists ? 'YES' : 'NO');
+    
     if (userExists) {
+      console.log("✅ User found - ID:", userExists.id, "Email:", userExists.email);
       console.log("User already exists, adding to tenant instead of sending invitation");
       
       // Check if user is already associated with this tenant
