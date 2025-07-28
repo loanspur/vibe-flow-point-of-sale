@@ -160,19 +160,41 @@ export default function AcceptInvitation() {
         const profileRole = roleName.toLowerCase() === 'admin' ? 'admin' : 
                            roleName.toLowerCase() === 'manager' ? 'manager' : 'user';
 
-        // Create/update profile
-        const { error: profileError } = await supabase
+        // Check if profile exists, if not create it
+        const { data: existingProfile } = await supabase
           .from('profiles')
-          .upsert({
-            user_id: userToAdd.id,
-            full_name: formData.fullName,
-            tenant_id: invitation.tenant_id,
-            role: profileRole,
-            updated_at: new Date().toISOString()
-          });
+          .select('user_id')
+          .eq('user_id', userToAdd.id)
+          .maybeSingle();
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
+        if (!existingProfile) {
+          // Create new profile
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: userToAdd.id,
+              full_name: formData.fullName,
+              tenant_id: invitation.tenant_id,
+              role: profileRole
+            });
+
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+          }
+        } else {
+          // Update existing profile with new tenant and role
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              tenant_id: invitation.tenant_id,
+              role: profileRole,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userToAdd.id);
+
+          if (profileError) {
+            console.error('Profile update error:', profileError);
+          }
         }
 
         // Create tenant-user relationship
