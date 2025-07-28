@@ -1,15 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
+import { Resend } from "npm:resend@4.0.0";
 
 console.log('Starting create-user-account function...');
 
 // Check if required environment variables are present
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
 console.log('Environment check:', {
   hasSupabaseUrl: !!SUPABASE_URL,
-  hasServiceKey: !!SUPABASE_SERVICE_ROLE_KEY
+  hasServiceKey: !!SUPABASE_SERVICE_ROLE_KEY,
+  hasResendKey: !!RESEND_API_KEY
 });
 
 const corsHeaders = {
@@ -230,8 +233,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Tenant user created successfully:', tenantUserData);
 
-    // Send welcome email using centralized email service
-    console.log('Sending welcome email via send-enhanced-email service...');
+    // Send welcome email using same approach as OTP emails
+    console.log('Sending welcome email directly via Resend...');
     
     const emailSubject = userStatus === 'reactivated' 
       ? "Your VibePOS Account Has Been Reactivated" 
@@ -240,54 +243,72 @@ const handler = async (req: Request): Promise<Response> => {
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #333;">Welcome to VibePOS!</h1>
-        <p>Hello {{fullName}},</p>
-        <p>Your VibePOS account has been {{status}} with the following details:</p>
+        <p>Hello ${fullName},</p>
+        <p>Your VibePOS account has been ${userStatus === 'reactivated' ? 'reactivated' : 'created'} with the following details:</p>
         <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
           <h3>Login Credentials</h3>
-          <p><strong>Email:</strong> {{email}}</p>
-          <p><strong>Password:</strong> {{password}}</p>
-          <p><strong>Role:</strong> {{role}}</p>
-          <p><strong>Status:</strong> {{statusDisplay}}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Password:</strong> ${password}</p>
+          <p><strong>Role:</strong> ${role}</p>
+          <p><strong>Status:</strong> ${userStatus === 'reactivated' ? 'Reactivated' : 'New User'}</p>
         </div>
         <div style="background: #fff3cd; padding: 15px; margin: 20px 0;">
           <p><strong>⚠️ Important:</strong> You will be required to change your password on first login.</p>
         </div>
-        <p><a href="{{loginUrl}}" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none;">Login to VibePOS</a></p>
+        <p><a href="${loginUrl}" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none;">Login to VibePOS</a></p>
         <p>Best regards,<br>The VibePOS Team</p>
       </div>
     `;
     
     let emailResponse;
     try {
-      console.log('Calling send-enhanced-email function...');
-      const emailFunctionResponse = await supabaseAdmin.functions.invoke('send-enhanced-email', {
-        body: {
-          to: email,
-          toName: fullName,
-          subject: emailSubject,
-          htmlContent: emailHtml,
-          tenantId: tenantId,
-          variables: {
-            fullName: fullName,
-            email: email,
-            password: password,
-            role: role,
-            status: userStatus === 'reactivated' ? 'reactivated' : 'created',
-            statusDisplay: userStatus === 'reactivated' ? 'Reactivated' : 'New User',
-            loginUrl: loginUrl,
-            company_name: 'VibePOS'
-          },
-          priority: 'high'
-        }
+      console.log('Attempting to send email to:', email);
+      
+      // Initialize Resend (same as OTP function)
+      const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+      
+      emailResponse = await resend.emails.send({
+        from: 'VibePOS <noreply@vibepos.shop>', // Same as OTP function
+        to: [email],
+        subject: emailSubject,
+        html: emailHtml,
       });
       
-      if (emailFunctionResponse.error) {
-        console.error('Email function error:', emailFunctionResponse.error);
-        emailResponse = { error: emailFunctionResponse.error };
-      } else {
-        console.log('Email sent successfully via send-enhanced-email:', emailFunctionResponse.data);
-        emailResponse = { data: emailFunctionResponse.data };
+      console.log('Resend response:', emailResponse);
+      
+      // Check if Resend returned an error (same as OTP function)
+      if (emailResponse.error) {
+        console.error('Resend error:', emailResponse.error);
+        throw new Error(`Email sending failed: ${emailResponse.error.message || emailResponse.error}`);
       }
+      
+      console.log('Email sent successfully:', emailResponse?.data?.id);
+      
+      // Log communication (optional, same as OTP function)
+      try {
+        await supabaseAdmin
+          .from('communication_logs')
+          .insert({
+            type: 'email',
+            channel: 'email',
+            recipient: email,
+            subject: emailSubject,
+            content: emailHtml,
+            status: 'sent',
+            user_id: userId,
+            tenant_id: tenantId,
+            sent_at: new Date().toISOString(),
+            metadata: {
+              user_creation: true,
+              user_status: userStatus,
+              resend_id: emailResponse.data?.id
+            }
+          });
+      } catch (logError) {
+        console.error('Failed to log communication (optional):', logError);
+        // Don't throw - email was sent successfully
+      }
+      
     } catch (emailError: any) {
       console.error('Email sending error:', emailError);
       emailResponse = { error: emailError };
