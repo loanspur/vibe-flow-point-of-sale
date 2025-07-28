@@ -26,8 +26,10 @@ export default function AcceptInvitation() {
   useEffect(() => {
     console.log("🔗 AcceptInvitation page loaded");
     console.log("🎫 Token from URL:", token);
+    console.log("🔄 Type from URL:", type);
     console.log("🌐 Current URL:", window.location.href);
     console.log("🏠 Current hostname:", window.location.hostname);
+    console.log("🔍 Full search params:", window.location.search);
     
     // Remove the type check since we're using custom invitation tokens
     if (!token) {
@@ -37,7 +39,7 @@ export default function AcceptInvitation() {
     } else {
       console.log("✅ Token found, staying on AcceptInvitation page");
     }
-  }, [token, navigate]);
+  }, [token, type, navigate]);
 
   const handleAcceptInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
