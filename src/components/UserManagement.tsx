@@ -618,8 +618,8 @@ const UserManagement = () => {
       }
       console.log("✅ User authenticated:", user.id);
 
-      console.log("🔍 Checking for existing invitations...");
-      // Check if invitation already exists for this email
+      console.log("🔍 Checking for existing invitations (for info only)...");
+      // Check if invitation already exists for this email (for logging purposes)
       const { data: existingInvitation, error: invitationCheckError } = await supabase
         .from('user_invitations')
         .select('id, status')
@@ -637,16 +637,16 @@ const UserManagement = () => {
 
       if (invitationCheckError) {
         console.log("❌ Error checking existing invitations:", invitationCheckError);
-        throw invitationCheckError;
+        // Don't throw - just log the error and continue
       }
 
       if (existingInvitation) {
-        console.log("⚠️ Existing invitation found - blocking new invitation");
-        toast.error('An invitation has already been sent to this email address');
-        return;
+        console.log("ℹ️ Existing invitation found - will be updated with new token by edge function");
+      } else {
+        console.log("✅ No existing invitation found, will create new one");
       }
 
-      console.log("✅ No existing invitation found, proceeding...");
+      console.log("🚀 Proceeding to send invitation (edge function will handle resend logic)...");
 
       // Check if user already exists with this email
       const { data: existingUser } = await supabase
