@@ -156,6 +156,25 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
         return;
       }
 
+      // Check if a custom pricing already exists for this tenant and billing plan combination
+      if (!selectedPricing) {
+        const { data: existingPricing } = await supabase
+          .from('tenant_custom_pricing')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('billing_plan_id', formData.billing_plan_id)
+          .single();
+
+        if (existingPricing) {
+          toast({
+            title: "Error",
+            description: "Custom pricing already exists for this tenant and billing plan combination. Please edit the existing one instead.",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       const customAmount = formData.custom_amount ? parseFloat(formData.custom_amount) : 0;
       const originalAmount = selectedPlan.price;
       const discountPercentage = formData.discount_percentage ? parseFloat(formData.discount_percentage) : 0;
