@@ -383,6 +383,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
               }
             }}
             placeholder="Enter custom amount"
+            className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             required
           />
         </div>
