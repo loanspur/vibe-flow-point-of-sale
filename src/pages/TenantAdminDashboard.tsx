@@ -41,6 +41,7 @@ const getTimeBasedGreeting = () => {
 export default function TenantAdminDashboard() {
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { formatPrice } = useCurrencyUpdate();
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
   const [dateRange, setDateRange] = useState({
@@ -48,13 +49,16 @@ export default function TenantAdminDashboard() {
     endDate: new Date().toISOString().split('T')[0]
   });
 
-  // Fetch subscription data
+  // Fetch subscription data and user profile
   useEffect(() => {
     if (tenantId) {
       console.log('Fetching subscription for tenant:', tenantId);
       fetchCurrentSubscription();
     }
-  }, [tenantId]);
+    if (user?.id) {
+      fetchUserProfile();
+    }
+  }, [tenantId, user?.id]);
 
   const fetchCurrentSubscription = async () => {
     try {
@@ -78,6 +82,25 @@ export default function TenantAdminDashboard() {
       setCurrentSubscription(data);
     } catch (error) {
       console.error('Error fetching subscription:', error);
+    }
+  };
+
+  // Fetch user profile for accurate display name
+  const fetchUserProfile = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setUserProfile(data);
+      }
+    } catch (error) {
+      console.warn('Error fetching user profile:', error);
     }
   };
 
@@ -743,12 +766,13 @@ export default function TenantAdminDashboard() {
     { name: 'Out of Stock', value: dashboardData?.outOfStockCount || 0, fill: chartColors.danger }
   ];
 
+
   return (
     <div className="p-6 space-y-6">
       {/* Welcome Section */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">
-          {getTimeBasedGreeting()}, {user?.user_metadata?.full_name || user?.email?.split('@')[0]}!
+          {getTimeBasedGreeting()}, {userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0]}!
         </h1>
         <p className="text-muted-foreground">
           Here's what's happening with your business.

@@ -275,6 +275,11 @@ export default function UserProfileSettings() {
       if (refreshUserInfo) {
         await refreshUserInfo();
       }
+
+      // Refresh the page to ensure all components show updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error: any) {
       console.error('Unexpected error updating profile:', error);
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);
