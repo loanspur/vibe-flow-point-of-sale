@@ -60,10 +60,40 @@ export default function TenantManagement() {
   });
 
   useEffect(() => {
-    fetchTenants();
-    fetchBillingPlans();
-    fetchTenantSubscriptions();
-  }, []);
+    // Check user permissions before fetching data
+    const checkPermissions = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error || !profile || profile.role !== 'superadmin') {
+          setError('You do not have permission to access tenant management.');
+          setLoading(false);
+          return;
+        }
+
+        // If user is superadmin, proceed with data fetching
+        await Promise.all([
+          fetchTenants(),
+          fetchBillingPlans(), 
+          fetchTenantSubscriptions()
+        ]);
+      } catch (err: any) {
+        setError(err.message || 'Permission check failed');
+        setLoading(false);
+      }
+    };
+
+    checkPermissions();
+  }, [user]);
 
   const fetchTenants = async () => {
     try {
@@ -72,8 +102,7 @@ export default function TenantManagement() {
         .from('tenants')
         .select(`
           *,
-          created_by_profile:profiles!inner(full_name),
-          tenant_domains!left(domain_name, domain_type, is_primary)
+          profiles!tenants_created_by_fkey(full_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -82,7 +111,23 @@ export default function TenantManagement() {
         setError(error.message);
         return;
       }
-      setTenants(data || []);
+
+      // Fetch tenant domains separately to avoid relationship issues
+      const tenantsWithDomains = await Promise.all(
+        (data || []).map(async (tenant) => {
+          const { data: domains } = await supabase
+            .from('tenant_domains')
+            .select('domain_name, domain_type, is_primary')
+            .eq('tenant_id', tenant.id);
+          
+          return {
+            ...tenant,
+            tenant_domains: domains || []
+          };
+        })
+      );
+
+      setTenants(tenantsWithDomains);
     } catch (error: any) {
       console.error('Unexpected error:', error);
       setError(error.message || 'An unexpected error occurred');
