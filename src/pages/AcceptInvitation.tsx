@@ -264,13 +264,21 @@ export default function AcceptInvitation() {
         }
 
         const companyName = tenantData?.name || 'the team';
+        
+        console.log("✅ Invitation accepted successfully");
+        console.log("🔄 About to redirect to /auth for login");
+        
         toast({
           title: "Welcome!",
-          description: `Your account has been set up successfully. Welcome to ${companyName}!`,
+          description: `Your account has been set up successfully. Welcome to ${companyName}! Please sign in to continue.`,
         });
 
-        // Redirect to login page for user to sign in
-        navigate('/auth');
+        // Add a small delay before redirect to ensure toast is shown
+        setTimeout(() => {
+          console.log("🌐 Redirecting to /auth...");
+          // Redirect to login page for user to sign in
+          navigate('/auth?message=account-created', { replace: true });
+        }, 1500);
       }
     } catch (error: any) {
       console.error('Accept invitation error:', error);
