@@ -432,9 +432,25 @@ const UserManagement = () => {
       setNewUserFullName('');
       setIsCreatingUser(false);
       fetchUsers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating user:', error);
-      toast.error('Failed to create user');
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to create user';
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      // Show detailed error in toast
+      toast.error(`Failed to create user: ${errorMessage}`, {
+        duration: 5000, // Show for 5 seconds
+        description: error?.details || error?.code || 'Please check the console for more details'
+      });
     } finally {
       setCreating(false);
     }
