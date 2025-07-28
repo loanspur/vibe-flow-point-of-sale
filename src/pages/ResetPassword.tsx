@@ -78,7 +78,7 @@ const ResetPassword = () => {
         return;
       }
       
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
+      const response = await supabase.functions.invoke('verify-otp', {
         body: {
           email: formData.email,
           otpCode: formData.otpCode,
@@ -86,28 +86,42 @@ const ResetPassword = () => {
         }
       });
 
-      if (error) {
-        console.error('Error verifying OTP:', error);
+      console.log('Full response:', response);
+
+      if (response.error) {
+        console.error('Error verifying OTP:', response.error);
+        
+        // Try to get more details from the error
+        const errorMessage = response.error.message || 'Unknown error';
+        console.log('Error message:', errorMessage);
         
         // Handle specific error types
-        if (error.message?.includes('rate limit')) {
+        if (errorMessage.includes('rate limit')) {
           setOtpError('Too many attempts. Please wait before trying again.');
-        } else if (error.message?.includes('Invalid or expired')) {
+        } else if (errorMessage.includes('Invalid or expired')) {
           setOtpError('Invalid or expired verification code. Please try again or request a new code.');
+        } else if (errorMessage.includes('User not found')) {
+          setOtpError('Account not found. Please check your email address.');
         } else {
-          setOtpError('Failed to verify code. Please try again.');
+          setOtpError(`Failed to verify code: ${errorMessage}`);
         }
-      } else if (data?.success) {
+      } else if (response.data?.success) {
         setStep('password');
         toast({
           title: "Code verified",
           description: "Please enter your new password."
         });
       } else {
+        console.log('Unexpected response data:', response.data);
         setOtpError('Invalid or expired verification code. Please try again or request a new code.');
       }
     } catch (error: any) {
       console.error('OTP verification error:', error);
+      console.log('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       setOtpError('Failed to verify code. Please try again or request a new code.');
     }
 
