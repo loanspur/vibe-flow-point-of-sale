@@ -1,25 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
-import { Resend } from "npm:resend@2.0.0";
 
 console.log('Starting create-user-account function...');
 
 // Check if required environment variables are present
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 console.log('Environment check:', {
-  hasResendKey: !!RESEND_API_KEY,
   hasSupabaseUrl: !!SUPABASE_URL,
   hasServiceKey: !!SUPABASE_SERVICE_ROLE_KEY
 });
-
-if (!RESEND_API_KEY) {
-  console.error('RESEND_API_KEY is not configured!');
-}
-
-const resend = new Resend(RESEND_API_KEY);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -239,67 +230,67 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Tenant user created successfully:', tenantUserData);
 
-    // Send welcome email with credentials
-    console.log('Sending welcome email...');
+    // Send welcome email using centralized email service
+    console.log('Sending welcome email via send-enhanced-email service...');
     
     const emailSubject = userStatus === 'reactivated' 
       ? "Your VibePOS Account Has Been Reactivated" 
       : "Welcome to VibePOS - Your Account Details";
     
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #333;">Welcome to VibePOS!</h1>
+        <p>Hello {{fullName}},</p>
+        <p>Your VibePOS account has been {{status}} with the following details:</p>
+        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
+          <h3>Login Credentials</h3>
+          <p><strong>Email:</strong> {{email}}</p>
+          <p><strong>Password:</strong> {{password}}</p>
+          <p><strong>Role:</strong> {{role}}</p>
+          <p><strong>Status:</strong> {{statusDisplay}}</p>
+        </div>
+        <div style="background: #fff3cd; padding: 15px; margin: 20px 0;">
+          <p><strong>⚠️ Important:</strong> You will be required to change your password on first login.</p>
+        </div>
+        <p><a href="{{loginUrl}}" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none;">Login to VibePOS</a></p>
+        <p>Best regards,<br>The VibePOS Team</p>
+      </div>
+    `;
+    
     let emailResponse;
     try {
-      console.log('Attempting to send email to:', email);
-      emailResponse = await resend.emails.send({
-        from: "VibePOS Team <noreply@vibepos.shop>",
-        to: [email],
-        subject: emailSubject,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #333;">Welcome to VibePOS!</h1>
-            <p>Hello ${fullName},</p>
-            <p>Your VibePOS account has been ${userStatus === 'reactivated' ? 'reactivated' : 'created'} with the following details:</p>
-            <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
-              <h3>Login Credentials</h3>
-              <p><strong>Email:</strong> ${email}</p>
-              <p><strong>Password:</strong> ${password}</p>
-              <p><strong>Role:</strong> ${role}</p>
-              <p><strong>Status:</strong> ${userStatus === 'reactivated' ? 'Reactivated' : 'New User'}</p>
-            </div>
-            <div style="background: #fff3cd; padding: 15px; margin: 20px 0;">
-              <p><strong>⚠️ Important:</strong> You will be required to change your password on first login.</p>
-            </div>
-            <p><a href="${loginUrl}" style="background: #007cba; color: white; padding: 10px 20px; text-decoration: none;">Login to VibePOS</a></p>
-            <p>Best regards,<br>The VibePOS Team</p>
-          </div>
-        `,
+      console.log('Calling send-enhanced-email function...');
+      const emailFunctionResponse = await supabaseAdmin.functions.invoke('send-enhanced-email', {
+        body: {
+          to: email,
+          toName: fullName,
+          subject: emailSubject,
+          htmlContent: emailHtml,
+          tenantId: tenantId,
+          variables: {
+            fullName: fullName,
+            email: email,
+            password: password,
+            role: role,
+            status: userStatus === 'reactivated' ? 'reactivated' : 'created',
+            statusDisplay: userStatus === 'reactivated' ? 'Reactivated' : 'New User',
+            loginUrl: loginUrl,
+            company_name: 'VibePOS'
+          },
+          priority: 'high'
+        }
       });
-      console.log('Email sent successfully:', emailResponse?.data?.id);
+      
+      if (emailFunctionResponse.error) {
+        console.error('Email function error:', emailFunctionResponse.error);
+        emailResponse = { error: emailFunctionResponse.error };
+      } else {
+        console.log('Email sent successfully via send-enhanced-email:', emailFunctionResponse.data);
+        emailResponse = { data: emailFunctionResponse.data };
+      }
     } catch (emailError: any) {
       console.error('Email sending error:', emailError);
       emailResponse = { error: emailError };
-    }
-
-    // Log the communication (skip if table doesn't exist)
-    try {
-      console.log('Attempting to log communication...');
-      await supabaseAdmin
-        .from('communication_logs')
-        .insert({
-          tenant_id: tenantId,
-          user_id: userId,
-          type: 'email',
-          channel: 'email',
-          recipient: email,
-          subject: emailSubject,
-          content: 'User account creation notification with login credentials',
-          status: emailResponse?.error ? 'failed' : 'sent',
-          external_id: emailResponse?.data?.id || null,
-          error_message: emailResponse?.error?.message || null
-        });
-      console.log('Communication logged successfully');
-    } catch (logError: any) {
-      console.error('Failed to log communication (table may not exist):', logError);
-      // Don't throw here, user was created successfully - this is optional logging
     }
 
     console.log('User creation process completed successfully');
