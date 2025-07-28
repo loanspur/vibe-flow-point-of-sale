@@ -115,20 +115,48 @@ const ResetPassword = () => {
 
     try {
       // For password reset, we call verify-otp with both the code AND the new password
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: {
+      console.log('Sending password reset request with data:', {
+        email: formData.email,
+        otpCode: formData.otpCode,
+        otpType: 'password_reset',
+        hasNewPassword: !!formData.password
+      });
+
+      const response = await fetch(`https://qwtybhvdbbkbcelisuek.supabase.co/functions/v1/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE'}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE',
+          'Content-Type': 'application/json',
+          'x-application-name': 'vibePOS'
+        },
+        body: JSON.stringify({
           email: formData.email,
           otpCode: formData.otpCode,
           otpType: 'password_reset',
           newPassword: formData.password
-        }
+        })
       });
 
-      console.log('Password reset response:', data, error);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const responseText = await response.text();
+      console.log('Response body:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse response JSON:', e);
+        setPasswordError(`Server error: ${responseText}`);
+        setLoading(false);
+        return;
+      }
 
-      if (error) {
-        console.error('Error resetting password:', error);
-        setPasswordError('Failed to reset password. Please try again.');
+      if (!response.ok) {
+        console.error('Server returned error:', data);
+        setPasswordError(data.error || `Server error (${response.status}): ${data.details || 'Unknown error'}`);
       } else if (data?.success) {
         setResetComplete(true);
         toast({
