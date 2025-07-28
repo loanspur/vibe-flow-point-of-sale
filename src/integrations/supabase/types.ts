@@ -4422,6 +4422,78 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_custom_pricing: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          billing_plan_id: string
+          created_at: string
+          created_by: string
+          custom_amount: number
+          discount_percentage: number | null
+          effective_date: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          original_amount: number
+          reason: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          billing_plan_id: string
+          created_at?: string
+          created_by: string
+          custom_amount: number
+          discount_percentage?: number | null
+          effective_date?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          original_amount: number
+          reason?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          billing_plan_id?: string
+          created_at?: string
+          created_by?: string
+          custom_amount?: number
+          discount_percentage?: number | null
+          effective_date?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          original_amount?: number
+          reason?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_custom_pricing_billing_plan_id_fkey"
+            columns: ["billing_plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_custom_pricing_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_domains: {
         Row: {
           created_at: string
@@ -5594,6 +5666,16 @@ export type Database = {
       get_tenant_by_domain: {
         Args: { domain_name_param: string }
         Returns: string
+      }
+      get_tenant_effective_pricing: {
+        Args: { tenant_id_param: string; billing_plan_id_param: string }
+        Returns: {
+          effective_amount: number
+          is_custom: boolean
+          custom_pricing_id: string
+          discount_percentage: number
+          original_amount: number
+        }[]
       }
       get_tenant_permissions: {
         Args: { tenant_id_param: string }
