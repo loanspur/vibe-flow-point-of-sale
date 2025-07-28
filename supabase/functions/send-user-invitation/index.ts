@@ -45,11 +45,11 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    // Get the current origin for redirect URL, prioritizing the custom domain
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 'https://www.vibepos.shop';
-    const redirectUrl = `${origin}/accept-invitation`;
+    // Use the custom domain for invitation links
+    const customDomain = 'https://vibepos.shop';
+    const redirectUrl = `${customDomain}/accept-invitation`;
 
-    console.log("Using redirect URL:", redirectUrl);
+    console.log("Using custom domain for invitation:", customDomain);
 
     // Check if user already exists
     const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
@@ -191,8 +191,8 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate a secure invitation token
     const invitationToken = crypto.randomUUID();
 
-    // Generate the invitation URL
-    const invitationUrl = `${origin}/accept-invitation?token=${invitationToken}`;
+    // Generate the invitation URL using custom domain
+    const invitationUrl = `${customDomain}/accept-invitation?token=${invitationToken}`;
     console.log("Generated invitation URL:", invitationUrl);
     
     // STEP 1: Send invitation email directly using Resend with verified vibepos.shop domain
