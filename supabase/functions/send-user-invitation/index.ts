@@ -49,11 +49,26 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    // Use the custom domain for invitation links
-    const customDomain = 'https://vibepos.shop';
+    // Get tenant's primary domain for invitation links
+    const { data: tenantDomain, error: domainError } = await supabaseAdmin
+      .from('tenant_domains')
+      .select('domain_name')
+      .eq('tenant_id', tenantId)
+      .eq('is_primary', true)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (domainError) {
+      console.error("Error fetching tenant domain:", domainError);
+      throw domainError;
+    }
+
+    // Use tenant's subdomain for invitation links
+    const tenantDomainName = tenantDomain?.domain_name || `tenant-${tenantId}.vibepos.shop`;
+    const customDomain = `https://${tenantDomainName}`;
     const redirectUrl = `${customDomain}/accept-invitation`;
 
-    console.log("Using custom domain for invitation:", customDomain);
+    console.log("Using tenant domain for invitation:", customDomain);
 
     // Check if user already exists
     console.log("🔍 Checking if user already exists in Supabase auth...");
