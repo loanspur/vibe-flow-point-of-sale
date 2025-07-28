@@ -31,7 +31,7 @@ export default function ProtectedRoute({
 
   // Check role permissions
   if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
-    return <Navigate to="/pos" replace />;
+    return <Navigate to="/admin" replace />;
   }
 
   // Special handling for dashboard redirect
@@ -44,7 +44,7 @@ export default function ProtectedRoute({
                            window.location.hostname !== 'vibepos.shop';
       return <Navigate to={isOnSubdomain ? "/" : "/admin"} replace />;
     } else {
-      return <Navigate to="/pos" replace />;
+      return <Navigate to="/admin" replace />;
     }
   }
 
@@ -56,22 +56,13 @@ export default function ProtectedRoute({
     return <Navigate to="/superadmin" replace />;
   }
 
-  // Redirect tenant admin/manager users to their dashboard if they're on root or other public pages
-  if ((userRole === 'admin' || userRole === 'manager') && 
+  // Redirect tenant users to their dashboard if they're on root or other public pages
+  if (['admin', 'manager', 'cashier', 'user'].includes(userRole) && 
       (window.location.pathname === '/' || 
        window.location.pathname === '/demo' ||
        window.location.pathname.startsWith('/signup') ||
        window.location.pathname.startsWith('/success'))) {
     return <Navigate to="/admin" replace />;
-  }
-
-  // Redirect cashier/user to POS if they're on root or other public pages
-  if ((userRole === 'cashier' || userRole === 'user') && 
-      (window.location.pathname === '/' || 
-       window.location.pathname === '/demo' ||
-       window.location.pathname.startsWith('/signup') ||
-       window.location.pathname.startsWith('/success'))) {
-    return <Navigate to="/pos" replace />;
   }
 
   return <>{children}</>;

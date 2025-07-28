@@ -70,7 +70,7 @@ export default function TenantAdminDashboard() {
           )
         `)
         .eq('tenant_id', tenantId)
-        .in('status', ['active', 'pending'])
+        .in('status', ['active', 'pending', 'trialing', 'trial'])
         .maybeSingle();
 
       console.log('Subscription fetch result:', { data, error });
@@ -631,7 +631,7 @@ export default function TenantAdminDashboard() {
       title: "New Sale",
       description: "Process a transaction",
       icon: ShoppingCart,
-      href: "/pos",
+      href: "/admin/sales",
       color: "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200",
       iconColor: "text-green-600",
       primary: true
@@ -856,6 +856,8 @@ export default function TenantAdminDashboard() {
                   <p className="text-sm text-blue-600">
                     {currentSubscription.status === 'pending' ? (
                       <>Payment pending</>
+                    ) : currentSubscription.status === 'trialing' || currentSubscription.status === 'trial' ? (
+                      <>Trialing {currentSubscription.billing_plans?.name} features</>
                     ) : currentSubscription.trial_end && new Date(currentSubscription.trial_end) > new Date() ? (
                       <>Trial expires {new Date(currentSubscription.trial_end).toLocaleDateString()}</>
                     ) : currentSubscription.trial_end ? (

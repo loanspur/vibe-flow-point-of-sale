@@ -33,7 +33,7 @@ const Careers = lazy(() => import("./pages/Careers"));
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
 const TenantAdminDashboard = lazy(() => import("./pages/TenantAdminDashboard"));
-const ComprehensivePOS = lazy(() => import("./components/optimized/ComprehensivePOSOptimized"));
+
 
 // Admin Pages
 const TenantManagement = lazy(() => import("./pages/TenantManagement"));
@@ -173,18 +173,6 @@ const DomainRouter = () => {
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
-                  </TenantAdminLayout>
-                </SubscriptionGuard>
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/pos" 
-            element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-                <SubscriptionGuard>
-                  <TenantAdminLayout>
-                    <ComprehensivePOS />
                   </TenantAdminLayout>
                 </SubscriptionGuard>
               </ProtectedRoute>
@@ -522,19 +510,6 @@ const DomainRouter = () => {
           } 
         />
         
-        {/* POS Routes */}
-        <Route 
-          path="/pos" 
-          element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-              <SubscriptionGuard>
-                <TenantAdminLayout>
-                  <ComprehensivePOS />
-                </TenantAdminLayout>
-              </SubscriptionGuard>
-            </ProtectedRoute>
-          } 
-        />
         
         {/* Profile Route - accessible to all authenticated users */}
         <Route 
