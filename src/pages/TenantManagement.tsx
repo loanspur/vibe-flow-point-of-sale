@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Building2, Users, Settings, Trash2, AlertCircle, CreditCard, ArrowUpCircle, ArrowDownCircle, RefreshCw, Mail, DollarSign } from 'lucide-react';
+import { Plus, Building2, Users, Settings, Trash2, AlertCircle, CreditCard, ArrowUpCircle, ArrowDownCircle, RefreshCw, Mail, DollarSign, Percent } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +30,166 @@ type TenantSubscription = Tables<'tenant_subscription_details'> & {
     badge: string;
     badge_color: string;
   };
+};
+
+interface TenantCustomPricing {
+  id: string;
+  tenant_id: string;
+  billing_plan_id: string;
+  custom_amount: number;
+  original_amount: number;
+  discount_percentage?: number;
+  reason?: string;
+  setup_fee?: number;
+  effective_date: string;
+  expires_at?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Component to display current plan with custom pricing information
+const CurrentPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSubscription, tenantId?: string }) => {
+  const [customPricing, setCustomPricing] = useState<TenantCustomPricing | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCustomPricing = async () => {
+      if (!tenantId || !subscription.billing_plan_id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('tenant_custom_pricing')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('billing_plan_id', subscription.billing_plan_id)
+          .eq('is_active', true)
+          .lte('effective_date', new Date().toISOString().split('T')[0])
+          .or('expires_at.is.null,expires_at.gte.' + new Date().toISOString().split('T')[0])
+          .single();
+
+        if (!error && data) {
+          setCustomPricing(data);
+        }
+      } catch (error) {
+        console.error('Error fetching custom pricing:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCustomPricing();
+  }, [tenantId, subscription.billing_plan_id]);
+
+  if (loading) {
+    return (
+      <div className="p-4 border rounded-lg bg-muted/50">
+        <div className="animate-pulse">
+          <div className="h-4 bg-muted rounded w-1/4 mb-2"></div>
+          <div className="h-6 bg-muted rounded w-1/2"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 border rounded-lg bg-muted/50">
+      <h3 className="font-semibold mb-2">Current Plan {customPricing && <Badge variant="secondary" className="ml-2">Custom Pricing</Badge>}</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Badge className={subscription.billing_plans?.badge_color}>
+            {subscription.billing_plans?.badge}
+          </Badge>
+          <div>
+            <p className="font-medium">{subscription.billing_plans?.name}</p>
+            <div className="flex items-center gap-2">
+              {customPricing ? (
+                <>
+                  <p className="text-sm font-medium text-green-600">
+                    KES {customPricing.custom_amount.toLocaleString()} per {subscription.billing_plans?.period}
+                  </p>
+                  <p className="text-sm text-muted-foreground line-through">
+                    KES {subscription.billing_plans?.price.toLocaleString()}
+                  </p>
+                  {customPricing.discount_percentage && (
+                    <Badge variant="outline" className="text-green-600 border-green-200">
+                      <Percent className="h-3 w-3 mr-1" />
+                      {customPricing.discount_percentage.toFixed(1)}% off
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  KES {subscription.billing_plans?.price.toLocaleString()} per {subscription.billing_plans?.period}
+                </p>
+              )}
+            </div>
+            {customPricing?.setup_fee && (
+              <p className="text-xs text-muted-foreground">
+                Setup fee: KES {customPricing.setup_fee.toLocaleString()}
+              </p>
+            )}
+            {customPricing?.reason && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Reason: {customPricing.reason}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-muted-foreground">Status</p>
+          <Badge variant={subscription.status === 'active' ? "default" : "secondary"}>
+            {subscription.status}
+          </Badge>
+        </div>
+      </div>
+      
+      <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        {subscription.current_period_start && (
+          <div>
+            <p className="text-muted-foreground">Current Period</p>
+            <p className="font-medium">
+              {new Date(subscription.current_period_start).toLocaleDateString()} - {new Date(subscription.current_period_end || '').toLocaleDateString()}
+            </p>
+          </div>
+        )}
+        {subscription.next_billing_date && (
+          <div>
+            <p className="text-muted-foreground">Next Billing</p>
+            <p className="font-medium">{new Date(subscription.next_billing_date).toLocaleDateString()}</p>
+          </div>
+        )}
+        {subscription.next_billing_amount && (
+          <div>
+            <p className="text-muted-foreground">Next Amount</p>
+            <p className="font-medium">
+              KES {customPricing ? customPricing.custom_amount.toLocaleString() : subscription.next_billing_amount.toLocaleString()}
+            </p>
+          </div>
+        )}
+      </div>
+      
+      {customPricing && (
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <p className="text-muted-foreground">Custom Pricing Active Since</p>
+              <p className="font-medium">{new Date(customPricing.effective_date).toLocaleDateString()}</p>
+            </div>
+            {customPricing.expires_at && (
+              <div>
+                <p className="text-muted-foreground">Custom Pricing Expires</p>
+                <p className="font-medium">{new Date(customPricing.expires_at).toLocaleDateString()}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function TenantManagement() {
@@ -631,35 +791,12 @@ export default function TenantManagement() {
           </DialogHeader>
           
           <div className="space-y-6">
-            {/* Current Plan Display */}
+            {/* Current Plan Display with Custom Pricing */}
             {selectedSubscription && (
-              <div className="p-4 border rounded-lg bg-muted/50">
-                <h3 className="font-semibold mb-2">Current Plan</h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge className={selectedSubscription.billing_plans?.badge_color}>
-                      {selectedSubscription.billing_plans?.badge}
-                    </Badge>
-                    <div>
-                      <p className="font-medium">{selectedSubscription.billing_plans?.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        KES {selectedSubscription.billing_plans?.price.toLocaleString()} per {selectedSubscription.billing_plans?.period}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <Badge variant={selectedSubscription.status === 'active' ? "default" : "secondary"}>
-                      {selectedSubscription.status}
-                    </Badge>
-                  </div>
-                </div>
-                {selectedSubscription.next_billing_date && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Next billing: {new Date(selectedSubscription.next_billing_date).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
+              <CurrentPlanDisplay 
+                subscription={selectedSubscription} 
+                tenantId={selectedTenant?.id}
+              />
             )}
             
             {/* Available Plans */}
