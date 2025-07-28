@@ -130,11 +130,7 @@ const Auth = () => {
 
       if (verificationError) {
         console.error('Error verifying email:', verificationError);
-        if (verificationError.message?.includes('Failed to fetch')) {
-          setResetEmailError('Network error. Please check your connection and try again.');
-        } else {
-          setResetEmailError('Unable to verify email address. Please try again.');
-        }
+        setResetEmailError('Unable to verify email address. Please try again.');
         setResetLoading(false);
         return;
       }
@@ -159,18 +155,13 @@ const Auth = () => {
 
       if (otpError) {
         console.error('Error sending OTP:', otpError);
-        if (otpError.message?.includes('rate limit')) {
-          setResetEmailError('Too many password reset requests. Please wait before trying again.');
-        } else if (otpError.message?.includes('network') || otpError.message?.includes('Failed to fetch')) {
-          setResetEmailError('Network error. Please check your connection and try again.');
-        } else {
-          setResetEmailError(otpError.message || 'Failed to send reset email. Please try again.');
-        }
+        setResetEmailError('Failed to send reset code. Please try again.');
       } else {
-        setResetSuccess('A password reset code has been sent to your email address. Please check your inbox and use the verification code to reset your password.');
-        setResetEmail('');
+        setResetSuccess('A password reset code has been sent to your email address. Please check your inbox.');
         // Redirect to reset password page with email pre-filled
-        navigate(`/reset-password?email=${encodeURIComponent(resetEmail)}`);
+        setTimeout(() => {
+          navigate(`/reset-password?email=${encodeURIComponent(resetEmail)}`);
+        }, 2000);
       }
     } catch (error: any) {
       console.error('Forgot password error:', error);
