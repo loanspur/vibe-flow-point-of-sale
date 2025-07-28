@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { TenantSetupGuard } from '@/components/TenantSetupGuard';
 
 type UserRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
 
@@ -14,7 +13,7 @@ export default function ProtectedRoute({
   children, 
   allowedRoles
 }: ProtectedRouteProps) {
-  const { user, userRole, loading, tenantId } = useAuth();
+  const { user, userRole, loading } = useAuth();
 
   // Show loading while auth is initializing
   if (loading) {
@@ -28,12 +27,6 @@ export default function ProtectedRoute({
   // Redirect to auth if not logged in
   if (!user) {
     return <Navigate to="/auth" replace />;
-  }
-
-  // For non-superadmin users, check if they have a tenant
-  // Superadmins don't need a tenant as they manage the system
-  if (userRole !== 'superadmin' && !tenantId) {
-    return <TenantSetupGuard>{children}</TenantSetupGuard>;
   }
 
   // Check role permissions
