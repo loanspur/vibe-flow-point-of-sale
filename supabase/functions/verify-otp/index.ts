@@ -39,6 +39,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('Received request body:', await req.clone().text());
     const { userId, email, otpCode, otpType, newPassword }: VerifyOTPRequest = await req.json();
     
     // Get client IP for rate limiting
@@ -106,53 +107,58 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Handle password reset
     if (otpType === 'password_reset') {
-      if (!newPassword) {
+      if (newPassword) {
+        // This is the second step - actually reset the password
+        // Update user password
+        const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
+          targetUserId,
+          { password: newPassword }
+        );
+
+        if (passwordError) {
+          throw new Error(`Failed to update password: ${passwordError.message}`);
+        }
+
+        // Log the password reset
+        await supabaseAdmin
+          .from('communication_logs')
+          .insert({
+            type: 'system',
+            channel: 'system',
+            recipient: targetUserId,
+            subject: 'Password Reset Completed',
+            content: 'User password was successfully reset using OTP verification',
+            status: 'completed',
+            user_id: targetUserId,
+            sent_at: new Date().toISOString(),
+            metadata: {
+              action: 'password_reset_completed'
+            }
+          });
+
         return new Response(
-          JSON.stringify({ error: 'New password is required for password reset' }),
+          JSON.stringify({ 
+            success: true, 
+            message: 'Password reset successfully' 
+          }),
           {
-            status: 400,
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          }
+        );
+      } else {
+        // This is the first step - just verify the OTP
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'OTP verified successfully. You can now set your new password.' 
+          }),
+          {
+            status: 200,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
           }
         );
       }
-
-      // Update user password
-      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-        targetUserId,
-        { password: newPassword }
-      );
-
-      if (passwordError) {
-        throw new Error(`Failed to update password: ${passwordError.message}`);
-      }
-
-      // Log the password reset
-      await supabaseAdmin
-        .from('communication_logs')
-        .insert({
-          type: 'system',
-          channel: 'system',
-          recipient: targetUserId,
-          subject: 'Password Reset Completed',
-          content: 'User password was successfully reset using OTP verification',
-          status: 'completed',
-          user_id: targetUserId,
-          sent_at: new Date().toISOString(),
-          metadata: {
-            action: 'password_reset_completed'
-          }
-        });
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Password reset successfully' 
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        }
-      );
     }
 
     // Handle email verification
