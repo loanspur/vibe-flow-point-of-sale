@@ -24,10 +24,18 @@ export default function AcceptInvitation() {
   const type = searchParams.get('type');
 
   useEffect(() => {
+    console.log("🔗 AcceptInvitation page loaded");
+    console.log("🎫 Token from URL:", token);
+    console.log("🌐 Current URL:", window.location.href);
+    console.log("🏠 Current hostname:", window.location.hostname);
+    
     // Remove the type check since we're using custom invitation tokens
     if (!token) {
+      console.log("❌ No token found, redirecting to home");
       navigate('/');
       return;
+    } else {
+      console.log("✅ Token found, staying on AcceptInvitation page");
     }
   }, [token, navigate]);
 
