@@ -48,6 +48,73 @@ interface TenantCustomPricing {
   updated_at: string;
 }
 
+// Compact component for table display
+const CompactPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSubscription, tenantId?: string }) => {
+  const [customPricing, setCustomPricing] = useState<TenantCustomPricing | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCustomPricing = async () => {
+      if (!tenantId || !subscription.billing_plan_id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('tenant_custom_pricing')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('billing_plan_id', subscription.billing_plan_id)
+          .eq('is_active', true)
+          .lte('effective_date', new Date().toISOString().split('T')[0])
+          .or('expires_at.is.null,expires_at.gte.' + new Date().toISOString().split('T')[0])
+          .single();
+
+        if (!error && data) {
+          setCustomPricing(data);
+        }
+      } catch (error) {
+        console.error('Error fetching custom pricing:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCustomPricing();
+  }, [tenantId, subscription.billing_plan_id]);
+
+  if (loading) {
+    return <div className="animate-pulse h-4 bg-muted rounded w-16"></div>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Badge className={subscription.billing_plans?.badge_color}>
+        {subscription.billing_plans?.badge}
+      </Badge>
+      <div className="flex flex-col">
+        <span className="text-sm font-medium">{subscription.billing_plans?.name}</span>
+        {customPricing ? (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-green-600 font-medium">
+              KES {customPricing.custom_amount.toLocaleString()}
+            </span>
+            <span className="text-xs text-muted-foreground line-through">
+              KES {subscription.billing_plans?.price.toLocaleString()}
+            </span>
+            <Badge variant="outline" className="text-xs px-1 py-0">Custom</Badge>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            KES {subscription.billing_plans?.price.toLocaleString()}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Component to display current plan with custom pricing information
 const CurrentPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSubscription, tenantId?: string }) => {
   const [customPricing, setCustomPricing] = useState<TenantCustomPricing | null>(null);
@@ -634,18 +701,16 @@ export default function TenantManagement() {
                         );
                       })()}
                     </TableCell>
-                    <TableCell>
-                      {subscription?.billing_plans ? (
-                        <div className="flex items-center gap-2">
-                          <Badge className={subscription.billing_plans.badge_color}>
-                            {subscription.billing_plans.badge}
-                          </Badge>
-                          <span className="text-sm">{subscription.billing_plans.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">No Plan</span>
-                      )}
-                    </TableCell>
+                     <TableCell>
+                       {subscription?.billing_plans ? (
+                         <CompactPlanDisplay 
+                           subscription={subscription} 
+                           tenantId={tenant.id}
+                         />
+                       ) : (
+                         <span className="text-sm text-muted-foreground">No Plan</span>
+                       )}
+                     </TableCell>
                     <TableCell>
                       {subscription ? (
                         <Badge variant={subscription.status === 'active' ? "default" : "secondary"}>
