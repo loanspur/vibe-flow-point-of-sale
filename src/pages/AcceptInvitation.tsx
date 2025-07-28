@@ -110,9 +110,10 @@ export default function AcceptInvitation() {
 
       // Check if user already exists and handle accordingly
       let userToAdd;
+      let isNewUser = false;
       
       try {
-        // Try to sign up the user
+        // Try to sign up the user first
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: invitation.email,
           password: formData.password,
@@ -128,7 +129,7 @@ export default function AcceptInvitation() {
 
         if (signUpError) {
           if (signUpError.message.includes('User already registered')) {
-            // User exists, try to sign them in
+            // User exists, try to sign them in to get user object
             const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
               email: invitation.email,
               password: formData.password,
@@ -144,11 +145,13 @@ export default function AcceptInvitation() {
             }
 
             userToAdd = signInData.user;
+            isNewUser = false;
           } else {
             throw signUpError;
           }
         } else {
           userToAdd = authData.user;
+          isNewUser = true;
         }
       } catch (error: any) {
         throw error;
@@ -197,32 +200,53 @@ export default function AcceptInvitation() {
           }
         }
 
-        // Create tenant-user relationship
-        const { error: tenantUserError } = await supabase
+        // Ensure tenant-user relationship exists
+        const { data: existingTenantUser } = await supabase
           .from('tenant_users')
-          .insert({
-            user_id: userToAdd.id,
-            tenant_id: invitation.tenant_id,
-            role: roleName.toLowerCase(),
-            is_active: true
-          });
+          .select('user_id')
+          .eq('user_id', userToAdd.id)
+          .eq('tenant_id', invitation.tenant_id)
+          .maybeSingle();
 
-        if (tenantUserError && !tenantUserError.message.includes('duplicate key')) {
-          console.error('Tenant user creation error:', tenantUserError);
+        if (!existingTenantUser) {
+          const { error: tenantUserError } = await supabase
+            .from('tenant_users')
+            .insert({
+              user_id: userToAdd.id,
+              tenant_id: invitation.tenant_id,
+              role: roleName.toLowerCase(),
+              is_active: true
+            });
+
+          if (tenantUserError) {
+            console.error('Tenant user creation error:', tenantUserError);
+            // Continue anyway as this might be handled by triggers
+          }
         }
 
-        // Assign the user their role
-        const { error: roleError } = await supabase
+        // Ensure role assignment exists
+        const { data: existingRoleAssignment } = await supabase
           .from('user_role_assignments')
-          .insert({
-            user_id: userToAdd.id,
-            role_id: invitation.role_id,
-            tenant_id: invitation.tenant_id,
-            assigned_by: invitation.invited_by
-          });
+          .select('user_id')
+          .eq('user_id', userToAdd.id)
+          .eq('role_id', invitation.role_id)
+          .eq('tenant_id', invitation.tenant_id)
+          .maybeSingle();
 
-        if (roleError && !roleError.message.includes('duplicate key')) {
-          console.error('Role assignment error:', roleError);
+        if (!existingRoleAssignment) {
+          const { error: roleError } = await supabase
+            .from('user_role_assignments')
+            .insert({
+              user_id: userToAdd.id,
+              role_id: invitation.role_id,
+              tenant_id: invitation.tenant_id,
+              assigned_by: invitation.invited_by
+            });
+
+          if (roleError) {
+            console.error('Role assignment error:', roleError);
+            // Continue anyway as the user can be manually assigned later
+          }
         }
 
         // Update invitation status
@@ -236,6 +260,7 @@ export default function AcceptInvitation() {
 
         if (updateInvitationError) {
           console.error('Invitation update error:', updateInvitationError);
+          // Continue anyway as the user setup is more important
         }
 
         const companyName = tenantData?.name || 'the team';
