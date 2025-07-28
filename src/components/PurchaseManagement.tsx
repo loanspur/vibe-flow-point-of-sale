@@ -17,6 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import QuickCreateSupplierDialog from './QuickCreateSupplierDialog';
 import { 
@@ -30,7 +34,6 @@ import {
   Clock, 
   AlertCircle,
   Search,
-  Calendar,
   DollarSign,
   FileText,
   RotateCcw,
@@ -994,7 +997,7 @@ const PurchaseManagement = () => {
                         <div className="space-y-3 border rounded-lg p-4">
                           {selectedItems.map((item, index) => (
                             <div key={index} className="grid grid-cols-7 gap-2 items-end">
-                               <div>
+                               <div className="min-w-0">
                                  <Select 
                                    value={item.product_id || ''} 
                                    onValueChange={(value) => updateItem(index, 'product_id', value)}
@@ -1011,16 +1014,16 @@ const PurchaseManagement = () => {
                                    </SelectContent>
                                  </Select>
                                </div>
-                              <div>
+                              <div className="min-w-0">
                                 <Select 
                                   value={item.variant_id || 'no-variant'} 
                                   onValueChange={(value) => updateItem(index, 'variant_id', value === 'no-variant' ? '' : value)}
                                   disabled={!item.product_id}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Variant (optional)" />
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="min-w-[200px]">
                                     <SelectItem value="no-variant">No variant</SelectItem>
                                     {products
                                       .find(p => p.id === item.product_id)
@@ -1051,12 +1054,26 @@ const PurchaseManagement = () => {
                                  />
                                </div>
                                <div>
-                                 <Input
-                                   type="date"
-                                   placeholder="Expiry Date"
-                                   value={item.expiry_date || ''}
-                                   onChange={(e) => updateItem(index, 'expiry_date', e.target.value)}
-                                 />
+                                 <Popover>
+                                   <PopoverTrigger asChild>
+                                     <Button
+                                       variant="outline"
+                                       className="w-full justify-start text-left font-normal"
+                                     >
+                                       <CalendarIcon className="mr-2 h-4 w-4" />
+                                       {item.expiry_date ? format(new Date(item.expiry_date), "PPP") : <span className="text-muted-foreground">mm/dd/yyyy</span>}
+                                     </Button>
+                                   </PopoverTrigger>
+                                   <PopoverContent className="w-auto p-0" align="start">
+                                     <Calendar
+                                       mode="single"
+                                       selected={item.expiry_date ? new Date(item.expiry_date) : undefined}
+                                       onSelect={(date) => updateItem(index, 'expiry_date', date ? format(date, 'yyyy-MM-dd') : '')}
+                                       initialFocus
+                                       className="pointer-events-auto"
+                                     />
+                                   </PopoverContent>
+                                 </Popover>
                                </div>
                                 <div>
                                   <Input
