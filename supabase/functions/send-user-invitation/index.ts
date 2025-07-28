@@ -123,29 +123,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     // STEP 2: Handle invitation tracking record (create new or update existing pending)
     
-    // First, check if there's an accepted invitation (prevent resending to accepted users)
-    const { data: acceptedInvitation, error: acceptedCheckError } = await supabaseAdmin
-      .from('user_invitations')
-      .select('*')
-      .eq('email', email)
-      .eq('tenant_id', tenantId)
-      .eq('status', 'accepted')
-      .maybeSingle();
-
-    if (acceptedCheckError) {
-      console.error('Error checking accepted invitation:', acceptedCheckError);
-      throw acceptedCheckError;
-    }
-
-    if (acceptedInvitation) {
-      console.log("User has already accepted an invitation for this tenant");
-      throw new Error(`${email} has already accepted an invitation and is part of your organization. They can sign in directly at the login page.`);
-    }
+    // Simplified approach - just check for existing pending invitations and update/create
+    console.log("Checking for existing pending invitations...");
     
-    // Next, check if there's an existing pending invitation
     const { data: existingInvitation, error: checkError } = await supabaseAdmin
       .from('user_invitations')
-      .select('*')
+      .select('id')
       .eq('email', email)
       .eq('tenant_id', tenantId)
       .eq('status', 'pending')
@@ -153,10 +136,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (checkError) {
       console.error('Error checking existing invitation:', checkError);
-      throw checkError;
+      // Don't throw error here, just log and continue with creating new invitation
     }
 
-    let trackingResponse;
     let isResend = false;
 
     if (existingInvitation) {
@@ -177,7 +159,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (updateError) {
         console.error('Failed to update invitation tracking record:', updateError);
-        throw updateError;
+        // Don't throw error, email was already sent successfully
       }
     } else {
       // Create new invitation tracking record
@@ -197,7 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (insertError) {
         console.error('Failed to create invitation tracking record:', insertError);
-        throw insertError;
+        // Don't throw error, email was already sent successfully
       }
     }
 
