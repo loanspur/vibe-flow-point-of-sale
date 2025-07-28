@@ -39,8 +39,23 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('Received request body:', await req.clone().text());
-    const { userId, email, otpCode, otpType, newPassword }: VerifyOTPRequest = await req.json();
+    const requestBody = await req.text();
+    console.log('Received request body:', requestBody);
+    
+    let requestData;
+    try {
+      requestData = JSON.parse(requestBody);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+    
+    const { userId, email, otpCode, otpType, newPassword }: VerifyOTPRequest = requestData;
+    
+    console.log('Parsed request data:', { userId, email, otpCode: otpCode ? '***' : undefined, otpType, hasNewPassword: !!newPassword });
     
     // Get client IP for rate limiting
     const clientIP = req.headers.get('x-forwarded-for') || 
@@ -234,8 +249,17 @@ const handler = async (req: Request): Promise<Response> => {
 
   } catch (error: any) {
     console.error('Error in verify-otp function:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        details: error.toString()
+      }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
