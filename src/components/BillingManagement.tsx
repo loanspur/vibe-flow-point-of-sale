@@ -121,6 +121,14 @@ export default function BillingManagement() {
     tenantId, 
     currentSubscription?.billing_plan_id
   );
+  
+  // Debug logging
+  console.log('BillingManagement Debug:', {
+    tenantId,
+    billingPlanId: currentSubscription?.billing_plan_id,
+    effectivePricing,
+    pricingLoading
+  });
 
   useEffect(() => {
     fetchBillingPlans();

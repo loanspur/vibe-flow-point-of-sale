@@ -26,6 +26,8 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
     setError(null);
     
     try {
+      console.log('Fetching effective pricing for:', { tenantId, billingPlanId });
+      
       const { data, error } = await supabase
         .rpc('get_tenant_effective_pricing', {
           tenant_id_param: tenantId,
@@ -33,24 +35,31 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
         });
 
       if (error) throw error;
+      console.log('RPC response:', data);
 
       if (data && data.length > 0) {
         // Always fetch setup fee from custom pricing if available
-        let setupFee = 0;
-        const { data: customPricing } = await supabase
+        console.log('Fetching setup fee from custom pricing...');
+        const { data: customPricing, error: customError } = await supabase
           .from('tenant_custom_pricing')
           .select('setup_fee')
           .eq('tenant_id', tenantId)
           .eq('billing_plan_id', billingPlanId)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
         
-        setupFee = customPricing?.setup_fee || 0;
+        console.log('Custom pricing setup fee response:', { customPricing, customError });
         
-        setEffectivePricing({
+        const setupFee = customPricing?.setup_fee || 0;
+        console.log('Final setup fee:', setupFee);
+        
+        const finalPricing = {
           ...data[0],
           setup_fee: setupFee
-        });
+        };
+        
+        console.log('Final effective pricing:', finalPricing);
+        setEffectivePricing(finalPricing);
       } else {
         setEffectivePricing(null);
       }
