@@ -14,6 +14,24 @@ interface VerifyOTPRequest {
   newPassword?: string; // Required for password_reset
 }
 
+// Rate limiting helper
+async function checkRateLimit(supabase: any, identifier: string, actionType: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_rate_limit', {
+    identifier_param: identifier,
+    action_type_param: actionType,
+    max_attempts: 10, // 10 verification attempts
+    window_minutes: 15, // per 15 minutes
+    block_minutes: 60 // block for 1 hour
+  });
+  
+  if (error) {
+    console.error('Rate limit check error:', error);
+    return false; // Fail safe - block on error
+  }
+  
+  return data === true;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -22,12 +40,32 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { userId, email, otpCode, otpType, newPassword }: VerifyOTPRequest = await req.json();
+    
+    // Get client IP for rate limiting
+    const clientIP = req.headers.get('x-forwarded-for') || 
+                    req.headers.get('x-real-ip') || 
+                    'unknown';
 
     // Initialize Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Check rate limit (10 attempts per 15 minutes per IP)
+    const isAllowed = await checkRateLimit(supabaseAdmin, clientIP, 'otp_verification');
+    if (!isAllowed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Too many verification attempts. Please try again later.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        }),
+        { 
+          status: 429, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+        }
+      );
+    }
 
     let targetUserId = userId;
 

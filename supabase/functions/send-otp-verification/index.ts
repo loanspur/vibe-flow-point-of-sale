@@ -13,6 +13,24 @@ interface OTPRequest {
   userId?: string;
 }
 
+// Rate limiting helper
+async function checkRateLimit(supabase: any, identifier: string, actionType: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_rate_limit', {
+    identifier_param: identifier,
+    action_type_param: actionType,
+    max_attempts: 5, // 5 attempts
+    window_minutes: 15, // per 15 minutes
+    block_minutes: 60 // block for 1 hour
+  });
+  
+  if (error) {
+    console.error('Rate limit check error:', error);
+    return false; // Fail safe - block on error
+  }
+  
+  return data === true;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -21,12 +39,32 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { email, otpType, userId }: OTPRequest = await req.json();
+    
+    // Get client IP for rate limiting
+    const clientIP = req.headers.get('x-forwarded-for') || 
+                    req.headers.get('x-real-ip') || 
+                    'unknown';
 
     // Initialize Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Check rate limit (5 attempts per 15 minutes per IP)
+    const isAllowed = await checkRateLimit(supabaseAdmin, clientIP, 'otp_generation');
+    if (!isAllowed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again later.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        }),
+        { 
+          status: 429, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+        }
+      );
+    }
 
     let targetUserId = userId;
 
@@ -76,7 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
           <div style="background-color: #f4f4f4; padding: 20px; text-align: center; margin: 20px 0;">
             <h2 style="color: #007bff; font-size: 32px; letter-spacing: 4px; margin: 0;">${otpCode}</h2>
           </div>
-          <p>This code will expire in 10 minutes.</p>
+          <p>This code will expire in 5 minutes.</p>
           <p>If you didn't request this verification, please ignore this email.</p>
           <p>Best regards,<br>The VibePOS Team</p>
         </div>
@@ -91,7 +129,7 @@ const handler = async (req: Request): Promise<Response> => {
           <div style="background-color: #f4f4f4; padding: 20px; text-align: center; margin: 20px 0;">
             <h2 style="color: #007bff; font-size: 32px; letter-spacing: 4px; margin: 0;">${otpCode}</h2>
           </div>
-          <p>This code will expire in 10 minutes.</p>
+          <p>This code will expire in 5 minutes.</p>
           <p>If you didn't request this password reset, please ignore this email.</p>
           <p>Best regards,<br>The VibePOS Team</p>
         </div>

@@ -3168,6 +3168,39 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          action_type: string
+          attempt_count: number | null
+          blocked_until: string | null
+          created_at: string | null
+          id: string
+          identifier: string
+          updated_at: string | null
+          window_start: string | null
+        }
+        Insert: {
+          action_type: string
+          attempt_count?: number | null
+          blocked_until?: string | null
+          created_at?: string | null
+          id?: string
+          identifier: string
+          updated_at?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          action_type?: string
+          attempt_count?: number | null
+          blocked_until?: string | null
+          created_at?: string | null
+          id?: string
+          identifier?: string
+          updated_at?: string | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       return_items: {
         Row: {
           condition_notes: string | null
@@ -5609,6 +5642,16 @@ export type Database = {
           final_tax_amount: number
         }[]
       }
+      check_rate_limit: {
+        Args: {
+          identifier_param: string
+          action_type_param: string
+          max_attempts?: number
+          window_minutes?: number
+          block_minutes?: number
+        }
+        Returns: boolean
+      }
       copy_role: {
         Args: {
           source_role_id: string
@@ -5802,6 +5845,16 @@ export type Database = {
       link_user_to_contact: {
         Args: { contact_id: string }
         Returns: boolean
+      }
+      log_security_event: {
+        Args: {
+          event_type: string
+          user_id_param: string
+          details?: Json
+          ip_address_param?: unknown
+          user_agent_param?: string
+        }
+        Returns: string
       }
       log_user_activity: {
         Args: {
