@@ -83,7 +83,7 @@ export default function AcceptInvitation() {
         .eq('invitation_token', token)
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString())
-        .single();
+        .maybeSingle();
 
       if (invitationError || !invitation) {
         toast({
@@ -99,34 +99,62 @@ export default function AcceptInvitation() {
         .from('user_roles')
         .select('name')
         .eq('id', invitation.role_id)
-        .single();
+        .maybeSingle();
 
       // Get tenant information  
       const { data: tenantData } = await supabase
         .from('tenants')
         .select('name')
         .eq('id', invitation.tenant_id)
-        .single();
+        .maybeSingle();
 
-      // Sign up the user with Supabase Auth
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: invitation.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            tenant_id: invitation.tenant_id,
-            role_id: invitation.role_id,
-            invited_by: invitation.invited_by
+      // Check if user already exists and handle accordingly
+      let userToAdd;
+      
+      try {
+        // Try to sign up the user
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email: invitation.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.fullName,
+              tenant_id: invitation.tenant_id,
+              role_id: invitation.role_id,
+              invited_by: invitation.invited_by
+            }
           }
-        }
-      });
+        });
 
-      if (signUpError) {
-        throw signUpError;
+        if (signUpError) {
+          if (signUpError.message.includes('User already registered')) {
+            // User exists, try to sign them in
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: invitation.email,
+              password: formData.password,
+            });
+
+            if (signInError) {
+              toast({
+                title: "Account exists with different password",
+                description: "An account with this email already exists. Please use the correct password or contact your administrator.",
+                variant: "destructive",
+              });
+              return;
+            }
+
+            userToAdd = signInData.user;
+          } else {
+            throw signUpError;
+          }
+        } else {
+          userToAdd = authData.user;
+        }
+      } catch (error: any) {
+        throw error;
       }
 
-      if (authData.user) {
+      if (userToAdd) {
         // Determine the role based on role name
         const roleName = roleData?.name || 'user';
         const profileRole = roleName.toLowerCase() === 'admin' ? 'admin' : 
@@ -136,7 +164,7 @@ export default function AcceptInvitation() {
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
-            user_id: authData.user.id,
+            user_id: userToAdd.id,
             full_name: formData.fullName,
             tenant_id: invitation.tenant_id,
             role: profileRole,
@@ -151,7 +179,7 @@ export default function AcceptInvitation() {
         const { error: tenantUserError } = await supabase
           .from('tenant_users')
           .insert({
-            user_id: authData.user.id,
+            user_id: userToAdd.id,
             tenant_id: invitation.tenant_id,
             role: roleName.toLowerCase(),
             is_active: true
@@ -165,7 +193,7 @@ export default function AcceptInvitation() {
         const { error: roleError } = await supabase
           .from('user_role_assignments')
           .insert({
-            user_id: authData.user.id,
+            user_id: userToAdd.id,
             role_id: invitation.role_id,
             tenant_id: invitation.tenant_id,
             assigned_by: invitation.invited_by
@@ -194,20 +222,8 @@ export default function AcceptInvitation() {
           description: `Your account has been set up successfully. Welcome to ${companyName}!`,
         });
 
-        // Sign in the user automatically
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: invitation.email,
-          password: formData.password
-        });
-
-        if (signInError) {
-          console.error('Auto sign-in error:', signInError);
-          // Redirect to auth page if auto sign-in fails
-          navigate('/auth');
-        } else {
-          // Redirect to admin dashboard
-          navigate('/admin');
-        }
+        // Redirect to admin dashboard (user is already signed in)
+        navigate('/admin');
       }
     } catch (error: any) {
       console.error('Accept invitation error:', error);
