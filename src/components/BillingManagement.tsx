@@ -55,6 +55,22 @@ interface TenantSubscription {
   };
 }
 
+interface TenantCustomPricing {
+  id: string;
+  tenant_id: string;
+  billing_plan_id: string;
+  custom_amount: number;
+  original_amount: number;
+  discount_percentage?: number;
+  setup_fee?: number;
+  reason: string;
+  effective_date: string;
+  expires_at?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 interface PaymentHistory {
   id: string;
   amount: number;
@@ -94,6 +110,7 @@ export default function BillingManagement() {
   const [convertedPlans, setConvertedPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [customPricing, setCustomPricing] = useState<TenantCustomPricing | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
 
@@ -101,6 +118,7 @@ export default function BillingManagement() {
     fetchBillingPlans();
     fetchCurrentSubscription();
     fetchPaymentHistory();
+    fetchCustomPricing();
   }, [tenantId]);
 
   // Re-fetch data when currency changes to ensure proper formatting
@@ -109,8 +127,16 @@ export default function BillingManagement() {
       fetchBillingPlans();
       fetchCurrentSubscription();
       fetchPaymentHistory();
+      fetchCustomPricing();
     }
   }, [updateCounter]);
+
+  // Fetch custom pricing when currentSubscription changes
+  useEffect(() => {
+    if (currentSubscription?.billing_plan_id) {
+      fetchCustomPricing();
+    }
+  }, [currentSubscription]);
 
   const fetchBillingPlans = async () => {
     try {
@@ -225,6 +251,28 @@ export default function BillingManagement() {
       }
     } catch (error) {
       console.error('Error fetching payment history:', error);
+    }
+  };
+
+  const fetchCustomPricing = async () => {
+    try {
+      if (!tenantId || !currentSubscription?.billing_plan_id) return;
+      
+      const { data, error } = await supabase
+        .from('tenant_custom_pricing')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('billing_plan_id', currentSubscription.billing_plan_id)
+        .eq('is_active', true)
+        .lte('effective_date', new Date().toISOString().split('T')[0])
+        .or('expires_at.is.null,expires_at.gte.' + new Date().toISOString().split('T')[0])
+        .maybeSingle();
+
+      if (!error && data) {
+        setCustomPricing(data);
+      }
+    } catch (error) {
+      console.error('Error fetching custom pricing:', error);
     }
   };
 
@@ -549,6 +597,114 @@ export default function BillingManagement() {
             You don't have an active subscription. Choose a plan below to get started.
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Custom Pricing & Next Billing Information */}
+      {currentSubscription && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CreditCard className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-blue-800">Billing Information</CardTitle>
+              </div>
+              {customPricing && (
+                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                  Custom Pricing
+                </Badge>
+              )}
+            </div>
+            <CardDescription className="text-blue-700">
+              {customPricing ? 'You have custom pricing applied to your subscription' : 'Standard pricing is applied to your subscription'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Current Plan Pricing */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-blue-800">Current Plan Rate</h4>
+                {customPricing ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-green-600">
+                        {formatPrice(customPricing.custom_amount)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground line-through">
+                        Original: {formatPrice(customPricing.original_amount)}
+                      </span>
+                      {customPricing.discount_percentage && (
+                        <Badge variant="outline" className="text-green-600 text-xs">
+                          {customPricing.discount_percentage}% off
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Reason: {customPricing.reason}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Effective: {formatDate(customPricing.effective_date)}
+                      {customPricing.expires_at && ` - ${formatDate(customPricing.expires_at)}`}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-blue-600">
+                        {formatPrice(currentSubscription.billing_plans?.price || 0)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">/ {currentSubscription.billing_plans?.period}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Standard pricing</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Setup Fee */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-blue-800">Setup Fee</h4>
+                <div className="space-y-1">
+                  <span className="text-2xl font-bold text-blue-600">
+                    {customPricing?.setup_fee ? formatPrice(customPricing.setup_fee) : formatPrice(0)}
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    {customPricing?.setup_fee ? 'One-time fee' : 'No setup fee'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Next Billing Amount */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-blue-800">Next Billing Amount</h4>
+                <div className="space-y-1">
+                  <span className="text-2xl font-bold text-orange-600">
+                    {(() => {
+                      const recurringAmount = customPricing ? customPricing.custom_amount : (currentSubscription.billing_plans?.price || 0);
+                      const setupFee = customPricing?.setup_fee || 0;
+                      const totalAmount = recurringAmount + setupFee;
+                      return formatPrice(totalAmount);
+                    })()}
+                  </span>
+                  <div className="text-sm text-muted-foreground">
+                    <p>
+                      Due: {currentSubscription.next_billing_date ? 
+                        formatDate(currentSubscription.next_billing_date) : 
+                        'Next billing cycle'
+                      }
+                    </p>
+                    {customPricing?.setup_fee && (
+                      <p className="text-xs">
+                        Includes setup fee: {formatPrice(customPricing.setup_fee)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div>
