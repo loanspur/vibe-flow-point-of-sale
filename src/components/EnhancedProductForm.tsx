@@ -31,7 +31,7 @@ const productSchema = z.object({
   price: z.number().min(0, 'Price must be positive'),
   default_profit_margin: z.number().min(0, 'Profit margin must be positive').max(100, 'Profit margin cannot exceed 100%').optional(),
   stock_quantity: z.number().min(0, 'Stock quantity must be positive'),
-  expiry_date: z.string().optional(),
+  has_expiry_date: z.boolean().default(false),
   is_combo_product: z.boolean().default(false),
   allow_negative_stock: z.boolean().default(false),
   warranty_period_months: z.number().min(0).optional(),
@@ -63,6 +63,7 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
       price: 0,
       default_profit_margin: 0,
       stock_quantity: 0,
+      has_expiry_date: false,
       is_combo_product: false,
       allow_negative_stock: false,
       warranty_period_months: 0,
@@ -199,6 +200,7 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         price: existingProduct.price || 0,
         default_profit_margin: existingProduct.default_profit_margin || 0,
         stock_quantity: existingProduct.stock_quantity || 0,
+        has_expiry_date: existingProduct.has_expiry_date || false,
         is_combo_product: existingProduct.is_combo_product || false,
         allow_negative_stock: existingProduct.allow_negative_stock || false,
         warranty_period_months: warrantyInfo?.warranty_period_months || 0,
@@ -241,6 +243,7 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         price: data.price,
         default_profit_margin: data.default_profit_margin || null,
         stock_quantity: data.stock_quantity,
+        has_expiry_date: data.has_expiry_date,
         is_combo_product: hasFeature('enable_combo_products') ? data.is_combo_product : false,
         allow_negative_stock: hasFeature('enable_negative_stock') ? data.allow_negative_stock : false,
         tenant_id: tenantId,
@@ -527,18 +530,21 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
 
                 <FormField
                   control={form.control}
-                  name="expiry_date"
+                  name="has_expiry_date"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Expiry Date (Optional)</FormLabel>
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Track Expiry Date</FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          Enable this to track expiry dates for this product
+                        </div>
+                      </div>
                       <FormControl>
-                        <Input 
-                          type="date" 
-                          placeholder="Select expiry date for perishable items" 
-                          {...field} 
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />

@@ -69,7 +69,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     revenue_account_id: '',
     stock_quantity: '',
     min_stock_level: '',
-    expiry_date: '',
+    has_expiry_date: false,
     is_active: true,
   });
 
@@ -145,7 +145,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         revenue_account_id: product.revenue_account_id || '',
         stock_quantity: product.stock_quantity?.toString() || '',
         min_stock_level: product.min_stock_level?.toString() || '',
-        expiry_date: product.expiry_date || '',
+        has_expiry_date: product.has_expiry_date || false,
         is_active: product.is_active ?? true,
       });
       if (product.image_url) {
@@ -360,6 +360,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         min_stock_level: formData.min_stock_level ? parseInt(formData.min_stock_level) : 0,
         is_active: formData.is_active,
         image_url: imageUrl || null,
+        has_expiry_date: formData.has_expiry_date,
         tenant_id: tenantId,
       };
 
@@ -801,15 +802,13 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="expiry_date">Expiry Date (Optional)</Label>
-            <Input
-              id="expiry_date"
-              type="date"
-              value={formData.expiry_date || ''}
-              onChange={(e) => handleInputChange('expiry_date', e.target.value)}
-              placeholder="Select expiry date for perishable items"
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="has_expiry_date"
+              checked={formData.has_expiry_date || false}
+              onCheckedChange={(checked) => handleInputChange('has_expiry_date', checked)}
             />
+            <Label htmlFor="has_expiry_date">Track expiry date for this product</Label>
           </div>
         </CardContent>
       </Card>

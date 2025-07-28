@@ -2582,6 +2582,7 @@ export type Database = {
           default_profit_margin: number | null
           description: string | null
           expiry_date: string | null
+          has_expiry_date: boolean | null
           id: string
           image_url: string | null
           is_active: boolean | null
@@ -2607,6 +2608,7 @@ export type Database = {
           default_profit_margin?: number | null
           description?: string | null
           expiry_date?: string | null
+          has_expiry_date?: boolean | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
@@ -2632,6 +2634,7 @@ export type Database = {
           default_profit_margin?: number | null
           description?: string | null
           expiry_date?: string | null
+          has_expiry_date?: boolean | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null

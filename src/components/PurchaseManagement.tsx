@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import QuickCreateSupplierDialog from './QuickCreateSupplierDialog';
 import { 
@@ -92,6 +93,7 @@ interface Product {
   default_profit_margin?: number;
   price: number;
   stock_quantity: number;
+  has_expiry_date?: boolean;
   product_variants?: ProductVariant[];
 }
 
@@ -202,6 +204,7 @@ const PurchaseManagement = () => {
           default_profit_margin, 
           price, 
           stock_quantity,
+          has_expiry_date,
           product_variants (
             id,
             name,
@@ -1054,26 +1057,46 @@ const PurchaseManagement = () => {
                                  />
                                </div>
                                <div>
-                                 <Popover>
-                                   <PopoverTrigger asChild>
-                                     <Button
-                                       variant="outline"
-                                       className="w-full justify-start text-left font-normal"
-                                     >
-                                       <CalendarIcon className="mr-2 h-4 w-4" />
-                                       {item.expiry_date ? format(new Date(item.expiry_date), "PPP") : <span className="text-muted-foreground">mm/dd/yyyy</span>}
-                                     </Button>
-                                   </PopoverTrigger>
-                                   <PopoverContent className="w-auto p-0" align="start">
-                                     <Calendar
-                                       mode="single"
-                                       selected={item.expiry_date ? new Date(item.expiry_date) : undefined}
-                                       onSelect={(date) => updateItem(index, 'expiry_date', date ? format(date, 'yyyy-MM-dd') : '')}
-                                       initialFocus
-                                       className="pointer-events-auto"
-                                     />
-                                   </PopoverContent>
-                                 </Popover>
+                                 {(() => {
+                                   const selectedProduct = products.find(p => p.id === item.product_id);
+                                   const hasExpiryTracking = selectedProduct?.has_expiry_date;
+                                   
+                                   if (!hasExpiryTracking) {
+                                     return (
+                                       <Input
+                                         placeholder="N/A - No expiry"
+                                         disabled
+                                         className="text-muted-foreground"
+                                       />
+                                     );
+                                   }
+                                   
+                                   return (
+                                     <Popover>
+                                       <PopoverTrigger asChild>
+                                         <Button
+                                           variant="outline"
+                                           className={cn(
+                                             "w-full justify-start text-left font-normal",
+                                             !item.expiry_date && "text-muted-foreground"
+                                           )}
+                                         >
+                                           <CalendarIcon className="mr-2 h-4 w-4" />
+                                           {item.expiry_date ? format(new Date(item.expiry_date), "PPP") : <span>Required</span>}
+                                         </Button>
+                                       </PopoverTrigger>
+                                       <PopoverContent className="w-auto p-0" align="start">
+                                         <Calendar
+                                           mode="single"
+                                           selected={item.expiry_date ? new Date(item.expiry_date) : undefined}
+                                           onSelect={(date) => updateItem(index, 'expiry_date', date ? format(date, 'yyyy-MM-dd') : '')}
+                                           initialFocus
+                                           className="pointer-events-auto"
+                                         />
+                                       </PopoverContent>
+                                     </Popover>
+                                   );
+                                 })()}
                                </div>
                                 <div>
                                   <Input
