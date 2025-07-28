@@ -244,8 +244,8 @@ export default function AcceptInvitation() {
           description: `Your account has been set up successfully. Welcome to ${companyName}!`,
         });
 
-        // Redirect to admin dashboard (user is already signed in)
-        navigate('/admin');
+        // Redirect to login page for user to sign in
+        navigate('/auth');
       }
     } catch (error: any) {
       console.error('Accept invitation error:', error);
