@@ -282,9 +282,16 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
               <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
               <Select value={formData.country} onValueChange={handleCountryChange}>
                 <SelectTrigger className="pl-10">
-                  <SelectValue placeholder="Select your country" />
+                  <SelectValue placeholder="Select your country">
+                    {formData.country && selectedCountryData && (
+                      <div className="flex items-center space-x-2">
+                        <span>{selectedCountryData.flag}</span>
+                        <span>{selectedCountryData.name}</span>
+                      </div>
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {countriesData.map((country) => (
                     <SelectItem key={country.code} value={country.name}>
                       <div className="flex items-center space-x-2">
