@@ -27,7 +27,20 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Create admin Supabase client at the top level
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+
   let createdUserId: string | null = null;
+  let isExistingUser = false;
 
   try {
     const {
@@ -38,9 +51,12 @@ serve(async (req) => {
       planType = 'basic',
       maxUsers = 10,
       isAdminCreated = false,
-      isExistingUser = false,
+      isExistingUser: requestIsExistingUser = false,
       existingUserId
     }: CreateTenantRequest = await req.json();
+
+    // Update the outer scope variable
+    isExistingUser = requestIsExistingUser;
 
     console.log("Creating tenant for:", businessName, "with owner:", ownerName);
 
@@ -48,19 +64,6 @@ serve(async (req) => {
     if (!businessName || !ownerName || !email) {
       throw new Error('Missing required fields: businessName, ownerName, and email are required');
     }
-
-    // Create admin Supabase client
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-
 
     // Generate unique subdomain
     const baseSubdomain = businessName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -80,7 +83,7 @@ serve(async (req) => {
       counter++;
     }
 
-    let createdUserId = existingUserId;
+    createdUserId = existingUserId;
 
     // STEP 1: Create user account if not existing user
     if (!isExistingUser) {
