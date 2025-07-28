@@ -3,9 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
+import { useDomainContext, isDevelopmentDomain } from "@/lib/domain-router";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { FeatureGuard } from "./components/FeatureGuard";
@@ -14,6 +15,7 @@ import { SuperAdminLayout } from "./components/SuperAdminLayout";
 import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
+
 // Lazy load components for better performance
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -150,313 +152,419 @@ const queryClient = new QueryClient({
   },
 });
 
+const DomainRouter = () => {
+  const { domainConfig, loading } = useDomainContext();
+  
+  if (loading) {
+    return <PageLoader />;
+  }
+
+  // If on subdomain, show tenant-specific routes only
+  if (domainConfig?.isSubdomain && domainConfig.tenantId) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route 
+            path="/" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <TenantAdminDashboard />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/pos" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <ComprehensivePOS />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/products" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Products />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/customers" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Customers />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/sales" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Sales />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/reports" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Reports />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
+  // Main domain routes (all existing routes)
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/demo" element={<Demo />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/signup" element={<Navigate to="/" replace />} />
+        <Route path="/success" element={<Success />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/company-info" element={<CompanyInfo />} />
+        <Route path="/careers" element={<Careers />} />
+        
+        {/* Super Admin Routes */}
+        <Route 
+          path="/superadmin" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminDashboard />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/tenants" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <TenantManagement />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/users" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminUserManagement />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/analytics" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminAnalytics />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/revenue" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminRevenue />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/system" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminSystemHealth />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/database" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminDatabase />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/security" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminSecurity />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/communications" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminCommunications />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/plans" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminPlanManagement />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/settings" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <SuperAdminLayout>
+                <SuperAdminSettings />
+              </SuperAdminLayout>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Tenant Admin Routes */}
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <TenantAdminDashboard />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/products" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Products />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/stock" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="advanced_inventory">
+                  <TenantAdminLayout>
+                    <StockManagement />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/reports" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Reports />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/team" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Team />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/customers" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Customers />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/settings" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <TenantSettings />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/communications" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <TenantCommunications />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/sales" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Sales />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/purchases" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Purchases />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/accounting" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <Accounting />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* POS Routes */}
+        <Route 
+          path="/pos" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <ComprehensivePOS />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Profile Route - accessible to all authenticated users */}
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+              <Profile />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Fallback - redirect to appropriate dashboard */}
+        <Route path="/dashboard" element={<ProtectedRoute><div /></ProtectedRoute>} />
+        
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <AppProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <PerformanceMonitor />
-        <CookieConsent />
-        <BrowserRouter>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/demo" element={<Demo />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/accept-invitation" element={<AcceptInvitation />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/signup" element={<Navigate to="/" replace />} />
-            <Route path="/success" element={<Success />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms-of-service" element={<TermsOfService />} />
-            <Route path="/company-info" element={<CompanyInfo />} />
-            <Route path="/careers" element={<Careers />} />
-            
-            {/* Super Admin Routes */}
-            <Route 
-              path="/superadmin" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminDashboard />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/tenants" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <TenantManagement />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/users" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminUserManagement />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/analytics" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminAnalytics />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/revenue" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminRevenue />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/system" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminSystemHealth />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/database" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminDatabase />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/security" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminSecurity />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/communications" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminCommunications />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/plans" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminPlanManagement />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/superadmin/settings" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin']}>
-                  <SuperAdminLayout>
-                    <SuperAdminSettings />
-                  </SuperAdminLayout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Tenant Admin Routes */}
-            <Route 
-              path="/admin" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <TenantAdminDashboard />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/products" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <Products />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/stock" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <FeatureGuard featureName="advanced_inventory">
-                      <TenantAdminLayout>
-                        <StockManagement />
-                      </TenantAdminLayout>
-                    </FeatureGuard>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/reports" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <Reports />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/team" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <Team />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/customers" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <Customers />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/settings" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <TenantSettings />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/communications" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <TenantCommunications />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/sales" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <Sales />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/purchases" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <Purchases />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/accounting" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <Accounting />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* POS Routes */}
-            <Route 
-              path="/pos" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-                  <SubscriptionGuard>
-                    <TenantAdminLayout>
-                      <ComprehensivePOS />
-                    </TenantAdminLayout>
-                  </SubscriptionGuard>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Profile Route - accessible to all authenticated users */}
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
-                  <Profile />
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Fallback - redirect to appropriate dashboard */}
-            <Route path="/dashboard" element={<ProtectedRoute><div /></ProtectedRoute>} />
-            
-            <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AppProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <PerformanceMonitor />
+          <CookieConsent />
+          <BrowserRouter>
+            <DomainRouter />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AppProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
