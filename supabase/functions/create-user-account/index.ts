@@ -249,7 +249,7 @@ const handler = async (req: Request): Promise<Response> => {
     let emailResponse;
     try {
       emailResponse = await resend.emails.send({
-        from: "VibePOS <onboarding@resend.dev>", // Using verified Resend domain
+        from: "VibePOS Team <noreply@vibepos.shop>",
         to: [email],
         subject: emailSubject,
         html: `
