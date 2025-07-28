@@ -61,9 +61,9 @@ export const TenantSetupGuard = ({ children }: TenantSetupGuardProps) => {
       // Refresh user info to get updated tenant_id
       await refreshUserInfo();
       
-      // Small delay to ensure auth context is updated
+      // Navigate directly to dashboard 
       setTimeout(() => {
-        window.location.href = '/admin'; // Force page reload to ensure fresh auth state
+        window.location.href = '/dashboard';
       }, 1500);
 
     } catch (error: any) {
