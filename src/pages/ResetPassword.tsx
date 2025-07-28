@@ -64,6 +64,20 @@ const ResetPassword = () => {
         otpType: 'password_reset'
       });
       
+      // First verify if email exists and get basic info
+      const { data: verificationResult, error: verificationError } = await supabase.functions.invoke(
+        'verify-email-exists',
+        {
+          body: { email: formData.email }
+        }
+      );
+
+      if (verificationError || !verificationResult?.exists) {
+        setOtpError('Email address not found. Please check your email.');
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke('verify-otp', {
         body: {
           email: formData.email,
