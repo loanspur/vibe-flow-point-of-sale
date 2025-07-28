@@ -291,14 +291,21 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
             <div className="flex space-x-2">
               <div className="w-24">
                 <Select 
-                  value={selectedCountryData?.dialCode || 'none'} 
+                  value={selectedCountryData?.dialCode || ''} 
                   disabled={!selectedCountryData}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="+1" />
+                    <SelectValue placeholder="+1">
+                      {selectedCountryData && (
+                        <div className="flex items-center space-x-1">
+                          <span>{selectedCountryData.flag}</span>
+                          <span>{selectedCountryData.dialCode}</span>
+                        </div>
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {selectedCountryData?.dialCode && (
+                    {selectedCountryData && (
                       <SelectItem value={selectedCountryData.dialCode}>
                         <div className="flex items-center space-x-2">
                           <span>{selectedCountryData.flag}</span>
@@ -382,9 +389,9 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
             />
             <Label htmlFor="acceptTerms" className="text-sm">
               I accept the{' '}
-              <a href="/terms" className="text-primary hover:underline">Terms of Service</a>
+              <a href="/terms-of-service" className="text-primary hover:underline">Terms of Service</a>
               {' '}and{' '}
-              <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
+              <a href="/privacy-policy" className="text-primary hover:underline">Privacy Policy</a>
             </Label>
           </div>
 
