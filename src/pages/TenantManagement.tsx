@@ -100,10 +100,7 @@ export default function TenantManagement() {
       setError(null);
       const { data, error } = await supabase
         .from('tenants')
-        .select(`
-          *,
-          profiles!tenants_created_by_fkey(full_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -112,9 +109,17 @@ export default function TenantManagement() {
         return;
       }
 
-      // Fetch tenant domains separately to avoid relationship issues
-      const tenantsWithDomains = await Promise.all(
+      // Fetch additional data separately to avoid relationship issues
+      const tenantsWithExtendedData = await Promise.all(
         (data || []).map(async (tenant) => {
+          // Fetch creator profile
+          const { data: creatorProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('user_id', tenant.created_by)
+            .single();
+
+          // Fetch tenant domains
           const { data: domains } = await supabase
             .from('tenant_domains')
             .select('domain_name, domain_type, is_primary')
@@ -122,12 +127,13 @@ export default function TenantManagement() {
           
           return {
             ...tenant,
+            created_by_profile: creatorProfile || { full_name: 'Unknown' },
             tenant_domains: domains || []
           };
         })
       );
 
-      setTenants(tenantsWithDomains);
+      setTenants(tenantsWithExtendedData);
     } catch (error: any) {
       console.error('Unexpected error:', error);
       setError(error.message || 'An unexpected error occurred');
