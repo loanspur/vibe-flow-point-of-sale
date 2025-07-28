@@ -135,7 +135,7 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
       });
 
       onClose();
-      navigate('/dashboard');
+      navigate('/admin');
     } catch (error: any) {
       let errorMessage = "Failed to create account. Please try again.";
       
