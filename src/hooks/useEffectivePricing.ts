@@ -35,19 +35,17 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Fetch setup fee from custom pricing if available
+        // Always fetch setup fee from custom pricing if available
         let setupFee = 0;
-        if (data[0].is_custom) {
-          const { data: customPricing } = await supabase
-            .from('tenant_custom_pricing')
-            .select('setup_fee')
-            .eq('tenant_id', tenantId)
-            .eq('billing_plan_id', billingPlanId)
-            .eq('is_active', true)
-            .single();
-          
-          setupFee = customPricing?.setup_fee || 0;
-        }
+        const { data: customPricing } = await supabase
+          .from('tenant_custom_pricing')
+          .select('setup_fee')
+          .eq('tenant_id', tenantId)
+          .eq('billing_plan_id', billingPlanId)
+          .eq('is_active', true)
+          .single();
+        
+        setupFee = customPricing?.setup_fee || 0;
         
         setEffectivePricing({
           ...data[0],

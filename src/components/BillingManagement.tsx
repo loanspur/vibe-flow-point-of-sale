@@ -610,28 +610,6 @@ export default function BillingManagement() {
               })()}
             </div>
 
-            {/* Custom Pricing Details */}
-            {effectivePricing?.is_custom && (
-              <div className="border-t pt-4">
-                <h4 className="font-medium text-green-800 mb-3">Custom Pricing Details</h4>
-                <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Custom Amount:</span>
-                    <span className="font-medium">{formatPrice(effectivePricing.effective_amount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Original Amount:</span>
-                    <span className="text-sm line-through">{formatPrice(effectivePricing.original_amount)}</span>
-                  </div>
-                  {effectivePricing.discount_percentage && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Discount:</span>
-                      <span className="text-green-600 font-medium">{effectivePricing.discount_percentage}%</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       ) : (
