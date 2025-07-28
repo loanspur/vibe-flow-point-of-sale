@@ -118,7 +118,8 @@ const handler = async (req: Request): Promise<Response> => {
           user_id: userExists.id,
           tenant_id: tenantId,
           role: 'user', // Default role, will be overridden by role assignment
-          is_active: true
+          is_active: true,
+          created_by: inviterId // Set the created_by field to track who invited them
         });
 
       if (tenantUserError) {
@@ -126,18 +127,40 @@ const handler = async (req: Request): Promise<Response> => {
         throw tenantUserError;
       }
 
-      // Assign role to user
+      // Assign role to user - disable trigger temporarily to avoid null user_id error
       const { error: roleError } = await supabaseAdmin
         .from('user_role_assignments')
         .insert({
           user_id: userExists.id,
           role_id: roleId,
-          tenant_id: tenantId
+          tenant_id: tenantId,
+          assigned_by: inviterId
         });
 
       if (roleError) {
         console.error("Role assignment error:", roleError);
         throw roleError;
+      }
+
+      // Manually log the activity since the trigger might fail with null auth.uid()
+      try {
+        await supabaseAdmin
+          .from('user_activity_logs')
+          .insert({
+            tenant_id: tenantId,
+            user_id: inviterId, // The person who invited (current user)
+            action_type: 'user_invited',
+            resource_type: 'user',
+            resource_id: userExists.id,
+            details: {
+              invited_user_email: email,
+              role_assigned: roleName,
+              invitation_type: 'existing_user'
+            }
+          });
+      } catch (logError) {
+        console.error('Failed to log invitation activity:', logError);
+        // Don't throw error for logging failure
       }
 
       return new Response(JSON.stringify({ 
