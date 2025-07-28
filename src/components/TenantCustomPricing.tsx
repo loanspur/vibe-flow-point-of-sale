@@ -363,29 +363,25 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           <Label htmlFor="custom_amount">Custom Amount</Label>
           <Input
             id="custom_amount"
-            type="text"
-            inputMode="decimal"
-            pattern="[0-9]*\.?[0-9]*"
+            type="number"
+            step="0.01"
             value={formData.custom_amount}
             onChange={(e) => {
               const value = e.target.value;
-              // Allow only valid decimal numbers
-              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                setFormData({...formData, custom_amount: value});
-                
-                // Auto-calculate discount percentage
-                const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
-                if (selectedPlan && value) {
-                  const customAmount = parseFloat(value);
-                  if (!isNaN(customAmount)) {
-                    const discountPercentage = ((selectedPlan.price - customAmount) / selectedPlan.price) * 100;
-                    setFormData(prev => ({
-                      ...prev, 
-                      custom_amount: value,
-                      discount_percentage: discountPercentage > 0 ? discountPercentage.toFixed(2) : ""
-                    }));
-                  }
-                }
+              setFormData(prev => ({
+                ...prev, 
+                custom_amount: value
+              }));
+              
+              // Auto-calculate discount percentage
+              const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
+              if (selectedPlan && value && !isNaN(parseFloat(value))) {
+                const customAmount = parseFloat(value);
+                const discountPercentage = ((selectedPlan.price - customAmount) / selectedPlan.price) * 100;
+                setFormData(prev => ({
+                  ...prev,
+                  discount_percentage: discountPercentage > 0 ? discountPercentage.toFixed(2) : ""
+                }));
               }
             }}
             placeholder="Enter custom amount"
@@ -402,16 +398,18 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
             value={formData.discount_percentage}
             onChange={(e) => {
               const value = e.target.value;
-              setFormData({...formData, discount_percentage: value});
+              setFormData(prev => ({
+                ...prev,
+                discount_percentage: value
+              }));
               
               // Auto-calculate custom amount
               const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
-              if (selectedPlan && value) {
+              if (selectedPlan && value && !isNaN(parseFloat(value))) {
                 const discountPercentage = parseFloat(value);
                 const customAmount = selectedPlan.price * (1 - discountPercentage / 100);
                 setFormData(prev => ({
                   ...prev,
-                  discount_percentage: value,
                   custom_amount: customAmount > 0 ? customAmount.toFixed(2) : ""
                 }));
               }
@@ -424,16 +422,14 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           <Label htmlFor="setup_fee">Setup Fee</Label>
           <Input
             id="setup_fee"
-            type="text"
-            inputMode="decimal"
-            pattern="[0-9]*\.?[0-9]*"
+            type="number"
+            step="0.01"
             value={formData.setup_fee}
             onChange={(e) => {
-              const value = e.target.value;
-              // Allow only valid decimal numbers
-              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                setFormData({...formData, setup_fee: value});
-              }
+              setFormData(prev => ({
+                ...prev,
+                setup_fee: e.target.value
+              }));
             }}
             placeholder="One-time setup fee"
           />
