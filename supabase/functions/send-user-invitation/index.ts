@@ -22,10 +22,13 @@ interface InvitationRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("Send user invitation function called");
+  console.log("📨 EDGE FUNCTION CALLED - send-user-invitation");
+  console.log("🔧 Request method:", req.method);
+  console.log("🌐 Request URL:", req.url);
 
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log("✅ Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
 
