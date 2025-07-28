@@ -168,7 +168,46 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // For other cases, use the standard verify_otp_code function
+    // For other cases (email verification or password reset without newPassword), use manual verification to avoid marking as used prematurely
+    if (otpType === 'password_reset') {
+      // Manual OTP verification for password reset (don't mark as used yet)
+      const { data: otpRecords, error: otpError } = await supabaseAdmin
+        .from('email_verification_otps')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .eq('otp_code', otpCode)
+        .eq('otp_type', otpType)
+        .is('used_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (otpError || !otpRecords || otpRecords.length === 0) {
+        console.error('OTP verification failed:', otpError);
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired OTP code' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          }
+        );
+      }
+
+      console.log('OTP verification successful for password reset');
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'OTP verified successfully. You can now set your new password.' 
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    // For email verification, use the standard verify_otp_code function
     const { data: isValid, error: verifyError } = await supabaseAdmin
       .rpc('verify_otp_code', {
         user_id_param: targetUserId,
