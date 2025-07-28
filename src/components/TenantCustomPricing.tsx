@@ -363,27 +363,32 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           <Label htmlFor="custom_amount">Custom Amount</Label>
           <Input
             id="custom_amount"
-            type="number"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*\.?[0-9]*"
             value={formData.custom_amount}
             onChange={(e) => {
               const value = e.target.value;
-              setFormData({...formData, custom_amount: value});
-              
-              // Auto-calculate discount percentage
-              const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
-              if (selectedPlan && value) {
-                const customAmount = parseFloat(value);
-                const discountPercentage = ((selectedPlan.price - customAmount) / selectedPlan.price) * 100;
-                setFormData(prev => ({
-                  ...prev, 
-                  custom_amount: value,
-                  discount_percentage: discountPercentage > 0 ? discountPercentage.toFixed(2) : ""
-                }));
+              // Allow only valid decimal numbers
+              if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                setFormData({...formData, custom_amount: value});
+                
+                // Auto-calculate discount percentage
+                const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
+                if (selectedPlan && value) {
+                  const customAmount = parseFloat(value);
+                  if (!isNaN(customAmount)) {
+                    const discountPercentage = ((selectedPlan.price - customAmount) / selectedPlan.price) * 100;
+                    setFormData(prev => ({
+                      ...prev, 
+                      custom_amount: value,
+                      discount_percentage: discountPercentage > 0 ? discountPercentage.toFixed(2) : ""
+                    }));
+                  }
+                }
               }
             }}
             placeholder="Enter custom amount"
-            className="[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             required
           />
         </div>
@@ -419,10 +424,17 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
           <Label htmlFor="setup_fee">Setup Fee</Label>
           <Input
             id="setup_fee"
-            type="number"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*\.?[0-9]*"
             value={formData.setup_fee}
-            onChange={(e) => setFormData({...formData, setup_fee: e.target.value})}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow only valid decimal numbers
+              if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                setFormData({...formData, setup_fee: value});
+              }
+            }}
             placeholder="One-time setup fee"
           />
         </div>
