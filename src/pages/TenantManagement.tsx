@@ -10,12 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Building2, Users, Settings, Trash2, AlertCircle, CreditCard, ArrowUpCircle, ArrowDownCircle, RefreshCw, Mail } from 'lucide-react';
+import { Plus, Building2, Users, Settings, Trash2, AlertCircle, CreditCard, ArrowUpCircle, ArrowDownCircle, RefreshCw, Mail, DollarSign } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
+import TenantCustomPricing from '@/components/TenantCustomPricing';
 
 type Tenant = Tables<'tenants'>;
 type TenantUser = Tables<'tenant_users'>;
@@ -43,6 +44,7 @@ export default function TenantManagement() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
+  const [customPricingDialogOpen, setCustomPricingDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -241,6 +243,11 @@ export default function TenantManagement() {
     const subscription = tenantSubscriptions.find(sub => sub.tenant_id === tenant.id);
     setSelectedSubscription(subscription || null);
     setSubscriptionDialogOpen(true);
+  };
+
+  const openCustomPricingDialog = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setCustomPricingDialogOpen(true);
   };
 
   const updateSubscription = async (tenantId: string, newPlanId: string) => {
@@ -546,6 +553,14 @@ export default function TenantManagement() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => openCustomPricingDialog(tenant)}
+                        >
+                          <DollarSign className="h-4 w-4 mr-1" />
+                          Custom Pricing
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => sendWelcomeEmail(tenant)}
                           disabled={!tenant.contact_email}
                         >
@@ -765,6 +780,28 @@ export default function TenantManagement() {
               </ul>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Pricing Dialog */}
+      <Dialog open={customPricingDialogOpen} onOpenChange={setCustomPricingDialogOpen}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Custom Pricing - {selectedTenant?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Manage custom pricing overrides for this tenant
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTenant && (
+            <TenantCustomPricing 
+              tenantId={selectedTenant.id} 
+              tenantName={selectedTenant.name}
+            />
+          )}
         </DialogContent>
       </Dialog>
         </div>

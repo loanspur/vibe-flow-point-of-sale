@@ -44,7 +44,7 @@ import {
   Loader2,
   UserCog
 } from "lucide-react";
-import TenantCustomPricing from "./TenantCustomPricing";
+
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -102,14 +102,6 @@ const defaultTabConfig = [
     description: "Advanced analytics and reporting",
     order: 5
   },
-  { 
-    id: "custom-pricing", 
-    label: "Custom Pricing", 
-    enabled: true, 
-    icon: "UserCog",
-    description: "Tenant-specific pricing overrides",
-    order: 6
-  }
 ];
 
 export default function BillingPlansManager() {
@@ -1142,10 +1134,6 @@ export default function BillingPlansManager() {
           </Card>
         </TabsContent>
 
-        {/* Custom Pricing Tab */}
-        <TabsContent value="custom-pricing" className="space-y-6">
-          <TenantCustomPricing />
-        </TabsContent>
       </Tabs>
 
       <CreatePlanDialog />

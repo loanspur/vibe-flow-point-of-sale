@@ -57,7 +57,12 @@ interface BillingPlan {
   price: number;
 }
 
-export default function TenantCustomPricing() {
+interface TenantCustomPricingProps {
+  tenantId?: string;
+  tenantName?: string;
+}
+
+export default function TenantCustomPricing({ tenantId, tenantName }: TenantCustomPricingProps = {}) {
   const [customPricingList, setCustomPricingList] = useState<TenantCustomPricing[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
@@ -72,7 +77,7 @@ export default function TenantCustomPricing() {
 
   // Form state
   const [formData, setFormData] = useState({
-    tenant_id: "",
+    tenant_id: tenantId || "",
     billing_plan_id: "",
     custom_amount: "",
     discount_percentage: "",
@@ -104,14 +109,20 @@ export default function TenantCustomPricing() {
 
   const fetchCustomPricing = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tenant_custom_pricing')
         .select(`
           *,
           tenants (name, contact_email),
           billing_plans (name, price)
-        `)
-        .order('created_at', { ascending: false });
+        `);
+
+      // Filter by tenant if tenantId prop is provided
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setCustomPricingList(data || []);
