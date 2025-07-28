@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -155,11 +156,10 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
         return;
       }
 
-      const customAmount = parseFloat(formData.custom_amount);
+      const customAmount = formData.custom_amount ? parseFloat(formData.custom_amount) : 0;
       const originalAmount = selectedPlan.price;
-      const discountPercentage = formData.discount_percentage 
-        ? parseFloat(formData.discount_percentage)
-        : ((originalAmount - customAmount) / originalAmount) * 100;
+      const discountPercentage = formData.discount_percentage ? parseFloat(formData.discount_percentage) : 0;
+      const setupFee = formData.setup_fee ? parseFloat(formData.setup_fee) : 0;
 
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('User not authenticated');
@@ -170,8 +170,8 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
         custom_amount: customAmount,
         original_amount: originalAmount,
         discount_percentage: discountPercentage,
-        reason: formData.reason,
-        setup_fee: formData.setup_fee ? parseFloat(formData.setup_fee) : null,
+        reason: formData.reason || null,
+        setup_fee: setupFee || null,
         effective_date: format(formData.effective_date, 'yyyy-MM-dd'),
         expires_at: formData.expires_at ? format(formData.expires_at, 'yyyy-MM-dd') : null,
         is_active: formData.is_active,
@@ -268,198 +268,159 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
   };
 
   const PricingForm = () => (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="text-center mb-6">
+    <div className="space-y-6">
+      <div className="text-center">
         <h3 className="text-lg font-semibold text-foreground">Custom Pricing for {tenantName}</h3>
         <p className="text-muted-foreground">Configure special pricing for this tenant</p>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="billing_plan">Billing Plan</Label>
-        <Select 
-          value={formData.billing_plan_id} 
-          onValueChange={(value) => setFormData({...formData, billing_plan_id: value})}
-          required
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select billing plan" />
-          </SelectTrigger>
-          <SelectContent>
-            {billingPlans.map(plan => (
-              <SelectItem key={plan.id} value={plan.id}>
-                {plan.name} - {formatPrice(plan.price)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Billing Plan Selection */}
         <div className="space-y-2">
-          <Label htmlFor="custom_amount">Custom Amount</Label>
-          <Input
-            id="custom_amount"
-            type="number"
-            step="0.01"
-            min="0"
-            value={formData.custom_amount}
-            onChange={(e) => {
-              const value = e.target.value;
-              setFormData(prev => ({
-                ...prev, 
-                custom_amount: value
-              }));
-              
-              // Auto-calculate discount percentage
-              const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
-              if (selectedPlan && value && !isNaN(parseFloat(value))) {
-                const customAmount = parseFloat(value);
-                const discountPercentage = ((selectedPlan.price - customAmount) / selectedPlan.price) * 100;
-                setFormData(prev => ({
-                  ...prev,
-                  discount_percentage: discountPercentage > 0 ? discountPercentage.toFixed(2) : ""
-                }));
-              }
-            }}
-            placeholder="Enter custom amount"
+          <Label htmlFor="billing_plan">Billing Plan</Label>
+          <Select 
+            value={formData.billing_plan_id} 
+            onValueChange={(value) => setFormData({...formData, billing_plan_id: value})}
             required
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select billing plan" />
+            </SelectTrigger>
+            <SelectContent>
+              {billingPlans.map(plan => (
+                <SelectItem key={plan.id} value={plan.id}>
+                  {plan.name} - {formatPrice(plan.price)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Pricing Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="custom_amount">Custom Amount</Label>
+            <Input
+              id="custom_amount"
+              type="text"
+              value={formData.custom_amount}
+              onChange={(e) => setFormData({...formData, custom_amount: e.target.value})}
+              placeholder="Enter custom amount"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="discount_percentage">Discount %</Label>
+            <Input
+              id="discount_percentage"
+              type="text"
+              value={formData.discount_percentage}
+              onChange={(e) => setFormData({...formData, discount_percentage: e.target.value})}
+              placeholder="Discount percentage"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="setup_fee">Setup Fee</Label>
+            <Input
+              id="setup_fee"
+              type="text"
+              value={formData.setup_fee}
+              onChange={(e) => setFormData({...formData, setup_fee: e.target.value})}
+              placeholder="One-time setup fee"
+            />
+          </div>
+        </div>
+
+        {/* Reason Field */}
+        <div className="space-y-2">
+          <Label htmlFor="reason">Reason</Label>
+          <Textarea
+            id="reason"
+            value={formData.reason}
+            onChange={(e) => setFormData({...formData, reason: e.target.value})}
+            placeholder="Enter any reason or notes for this custom pricing..."
+            rows={3}
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="discount_percentage">Discount %</Label>
-          <Input
-            id="discount_percentage"
-            type="number"
-            step="0.01"
-            min="0"
-            max="100"
-            value={formData.discount_percentage}
-            onChange={(e) => {
-              const value = e.target.value;
-              setFormData(prev => ({
-                ...prev,
-                discount_percentage: value
-              }));
-              
-              // Auto-calculate custom amount
-              const selectedPlan = billingPlans.find(p => p.id === formData.billing_plan_id);
-              if (selectedPlan && value && !isNaN(parseFloat(value))) {
-                const discountPercentage = parseFloat(value);
-                const customAmount = selectedPlan.price * (1 - discountPercentage / 100);
-                setFormData(prev => ({
-                  ...prev,
-                  custom_amount: customAmount > 0 ? customAmount.toFixed(2) : ""
-                }));
-              }
+        {/* Date Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Effective Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className={cn("w-full justify-start text-left font-normal")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(formData.effective_date, "PPP")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={formData.effective_date}
+                  onSelect={(date) => date && setFormData({...formData, effective_date: date})}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Expires At (Optional)</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className={cn("w-full justify-start text-left font-normal")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.expires_at ? format(formData.expires_at, "PPP") : "No expiry"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={formData.expires_at}
+                  onSelect={(date) => setFormData({...formData, expires_at: date})}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        {/* Active Switch */}
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="is_active"
+            checked={formData.is_active}
+            onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
+          />
+          <Label htmlFor="is_active">Active</Label>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-2 pt-4 border-t">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => {
+              setIsDialogOpen(false);
+              resetForm();
             }}
-            placeholder="Discount percentage"
-          />
+          >
+            Cancel
+          </Button>
+          <Button type="submit">
+            {selectedPricing ? "Update" : "Create"} Custom Pricing
+          </Button>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="setup_fee">Setup Fee</Label>
-          <Input
-            id="setup_fee"
-            type="number"
-            step="0.01"
-            min="0"
-            value={formData.setup_fee}
-            onChange={(e) => {
-              const value = e.target.value;
-              setFormData(prev => ({
-                ...prev,
-                setup_fee: value
-              }));
-            }}
-            placeholder="One-time setup fee"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="reason">Reason</Label>
-        <Input
-          id="reason"
-          type="text"
-          value={formData.reason}
-          onChange={(e) => {
-            setFormData(prev => ({
-              ...prev,
-              reason: e.target.value
-            }));
-          }}
-          placeholder="Reason for custom pricing"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Effective Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(formData.effective_date, "PPP")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={formData.effective_date}
-                onSelect={(date) => date && setFormData({...formData, effective_date: date})}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Expires At (Optional)</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formData.expires_at ? format(formData.expires_at, "PPP") : "No expiry"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={formData.expires_at}
-                onSelect={(date) => setFormData({...formData, expires_at: date})}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Switch
-          id="is_active"
-          checked={formData.is_active}
-          onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
-        />
-        <Label htmlFor="is_active">Active</Label>
-      </div>
-
-      <div className="flex justify-end space-x-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={() => {
-            setIsDialogOpen(false);
-            resetForm();
-          }}
-        >
-          Cancel
-        </Button>
-        <Button type="submit">
-          {selectedPricing ? "Update" : "Create"} Custom Pricing
-        </Button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 
   if (!tenantId) {
