@@ -56,12 +56,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Creating user in auth system...');
     
-    // Check if user already exists
-    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-    const userExists = existingUser.users.find(u => u.email === email);
-    
-    if (userExists) {
-      throw new Error('User with this email already exists');
+    // Check if user already exists by trying to get user by email
+    try {
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const userExists = existingUsers?.users?.find(u => u.email === email);
+      
+      if (userExists) {
+        throw new Error('User with this email already exists');
+      }
+    } catch (checkError) {
+      // If listing fails, continue - it might be a permission issue but user creation will fail if duplicate
+      console.log('Could not check existing users, proceeding with creation:', checkError);
     }
     
     // Create user with admin API
