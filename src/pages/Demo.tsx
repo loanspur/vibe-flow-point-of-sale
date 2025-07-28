@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,17 @@ import posSystemHero from "@/assets/pos-system-hero.jpg";
 
 const Demo = () => {
   const [activeDemo, setActiveDemo] = useState("pos");
+
+  // Preload demo images when component mounts
+  useEffect(() => {
+    const preloadImages = () => {
+      const img1 = new Image();
+      const img2 = new Image();
+      img1.src = dashboardPreview;
+      img2.src = posSystemHero;
+    };
+    preloadImages();
+  }, []);
 
   const demoFeatures = [
     {

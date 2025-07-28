@@ -23,6 +23,17 @@ const Hero = () => {
   const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
 
+  // Preload hero images when component mounts
+  useEffect(() => {
+    const preloadImages = () => {
+      const img1 = new Image();
+      const img2 = new Image();
+      img1.src = heroImage;
+      img2.src = posSystemHero;
+    };
+    preloadImages();
+  }, []);
+
   useEffect(() => {
     const fetchPlans = async () => {
       const { data } = await supabase

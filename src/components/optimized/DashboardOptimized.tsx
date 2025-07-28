@@ -96,6 +96,15 @@ export const DashboardOptimized = React.memo(() => {
   const { tenantId } = useAuth();
   const { formatCurrency, tenantCurrency } = useApp();
   
+  // Preload dashboard image when component mounts
+  useEffect(() => {
+    const preloadImage = () => {
+      const img = new Image();
+      img.src = dashboardImage;
+    };
+    preloadImage();
+  }, []);
+  
   const initialMetrics = useMemo(() => [
     {
       title: "Today's Sales",
