@@ -296,30 +296,38 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
           <div className="space-y-2">
             <Label htmlFor="mobileNumber">Mobile Number</Label>
             <div className="flex space-x-2">
-              <div className="w-24">
+              <div className="w-28">
                 <Select 
                   value={selectedCountryData?.dialCode || ''} 
-                  disabled={!selectedCountryData}
+                  onValueChange={(dialCode) => {
+                    const country = countriesData.find(c => c.dialCode === dialCode);
+                    if (country) {
+                      handleCountryChange(country.name);
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="+1">
-                      {selectedCountryData && (
+                      {selectedCountryData ? (
                         <div className="flex items-center space-x-1">
                           <span>{selectedCountryData.flag}</span>
                           <span>{selectedCountryData.dialCode}</span>
                         </div>
+                      ) : (
+                        <span className="text-muted-foreground">+1</span>
                       )}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
-                    {selectedCountryData && (
-                      <SelectItem value={selectedCountryData.dialCode}>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {countriesData.map((country) => (
+                      <SelectItem key={country.code} value={country.dialCode}>
                         <div className="flex items-center space-x-2">
-                          <span>{selectedCountryData.flag}</span>
-                          <span>{selectedCountryData.dialCode}</span>
+                          <span>{country.flag}</span>
+                          <span>{country.dialCode}</span>
+                          <span className="text-sm text-muted-foreground">{country.code}</span>
                         </div>
                       </SelectItem>
-                    )}
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
