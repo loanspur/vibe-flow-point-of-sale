@@ -36,7 +36,6 @@ const mainItems = [
 
 const businessItems = [
   { title: "Products", url: "/admin/products", icon: Package },
-  { title: "Stock Management", url: "/admin/stock", icon: Warehouse, featureRequired: "advanced_inventory" },
   { title: "Sales", url: "/admin/sales", icon: TrendingUp },
   { title: "Purchases", url: "/admin/purchases", icon: ShoppingCart },
   { title: "Contacts", url: "/admin/customers", icon: Users },
@@ -46,7 +45,6 @@ const businessItems = [
 ];
 
 const systemItems = [
-  { title: "Communications", url: "/admin/communications", icon: Mail },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
