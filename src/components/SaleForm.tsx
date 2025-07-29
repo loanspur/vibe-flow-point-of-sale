@@ -570,7 +570,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       await processSaleInventory(sale.id, tenantData, inventoryItems);
 
       // Create accounting entries
-      await createEnhancedSalesJournalEntry(sale.id, {
+      await createEnhancedSalesJournalEntry(tenantData, {
+        saleId: sale.id,
         cashierId: user.id,
         customerId: values.customer_id === "walk-in" ? null : values.customer_id,
         totalAmount,
