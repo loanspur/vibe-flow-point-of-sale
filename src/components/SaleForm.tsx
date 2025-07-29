@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar, CheckCircle, Truck } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import QuickCreateCustomerDialog from './QuickCreateCustomerDialog';
+import { CashChangeModal } from './CashChangeModal';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,7 +34,6 @@ const saleSchema = z.object({
   discount_amount: z.number().min(0).default(0),
   tax_amount: z.number().min(0).default(0),
   shipping_amount: z.number().min(0).default(0),
-  notes: z.string().optional(),
   valid_until: z.date().optional(),
 });
 
@@ -70,6 +70,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mode, setMode] = useState<"sale" | "quote">("sale");
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showCashChangeModal, setShowCashChangeModal] = useState(false);
+  const [cashAmountPaid, setCashAmountPaid] = useState(0);
 
   const form = useForm<z.infer<typeof saleSchema>>({
     resolver: zodResolver(saleSchema),
@@ -373,6 +375,31 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setRemainingBalance(newRemainingBalance);
   };
 
+  const handleCashPayment = (paymentAmount: number, totalAmount: number) => {
+    if (paymentAmount > totalAmount) {
+      setCashAmountPaid(paymentAmount);
+      setShowCashChangeModal(true);
+      return false; // Don't add payment yet
+    }
+    return true; // Proceed with normal payment
+  };
+
+  const confirmCashPayment = () => {
+    const totalAmount = calculateTotal();
+    const changeAmount = cashAmountPaid - totalAmount;
+    
+    // Add the exact payment amount to clear the total
+    const cashPayment = {
+      method: 'cash',
+      amount: totalAmount,
+      reference: `Cash payment - Change: ${formatAmount(changeAmount)}`
+    };
+    
+    setPayments([cashPayment]);
+    setRemainingBalance(0);
+    setShowCashChangeModal(false);
+  };
+
   const saveAsQuote = async (values: z.infer<typeof saleSchema>) => {
     if (saleItems.length === 0) {
       toast({
@@ -408,7 +435,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           shipping_amount: values.shipping_amount,
           status: "draft",
           valid_until: values.valid_until?.toISOString(),
-          notes: values.notes,
         })
         .select()
         .single();
@@ -520,7 +546,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           shipping_amount: values.shipping_amount,
           status: hasCreditPayment ? "pending" : "completed",
           sale_type: values.sale_type,
-          notes: values.notes,
         })
         .select()
         .single();
@@ -606,7 +631,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-none mx-2 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">New {mode === "sale" ? "Sale" : "Quote"}</h1>
         <div className="flex items-center gap-2">
@@ -654,29 +679,38 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                   {searchTerm && (
                     <div className="grid grid-cols-1 gap-4 max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => (
-                        <Card 
-                          key={product.id} 
-                          className="cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => handleProductSelect(product.id)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <p className="font-medium text-sm">{product.name}</p>
-                                <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
-                                <p className="text-sm font-semibold text-green-600">
-                                  {formatAmount(product.price)}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Stock</p>
-                                <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
-                                  {getActualStock(product.id)}
-                                </Badge>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                       <Card 
+                         key={product.id} 
+                         className="cursor-pointer hover:bg-muted/50 transition-colors"
+                         onClick={() => handleProductSelect(product.id)}
+                       >
+                         <CardContent className="p-4">
+                           <div className="flex items-start gap-3">
+                             {product.image_url && (
+                               <img 
+                                 src={product.image_url} 
+                                 alt={product.name}
+                                 className="w-12 h-12 object-cover rounded border"
+                               />
+                             )}
+                             <div className="flex-1 flex items-start justify-between">
+                               <div className="space-y-1">
+                                 <p className="font-medium text-sm">{product.name}</p>
+                                 <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
+                                 <p className="text-sm font-semibold text-green-600">
+                                   {formatAmount(product.price)}
+                                 </p>
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-xs text-muted-foreground">Stock</p>
+                                 <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
+                                   {getActualStock(product.id)}
+                                 </Badge>
+                               </div>
+                             </div>
+                           </div>
+                         </CardContent>
+                       </Card>
                       ))}
                     </div>
                   )}
@@ -906,24 +940,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     )}
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Add any notes for this sale..."
-                            className="resize-none"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <Separator />
 
                   {/* Subtotal */}
@@ -940,7 +956,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     )}
                   </div>
 
-                  {/* Tax and Shipping - two columns after total sale */}
+                  {/* Tax and Shipping - two columns before payment */}
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <FormField
                       control={form.control}
@@ -1027,6 +1043,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                         <PaymentProcessor
                           totalAmount={calculateTotal()}
                           onPaymentsChange={handlePaymentsChange}
+                          onCashPayment={handleCashPayment}
                         />
                       </div>
                     </div>
@@ -1066,6 +1083,15 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CashChangeModal
+        isOpen={showCashChangeModal}
+        onClose={() => setShowCashChangeModal(false)}
+        onConfirm={confirmCashPayment}
+        amountPaid={cashAmountPaid}
+        totalAmount={calculateTotal()}
+        formatAmount={formatAmount}
+      />
     </div>
   );
 }

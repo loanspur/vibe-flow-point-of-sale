@@ -30,10 +30,11 @@ interface PaymentMethod {
 interface PaymentProcessorProps {
   totalAmount: number;
   onPaymentsChange: (payments: Payment[], remainingBalance: number) => void;
+  onCashPayment?: (paymentAmount: number, totalAmount: number) => boolean;
   isProcessing?: boolean;
 }
 
-export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing = false }: PaymentProcessorProps) {
+export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment, isProcessing = false }: PaymentProcessorProps) {
   const { formatAmount } = useCurrencySettings();
   const { tenantId } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -126,8 +127,15 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
       return;
     }
 
-    // For credit sales, allow the full amount to be "paid" (but as credit)
-    if (newPayment.method !== "credit" && newPayment.amount > remainingBalance) {
+    // Handle cash payments with potential change
+    if (newPayment.method === "cash" && newPayment.amount > remainingBalance) {
+      if (onCashPayment && !onCashPayment(newPayment.amount, remainingBalance)) {
+        return; // Payment was handled by parent component (change modal)
+      }
+    }
+
+    // For non-cash and non-credit payments, prevent overpayment
+    if (newPayment.method !== "credit" && newPayment.method !== "cash" && newPayment.amount > remainingBalance) {
       toast({
         title: "Amount Too High",
         description: "Payment amount cannot exceed remaining balance",
