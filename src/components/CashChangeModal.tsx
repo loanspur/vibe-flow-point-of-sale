@@ -54,7 +54,7 @@ export function CashChangeModal({
             Cancel
           </Button>
           <Button onClick={onConfirm} className="bg-green-600 hover:bg-green-700">
-            Complete Sale
+            Issue Change
           </Button>
         </DialogFooter>
       </DialogContent>

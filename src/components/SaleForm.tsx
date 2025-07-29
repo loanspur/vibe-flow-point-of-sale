@@ -388,10 +388,10 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     const totalAmount = calculateTotal();
     const changeAmount = cashAmountPaid - totalAmount;
     
-    // Add the exact payment amount to clear the total
+    // Add the full cash payment amount received
     const cashPayment = {
       method: 'cash',
-      amount: totalAmount,
+      amount: cashAmountPaid, // Use the full amount paid, not just the total
       reference: `Cash payment - Change: ${formatAmount(changeAmount)}`
     };
     
@@ -875,70 +875,50 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="discount_amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Discount</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {mode === "quote" && (
-                      <FormField
-                        control={form.control}
-                        name="valid_until"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Valid Until</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full pl-3 text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                    )}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
-                                    <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <CalendarComponent
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) => date < new Date()}
-                                  initialFocus
-                                  className="p-3 pointer-events-auto"
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
+                   {mode === "quote" && (
+                     <div className="grid grid-cols-2 gap-4">
+                       <FormField
+                         control={form.control}
+                         name="valid_until"
+                         render={({ field }) => (
+                           <FormItem>
+                             <FormLabel>Valid Until</FormLabel>
+                             <Popover>
+                               <PopoverTrigger asChild>
+                                 <FormControl>
+                                   <Button
+                                     variant="outline"
+                                     className={cn(
+                                       "w-full pl-3 text-left font-normal",
+                                       !field.value && "text-muted-foreground"
+                                     )}
+                                   >
+                                     {field.value ? (
+                                       format(field.value, "PPP")
+                                     ) : (
+                                       <span>Pick a date</span>
+                                     )}
+                                     <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                                   </Button>
+                                 </FormControl>
+                               </PopoverTrigger>
+                               <PopoverContent className="w-auto p-0" align="start">
+                                 <CalendarComponent
+                                   mode="single"
+                                   selected={field.value}
+                                   onSelect={field.onChange}
+                                   disabled={(date) => date < new Date()}
+                                   initialFocus
+                                   className="p-3 pointer-events-auto"
+                                 />
+                               </PopoverContent>
+                             </Popover>
+                             <FormMessage />
+                           </FormItem>
+                         )}
+                       />
+                     </div>
+                   )}
 
                   <Separator />
 
@@ -956,54 +936,79 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     )}
                   </div>
 
-                  {/* Tax and Shipping - two columns before payment */}
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <FormField
-                      control={form.control}
-                      name="tax_amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-1 text-sm">
-                            <Banknote className="h-3 w-3" />
-                            Tax
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                   {/* Discount, Tax and Shipping - two columns before payment */}
+                   <div className="grid grid-cols-2 gap-4 pt-2">
+                     <FormField
+                       control={form.control}
+                       name="discount_amount"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel className="flex items-center gap-1 text-sm">
+                             <Banknote className="h-3 w-3" />
+                             Discount
+                           </FormLabel>
+                           <FormControl>
+                             <Input
+                               type="number"
+                               min="0"
+                               step="0.01"
+                               {...field}
+                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                             />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
 
-                    <FormField
-                      control={form.control}
-                      name="shipping_amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-1 text-sm">
-                            <Truck className="h-3 w-3" />
-                            Shipping
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                     <FormField
+                       control={form.control}
+                       name="tax_amount"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel className="flex items-center gap-1 text-sm">
+                             <Banknote className="h-3 w-3" />
+                             Tax
+                           </FormLabel>
+                           <FormControl>
+                             <Input
+                               type="number"
+                               min="0"
+                               step="0.01"
+                               {...field}
+                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                             />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                     <FormField
+                       control={form.control}
+                       name="shipping_amount"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel className="flex items-center gap-1 text-sm">
+                             <Truck className="h-3 w-3" />
+                             Shipping
+                           </FormLabel>
+                           <FormControl>
+                             <Input
+                               type="number"
+                               min="0"
+                               step="0.01"
+                               {...field}
+                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                             />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
 
                   {/* Tax and Shipping amounts display */}
                   {(form.watch("tax_amount") > 0 || form.watch("shipping_amount") > 0) && (
