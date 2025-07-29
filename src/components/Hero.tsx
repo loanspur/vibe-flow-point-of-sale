@@ -74,10 +74,10 @@ const Hero = () => {
               <div className="grid md:grid-cols-2 gap-6 items-center">
                 <div className="space-y-4">
                   <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent leading-tight">
-                    Transform Your Business with vibePOS
+                    AI-Powered Modern POS System with Advanced Analytics
                   </h1>
                   <p className="text-lg text-muted-foreground">
-                    The modern multi-tenant point of sale system that grows with your business
+                    Custom branded multi-tenant point of sale with inventory management, stock reconciliation, and real-time business analytics
                   </p>
                 </div>
                 <div className="w-full">
@@ -92,7 +92,7 @@ const Hero = () => {
               </div>
               
               <p className="text-lg text-muted-foreground">
-                Streamline operations, boost sales, and delight customers with our intuitive POS solution designed for businesses of all sizes.
+                Complete inventory management, stock taking, reconciliation, and AI-powered analytics. Own branded POS with custom domains for professional business growth.
               </p>
 
               <div className="flex flex-wrap gap-4">
@@ -109,10 +109,10 @@ const Hero = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
                 {[
-                  "Multi-tenant architecture",
-                  "Real-time inventory tracking",
-                  "Advanced analytics & reporting",
-                  "Mobile & tablet optimized"
+                  "AI-powered analytics & insights",
+                  "Real-time stock management",
+                  "Custom domains & branding",
+                  "Advanced reconciliation tools"
                 ].map((feature, index) => (
                   <div key={index} className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-pos-success flex-shrink-0" />

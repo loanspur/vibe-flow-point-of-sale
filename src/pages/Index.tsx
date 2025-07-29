@@ -79,15 +79,15 @@ const Index = () => {
             </Badge>
             
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight">
-              Transform Your Business with{" "}
+              AI-Powered Modern POS with{" "}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                VibePOS
+                Smart Analytics
               </span>
             </h1>
             
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              The modern point-of-sale system that grows with your business. 
-              Start free, scale fast, succeed everywhere.
+              Complete inventory management, stock reconciliation, and AI analytics. 
+              Custom domains, own branded POS system for business growth.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -306,8 +306,8 @@ const Index = () => {
               Everything You Need to Run Your Business
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              From point-of-sale to inventory management, accounting to customer management - 
-              VibePOS has all the tools your business needs in one powerful platform.
+              AI-powered analytics, advanced inventory management, stock taking, reconciliation, and custom branded domains - 
+              VibePOS delivers modern POS features that grow your business.
             </p>
           </div>
 
@@ -354,30 +354,30 @@ const Index = () => {
                   <div className="p-2 bg-blue-500/10 rounded-lg">
                     <Package className="h-6 w-6 text-blue-500" />
                   </div>
-                  <CardTitle className="text-xl">Inventory Management</CardTitle>
+                  <CardTitle className="text-xl">Smart Inventory & Stock Management</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Real-time stock tracking</span>
+                    <span>Real-time stock management & tracking</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Low stock alerts</span>
+                    <span>Advanced stock taking & reconciliation</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Product variants & categories</span>
+                    <span>Automated inventory analytics</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Purchase order management</span>
+                    <span>AI-powered demand forecasting</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Stock adjustments</span>
+                    <span>Multi-location stock transfers</span>
                   </li>
                 </ul>
               </CardContent>
@@ -389,30 +389,30 @@ const Index = () => {
                   <div className="p-2 bg-green-500/10 rounded-lg">
                     <BarChart3 className="h-6 w-6 text-green-500" />
                   </div>
-                  <CardTitle className="text-xl">Financial Management</CardTitle>
+                  <CardTitle className="text-xl">AI Analytics & Financial Management</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Complete accounting system</span>
+                    <span>AI-powered business analytics</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Accounts receivable/payable</span>
+                    <span>Real-time financial reconciliation</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Tax management (VAT ready)</span>
+                    <span>Advanced reporting & insights</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Financial statements</span>
+                    <span>Automated accounting integration</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Profit & loss tracking</span>
+                    <span>Smart profit optimization</span>
                   </li>
                 </ul>
               </CardContent>
@@ -459,30 +459,30 @@ const Index = () => {
                   <div className="p-2 bg-orange-500/10 rounded-lg">
                     <TrendingUp className="h-6 w-6 text-orange-500" />
                   </div>
-                  <CardTitle className="text-xl">Reports & Analytics</CardTitle>
+                  <CardTitle className="text-xl">AI-Powered Reports & Analytics</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Sales reports & analytics</span>
+                    <span>AI-powered sales analytics</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Inventory reports</span>
+                    <span>Smart inventory insights</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Financial reporting</span>
+                    <span>Real-time financial reporting</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Custom dashboards</span>
+                    <span>Custom analytics dashboards</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
-                    <span>Performance insights</span>
+                    <span>Predictive business insights</span>
                   </li>
                 </ul>
               </CardContent>
@@ -518,6 +518,76 @@ const Index = () => {
                   <li className="flex items-center space-x-2">
                     <Check className="h-4 w-4 text-green-500" />
                     <span>Cloud synchronization</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-indigo-500/10 rounded-lg">
+                    <Globe className="h-6 w-6 text-indigo-500" />
+                  </div>
+                  <CardTitle className="text-xl">Custom Domains & Branding</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Custom domain setup</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Own branded POS system</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>White-label solutions</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Custom logo & themes</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Professional business presence</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-emerald-500/10 rounded-lg">
+                    <Calculator className="h-6 w-6 text-emerald-500" />
+                  </div>
+                  <CardTitle className="text-xl">Advanced Stock Taking</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Digital stock taking tools</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Barcode scanning reconciliation</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Variance analysis & reporting</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Audit trail & compliance</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Automated reconciliation alerts</span>
                   </li>
                 </ul>
               </CardContent>
