@@ -73,10 +73,16 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5" />
         <div className="container relative mx-auto px-4">
           <div className="text-center space-y-8 max-w-4xl mx-auto">
-            <Badge variant="outline" className="text-sm px-4 py-2">
-              <Zap className="h-4 w-4 mr-2" />
-              Start your 14-day free trial today
-            </Badge>
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-6">
+              <Badge variant="outline" className="text-sm px-4 py-2">
+                <Zap className="h-4 w-4 mr-2" />
+                Start your 14-day free trial today
+              </Badge>
+              <Badge variant="outline" className="text-sm px-4 py-2 border-green-500/50 bg-green-50 text-green-700">
+                <Lock className="h-4 w-4 mr-2" />
+                Wildcard SSL Secured
+              </Badge>
+            </div>
             
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight">
               AI-Powered Modern POS with{" "}
@@ -276,12 +282,16 @@ const Index = () => {
                 Secure payments
               </div>
               <div className="flex items-center">
+                <Lock className="h-4 w-4 mr-2 text-green-500" />
+                Wildcard SSL Protection
+              </div>
+              <div className="flex items-center">
                 <Shield className="h-4 w-4 mr-2" />
-                SSL encrypted
+                Enterprise security
               </div>
               <div className="flex items-center">
                 <Building2 className="h-4 w-4 mr-2" />
-                Enterprise ready
+                Custom domains ready
               </div>
               <div className="flex items-center">
                 <span className="font-medium text-orange-600">Paystack</span>
@@ -627,6 +637,116 @@ const Index = () => {
               <h4 className="font-semibold">Data Security</h4>
               <p className="text-sm text-muted-foreground">Enterprise-grade security & backups</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Security & Trust Section */}
+      <section className="py-20 bg-gradient-to-br from-green-50/50 to-blue-50/50 dark:from-green-950/20 dark:to-blue-950/20">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <Badge variant="outline" className="text-sm px-4 py-2 border-green-500/50 bg-green-50 text-green-700">
+              <Lock className="h-4 w-4 mr-2" />
+              Enterprise Security
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold">
+              Bank-Grade Security for Your Business
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Your data is protected with industry-leading security measures including wildcard SSL certificates, 
+              ensuring every subdomain and custom domain is fully encrypted and secure.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 border-green-200">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-lg flex items-center justify-center mb-4">
+                  <Lock className="h-8 w-8 text-green-500" />
+                </div>
+                <CardTitle className="text-lg">Wildcard SSL</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  All subdomains automatically protected with enterprise-grade SSL encryption
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 border-blue-200">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-blue-500/10 rounded-lg flex items-center justify-center mb-4">
+                  <Shield className="h-8 w-8 text-blue-500" />
+                </div>
+                <CardTitle className="text-lg">Data Protection</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  Your business data is encrypted at rest and in transit with AES-256 encryption
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 border-purple-200">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-purple-500/10 rounded-lg flex items-center justify-center mb-4">
+                  <Database className="h-8 w-8 text-purple-500" />
+                </div>
+                <CardTitle className="text-lg">Secure Backups</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  Automated daily backups with point-in-time recovery capabilities
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 border-orange-200">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-orange-500/10 rounded-lg flex items-center justify-center mb-4">
+                  <Monitor className="h-8 w-8 text-orange-500" />
+                </div>
+                <CardTitle className="text-lg">99.9% Uptime</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  Enterprise-grade infrastructure with guaranteed uptime and 24/7 monitoring
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="text-center">
+            <Card className="max-w-4xl mx-auto bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/50 dark:to-blue-950/50 border-green-200">
+              <CardContent className="p-8">
+                <div className="flex items-center justify-center space-x-2 mb-4">
+                  <Lock className="h-6 w-6 text-green-500" />
+                  <Badge variant="outline" className="border-green-500/50 bg-green-50 text-green-700">
+                    Wildcard SSL Protected
+                  </Badge>
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Every Domain Automatically Secured</h3>
+                <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+                  Whether you use our provided subdomains (yourstore.vibenet.shop) or connect your own custom domain, 
+                  all traffic is automatically encrypted with industry-standard SSL certificates. This boosts your 
+                  search engine rankings and builds customer trust.
+                </p>
+                <div className="grid md:grid-cols-3 gap-4 text-sm">
+                  <div className="flex items-center justify-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Automatic HTTPS</span>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>SEO Boost</span>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Customer Trust</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
