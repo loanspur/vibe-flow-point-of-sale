@@ -577,7 +577,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           sale_id: sale.id,
           amount: payment.amount,
           payment_method: payment.method,
-          payment_reference: payment.reference || '',
+          reference_number: payment.reference || '',
           tenant_id: tenantData,
         }));
 
