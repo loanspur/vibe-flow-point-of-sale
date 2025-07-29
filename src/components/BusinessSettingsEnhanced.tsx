@@ -671,7 +671,8 @@ export function BusinessSettingsEnhanced() {
 
   const filteredTimezones = timezoneSearch
     ? timezones.filter(timezone => 
-        timezone.toLowerCase().includes(timezoneSearch.toLowerCase())
+        timezone.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
+        timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
       )
     : timezones;
 
@@ -1012,8 +1013,8 @@ export function BusinessSettingsEnhanced() {
                               </FormControl>
                               <SelectContent className="bg-background/95 backdrop-blur-sm border border-border/50">
                                 {filteredTimezones.map((timezone) => (
-                                  <SelectItem key={timezone} value={timezone}>
-                                    {timezone}
+                                  <SelectItem key={timezone.value} value={timezone.value}>
+                                    {timezone.label}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
