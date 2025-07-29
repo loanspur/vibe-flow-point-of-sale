@@ -296,19 +296,33 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       }
     }
 
-    const totalPrice = unitPrice * quantity;
+    // Check if item already exists in sale
+    const existingItemIndex = saleItems.findIndex(item => 
+      item.product_id === selectedProduct && 
+      item.variant_id === (selectedVariant !== "no-variant" ? selectedVariant : undefined)
+    );
 
-    const newItem: SaleItem = {
-      product_id: selectedProduct,
-      product_name: productName,
-      variant_id: selectedVariant !== "no-variant" ? selectedVariant : undefined,
-      variant_name: variant?.name,
-      quantity,
-      unit_price: unitPrice,
-      total_price: totalPrice,
-    };
+    if (existingItemIndex !== -1) {
+      // Update existing item quantity
+      const updatedItems = [...saleItems];
+      updatedItems[existingItemIndex].quantity += quantity;
+      updatedItems[existingItemIndex].total_price = updatedItems[existingItemIndex].unit_price * updatedItems[existingItemIndex].quantity;
+      setSaleItems(updatedItems);
+    } else {
+      // Add new item
+      const totalPrice = unitPrice * quantity;
+      const newItem: SaleItem = {
+        product_id: selectedProduct,
+        product_name: productName,
+        variant_id: selectedVariant !== "no-variant" ? selectedVariant : undefined,
+        variant_name: variant?.name,
+        quantity,
+        unit_price: unitPrice,
+        total_price: totalPrice,
+      };
+      setSaleItems([...saleItems, newItem]);
+    }
 
-    setSaleItems([...saleItems, newItem]);
     setSelectedProduct("");
     setSelectedVariant("");
     setSearchTerm("");
