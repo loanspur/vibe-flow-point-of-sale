@@ -28,8 +28,8 @@ const Features = () => {
     },
     {
       icon: Building2,
-      title: "Multi-Tenant Architecture",
-      description: "Serve multiple businesses with complete data isolation, custom branding, and tenant management."
+      title: "Enterprise-Grade Architecture",
+      description: "Scalable infrastructure with complete data isolation, custom branding, and robust business management."
     },
     {
       icon: Mail,

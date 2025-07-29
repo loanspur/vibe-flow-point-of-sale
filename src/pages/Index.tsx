@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Star, ArrowRight, Zap, Shield, Users, BarChart3, CreditCard, Clock, Building2, ShoppingCart, Package, Receipt, Smartphone, Globe, Settings, HeadphonesIcon, TrendingUp, Database, Lock, Mail, Target, Send, Eye, MousePointer } from "lucide-react";
+import { Check, Star, ArrowRight, Zap, Shield, Users, BarChart3, CreditCard, Clock, Building2, ShoppingCart, Package, Receipt, Smartphone, Globe, Settings, HeadphonesIcon, TrendingUp, Database, Lock, Mail, Target, Send, Eye, MousePointer, Monitor, Calculator, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import Navigation from "@/components/Navigation";
@@ -916,6 +916,262 @@ const Index = () => {
               </div>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Enhanced Demo Section */}
+      <section className="py-20 bg-gradient-to-br from-background via-muted/20 to-background">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <Badge variant="outline" className="text-sm px-4 py-2">
+              <Monitor className="h-4 w-4 mr-2" />
+              Live Demo
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold">
+              See VibePOS in Action
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Experience all the powerful features that make VibePOS the complete business management solution
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+            {/* Sales Management Demo */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 bg-gradient-to-br from-card to-card/50">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <ShoppingCart className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-xl">Smart Sales Processing</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Barcode scanning & quick checkout</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Multiple payment methods</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Real-time inventory updates</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Custom receipt printing</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Sales returns & refunds</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Customer Management Demo */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 bg-gradient-to-br from-card to-card/50">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <Users className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <CardTitle className="text-xl">Customer Relationship</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Complete customer profiles</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Purchase history tracking</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Customer statements</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Loyalty program management</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Email campaign integration</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Inventory Management Demo */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 bg-gradient-to-br from-card to-card/50">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <Package className="h-6 w-6 text-green-500" />
+                  </div>
+                  <CardTitle className="text-xl">Stock Management</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Real-time stock tracking</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Low stock alerts</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Stock adjustments & transfers</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Product variants & categories</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Supplier management</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Accounting Integration Demo */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 bg-gradient-to-br from-card to-card/50">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-500/10 rounded-lg">
+                    <Calculator className="h-6 w-6 text-purple-500" />
+                  </div>
+                  <CardTitle className="text-xl">Financial Management</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Automated bookkeeping</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Chart of accounts setup</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>VAT & tax calculations</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Financial statements</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Profit & loss tracking</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Email Marketing Demo */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 bg-gradient-to-br from-card to-card/50">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <Mail className="h-6 w-6 text-orange-500" />
+                  </div>
+                  <CardTitle className="text-xl">Email Campaigns</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Targeted email campaigns</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Customer segmentation</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Template customization</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Automated workflows</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Campaign analytics</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Analytics & Reporting Demo */}
+            <Card className="hover:shadow-lg transition-all hover:-translate-y-1 bg-gradient-to-br from-card to-card/50">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-500/10 rounded-lg">
+                    <BarChart3 className="h-6 w-6 text-red-500" />
+                  </div>
+                  <CardTitle className="text-xl">Business Intelligence</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Real-time dashboards</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Sales performance metrics</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Inventory analytics</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Customer insights</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Export capabilities</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Demo CTA */}
+          <div className="text-center space-y-6">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="text-2xl font-bold mb-4">Experience the Complete Solution</h3>
+              <p className="text-muted-foreground mb-6">
+                See how VibePOS streamlines every aspect of your business operations with our comprehensive demo
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button size="lg" className="px-8" onClick={handleStartTrial}>
+                  Start Free Trial
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="lg" className="px-8">
+                  View Live Demo
+                  <Play className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
