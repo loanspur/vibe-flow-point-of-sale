@@ -34,6 +34,9 @@ const ContactForm = ({ isOpen, onOpenChange }: ContactFormProps) => {
     setIsSubmitting(true);
 
     try {
+      console.log('Attempting to send contact email...');
+      console.log('Supabase URL:', 'https://qwtybhvdbbkbcelisuek.supabase.co');
+      
       const { data, error } = await supabase.functions.invoke('send-contact-email', {
         body: {
           name: formData.name,
@@ -42,6 +45,8 @@ const ContactForm = ({ isOpen, onOpenChange }: ContactFormProps) => {
           message: formData.message
         }
       });
+
+      console.log('Function response:', { data, error });
 
       if (error) {
         throw error;
