@@ -271,7 +271,10 @@ export const createEnhancedSalesJournalEntry = async (
     const accounts = await getDefaultAccounts(tenantId);
     const { totalAmount, discountAmount, taxAmount, payments } = saleData;
     
-    const subtotal = totalAmount + discountAmount - taxAmount;
+    // Correct calculation: totalAmount already includes tax and excludes discount
+    // So subtotal before tax = totalAmount - taxAmount + discountAmount  
+    // But for sales revenue, we want the amount before tax and discount
+    const subtotalBeforeTaxAndDiscount = totalAmount - taxAmount + discountAmount;
     const entries: AccountingEntry[] = [];
     
     // Handle each payment method with its specific asset account
@@ -294,7 +297,7 @@ export const createEnhancedSalesJournalEntry = async (
 
     // Credit: Sales Revenue (adjusted for shipping - shipping is separate income)
     if (!accounts.sales_revenue) throw new Error('Sales Revenue account not found');
-    const salesRevenue = subtotal - (saleData.shippingAmount || 0);
+    const salesRevenue = subtotalBeforeTaxAndDiscount - (saleData.shippingAmount || 0);
     if (salesRevenue > 0) {
       entries.push({
         account_id: accounts.sales_revenue,
