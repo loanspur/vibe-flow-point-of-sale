@@ -941,6 +941,176 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_drawers: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          current_balance: number
+          drawer_name: string
+          id: string
+          is_active: boolean
+          location_name: string | null
+          opened_at: string | null
+          opening_balance: number
+          status: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          current_balance?: number
+          drawer_name?: string
+          id?: string
+          is_active?: boolean
+          location_name?: string | null
+          opened_at?: string | null
+          opening_balance?: number
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          current_balance?: number
+          drawer_name?: string
+          id?: string
+          is_active?: boolean
+          location_name?: string | null
+          opened_at?: string | null
+          opening_balance?: number
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cash_transactions: {
+        Row: {
+          amount: number
+          approved_by: string | null
+          balance_after: number
+          cash_drawer_id: string
+          created_at: string
+          description: string
+          id: string
+          performed_by: string
+          reference_id: string | null
+          reference_type: string | null
+          tenant_id: string
+          transaction_date: string
+          transaction_type: string
+        }
+        Insert: {
+          amount: number
+          approved_by?: string | null
+          balance_after: number
+          cash_drawer_id: string
+          created_at?: string
+          description: string
+          id?: string
+          performed_by: string
+          reference_id?: string | null
+          reference_type?: string | null
+          tenant_id: string
+          transaction_date?: string
+          transaction_type: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string | null
+          balance_after?: number
+          cash_drawer_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          performed_by?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          tenant_id?: string
+          transaction_date?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_transactions_cash_drawer_id_fkey"
+            columns: ["cash_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_transfer_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          from_drawer_id: string
+          from_user_id: string
+          id: string
+          notes: string | null
+          reason: string | null
+          requested_at: string
+          responded_at: string | null
+          status: string
+          tenant_id: string
+          to_drawer_id: string
+          to_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          from_drawer_id: string
+          from_user_id: string
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          requested_at?: string
+          responded_at?: string | null
+          status?: string
+          tenant_id: string
+          to_drawer_id: string
+          to_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          from_drawer_id?: string
+          from_user_id?: string
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          requested_at?: string
+          responded_at?: string | null
+          status?: string
+          tenant_id?: string
+          to_drawer_id?: string
+          to_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_transfer_requests_from_drawer_id_fkey"
+            columns: ["from_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_transfer_requests_to_drawer_id_fkey"
+            columns: ["to_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_segments: {
         Row: {
           created_at: string
@@ -6012,6 +6182,18 @@ export type Database = {
           user_agent_param?: string
         }
         Returns: string
+      }
+      open_cash_drawer: {
+        Args: { drawer_id_param: string; opening_balance_param: number }
+        Returns: boolean
+      }
+      process_cash_transfer: {
+        Args: {
+          transfer_request_id_param: string
+          action_param: string
+          notes_param?: string
+        }
+        Returns: boolean
       }
       process_return: {
         Args: { return_id_param: string }
