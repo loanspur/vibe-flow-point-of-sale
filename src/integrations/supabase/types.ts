@@ -3051,14 +3051,17 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          discount_amount: number
           expected_date: string | null
           id: string
           notes: string | null
           order_date: string
           purchase_number: string
           received_date: string | null
+          shipping_amount: number
           status: string
-          supplier_id: string
+          supplier_id: string | null
+          tax_amount: number
           tenant_id: string
           total_amount: number
           updated_at: string
@@ -3066,14 +3069,17 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          discount_amount?: number
           expected_date?: string | null
           id?: string
           notes?: string | null
           order_date?: string
           purchase_number: string
           received_date?: string | null
+          shipping_amount?: number
           status?: string
-          supplier_id: string
+          supplier_id?: string | null
+          tax_amount?: number
           tenant_id: string
           total_amount?: number
           updated_at?: string
@@ -3081,14 +3087,17 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          discount_amount?: number
           expected_date?: string | null
           id?: string
           notes?: string | null
           order_date?: string
           purchase_number?: string
           received_date?: string | null
+          shipping_amount?: number
           status?: string
-          supplier_id?: string
+          supplier_id?: string | null
+          tax_amount?: number
           tenant_id?: string
           total_amount?: number
           updated_at?: string
@@ -3582,12 +3591,13 @@ export type Database = {
         Row: {
           cashier_id: string
           created_at: string
-          customer_id: string
+          customer_id: string | null
           discount_amount: number | null
           id: string
           payment_method: string
           receipt_number: string
           sale_type: string
+          shipping_amount: number
           status: string
           tax_amount: number | null
           tenant_id: string | null
@@ -3597,12 +3607,13 @@ export type Database = {
         Insert: {
           cashier_id: string
           created_at?: string
-          customer_id: string
+          customer_id?: string | null
           discount_amount?: number | null
           id?: string
           payment_method?: string
           receipt_number: string
           sale_type?: string
+          shipping_amount?: number
           status?: string
           tax_amount?: number | null
           tenant_id?: string | null
@@ -3612,12 +3623,13 @@ export type Database = {
         Update: {
           cashier_id?: string
           created_at?: string
-          customer_id?: string
+          customer_id?: string | null
           discount_amount?: number | null
           id?: string
           payment_method?: string
           receipt_number?: string
           sale_type?: string
+          shipping_amount?: number
           status?: string
           tax_amount?: number | null
           tenant_id?: string | null
