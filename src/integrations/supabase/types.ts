@@ -6267,6 +6267,17 @@ export type Database = {
         Args: { campaign_id_param: string }
         Returns: number
       }
+      record_cash_transaction_with_accounting: {
+        Args: {
+          drawer_id_param: string
+          transaction_type_param: string
+          amount_param: number
+          description_param: string
+          reference_type_param?: string
+          reference_id_param?: string
+        }
+        Returns: string
+      }
       set_current_version: {
         Args: { version_number_param: string }
         Returns: boolean
