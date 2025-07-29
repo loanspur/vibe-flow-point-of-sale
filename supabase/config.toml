@@ -1,5 +1,8 @@
 project_id = "qwtybhvdbbkbcelisuek"
 
+[functions.test-dns-propagation]
+verify_jwt = false
+
 [functions.validate-subdomains]
 verify_jwt = false
 
