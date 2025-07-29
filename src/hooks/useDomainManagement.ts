@@ -67,7 +67,7 @@ export const useDomainManagement = () => {
       return `https://${targetDomain.domain_name}`;
     }
     // Fallback to tenant ID based subdomain or default
-    return `https://tenant-${tenantId}.vibepos.app`;
+    return `https://tenant-${tenantId}.vibenet.shop`;
   };
 
   const isDomainAvailable = async (domainName: string): Promise<boolean> => {

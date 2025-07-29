@@ -37,7 +37,7 @@ export const WelcomeEmail = ({
     <Body style={main}>
       <Container style={container}>
         <Img
-          src="https://www.vibepos.shop/logo.png"
+          src="https://www.vibenet.shop/logo.png"
           width="120"
           height="40"
           alt="VibePOS"
@@ -105,7 +105,7 @@ export const WelcomeEmail = ({
         </Text>
         
         <Text style={footer}>
-          <Link href="https://www.vibepos.shop" style={link}>
+          <Link href="https://www.vibenet.shop" style={link}>
             VibePOS
           </Link>
           {' '}- Modern Point of Sale Solution

@@ -25,10 +25,10 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { name, email, subject, message }: ContactEmailRequest = await req.json();
 
-    console.log("Sending contact email from vibepos.shop domain:", { name, email, subject });
+    console.log("Sending contact email from vibenet.shop domain:", { name, email, subject });
 
     const emailResponse = await resend.emails.send({
-      from: "VibePOS Support <noreply@vibepos.shop>",
+      from: "VibePOS Support <noreply@vibenet.shop>",
       to: ["itsupport@loanspur.com"],
       replyTo: email,
       subject: `Support Request: ${subject}`,

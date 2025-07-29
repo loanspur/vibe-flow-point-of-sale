@@ -695,7 +695,7 @@ export default function TenantManagement() {
                         return subdomain ? (
                           <span className="text-sm text-muted-foreground">{subdomain}</span>
                         ) : tenant.subdomain ? (
-                          <span className="text-sm text-muted-foreground">{tenant.subdomain}.vibepos.shop</span>
+                          <span className="text-sm text-muted-foreground">{tenant.subdomain}.vibenet.shop</span>
                         ) : (
                           <span className="text-sm text-muted-foreground">-</span>
                         );

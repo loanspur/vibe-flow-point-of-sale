@@ -39,8 +39,8 @@ class DomainRouter {
       };
     }
 
-    // Check if it's the main vibepos.shop domain (landing page)
-    if (domain === 'vibepos.shop' || domain === 'www.vibepos.shop') {
+    // Check if it's the main vibenet.shop domain (landing page)
+    if (domain === 'vibenet.shop' || domain === 'www.vibenet.shop') {
       return {
         tenantId: null,
         domain,
@@ -50,7 +50,7 @@ class DomainRouter {
     }
 
     // Check if it's a subdomain of your main app
-    if (domain.endsWith('.vibepos.shop')) {
+    if (domain.endsWith('.vibenet.shop')) {
       const subdomain = domain.split('.')[0];
       return {
         tenantId: null, // Will be resolved later
@@ -78,8 +78,8 @@ class DomainRouter {
       return {
         tenantId: cached.tenantId,
         domain: currentDomain,
-        isCustomDomain: !currentDomain.endsWith('.vibepos.shop') && currentDomain !== 'vibepos.shop',
-        isSubdomain: currentDomain.endsWith('.vibepos.shop') && currentDomain !== 'vibepos.shop'
+        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop',
+        isSubdomain: currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop'
       };
     }
 
@@ -89,8 +89,8 @@ class DomainRouter {
     // If it's a development domain or main landing page, return as is
     if (currentDomain === 'localhost' || 
         currentDomain.endsWith('.lovableproject.com') ||
-        currentDomain === 'vibepos.shop' || 
-        currentDomain === 'www.vibepos.shop') {
+        currentDomain === 'vibenet.shop' || 
+        currentDomain === 'www.vibenet.shop') {
       return domainInfo;
     }
 
@@ -163,11 +163,11 @@ class DomainRouter {
     }
     
     if (subdomain) {
-      return `https://${subdomain}.vibepos.shop`;
+      return `https://${subdomain}.vibenet.shop`;
     }
 
     // Fallback to tenant ID based subdomain
-    return `https://tenant-${tenantId}.vibepos.shop`;
+    return `https://tenant-${tenantId}.vibenet.shop`;
   }
 
   generateSubdomainFromTenantName(tenantName: string): string {
@@ -228,13 +228,13 @@ export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
 };
 
 export const isCustomDomain = (domain: string = getCurrentDomain()) => {
-  return !domain.endsWith('.vibepos.shop') && 
-         domain !== 'vibepos.shop' &&
+  return !domain.endsWith('.vibenet.shop') && 
+         domain !== 'vibenet.shop' &&
          !isDevelopmentDomain(domain);
 };
 
 export const isSubdomain = (domain: string = getCurrentDomain()) => {
-  return domain.endsWith('.vibepos.shop') && domain !== 'vibepos.shop';
+  return domain.endsWith('.vibenet.shop') && domain !== 'vibenet.shop';
 };
 
 export const getSubdomainName = (domain: string = getCurrentDomain()) => {

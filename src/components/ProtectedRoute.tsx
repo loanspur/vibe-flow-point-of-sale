@@ -40,8 +40,8 @@ export default function ProtectedRoute({
       return <Navigate to="/superadmin" replace />;
     } else if (userRole === 'admin' || userRole === 'manager') {
       // Check if on subdomain, redirect to root for tenant-specific dashboard
-      const isOnSubdomain = window.location.hostname.includes('.vibepos.shop') && 
-                           window.location.hostname !== 'vibepos.shop';
+      const isOnSubdomain = window.location.hostname.includes('.vibenet.shop') && 
+                           window.location.hostname !== 'vibenet.shop';
       return <Navigate to={isOnSubdomain ? "/" : "/admin"} replace />;
     } else {
       return <Navigate to="/admin" replace />;

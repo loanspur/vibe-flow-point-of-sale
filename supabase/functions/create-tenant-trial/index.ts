@@ -145,7 +145,7 @@ serve(async (req) => {
     }
 
     // Use the generated subdomain name with domain suffix
-    const subdomain = subdomainName + '.vibepos.shop';
+    const subdomain = subdomainName + '.vibenet.shop';
 
     // Create domain entry
     const { error: domainError } = await supabase
