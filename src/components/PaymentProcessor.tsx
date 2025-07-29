@@ -10,6 +10,7 @@ import { Trash2, Plus, CreditCard, Banknote, Smartphone, Building2 } from "lucid
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCashDrawer } from "@/hooks/useCashDrawer";
 
 interface Payment {
   id: string;
@@ -37,6 +38,7 @@ interface PaymentProcessorProps {
 export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment, isProcessing = false }: PaymentProcessorProps) {
   const { formatAmount } = useCurrencySettings();
   const { tenantId } = useAuth();
+  const { currentDrawer } = useCashDrawer();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isLoadingMethods, setIsLoadingMethods] = useState(true);
@@ -106,6 +108,27 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
 
   const addPayment = () => {
     const selectedMethod = paymentMethods.find(m => m.type === newPayment.method);
+    
+    // Check if cash drawer is initialized and open for cash payments
+    if (newPayment.method === "cash") {
+      if (!currentDrawer) {
+        toast({
+          title: "Cash Drawer Not Initialized",
+          description: "Please initialize the cash drawer before accepting cash payments",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (currentDrawer.status !== "open") {
+        toast({
+          title: "Cash Drawer Closed",
+          description: "Please open the cash drawer before accepting cash payments",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     
     // For non-credit payments, validate amount is greater than 0
     if (newPayment.method !== "credit" && newPayment.amount <= 0) {
@@ -258,14 +281,24 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method.id} value={method.type}>
-                        <div className="flex items-center gap-2">
-                          {getPaymentIcon(method.type)}
-                          {method.name}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {paymentMethods.map((method) => {
+                      const isCashDisabled = method.type === 'cash' && (!currentDrawer || currentDrawer.status !== 'open');
+                      return (
+                        <SelectItem 
+                          key={method.id} 
+                          value={method.type}
+                          disabled={isCashDisabled}
+                        >
+                          <div className="flex items-center gap-2">
+                            {getPaymentIcon(method.type)}
+                            <span className={isCashDisabled ? "text-muted-foreground" : ""}>
+                              {method.name}
+                              {isCashDisabled && " (Drawer Closed)"}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 {isLoadingMethods && (
