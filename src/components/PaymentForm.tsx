@@ -125,7 +125,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
 
-  const handleAddPayment = () => {
+  const handleAddPayment = async () => {
     const selectedMethod = paymentMethods.find(m => m.type === newPayment.method);
     
     if (!newPayment.method || newPayment.amount <= 0) {
@@ -137,14 +137,59 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       return;
     }
 
-    // Check if reference is required
-    if (selectedMethod?.requires_reference && !newPayment.reference?.trim()) {
+    // Require reference number for all non-cash payments
+    if (selectedMethod?.type !== 'cash' && !newPayment.reference?.trim()) {
       toast({
         title: "Reference Required",
-        description: `${selectedMethod.name} payments require a reference number`,
+        description: `${selectedMethod?.name || 'Non-cash'} payments require a unique receipt number`,
         variant: "destructive",
       });
       return;
+    }
+
+    // Check for duplicate reference numbers if reference is provided
+    if (newPayment.reference?.trim()) {
+      const isDuplicate = payments.some(payment => 
+        payment.reference === newPayment.reference.trim()
+      );
+      
+      if (isDuplicate) {
+        toast({
+          title: "Duplicate Reference",
+          description: "This receipt number has already been used. Please enter a unique number.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check database for uniqueness across all payments
+      try {
+        const { data: existingPayments, error } = await supabase
+          .from('ar_ap_payments')
+          .select('reference_number')
+          .eq('tenant_id', tenantId)
+          .eq('reference_number', newPayment.reference.trim())
+          .limit(1);
+
+        if (error) throw error;
+
+        if (existingPayments && existingPayments.length > 0) {
+          toast({
+            title: "Reference Already Exists",
+            description: "This receipt number is already used in the system. Please enter a unique number.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking payment reference uniqueness:', error);
+        toast({
+          title: "Validation Error",
+          description: "Could not validate receipt number uniqueness. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (newPayment.amount > remainingAmount) {
@@ -325,14 +370,14 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="payment-reference">
-                  Reference Number {paymentMethods.find(m => m.type === newPayment.method)?.requires_reference && '*'}
+                  Receipt Number {paymentMethods.find(m => m.type === newPayment.method)?.type !== 'cash' && '*'}
                 </Label>
                 <Input
                   id="payment-reference"
                   value={newPayment.reference}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, reference: e.target.value }))}
-                  placeholder="Check #, Transaction ID, etc."
-                  required={paymentMethods.find(m => m.type === newPayment.method)?.requires_reference}
+                  placeholder="Unique receipt/transaction number"
+                  required={paymentMethods.find(m => m.type === newPayment.method)?.type !== 'cash'}
                 />
               </div>
               <div className="space-y-2">
