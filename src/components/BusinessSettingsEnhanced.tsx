@@ -1204,7 +1204,7 @@ export function BusinessSettingsEnhanced() {
                                          .filter(tz => !timezoneSearch || tz.label.toLowerCase().includes(timezoneSearch.toLowerCase()))
                                          .map(tz => (
                                            <SelectItem 
-                                             key={tz.value} 
+                                              key={`popular-${tz.value}`}
                                              value={tz.value}
                                              className="py-2 hover:bg-accent/50"
                                            >
@@ -1217,8 +1217,13 @@ export function BusinessSettingsEnhanced() {
                                        {/* All timezones by region */}
                                        {['Universal', 'North America', 'South America', 'Central America', 'Caribbean', 'Europe', 'Middle East', 'Asia', 'Africa', 'Oceania', 'Atlantic', 'Indian Ocean'].map(region => {
                                          const regionTimezones = timezones
-                                           .filter(tz => tz.region === region)
-                                           .filter(tz => !timezoneSearch || tz.label.toLowerCase().includes(timezoneSearch.toLowerCase()));
+                                            .filter(tz => tz.region === region)
+                                            .filter(tz => !timezoneSearch || tz.label.toLowerCase().includes(timezoneSearch.toLowerCase()))
+                                            .filter(tz => ![
+                                              'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
+                                              'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Europe/Berlin',
+                                              'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Mumbai', 'Australia/Sydney'
+                                            ].includes(tz.value));
                                          if (regionTimezones.length === 0) return null;
                                          
                                          return (
@@ -1228,7 +1233,7 @@ export function BusinessSettingsEnhanced() {
                                              </div>
                                              {regionTimezones.map(tz => (
                                                <SelectItem 
-                                                 key={tz.value} 
+                                                 key={`region-${tz.value}`} 
                                                  value={tz.value}
                                                  className="py-2 hover:bg-accent/50"
                                                >
