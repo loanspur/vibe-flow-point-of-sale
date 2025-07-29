@@ -42,7 +42,7 @@ const getTimeBasedGreeting = () => {
   return "Good evening";
 };
 
-export default function TenantAdminDashboard() {
+function TenantAdminDashboard() {
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -1657,3 +1657,5 @@ export default function TenantAdminDashboard() {
     </div>
   );
 }
+
+export default TenantAdminDashboard;
