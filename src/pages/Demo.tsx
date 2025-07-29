@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,24 +33,15 @@ import {
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { LazyImage } from "@/components/ui/image-lazy";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
 import posSystemHero from "@/assets/pos-system-hero.jpg";
 
 const Demo = () => {
   const [activeDemo, setActiveDemo] = useState("pos");
 
-  // Preload demo images when component mounts
-  useEffect(() => {
-    const preloadImages = () => {
-      const img1 = new Image();
-      const img2 = new Image();
-      img1.src = dashboardPreview;
-      img2.src = posSystemHero;
-    };
-    preloadImages();
-  }, []);
-
-  const demoFeatures = [
+  // Memoize demo features to prevent unnecessary re-renders
+  const demoFeatures = useMemo(() => [
     {
       id: "pos",
       title: "Point of Sale",
@@ -141,9 +132,10 @@ const Demo = () => {
         "Template library"
       ]
     }
-  ];
+  ], []);
 
-  const deviceTypes = [
+  // Memoize device types
+  const deviceTypes = useMemo(() => [
     {
       id: "desktop",
       name: "Desktop",
@@ -161,9 +153,10 @@ const Demo = () => {
       icon: Smartphone,
       description: "On-the-go management"
     }
-  ];
+  ], []);
 
-  const superadminFeatures = [
+  // Memoize superadmin features
+  const superadminFeatures = useMemo(() => [
     {
       icon: Database,
       title: "Multi-Tenant Management",
@@ -194,11 +187,39 @@ const Demo = () => {
       title: "Automation Rules",
       description: "Set up automated workflows and email sequences based on triggers."
     }
-  ];
+  ], []);
+
+  // Memoize testimonials
+  const testimonials = useMemo(() => [
+    {
+      name: "Sarah Mwangi",
+      business: "Mwangi Electronics",
+      rating: 5,
+      text: "VibePOS transformed our inventory management. We now track everything in real-time and our profits have increased by 30%."
+    },
+    {
+      name: "James Ochieng",
+      business: "Ochieng Pharmacy",
+      rating: 5,
+      text: "The multi-location support is incredible. I can manage all my branches from one dashboard. Highly recommended!"
+    },
+    {
+      name: "Grace Wanjiku",
+      business: "Wanjiku Fashion Store",
+      rating: 5,
+      text: "Customer management features helped us build a loyal customer base. The email campaigns work perfectly."
+    }
+  ], []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <Navigation />
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      }>
+        <Navigation />
+      </Suspense>
       
       {/* Hero Section */}
       <section className="relative pt-24 pb-20 overflow-hidden">
@@ -302,10 +323,11 @@ const Demo = () => {
                   </div>
                   
                   <div className="relative">
-                    <img 
+                    <LazyImage 
                       src={feature.id === "analytics" ? dashboardPreview : posSystemHero}
                       alt={`${feature.title} Demo`}
                       className="w-full h-auto rounded-2xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl" />
                     <div className="absolute bottom-4 left-4 right-4">
@@ -434,26 +456,7 @@ const Demo = () => {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Sarah Mwangi",
-                business: "Mwangi Electronics",
-                rating: 5,
-                text: "VibePOS transformed our inventory management. We now track everything in real-time and our profits have increased by 30%."
-              },
-              {
-                name: "James Ochieng",
-                business: "Ochieng Pharmacy",
-                rating: 5,
-                text: "The multi-location support is incredible. I can manage all my branches from one dashboard. Highly recommended!"
-              },
-              {
-                name: "Grace Wanjiku",
-                business: "Wanjiku Fashion Store",
-                rating: 5,
-                text: "Customer management features helped us build a loyal customer base. The email campaigns work perfectly."
-              }
-            ].map((testimonial, index) => (
+            {testimonials.map((testimonial, index) => (
               <Card key={index} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-center space-x-3">
@@ -504,8 +507,14 @@ const Demo = () => {
           </div>
         </div>
       </section>
-
-      <Footer />
+      
+      <Suspense fallback={
+        <div className="py-20 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      }>
+        <Footer />
+      </Suspense>
     </div>
   );
 };
