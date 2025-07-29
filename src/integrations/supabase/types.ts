@@ -313,6 +313,63 @@ export type Database = {
           },
         ]
       }
+      application_versions: {
+        Row: {
+          breaking_changes: Json | null
+          bugs_fixed: Json | null
+          build_number: number | null
+          changelog: Json | null
+          created_at: string
+          created_by: string | null
+          features_added: Json | null
+          git_commit_hash: string | null
+          id: string
+          is_current: boolean
+          is_stable: boolean
+          release_date: string
+          release_notes: string | null
+          updated_at: string
+          version_name: string | null
+          version_number: string
+        }
+        Insert: {
+          breaking_changes?: Json | null
+          bugs_fixed?: Json | null
+          build_number?: number | null
+          changelog?: Json | null
+          created_at?: string
+          created_by?: string | null
+          features_added?: Json | null
+          git_commit_hash?: string | null
+          id?: string
+          is_current?: boolean
+          is_stable?: boolean
+          release_date?: string
+          release_notes?: string | null
+          updated_at?: string
+          version_name?: string | null
+          version_number: string
+        }
+        Update: {
+          breaking_changes?: Json | null
+          bugs_fixed?: Json | null
+          build_number?: number | null
+          changelog?: Json | null
+          created_at?: string
+          created_by?: string | null
+          features_added?: Json | null
+          git_commit_hash?: string | null
+          id?: string
+          is_current?: boolean
+          is_stable?: boolean
+          release_date?: string
+          release_notes?: string | null
+          updated_at?: string
+          version_name?: string | null
+          version_number?: string
+        }
+        Relationships: []
+      }
       ar_ap_payments: {
         Row: {
           amount: number
@@ -4109,6 +4166,56 @@ export type Database = {
         }
         Relationships: []
       }
+      system_health_logs: {
+        Row: {
+          check_date: string
+          created_at: string
+          error_count: number | null
+          health_score: number | null
+          id: string
+          metrics: Json | null
+          performance_score: number | null
+          tenant_id: string | null
+          uptime_percentage: number | null
+          user_satisfaction: number | null
+          version_id: string | null
+        }
+        Insert: {
+          check_date?: string
+          created_at?: string
+          error_count?: number | null
+          health_score?: number | null
+          id?: string
+          metrics?: Json | null
+          performance_score?: number | null
+          tenant_id?: string | null
+          uptime_percentage?: number | null
+          user_satisfaction?: number | null
+          version_id?: string | null
+        }
+        Update: {
+          check_date?: string
+          created_at?: string
+          error_count?: number | null
+          health_score?: number | null
+          id?: string
+          metrics?: Json | null
+          performance_score?: number | null
+          tenant_id?: string | null
+          uptime_percentage?: number | null
+          user_satisfaction?: number | null
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_health_logs_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "application_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_notes: {
         Row: {
           created_at: string | null
@@ -4854,6 +4961,63 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_version_tracking: {
+        Row: {
+          created_at: string
+          deployed_at: string
+          deployment_method: string | null
+          deployment_status: string
+          id: string
+          performance_metrics: Json | null
+          rollback_reason: string | null
+          rollback_version_id: string | null
+          tenant_id: string
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          created_at?: string
+          deployed_at?: string
+          deployment_method?: string | null
+          deployment_status?: string
+          id?: string
+          performance_metrics?: Json | null
+          rollback_reason?: string | null
+          rollback_version_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          created_at?: string
+          deployed_at?: string
+          deployment_method?: string | null
+          deployment_status?: string
+          id?: string
+          performance_metrics?: Json | null
+          rollback_reason?: string | null
+          rollback_version_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_version_tracking_rollback_version_id_fkey"
+            columns: ["rollback_version_id"]
+            isOneToOne: false
+            referencedRelation: "application_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_version_tracking_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "application_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -5704,6 +5868,16 @@ export type Database = {
           created_at: string
         }[]
       }
+      get_current_application_version: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          version_number: string
+          version_name: string
+          release_date: string
+          build_number: number
+          is_stable: boolean
+        }[]
+      }
       get_current_legal_document: {
         Args: { document_type_param: string; tenant_id_param?: string }
         Returns: {
@@ -5824,6 +5998,10 @@ export type Database = {
         Args: { campaign_id_param: string }
         Returns: number
       }
+      set_current_version: {
+        Args: { version_number_param: string }
+        Returns: boolean
+      }
       setup_default_accounts: {
         Args: { tenant_id_param: string }
         Returns: undefined
@@ -5853,6 +6031,14 @@ export type Database = {
       setup_tenant_default_features: {
         Args: { tenant_id_param: string }
         Returns: undefined
+      }
+      track_tenant_deployment: {
+        Args: {
+          tenant_id_param: string
+          version_number_param: string
+          deployment_method_param?: string
+        }
+        Returns: string
       }
       update_account_balances_from_entries: {
         Args: Record<PropertyKey, never>
