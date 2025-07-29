@@ -644,10 +644,10 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                           <p className="font-medium text-sm">{product.name || 'Unnamed Product'}</p>
                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
                              <span>{formatAmount(product.price || 0)}</span>
-                            {product.sku && <span>SKU: {product.sku}</span>}
-                            <Badge variant="outline" className="text-xs">
-                              Stock: {product.stock_quantity || 0}
-                            </Badge>
+                             {product.sku && <span>SKU: {product.sku}</span>}
+                             <Badge variant="outline" className="text-xs">
+                               Current Stock: {product.stock_quantity || 0}
+                             </Badge>
                           </div>
                         </div>
                       </div>
@@ -686,7 +686,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                        <div className="flex items-center gap-2">
                          <p className="text-sm text-muted-foreground">{formatAmount(product.price)}</p>
                          <Badge variant="outline" className="text-xs">
-                           Stock: {product.stock_quantity || 0}
+                           Current Stock: {product.stock_quantity || 0}
                          </Badge>
                        </div>
                      </div>
@@ -705,16 +705,23 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no-variant">No variant</SelectItem>
-                   {selectedProductData.product_variants.map((variant: any) => (
-                     <SelectItem key={variant.id} value={variant.id}>
-                       {variant.name}: {variant.value} 
-                       {variant.sale_price && (
-                          <span className="text-muted-foreground">
-                            ({formatAmount(variant.sale_price)})
-                         </span>
-                       )}
-                     </SelectItem>
-                   ))}
+                    {selectedProductData.product_variants.map((variant: any) => (
+                      <SelectItem key={variant.id} value={variant.id}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>
+                            {variant.name}: {variant.value} 
+                            {variant.sale_price && (
+                               <span className="text-muted-foreground">
+                                 ({formatAmount(variant.sale_price)})
+                              </span>
+                            )}
+                          </span>
+                          <Badge variant="outline" className="text-xs ml-2">
+                            Current Stock: {variant.stock_quantity || 0}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
