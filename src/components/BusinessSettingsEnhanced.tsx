@@ -745,7 +745,7 @@ export function BusinessSettingsEnhanced() {
         {/* Enhanced Navigation with Modern Glass Effect */}
         <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4 h-auto bg-transparent gap-2 p-0">
+            <TabsList className="grid w-full grid-cols-5 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
                 value="company" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -775,6 +775,13 @@ export function BusinessSettingsEnhanced() {
               >
                 <MapPin className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Locations</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="migration" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Database className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Migration</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -1372,6 +1379,26 @@ export function BusinessSettingsEnhanced() {
                         ))}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Data Migration Tab */}
+              <TabsContent value="migration" className="space-y-8 mt-0">
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <Database className="h-6 w-6 text-primary" />
+                      </div>
+                      Data Migration
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Import and export your business data including contacts, products, and categories
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DataMigration />
                   </CardContent>
                 </Card>
               </TabsContent>
