@@ -43,7 +43,7 @@ import {
   MessageCircle,
   Smartphone,
   FileText,
-  Image,
+  Image as ImageIcon,
   Palette,
   Search,
   MapIcon,
@@ -422,7 +422,10 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
-  const handleLogoUpload = async (file: File) => {
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `logo-${Date.now()}.${fileExt}`;
@@ -1590,7 +1593,7 @@ export function BusinessSettingsEnhanced() {
                         <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50">
                           <CardHeader className="pb-4">
                             <CardTitle className="flex items-center gap-2 text-xl">
-                              <Image className="h-5 w-5 text-primary" />
+                              <ImageIcon className="h-5 w-5 text-primary" />
                               Company Logo
                             </CardTitle>
                           </CardHeader>
@@ -1617,7 +1620,7 @@ export function BusinessSettingsEnhanced() {
                                 </div>
                               ) : (
                                 <div className="w-32 h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center">
-                                  <Image className="h-8 w-8 text-muted-foreground/50" />
+                                  <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                                 </div>
                               )}
                               <div className="space-y-2">
@@ -1634,12 +1637,7 @@ export function BusinessSettingsEnhanced() {
                                   type="file"
                                   accept="image/*"
                                   className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      handleLogoUpload(file);
-                                    }
-                                  }}
+                                  onChange={handleLogoUpload}
                                 />
                                 <p className="text-xs text-muted-foreground text-center">
                                   Recommended: 200x200px, PNG or JPG
