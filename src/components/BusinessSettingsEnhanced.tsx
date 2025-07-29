@@ -75,6 +75,7 @@ import { RestrictedSetting } from "@/components/FeatureRestriction";
 import DomainManagement from '@/components/DomainManagement';
 import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { PaymentManagement } from '@/components/PaymentManagement';
+import { MpesaIntegration } from '@/components/MpesaIntegration';
 
 const businessSettingsSchema = z.object({
   // Basic company information
@@ -1449,6 +1450,68 @@ export function BusinessSettingsEnhanced() {
                 </div>
                 
                 {/* Notifications Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Payments Tab */}
+              <TabsContent value="payments" className="space-y-8 mt-0">
+                <div className="space-y-8">
+                  {/* Payment Management Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <CreditCard className="h-6 w-6 text-primary" />
+                        </div>
+                        Payment Methods
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure payment methods and gateway integrations
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <PaymentManagement />
+                    </CardContent>
+                  </Card>
+
+                  <Separator />
+
+                  {/* Mpesa Integration Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20">
+                          <Smartphone className="h-6 w-6 text-green-600" />
+                        </div>
+                        M-Pesa Integration
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure M-Pesa C2B payment integration for Kenyan customers
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <MpesaIntegration />
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Payments Tab Actions */}
                 <div className="flex justify-end gap-3 pt-6">
                   <Button 
                     variant="outline" 

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar, CheckCircle, Truck } from "lucide-react";
+import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar, CheckCircle, Truck, Smartphone } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import QuickCreateCustomerDialog from './QuickCreateCustomerDialog';
 import { CashChangeModal } from './CashChangeModal';
@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PaymentProcessor } from "./PaymentProcessor";
+import { MpesaPaymentModal } from "./MpesaPaymentModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [mode, setMode] = useState<"sale" | "quote">("sale");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showCashChangeModal, setShowCashChangeModal] = useState(false);
+  const [showMpesaModal, setShowMpesaModal] = useState(false);
+  const [mpesaEnabled, setMpesaEnabled] = useState(false);
   const [cashAmountPaid, setCashAmountPaid] = useState(0);
 
   const form = useForm<z.infer<typeof saleSchema>>({
@@ -92,11 +95,13 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       fetchProducts();
       fetchCustomers();
       fetchActualInventory();
+      checkMpesaConfig();
     } else {
       setProducts([]);
       setFilteredProducts([]);
       setCustomers([]);
       setActualInventory({});
+      setMpesaEnabled(false);
     }
   }, [tenantId]);
 
@@ -267,6 +272,24 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     }
   };
 
+  const checkMpesaConfig = async () => {
+    if (!tenantId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('mpesa_configurations' as any)
+        .select('is_enabled')
+        .eq('tenant_id', tenantId)
+        .eq('is_enabled', true)
+        .maybeSingle();
+
+      setMpesaEnabled(!!(data as any)?.is_enabled);
+    } catch (error) {
+      console.error('Error checking Mpesa config:', error);
+      setMpesaEnabled(false);
+    }
+  };
+
   const getActualStock = (productId: string, variantId?: string) => {
     const productInventory = actualInventory[productId];
     if (!productInventory) {
@@ -401,6 +424,45 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setPayments([cashPayment]);
     setRemainingBalance(0); // This will be 0 since we're paying the exact amount
     setShowCashChangeModal(false);
+  };
+
+  const handleMpesaPayment = () => {
+    if (calculateTotal() <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please add items to the sale before processing payment",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowMpesaModal(true);
+  };
+
+  const handleMpesaSuccess = (transactionId: string) => {
+    const totalAmount = calculateTotal();
+    const mpesaPayment = {
+      id: transactionId,
+      method: 'mpesa',
+      amount: totalAmount,
+      reference: `M-Pesa Payment - Transaction: ${transactionId}`
+    };
+    
+    setPayments([mpesaPayment]);
+    setRemainingBalance(0);
+    setShowMpesaModal(false);
+    
+    toast({
+      title: "Payment Successful",
+      description: "M-Pesa payment completed successfully",
+    });
+  };
+
+  const handleMpesaError = (error: string) => {
+    toast({
+      title: "Payment Failed",
+      description: error,
+      variant: "destructive",
+    });
   };
 
   const saveAsQuote = async (values: z.infer<typeof saleSchema>) => {
@@ -1048,11 +1110,28 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                           <CreditCard className="h-4 w-4" />
                           Payment
                         </h4>
-                        <PaymentProcessor
-                          totalAmount={calculateTotal()}
-                          onPaymentsChange={handlePaymentsChange}
-                          onCashPayment={handleCashPayment}
-                        />
+                         <PaymentProcessor
+                           totalAmount={calculateTotal()}
+                           onPaymentsChange={handlePaymentsChange}
+                           onCashPayment={handleCashPayment}
+                         />
+                         
+                         {mpesaEnabled && (
+                           <div className="mt-4">
+                             <Separator />
+                             <div className="pt-4">
+                               <Button
+                                 type="button"
+                                 onClick={handleMpesaPayment}
+                                 className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                 disabled={calculateTotal() <= 0}
+                               >
+                                 <Smartphone className="h-4 w-4 mr-2" />
+                                 Pay with M-Pesa
+                               </Button>
+                             </div>
+                           </div>
+                         )}
                       </div>
                     </div>
                   )}
@@ -1099,6 +1178,16 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         amountPaid={cashAmountPaid}
         totalAmount={calculateTotal()}
         formatAmount={formatAmount}
+      />
+
+      <MpesaPaymentModal
+        isOpen={showMpesaModal}
+        onClose={() => setShowMpesaModal(false)}
+        amount={calculateTotal()}
+        reference={`SALE-${Date.now()}`}
+        description="Sale Payment"
+        onSuccess={handleMpesaSuccess}
+        onError={handleMpesaError}
       />
     </div>
   );

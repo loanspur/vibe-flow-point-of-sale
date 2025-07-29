@@ -2277,6 +2277,123 @@ export type Database = {
         }
         Relationships: []
       }
+      mpesa_configurations: {
+        Row: {
+          api_user: string
+          callback_url: string
+          confirmation_url: string
+          consumer_key: string
+          consumer_secret: string
+          created_at: string | null
+          environment: string
+          id: string
+          is_enabled: boolean | null
+          is_verified: boolean | null
+          last_tested_at: string | null
+          passkey: string
+          shortcode: string
+          tenant_id: string
+          updated_at: string | null
+          validation_url: string | null
+        }
+        Insert: {
+          api_user: string
+          callback_url: string
+          confirmation_url: string
+          consumer_key: string
+          consumer_secret: string
+          created_at?: string | null
+          environment?: string
+          id?: string
+          is_enabled?: boolean | null
+          is_verified?: boolean | null
+          last_tested_at?: string | null
+          passkey: string
+          shortcode: string
+          tenant_id: string
+          updated_at?: string | null
+          validation_url?: string | null
+        }
+        Update: {
+          api_user?: string
+          callback_url?: string
+          confirmation_url?: string
+          consumer_key?: string
+          consumer_secret?: string
+          created_at?: string | null
+          environment?: string
+          id?: string
+          is_enabled?: boolean | null
+          is_verified?: boolean | null
+          last_tested_at?: string | null
+          passkey?: string
+          shortcode?: string
+          tenant_id?: string
+          updated_at?: string | null
+          validation_url?: string | null
+        }
+        Relationships: []
+      }
+      mpesa_transactions: {
+        Row: {
+          amount: number
+          callback_received_at: string | null
+          checkout_request_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          merchant_request_id: string | null
+          mpesa_receipt_number: string | null
+          phone_number: string
+          reference: string
+          result_code: number | null
+          result_description: string | null
+          sale_id: string | null
+          status: string
+          tenant_id: string
+          transaction_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          callback_received_at?: string | null
+          checkout_request_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          merchant_request_id?: string | null
+          mpesa_receipt_number?: string | null
+          phone_number: string
+          reference: string
+          result_code?: number | null
+          result_description?: string | null
+          sale_id?: string | null
+          status?: string
+          tenant_id: string
+          transaction_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          callback_received_at?: string | null
+          checkout_request_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          merchant_request_id?: string | null
+          mpesa_receipt_number?: string | null
+          phone_number?: string
+          reference?: string
+          result_code?: number | null
+          result_description?: string | null
+          sale_id?: string | null
+          status?: string
+          tenant_id?: string
+          transaction_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           created_at: string

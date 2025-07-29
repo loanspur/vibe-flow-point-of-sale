@@ -101,29 +101,30 @@ export function MpesaIntegration() {
     
     setIsLoading(true);
     try {
+      // Use direct query without typed client to avoid type issues
       const { data, error } = await supabase
-        .from('mpesa_configurations')
+        .from('mpesa_configurations' as any)
         .select('*')
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
 
       if (data) {
-        setMpesaConfig(data);
+        setMpesaConfig(data as unknown as MpesaConfig);
         form.reset({
-          is_enabled: data.is_enabled,
-          environment: data.environment,
-          consumer_key: data.consumer_key,
-          consumer_secret: data.consumer_secret,
-          passkey: data.passkey,
-          shortcode: data.shortcode,
-          api_user: data.api_user,
-          callback_url: data.callback_url,
-          confirmation_url: data.confirmation_url,
-          validation_url: data.validation_url || "",
+          is_enabled: (data as any).is_enabled,
+          environment: (data as any).environment,
+          consumer_key: (data as any).consumer_key,
+          consumer_secret: (data as any).consumer_secret,
+          passkey: (data as any).passkey,
+          shortcode: (data as any).shortcode,
+          api_user: (data as any).api_user,
+          callback_url: (data as any).callback_url,
+          confirmation_url: (data as any).confirmation_url,
+          validation_url: (data as any).validation_url || "",
         });
       } else {
         // Set default URLs for new configuration
@@ -187,11 +188,11 @@ export function MpesaIntegration() {
         // Update last tested timestamp
         if (mpesaConfig?.id) {
           await supabase
-            .from('mpesa_configurations')
+            .from('mpesa_configurations' as any)
             .update({ 
               last_tested_at: new Date().toISOString(),
               is_verified: true 
-            })
+            } as any)
             .eq('id', mpesaConfig.id);
         }
       } else {
@@ -222,23 +223,23 @@ export function MpesaIntegration() {
 
       if (mpesaConfig?.id) {
         const { error } = await supabase
-          .from('mpesa_configurations')
-          .update(configData)
+          .from('mpesa_configurations' as any)
+          .update(configData as any)
           .eq('id', mpesaConfig.id);
         
         if (error) throw error;
       } else {
         const { data, error } = await supabase
-          .from('mpesa_configurations')
+          .from('mpesa_configurations' as any)
           .insert({
             ...configData,
             created_at: new Date().toISOString(),
-          })
+          } as any)
           .select()
           .single();
         
         if (error) throw error;
-        setMpesaConfig(data);
+        setMpesaConfig(data as unknown as MpesaConfig);
       }
 
       toast({
