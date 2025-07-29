@@ -30,7 +30,6 @@ import { useCurrencySettings } from "@/lib/currency";
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
-  sale_type: z.enum(["in_store", "online"]),
   discount_amount: z.number().min(0).default(0),
   tax_amount: z.number().min(0).default(0),
   shipping_amount: z.number().min(0).default(0),
@@ -76,14 +75,13 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const form = useForm<z.infer<typeof saleSchema>>({
     resolver: zodResolver(saleSchema),
     defaultValues: {
-      sale_type: "in_store",
       discount_amount: 0,
       tax_amount: 0,
       shipping_amount: 0,
     },
   });
 
-  const saleType = form.watch("sale_type");
+  
 
   useEffect(() => {
     if (tenantId) {
@@ -546,7 +544,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           tax_amount: values.tax_amount,
           shipping_amount: values.shipping_amount,
           status: hasCreditPayment ? "pending" : "completed",
-          sale_type: values.sale_type,
         })
         .select()
         .single();
@@ -824,28 +821,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                 <CardContent className="space-y-4">
                   {/* Two column layout for form fields */}
                   <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="sale_type"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sale Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="in_store">In Store</SelectItem>
-                              <SelectItem value="online">Online</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
                     <FormField
                       control={form.control}
                       name="customer_id"
