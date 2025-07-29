@@ -269,7 +269,7 @@ export function BusinessSettingsEnhanced() {
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
   const [templateEditType, setTemplateEditType] = useState<"invoice" | "receipt" | "quote">("invoice");
   const { toast } = useToast();
-  const { formatCurrency } = useApp();
+  const { formatCurrency, refreshBusinessSettings } = useApp();
   const { formatPrice } = useCurrencyUpdate();
   const { hasFeature, isSettingRestricted, getFeatureUpgradeMessage } = useFeatureAccess();
 
@@ -528,6 +528,11 @@ export function BusinessSettingsEnhanced() {
 
       // Clear currency cache to refresh with new settings
       clearCurrencyCache();
+      
+      // Trigger app-wide currency update
+      if (refreshBusinessSettings) {
+        await refreshBusinessSettings();
+      }
 
       toast({
         title: "Settings saved",
