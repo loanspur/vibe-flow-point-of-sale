@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar, CheckCircle } from "lucide-react";
+import { Trash2, Plus, ShoppingCart, User, CreditCard, Banknote, Search, Package, FileText, Calendar, CheckCircle, Truck } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import QuickCreateCustomerDialog from './QuickCreateCustomerDialog';
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ const saleSchema = z.object({
   sale_type: z.enum(["in_store", "online"]),
   discount_amount: z.number().min(0).default(0),
   tax_amount: z.number().min(0).default(0),
+  shipping_amount: z.number().min(0).default(0),
   notes: z.string().optional(),
   valid_until: z.date().optional(),
 });
@@ -76,6 +77,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       sale_type: "in_store",
       discount_amount: 0,
       tax_amount: 0,
+      shipping_amount: 0,
     },
   });
 
@@ -87,7 +89,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       fetchCustomers();
       fetchActualInventory();
     } else {
-      // Clear products and customers when no tenant
       setProducts([]);
       setFilteredProducts([]);
       setCustomers([]);
@@ -96,7 +97,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   }, [tenantId]);
 
   useEffect(() => {
-    // Debounce the search to prevent excessive filtering
     const timeoutId = setTimeout(() => {
       try {
         if (!searchTerm.trim()) {
@@ -136,7 +136,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setIsLoadingProducts(true);
     
     try {
-      // Fetch products with a simpler, more efficient query
       const { data: products, error } = await supabase
         .from('products')
         .select(`
@@ -180,7 +179,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     } catch (error) {
       console.error('Error fetching products:', error);
       
-      // More specific error handling
       let errorMessage = "Failed to fetch products. Please try again.";
       if (error?.message?.includes('JWT')) {
         errorMessage = "Session expired. Please refresh the page and try again.";
@@ -194,7 +192,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         variant: "destructive",
       });
       
-      // Set empty arrays to prevent further errors
       setProducts([]);
       setFilteredProducts([]);
     } finally {
@@ -240,7 +237,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     try {
       const inventoryData = await getInventoryLevels(tenantId);
       
-      // Transform the inventory data into a lookup object
       const inventoryLookup: Record<string, { stock: number; variants: Record<string, number> }> = {};
       
       inventoryData.forEach((product) => {
@@ -249,11 +245,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           variants: {}
         };
         
-        // Process variants if they exist
         if (product.product_variants) {
           product.product_variants.forEach((variant: any) => {
-            // For variants, we need to calculate their stock separately
-            // For now, use the variant's database stock as we don't have variant-level transaction tracking
             inventoryLookup[product.id].variants[variant.id] = variant.stock_quantity || 0;
           });
         }
@@ -270,11 +263,9 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     }
   };
 
-  // Helper function to get actual stock for display
   const getActualStock = (productId: string, variantId?: string) => {
     const productInventory = actualInventory[productId];
     if (!productInventory) {
-      // Fallback to database values if inventory data not available
       const product = products.find(p => p.id === productId);
       if (variantId && product?.product_variants) {
         const variant = product.product_variants.find((v: any) => v.id === variantId);
@@ -321,6 +312,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setSelectedProduct("");
     setSelectedVariant("");
     setSearchTerm("");
+    setQuantity(1);
   };
 
   const removeItem = (index: number) => {
@@ -350,7 +342,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     const subtotal = calculateSubtotal();
     const discount = form.getValues("discount_amount");
     const tax = form.getValues("tax_amount");
-    return subtotal - discount + tax;
+    const shipping = form.getValues("shipping_amount");
+    return subtotal - discount + tax + shipping;
   };
 
   const generateReceiptNumber = () => {
@@ -388,7 +381,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       const quoteNumber = generateQuoteNumber();
       const totalAmount = calculateTotal();
 
-      // Create the quote
       const { data: quote, error: quoteError } = await supabase
         .from("quotes")
         .insert({
@@ -399,6 +391,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
           tax_amount: values.tax_amount,
+          shipping_amount: values.shipping_amount,
           status: "draft",
           valid_until: values.valid_until?.toISOString(),
           notes: values.notes,
@@ -408,7 +401,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
       if (quoteError) throw quoteError;
 
-      // Create quote items
       const quoteItemsData = saleItems.map(item => ({
         quote_id: quote.id,
         product_id: item.product_id,
@@ -429,7 +421,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         description: `Quote #${quoteNumber} created successfully`,
       });
 
-      // Reset form
       form.reset();
       setSaleItems([]);
       setSearchTerm("");
@@ -462,10 +453,8 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       return;
     }
 
-    // Check if this is a credit sale (has credit payment method)
     const hasCreditPayment = payments.some(p => p.method === 'credit');
     
-    // For credit sales, require a customer to be selected
     if (hasCreditPayment && (!values.customer_id || values.customer_id === "walk-in")) {
       toast({
         title: "Customer Required",
@@ -484,7 +473,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       return;
     }
 
-    // Show confirmation before completing sale
     setShowConfirmation(true);
   };
 
@@ -496,18 +484,15 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setShowConfirmation(false);
 
     try {
-      // Get current user profile to get cashier_id and tenant_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Get user's tenant ID
       const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
       if (!tenantData) throw new Error("User not assigned to a tenant");
 
       const receiptNumber = generateReceiptNumber();
       const totalAmount = calculateTotal();
 
-      // Create the sale
       const { data: sale, error: saleError } = await supabase
         .from("sales")
         .insert({
@@ -518,6 +503,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
           tax_amount: values.tax_amount,
+          shipping_amount: values.shipping_amount,
           status: "completed",
           tenant_id: tenantData,
         })
@@ -526,7 +512,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
       if (saleError) throw saleError;
 
-      // Create sale items
       const saleItemsData = saleItems.map(item => ({
         sale_id: sale.id,
         product_id: item.product_id,
@@ -542,7 +527,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
       if (itemsError) throw itemsError;
 
-      // Create payment records
       const paymentData = payments.map(payment => ({
         sale_id: sale.id,
         payment_method: payment.method,
@@ -559,7 +543,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         if (paymentsError) throw paymentsError;
       }
 
-      // Process inventory updates using the integration
       const inventoryItems = saleItems.map(item => ({
         productId: item.product_id,
         variantId: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : undefined,
@@ -579,7 +562,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         }
       }
 
-      // Prepare COGS data for accounting
       const itemsWithCost = saleItems.map(item => {
         const product = products.find(p => p.id === item.product_id);
         return {
@@ -589,7 +571,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         };
       });
 
-      // Create accounting journal entry with enhanced payment method handling
       try {
         await createEnhancedSalesJournalEntry(tenantData, {
           saleId: sale.id,
@@ -597,13 +578,13 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           totalAmount: totalAmount,
           discountAmount: values.discount_amount,
           taxAmount: values.tax_amount,
-          payments: payments, // Pass the payments array instead of single payment method
+          shippingAmount: values.shipping_amount,
+          payments: payments,
           cashierId: user.id,
           items: itemsWithCost
         });
       } catch (accountingError) {
         console.error('Accounting entry error:', accountingError);
-        // Don't fail the sale if accounting fails
         toast({
           title: "Warning",
           description: "Sale completed but accounting entry failed",
@@ -616,7 +597,6 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         description: `Receipt #${receiptNumber} - Total: ${formatAmount(totalAmount)}`,
       });
 
-      // Reset form
       form.reset();
       setSaleItems([]);
       setPayments([]);
@@ -641,249 +621,301 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const selectedProductData = products.find(p => p.id === selectedProduct);
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
-      {/* Product Selection */}
+    <div className="space-y-6">
+      {/* Mode Selection - Full Width */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" />
-            Add Items
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search products by name, SKU, or barcode..."
-              value={searchTerm}
-              onChange={(e) => {
-                try {
-                  setSearchTerm(e.target.value);
-                } catch (error) {
-                  console.error('Error updating search term:', error);
-                }
-              }}
-              className="pl-10"
-              disabled={isLoadingProducts}
-            />
+        <CardContent className="p-4">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={mode === "sale" ? "default" : "outline"}
+              onClick={() => setMode("sale")}
+              className="flex-1"
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Sale
+            </Button>
+            <Button
+              type="button"
+              variant={mode === "quote" ? "default" : "outline"}
+              onClick={() => setMode("quote")}
+              className="flex-1"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Quote
+            </Button>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Product Grid */}
-          {searchTerm && (
-            <div className="border rounded-lg bg-background">
-              <ScrollArea className="h-64">
-                <div className="p-2 space-y-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left side - Product Selection (2/3 width) */}
+        <div className="lg:col-span-2">
+          <Card className="h-fit">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Product Selection
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search Products */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search products by name, SKU, or barcode..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Product Addition Form */}
+              {selectedProduct && (
+                <Card className="border-dashed border-primary bg-primary/5">
+                  <CardContent className="p-4">
+                    <h4 className="font-medium mb-3">Add to Sale</h4>
+                    <div className="space-y-3">
+                      {(() => {
+                        const product = products.find(p => p.id === selectedProduct);
+                        return (
+                          <>
+                            <p className="text-sm text-muted-foreground">{product?.name}</p>
+                            
+                            {/* Variant Selection */}
+                            {product?.product_variants && product.product_variants.length > 0 && (
+                              <div>
+                                <label className="text-sm font-medium">Variant</label>
+                                <Select 
+                                  value={selectedVariant} 
+                                  onValueChange={setSelectedVariant}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select variant" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="no-variant">No Variant</SelectItem>
+                                    {product.product_variants.map((variant: any) => {
+                                      const variantStock = getActualStock(product.id, variant.id);
+                                      return (
+                                        <SelectItem 
+                                          key={variant.id} 
+                                          value={variant.id}
+                                          disabled={variantStock <= 0}
+                                        >
+                                          {variant.name}: {variant.value} - {formatAmount(variant.sale_price || product.price)} (Stock: {variantStock})
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {/* Quantity */}
+                            <div>
+                              <label className="text-sm font-medium">Quantity</label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={quantity}
+                                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                              />
+                            </div>
+
+                            <Button 
+                              type="button" 
+                              onClick={addItemToSale}
+                              className="w-full"
+                              disabled={!selectedProduct || quantity <= 0}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Item
+                            </Button>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Product Grid */}
+              <ScrollArea className="h-80">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {isLoadingProducts ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      Loading products...
+                    <div className="col-span-full text-center py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                     </div>
                   ) : filteredProducts.length > 0 ? (
-                    filteredProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors ${
-                          selectedProduct === product.id ? 'bg-accent border-primary' : ''
-                        }`}
-                        onClick={() => handleProductSelect(product.id)}
-                      >
-                        <div className="w-12 h-12 rounded bg-muted flex items-center justify-center overflow-hidden">
-                          {product.image_url ? (
-                            <img 
-                              src={product.image_url} 
-                              alt={product.name || 'Product'}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <Package className="h-6 w-6 text-muted-foreground" />
+                    filteredProducts.map((product) => {
+                      const actualStock = getActualStock(product.id);
+                      const isLowStock = actualStock <= (product.min_stock_level || 0);
+                      const isOutOfStock = actualStock <= 0;
+
+                      return (
+                        <Card 
+                          key={product.id} 
+                          className={cn(
+                            "cursor-pointer transition-colors border hover:border-primary",
+                            selectedProduct === product.id && "border-primary bg-muted/50"
                           )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{product.name || 'Unnamed Product'}</p>
-                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                             <span>{formatAmount(product.price || 0)}</span>
-                             {product.sku && <span>SKU: {product.sku}</span>}
-                             <Badge variant="outline" className="text-xs">
-                               Current Stock: {getActualStock(product.id)}
-                             </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    ))
+                          onClick={() => handleProductSelect(product.id)}
+                        >
+                          <CardContent className="p-3">
+                            {product.image_url ? (
+                              <img 
+                                src={product.image_url} 
+                                alt={product.name}
+                                className="w-full h-20 object-cover rounded mb-2"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-20 bg-muted rounded flex items-center justify-center mb-2">
+                                <Package className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            <h4 className="font-medium text-sm truncate">{product.name}</h4>
+                            <p className="text-xs text-muted-foreground mb-1">SKU: {product.sku}</p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-lg font-bold text-primary">{formatAmount(product.price)}</span>
+                              <Badge 
+                                variant={isOutOfStock ? "destructive" : isLowStock ? "secondary" : "default"}
+                                className="text-xs"
+                              >
+                                {actualStock}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })
                   ) : (
-                    <div className="text-center py-4 text-muted-foreground">
-                      No products found matching "{searchTerm}"
+                    <div className="col-span-full text-center py-8 text-muted-foreground">
+                      {searchTerm ? "No products found matching your search" : "No products available"}
                     </div>
                   )}
                 </div>
               </ScrollArea>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        </div>
 
-          {/* Selected Product Details */}
-          {selectedProduct && (
-            <div className="border rounded-lg p-4 bg-accent/20">
-              <h4 className="font-medium mb-2">Selected Product</h4>
-              {(() => {
-                const product = products.find(p => p.id === selectedProduct);
-                return product ? (
-                  <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 rounded bg-muted flex items-center justify-center overflow-hidden">
-                      {product.image_url ? (
-                        <img 
-                          src={product.image_url} 
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Package className="h-8 w-8 text-muted-foreground" />
-                      )}
-                    </div>
-                     <div>
-                       <p className="font-medium">{product.name}</p>
-                       <div className="flex items-center gap-2">
-                         <p className="text-sm text-muted-foreground">{formatAmount(product.price)}</p>
-                         <Badge variant="outline" className="text-xs">
-                           Current Stock: {getActualStock(product.id)}
-                         </Badge>
-                       </div>
-                     </div>
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          )}
-
-          {selectedProductData?.product_variants?.length > 0 && (
-            <div>
-              <label className="text-sm font-medium">Variant</label>
-              <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select variant (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no-variant">No variant</SelectItem>
-                    {selectedProductData.product_variants.map((variant: any) => (
-                      <SelectItem key={variant.id} value={variant.id}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>
-                            {variant.name}: {variant.value} 
-                            {variant.sale_price && (
-                               <span className="text-muted-foreground">
-                                 ({formatAmount(variant.sale_price)})
-                              </span>
-                            )}
-                          </span>
-                          <Badge variant="outline" className="text-xs ml-2">
-                            Current Stock: {getActualStock(selectedProductData.id, variant.id)}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div>
-            <label className="text-sm font-medium">Quantity</label>
-            <Input
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-            />
-          </div>
-
-          <Button 
-            onClick={addItemToSale} 
-            disabled={!selectedProduct}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add to Sale
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Sale Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sale Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(validateAndPrepareSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="sale_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sale Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="in_store">In Store</SelectItem>
-                        <SelectItem value="online">Online</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="customer_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center justify-between">
-                      <span className="flex items-center">
-                        <User className="h-4 w-4 mr-1" />
-                        Customer {saleType === "online" && "*"}
-                      </span>
-                      <QuickCreateCustomerDialog onCustomerCreated={fetchCustomers} />
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select customer (optional)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="walk-in">Walk-in Customer</SelectItem>
-                        {customers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Quote Fields */}
-              {mode === "quote" && (
-                <>
+        {/* Right side - Sale Summary (1/3 width) */}
+        <div className="lg:col-span-1">
+          <Card className="h-fit sticky top-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5" />
+                Sale Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(validateAndPrepareSubmit)} className="space-y-4">
+                  {/* Sale Type and Customer */}
                   <FormField
                     control={form.control}
-                    name="notes"
+                    name="sale_type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Notes</FormLabel>
+                        <FormLabel>Sale Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="in_store">In Store</SelectItem>
+                            <SelectItem value="online">Online</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="customer_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer</FormLabel>
+                        <div className="flex gap-2">
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl className="flex-1">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select customer" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="walk-in">Walk-in Customer</SelectItem>
+                              {customers.map((customer) => (
+                                <SelectItem key={customer.id} value={customer.id}>
+                                  {customer.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <QuickCreateCustomerDialog onCustomerCreated={fetchCustomers} />
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Items List */}
+                  {saleItems.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Items ({saleItems.length})</label>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {saleItems.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 border rounded text-xs">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{item.product_name}</p>
+                              <p className="text-muted-foreground">
+                                {item.quantity} × {formatAmount(item.unit_price)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="font-bold text-lg">{formatAmount(item.total_price)}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeItem(index)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Shipping Charges */}
+                  <FormField
+                    control={form.control}
+                    name="shipping_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Truck className="h-4 w-4" />
+                          Shipping Charges
+                        </FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Add notes for this quote..."
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
                             {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                           />
                         </FormControl>
                         <FormMessage />
@@ -891,241 +923,199 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                     )}
                   />
 
+                  {/* Quote Valid Until Date */}
+                  {mode === "quote" && (
+                    <FormField
+                      control={form.control}
+                      name="valid_until"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Valid Until</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                  date < new Date() || date < new Date("1900-01-01")
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Discount and Tax */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField
+                      control={form.control}
+                      name="discount_amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discount</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="tax_amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tax</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Notes */}
                   <FormField
                     control={form.control}
-                    name="valid_until"
+                    name="notes"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Valid Until</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) => date < new Date()}
-                              initialFocus
-                              className="p-3 pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Optional notes..."
+                            {...field}
+                            rows={2}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </>
-              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="discount_amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Discount</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="tax_amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tax</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Sale Items */}
-              <div className="space-y-2">
-                <h4 className="font-medium">Items ({saleItems.length})</h4>
-                <ScrollArea className="max-h-64">
-                  <div className="space-y-2">
-                    {saleItems.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center overflow-hidden">
-                            {(() => {
-                              const product = products.find(p => p.id === item.product_id);
-                              return product?.image_url ? (
-                                <img 
-                                  src={product.image_url} 
-                                  alt={item.product_name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Package className="h-5 w-5 text-muted-foreground" />
-                              );
-                            })()}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{item.product_name}</p>
-                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                               <span>{item.quantity} × {formatAmount(item.unit_price)}</span>
-                              <span>•</span>
-                              <span className={`font-medium ${(() => {
-                                const product = products.find(p => p.id === item.product_id);
-                                const currentStock = product?.stock_quantity || 0;
-                                return currentStock <= 0 ? 'text-red-500' : currentStock <= (product?.min_stock_level || 0) ? 'text-orange-500' : 'text-green-600';
-                              })()} `}>
-                                Stock: {(() => {
-                                  const product = products.find(p => p.id === item.product_id);
-                                  return product?.stock_quantity || 0;
-                                })()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{formatAmount(item.total_price)}</span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeItem(index)}
-                            title="Remove item from cart"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                  {/* Totals */}
+                  <Card className="bg-muted/20">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal:</span>
+                        <span className="font-medium">{formatAmount(calculateSubtotal())}</span>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
+                      {form.watch("discount_amount") > 0 && (
+                        <div className="flex justify-between text-sm text-red-600">
+                          <span>Discount:</span>
+                          <span className="font-medium">-{formatAmount(form.watch("discount_amount"))}</span>
+                        </div>
+                      )}
+                      {form.watch("tax_amount") > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>Tax:</span>
+                          <span className="font-medium">{formatAmount(form.watch("tax_amount"))}</span>
+                        </div>
+                      )}
+                      {form.watch("shipping_amount") > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>Shipping:</span>
+                          <span className="font-medium">{formatAmount(form.watch("shipping_amount"))}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total:</span>
+                        <span className="text-3xl">{formatAmount(calculateTotal())}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Separator />
+                  {/* Payment Methods - Only for Sales */}
+                  {mode === "sale" && saleItems.length > 0 && (
+                    <PaymentProcessor
+                      totalAmount={calculateTotal()}
+                      onPaymentsChange={handlePaymentsChange}
+                    />
+                  )}
 
-              {/* Totals */}
-              <div className="space-y-2">
-                 <div className="flex justify-between">
-                   <span>Subtotal:</span>
-                   <span>{formatAmount(calculateSubtotal())}</span>
-                 </div>
-                 <div className="flex justify-between text-sm text-muted-foreground">
-                   <span>Discount:</span>
-                   <span>-{formatAmount(form.watch("discount_amount"))}</span>
-                 </div>
-                 <div className="flex justify-between text-sm text-muted-foreground">
-                   <span>Tax:</span>
-                   <span>+{formatAmount(form.watch("tax_amount"))}</span>
-                 </div>
-                 <Separator />
-                 <div className="flex justify-between font-bold text-lg">
-                   <span>Total:</span>
-                   <span>{formatAmount(calculateTotal())}</span>
-                </div>
-              </div>
+                  {/* Submit Button */}
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 text-lg font-semibold" 
+                    disabled={isSubmitting || saleItems.length === 0}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Processing...
+                      </div>
+                    ) : mode === "quote" ? (
+                      <>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Create Quote
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Complete Sale
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
-              {/* Payment Processing - Only for sales */}
-              {mode === "sale" && saleItems.length > 0 && (
-                <PaymentProcessor 
-                  totalAmount={calculateTotal()}
-                  onPaymentsChange={handlePaymentsChange}
-                  isProcessing={isSubmitting}
-                />
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button 
-                  type="button"
-                  variant="outline"
-                  onClick={() => setMode(mode === "sale" ? "quote" : "sale")}
-                  disabled={isSubmitting}
-                  className="flex-1"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  {mode === "sale" ? "Switch to Quote" : "Switch to Sale"}
-                </Button>
-                
-                <Button 
-                  type="submit" 
-                  className="flex-1" 
-                  disabled={saleItems.length === 0 || isSubmitting || (mode === "sale" && remainingBalance > 0 && !payments.some(p => p.method === 'credit'))}
-                >
-                  {isSubmitting ? "Processing..." : mode === "sale" ? "Complete Sale" : "Save Quote"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* Sale Confirmation Dialog */}
+      {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              Confirm Sale Completion
-            </AlertDialogTitle>
+            <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to complete this sale? This action cannot be undone.
-              <div className="mt-4 p-3 bg-muted rounded-lg">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Items:</span>
-                    <span>{saleItems.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Total Amount:</span>
-                    <span className="font-semibold">{formatAmount(calculateTotal())}</span>
-                  </div>
-                  {payments.length > 0 && (
-                    <div className="flex justify-between">
-                      <span>Payment Method:</span>
-                      <span>{payments.length > 1 ? "Multiple" : payments[0]?.method}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={completeSale} disabled={isSubmitting}>
-              {isSubmitting ? "Processing..." : "Yes, Complete Sale"}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={completeSale}>
+              Complete Sale
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
