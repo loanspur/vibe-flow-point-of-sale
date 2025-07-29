@@ -83,7 +83,7 @@ export const useVersionTracking = () => {
         .from('tenant_version_tracking')
         .select(`
           *,
-          version:application_versions(*)
+          version:application_versions!tenant_version_tracking_version_id_fkey(*)
         `)
         .eq('deployment_status', 'active')
         .maybeSingle();
