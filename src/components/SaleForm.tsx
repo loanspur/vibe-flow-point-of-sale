@@ -388,15 +388,16 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     const totalAmount = calculateTotal();
     const changeAmount = cashAmountPaid - totalAmount;
     
-    // Add the full cash payment amount received
+    // Add the cash payment for the exact total amount (not overpayment)
     const cashPayment = {
+      id: Date.now().toString(),
       method: 'cash',
-      amount: cashAmountPaid, // Use the full amount paid, not just the total
-      reference: `Cash payment - Change: ${formatAmount(changeAmount)}`
+      amount: totalAmount, // Only record the exact amount needed
+      reference: `Cash received: ${formatAmount(cashAmountPaid)} - Change: ${formatAmount(changeAmount)}`
     };
     
     setPayments([cashPayment]);
-    setRemainingBalance(0);
+    setRemainingBalance(0); // This will be 0 since we're paying the exact amount
     setShowCashChangeModal(false);
   };
 

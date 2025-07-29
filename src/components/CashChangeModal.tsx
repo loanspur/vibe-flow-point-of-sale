@@ -38,12 +38,12 @@ export function CashChangeModal({
               <span className="font-semibold">{formatAmount(totalAmount)}</span>
             </div>
             <div className="flex justify-between text-lg">
-              <span>Amount Paid:</span>
+              <span>Amount Received:</span>
               <span className="font-semibold">{formatAmount(amountPaid)}</span>
             </div>
             <hr className="my-2" />
             <div className="flex justify-between text-xl font-bold text-green-600">
-              <span>Change Due:</span>
+              <span>Change Issued:</span>
               <span>{formatAmount(changeAmount)}</span>
             </div>
           </div>
