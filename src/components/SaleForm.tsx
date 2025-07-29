@@ -56,6 +56,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const { formatAmount } = useCurrencySettings();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [actualInventory, setActualInventory] = useState<Record<string, { stock: number; variants: Record<string, number> }>>({});
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
@@ -84,11 +85,13 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     if (tenantId) {
       fetchProducts();
       fetchCustomers();
+      fetchActualInventory();
     } else {
       // Clear products and customers when no tenant
       setProducts([]);
       setFilteredProducts([]);
       setCustomers([]);
+      setActualInventory({});
     }
   }, [tenantId]);
 
@@ -226,6 +229,64 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       console.error('Error fetching customers:', error);
       setCustomers([]);
     }
+  };
+
+  const fetchActualInventory = async () => {
+    if (!tenantId) {
+      setActualInventory({});
+      return;
+    }
+    
+    try {
+      const inventoryData = await getInventoryLevels(tenantId);
+      
+      // Transform the inventory data into a lookup object
+      const inventoryLookup: Record<string, { stock: number; variants: Record<string, number> }> = {};
+      
+      inventoryData.forEach((product) => {
+        inventoryLookup[product.id] = {
+          stock: product.calculated_stock || 0,
+          variants: {}
+        };
+        
+        // Process variants if they exist
+        if (product.product_variants) {
+          product.product_variants.forEach((variant: any) => {
+            // For variants, we need to calculate their stock separately
+            // For now, use the variant's database stock as we don't have variant-level transaction tracking
+            inventoryLookup[product.id].variants[variant.id] = variant.stock_quantity || 0;
+          });
+        }
+      });
+      
+      setActualInventory(inventoryLookup);
+    } catch (error) {
+      console.error('Error fetching actual inventory:', error);
+      toast({
+        title: "Warning",
+        description: "Could not fetch current stock levels. Showing database values.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Helper function to get actual stock for display
+  const getActualStock = (productId: string, variantId?: string) => {
+    const productInventory = actualInventory[productId];
+    if (!productInventory) {
+      // Fallback to database values if inventory data not available
+      const product = products.find(p => p.id === productId);
+      if (variantId && product?.product_variants) {
+        const variant = product.product_variants.find((v: any) => v.id === variantId);
+        return variant?.stock_quantity || 0;
+      }
+      return product?.stock_quantity || 0;
+    }
+    
+    if (variantId) {
+      return productInventory.variants[variantId] || 0;
+    }
+    return productInventory.stock;
   };
 
   const addItemToSale = () => {
@@ -646,7 +707,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                              <span>{formatAmount(product.price || 0)}</span>
                              {product.sku && <span>SKU: {product.sku}</span>}
                              <Badge variant="outline" className="text-xs">
-                               Current Stock: {product.stock_quantity || 0}
+                               Current Stock: {getActualStock(product.id)}
                              </Badge>
                           </div>
                         </div>
@@ -686,7 +747,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                        <div className="flex items-center gap-2">
                          <p className="text-sm text-muted-foreground">{formatAmount(product.price)}</p>
                          <Badge variant="outline" className="text-xs">
-                           Current Stock: {product.stock_quantity || 0}
+                           Current Stock: {getActualStock(product.id)}
                          </Badge>
                        </div>
                      </div>
@@ -717,7 +778,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                             )}
                           </span>
                           <Badge variant="outline" className="text-xs ml-2">
-                            Current Stock: {variant.stock_quantity || 0}
+                            Current Stock: {getActualStock(selectedProductData.id, variant.id)}
                           </Badge>
                         </div>
                       </SelectItem>
