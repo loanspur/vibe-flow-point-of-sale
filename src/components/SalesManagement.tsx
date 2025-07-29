@@ -20,6 +20,7 @@ import { createPaymentJournalEntry } from "@/lib/accounting-integration";
 import { Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSidebar } from "@/components/ui/sidebar";
 
 interface Sale {
   id: string;
@@ -52,6 +53,7 @@ interface SalesStats {
 
 export default function SalesManagement() {
   const { tenantId, user } = useAuth();
+  const { setOpen } = useSidebar();
   const [sales, setSales] = useState<Sale[]>([]);
   const [stats, setStats] = useState<SalesStats>({
     totalSales: 0,
@@ -564,7 +566,10 @@ export default function SalesManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Sales Management</h2>
-        <Button onClick={() => setActiveTab("new-sale")}>
+        <Button onClick={() => {
+          setOpen(false); // Collapse the sidebar
+          setActiveTab("new-sale");
+        }}>
           <Plus className="h-4 w-4 mr-2" />
           New Sale
         </Button>
