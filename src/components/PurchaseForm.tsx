@@ -202,6 +202,50 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
           console.error('Purchase payments error:', paymentsError);
           // Continue with purchase completion even if payments fail
         }
+
+        // Update cash drawer for cash payments
+        const cashPayments = payments.filter(p => p.method === 'cash');
+        for (const cashPayment of cashPayments) {
+          try {
+            // Get current user's active cash drawer
+            const { data: drawer } = await supabase
+              .from("cash_drawers")
+              .select("*")
+              .eq("tenant_id", tenantId)
+              .eq("user_id", user.id)
+              .eq("status", "open")
+              .eq("is_active", true)
+              .maybeSingle();
+
+            if (drawer) {
+              // Update drawer balance (subtract for purchase payment)
+              await supabase
+                .from("cash_drawers")
+                .update({ 
+                  current_balance: drawer.current_balance - cashPayment.amount 
+                })
+                .eq("id", drawer.id);
+
+              // Record cash transaction
+              await supabase
+                .from("cash_transactions")
+                .insert({
+                  tenant_id: tenantId,
+                  cash_drawer_id: drawer.id,
+                  transaction_type: "purchase_payment",
+                  amount: -cashPayment.amount, // Negative for outgoing cash
+                  balance_after: drawer.current_balance - cashPayment.amount,
+                  description: `Purchase payment - PO: ${purchaseNumber}`,
+                  reference_id: purchase.id,
+                  reference_type: "purchase",
+                  performed_by: user.id,
+                });
+            }
+          } catch (drawerError) {
+            console.error('Error updating cash drawer:', drawerError);
+            // Don't fail the purchase if cash drawer update fails
+          }
+        }
       }
 
       // Update product stock levels

@@ -27,7 +27,7 @@ import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
 import { getInventoryLevels } from "@/lib/inventory-integration";
-import { useCurrencySettings } from "@/lib/currency";
+import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
@@ -55,7 +55,8 @@ interface SaleFormProps {
 export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const { tenantId } = useAuth();
   const { toast } = useToast();
-  const { formatAmount } = useCurrencySettings();
+  const { formatAmount } = useCurrencyUpdate();
+  const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [actualInventory, setActualInventory] = useState<Record<string, { stock: number; variants: Record<string, number> }>>({});
@@ -96,14 +97,34 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       fetchCustomers();
       fetchActualInventory();
       checkMpesaConfig();
+      fetchBusinessSettings();
     } else {
       setProducts([]);
       setFilteredProducts([]);
       setCustomers([]);
       setActualInventory({});
       setMpesaEnabled(false);
+      setBusinessSettings(null);
     }
   }, [tenantId]);
+
+  const fetchBusinessSettings = async () => {
+    if (!tenantId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('business_settings')
+        .select('tax_inclusive, default_tax_rate')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (!error && data) {
+        setBusinessSettings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching business settings:', error);
+    }
+  };
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -216,10 +237,14 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     }
     
     try {
+      // Fetch from contacts table instead of customers, filtering for customers only
       const { data, error } = await supabase
-        .from("customers")
+        .from("contacts")
         .select("*")
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .eq("type", "customer")
+        .eq("is_active", true)
+        .order("name");
       
       if (error) {
         console.error('Error fetching customers:', error);
@@ -381,10 +406,33 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const discount = form.getValues("discount_amount");
-    const tax = form.getValues("tax_amount");
-    const shipping = form.getValues("shipping_amount");
-    return subtotal - discount + tax + shipping;
+    const discount = form.getValues("discount_amount") || 0;
+    const shipping = form.getValues("shipping_amount") || 0;
+    
+    // Calculate tax based on business settings
+    let tax = form.getValues("tax_amount") || 0;
+    const defaultTaxRate = businessSettings?.default_tax_rate || 0;
+    const isTaxInclusive = businessSettings?.tax_inclusive || false;
+    
+    // Auto-calculate tax if not manually set and tax rate exists
+    if (tax === 0 && defaultTaxRate > 0) {
+      if (isTaxInclusive) {
+        // Tax is included in the price, calculate separately for display
+        tax = (subtotal - discount + shipping) * (defaultTaxRate / (100 + defaultTaxRate));
+      } else {
+        // Tax is added to the price
+        tax = (subtotal - discount + shipping) * (defaultTaxRate / 100);
+      }
+      form.setValue("tax_amount", Number(tax.toFixed(2)));
+    }
+    
+    if (isTaxInclusive) {
+      // For tax-inclusive pricing, total is subtotal - discount + shipping (tax already included)
+      return subtotal - discount + shipping;
+    } else {
+      // For tax-exclusive pricing, add tax to the total
+      return subtotal - discount + tax + shipping;
+    }
   };
 
   const generateReceiptNumber = () => {
@@ -633,7 +681,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
 
       if (itemsError) throw itemsError;
 
-      // Process payments
+      // Process payments and update cash drawer for cash payments
       if (!hasCreditPayment && payments.length > 0) {
         const paymentData = payments.map(payment => ({
           sale_id: sale.id,
@@ -648,6 +696,50 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           .insert(paymentData);
 
         if (paymentError) throw paymentError;
+
+        // Update cash drawer for cash payments
+        const cashPayments = payments.filter(p => p.method === 'cash');
+        for (const cashPayment of cashPayments) {
+          try {
+            // Get current user's active cash drawer
+            const { data: drawer } = await supabase
+              .from("cash_drawers")
+              .select("*")
+              .eq("tenant_id", tenantData)
+              .eq("user_id", user.id)
+              .eq("status", "open")
+              .eq("is_active", true)
+              .maybeSingle();
+
+            if (drawer) {
+              // Update drawer balance
+              await supabase
+                .from("cash_drawers")
+                .update({ 
+                  current_balance: drawer.current_balance + cashPayment.amount 
+                })
+                .eq("id", drawer.id);
+
+              // Record cash transaction
+              await supabase
+                .from("cash_transactions")
+                .insert({
+                  tenant_id: tenantData,
+                  cash_drawer_id: drawer.id,
+                  transaction_type: "sale_payment",
+                  amount: cashPayment.amount,
+                  balance_after: drawer.current_balance + cashPayment.amount,
+                  description: `Sale payment - Receipt: ${receiptNumber}`,
+                  reference_id: sale.id,
+                  reference_type: "sale",
+                  performed_by: user.id,
+                });
+            }
+          } catch (drawerError) {
+            console.error('Error updating cash drawer:', drawerError);
+            // Don't fail the sale if cash drawer update fails
+          }
+        }
       }
 
       // Process inventory adjustments
