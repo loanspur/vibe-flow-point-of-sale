@@ -63,7 +63,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
 import { timezones } from "@/lib/timezones";
-import { countries, popularCountries, getRegions, searchCountries, type Country } from "@/lib/countries";
+import { countries, type Country } from "@/lib/countries";
 import { clearCurrencyCache } from "@/lib/currency";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -671,7 +671,7 @@ export function BusinessSettingsEnhanced() {
       )
     : timezones;
 
-  const filteredCountries = countries;
+  const countryNames = countries.map(country => country.name);
 
   if (isLoading) {
     return (
@@ -1217,9 +1217,9 @@ export function BusinessSettingsEnhanced() {
                                   <SelectValue placeholder="Select Country" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-background/95 backdrop-blur-sm border border-border/50">
-                                  {countries.map((country) => (
-                                    <SelectItem key={country.code} value={country.name}>
-                                      {country.name}
+                                  {countryNames.map((countryName) => (
+                                    <SelectItem key={countryName} value={countryName}>
+                                      {countryName}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
