@@ -1188,8 +1188,27 @@ export function BusinessSettingsEnhanced() {
                           </FormItem>
                         )}
                       />
-                    </CardContent>
+                     </CardContent>
                   </Card>
+                </div>
+                
+                {/* Company Information Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
                 </div>
               </TabsContent>
 
