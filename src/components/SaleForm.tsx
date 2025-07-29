@@ -681,10 +681,15 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                         <Package className="h-8 w-8 text-muted-foreground" />
                       )}
                     </div>
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-muted-foreground">{formatAmount(product.price)}</p>
-                    </div>
+                     <div>
+                       <p className="font-medium">{product.name}</p>
+                       <div className="flex items-center gap-2">
+                         <p className="text-sm text-muted-foreground">{formatAmount(product.price)}</p>
+                         <Badge variant="outline" className="text-xs">
+                           Stock: {product.stock_quantity || 0}
+                         </Badge>
+                       </div>
+                     </div>
                   </div>
                 ) : null;
               })()}
