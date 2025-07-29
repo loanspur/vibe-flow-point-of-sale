@@ -215,7 +215,8 @@ serve(async (req) => {
           body: {
             tenantName: businessName,
             contactEmail: email,
-            tenantId: tenant.id
+            tenantId: tenant.id,
+            subdomainUrl: `https://${subdomain}`
           }
         });
         

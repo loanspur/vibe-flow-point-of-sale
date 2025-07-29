@@ -170,17 +170,25 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
         throw new Error(data.error);
       }
 
+      // Extract subdomain from response
+      const subdomain = data?.subdomain;
+      const subdomainUrl = subdomain ? `https://${subdomain}` : null;
+
       toast({
         title: "Account Created Successfully!",
-        description: `Welcome to VibePOS! Your business "${formData.businessName}" has been set up with a 14-day Enterprise trial. You can now sign in.`,
+        description: `Welcome to VibePOS! Your business "${formData.businessName}" has been set up with a 14-day Enterprise trial. Check your email for login instructions.`,
         variant: "default"
       });
 
       onClose();
       
-      // Redirect to login page
+      // If we have a subdomain, redirect there, otherwise go to main auth
       setTimeout(() => {
-        navigate('/auth');
+        if (subdomainUrl) {
+          window.location.href = subdomainUrl;
+        } else {
+          navigate('/auth');
+        }
       }, 2000);
 
     } catch (error: any) {

@@ -12,6 +12,7 @@ interface WelcomeEmailRequest {
   tenantName: string;
   contactEmail: string;
   tenantId: string;
+  subdomainUrl?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -21,9 +22,29 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { tenantName, contactEmail, tenantId }: WelcomeEmailRequest = await req.json();
+    const { tenantName, contactEmail, tenantId, subdomainUrl }: WelcomeEmailRequest = await req.json();
 
     console.log(`Sending welcome email to ${contactEmail} for tenant ${tenantName}`);
+
+    // Get tenant subdomain if not provided
+    let loginUrl = subdomainUrl;
+    if (!loginUrl) {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const { data: domain } = await supabase
+        .from('tenant_domains')
+        .select('domain_name')
+        .eq('tenant_id', tenantId)
+        .eq('domain_type', 'subdomain')
+        .eq('is_primary', true)
+        .single();
+
+      loginUrl = domain ? `https://${domain.domain_name}` : 'https://vibepos.com/auth';
+    }
 
     const emailResponse = await resend.emails.send({
       from: "VibePOS Team <noreply@vibepos.com>",
@@ -51,6 +72,19 @@ const handler = async (req: Request): Promise<Response> => {
               <li>Customize your receipt templates</li>
               <li>Start processing sales</li>
             </ul>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Access Your Dashboard
+            </a>
+          </div>
+
+          <div style="background-color: #f0f9ff; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #075985;">
+              <strong>Your VibePOS Dashboard:</strong><br>
+              <a href="${loginUrl}" style="color: #0369a1; word-break: break-all;">${loginUrl}</a>
+            </p>
           </div>
 
           <div style="background-color: #dbeafe; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
