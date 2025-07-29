@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
-import { createPurchaseJournalEntry, createPaymentJournalEntry } from '@/lib/accounting-integration';
+import { createEnhancedPurchaseJournalEntry, createPaymentJournalEntry, getPaymentMethodAccount } from '@/lib/accounting-integration';
 import { processPurchaseReceipt } from '@/lib/inventory-integration';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
@@ -459,14 +459,22 @@ const PurchaseManagement = () => {
         });
       }
 
-      // Create accounting journal entry for received purchase
+      // Create accounting journal entry for received purchase with any payments
       try {
-        await createPurchaseJournalEntry(tenantId, {
+        const paymentData = purchasePayments.map(p => ({ method: p.method, amount: p.amount }));
+        await createEnhancedPurchaseJournalEntry(tenantId, {
           purchaseId: receivingPurchase.id,
           supplierId: receivingPurchase.supplier_id,
           totalAmount: receivingPurchase.total_amount,
           isReceived: true,
-          createdBy: user?.id || ''
+          payments: paymentData.length > 0 ? paymentData : undefined,
+          createdBy: user?.id || '',
+          items: receivedItems.map(item => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantityReceived,
+            unitCost: item.unitCost
+          }))
         });
       } catch (accountingError) {
         console.error('Accounting entry error during receive:', accountingError);
@@ -535,7 +543,7 @@ const PurchaseManagement = () => {
 
       // Create accounting journal entry for received purchase
       try {
-        await createPurchaseJournalEntry(tenantId, {
+        await createEnhancedPurchaseJournalEntry(tenantId, {
           purchaseId: purchase.id,
           supplierId: purchase.supplier_id,
           totalAmount: purchase.total_amount,

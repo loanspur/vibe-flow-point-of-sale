@@ -374,6 +374,165 @@ export const createEnhancedSalesJournalEntry = async (
   }
 };
 
+// Enhanced purchase transaction accounting integration with proper payment method accounting
+export const createEnhancedPurchaseJournalEntry = async (
+  tenantId: string,
+  purchaseData: {
+    purchaseId: string;
+    supplierId: string;
+    totalAmount: number;
+    isReceived: boolean;
+    payments?: Array<{ method: string; amount: number }>;
+    createdBy: string;
+    items?: Array<{ productId: string; variantId?: string; quantity: number; unitCost: number }>;
+  }
+) => {
+  try {
+    // Fetch supplier name for better transaction description
+    let supplierName = 'Unknown Supplier';
+    try {
+      const { data: supplierData, error: supplierError } = await supabase
+        .from('contacts')
+        .select('name, company')
+        .eq('id', purchaseData.supplierId)
+        .eq('tenant_id', tenantId)
+        .single();
+      
+      if (!supplierError && supplierData) {
+        supplierName = supplierData.company || supplierData.name;
+      }
+    } catch (error) {
+      console.warn('Could not fetch supplier name:', error);
+    }
+    
+    const accounts = await getDefaultAccounts(tenantId);
+    const { totalAmount, isReceived, payments = [] } = purchaseData;
+    const entries: AccountingEntry[] = [];
+    
+    if (isReceived) {
+      // Debit: Inventory (for received goods)
+      if (!accounts.inventory) throw new Error('Inventory account not found');
+      entries.push({
+        account_id: accounts.inventory,
+        debit_amount: totalAmount,
+        description: 'Inventory received from purchase'
+      });
+
+      // Handle payments if provided
+      if (payments && payments.length > 0) {
+        // Process each payment method with its specific asset account
+        for (const payment of payments) {
+          const accountId = await getPaymentMethodAccount(tenantId, payment.method);
+          
+          // Credit the appropriate asset account for this payment method
+          entries.push({
+            account_id: accountId,
+            credit_amount: payment.amount,
+            description: `Payment via ${payment.method}`
+          });
+        }
+        
+        // Check if there's remaining unpaid amount
+        const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+        const unpaidAmount = totalAmount - totalPaid;
+        
+        if (unpaidAmount > 0) {
+          // Credit: Accounts Payable (for unpaid portion)
+          if (!accounts.accounts_payable) throw new Error('Accounts Payable account not found');
+          entries.push({
+            account_id: accounts.accounts_payable,
+            credit_amount: unpaidAmount,
+            description: 'Amount owed to supplier'
+          });
+        }
+      } else {
+        // No payments provided - full amount goes to accounts payable
+        if (!accounts.accounts_payable) throw new Error('Accounts Payable account not found');
+        entries.push({
+          account_id: accounts.accounts_payable,
+          credit_amount: totalAmount,
+          description: 'Amount owed to supplier'
+        });
+      }
+    } else {
+      // Purchase order created but not received yet - no inventory entry
+      // Only create entries if payments were made upfront
+      if (payments && payments.length > 0) {
+        const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+        
+        // Debit: Prepaid Expenses or Advances to Suppliers
+        // Use accounts payable account with negative amount to represent prepayment
+        if (!accounts.accounts_payable) throw new Error('Accounts Payable account not found');
+        entries.push({
+          account_id: accounts.accounts_payable,
+          debit_amount: totalPaid,
+          description: 'Advance payment to supplier'
+        });
+
+        // Process each payment method
+        for (const payment of payments) {
+          const accountId = await getPaymentMethodAccount(tenantId, payment.method);
+          
+          // Credit the appropriate asset account for this payment method
+          entries.push({
+            account_id: accountId,
+            credit_amount: payment.amount,
+            description: `Advance payment via ${payment.method}`
+          });
+        }
+      }
+    }
+
+    const transaction: AccountingTransaction = {
+      description: `Purchase from ${supplierName}${isReceived ? ' (Received)' : ' (Ordered)'}`,
+      reference_id: purchaseData.purchaseId,
+      reference_type: 'purchase',
+      entries
+    };
+
+    // Create the journal entry first
+    const result = await createJournalEntry(tenantId, transaction, purchaseData.createdBy);
+
+    // Create AP record only if there's an unpaid balance
+    if (isReceived && payments) {
+      const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+      const unpaidAmount = totalAmount - totalPaid;
+      
+      if (unpaidAmount > 0) {
+        try {
+          await supabase.rpc('create_accounts_payable_record', {
+            tenant_id_param: tenantId,
+            purchase_id_param: purchaseData.purchaseId,
+            supplier_id_param: purchaseData.supplierId,
+            total_amount_param: unpaidAmount
+          });
+          console.log('AP record created for unpaid amount:', unpaidAmount);
+        } catch (apError) {
+          console.error('Error creating AP record:', apError);
+        }
+      }
+    } else if (isReceived && !payments) {
+      // Full amount goes to AP if no payments provided
+      try {
+        await supabase.rpc('create_accounts_payable_record', {
+          tenant_id_param: tenantId,
+          purchase_id_param: purchaseData.purchaseId,
+          supplier_id_param: purchaseData.supplierId,
+          total_amount_param: totalAmount
+        });
+        console.log('AP record created for full amount:', totalAmount);
+      } catch (apError) {
+        console.error('Error creating AP record:', apError);
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error creating enhanced purchase journal entry:', error);
+    throw error;
+  }
+};
+
 // Sales transaction accounting integration
 export const createSalesJournalEntry = async (
   tenantId: string,
@@ -612,7 +771,7 @@ export const createPurchaseJournalEntry = async (
   }
 };
 
-// Payment transaction accounting integration
+// Enhanced payment transaction accounting integration with proper payment method accounting
 export const createPaymentJournalEntry = async (
   tenantId: string,
   paymentData: {
@@ -622,6 +781,7 @@ export const createPaymentJournalEntry = async (
     paymentMethod: string;
     referenceId: string;
     createdBy: string;
+    paymentMethodAccountId?: string; // Optional override for specific account
   }
 ) => {
   try {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,9 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, DollarSign, Receipt, Calendar } from 'lucide-react';
+import { CreditCard, DollarSign, Receipt, Calendar, Banknote, Smartphone, Building2 } from 'lucide-react';
 import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { useApp } from '@/contexts/AppContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface Payment {
   id: string;
@@ -20,6 +23,15 @@ interface Payment {
   status: 'pending' | 'completed' | 'failed';
 }
 
+interface PaymentMethod {
+  id: string;
+  name: string;
+  type: string;
+  is_active: boolean;
+  requires_reference: boolean;
+  display_order: number;
+}
+
 interface PaymentFormProps {
   totalAmount: number;
   remainingAmount: number;
@@ -28,14 +40,6 @@ interface PaymentFormProps {
   onRemovePayment: (paymentId: string) => void;
   disabled?: boolean;
 }
-
-const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash', icon: DollarSign },
-  { value: 'check', label: 'Check', icon: Receipt },
-  { value: 'bank_transfer', label: 'Bank Transfer', icon: CreditCard },
-  { value: 'credit_card', label: 'Credit Card', icon: CreditCard },
-  { value: 'trade_credit', label: 'Trade Credit', icon: Receipt },
-];
 
 export const PaymentForm: React.FC<PaymentFormProps> = ({
   totalAmount,
@@ -46,6 +50,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   disabled = false
 }) => {
   const { tenantCurrency, formatLocalCurrency } = useApp();
+  const { tenantId } = useAuth();
+  const { toast } = useToast();
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [newPayment, setNewPayment] = useState({
     method: '',
     amount: 0,
@@ -55,18 +63,102 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     status: 'completed' as const
   });
 
+  // Fetch payment methods from database
+  useEffect(() => {
+    fetchPaymentMethods();
+  }, [tenantId]);
+
+  const fetchPaymentMethods = async () => {
+    if (!tenantId) {
+      setPaymentMethods([]);
+      setIsLoadingMethods(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Filter out credit sales for purchase payments (only show payment methods, not credit)
+        const purchasePaymentMethods = data.filter(method => method.type !== 'credit');
+        setPaymentMethods(purchasePaymentMethods);
+        
+        // Set first payment method as default
+        if (purchasePaymentMethods.length > 0) {
+          setNewPayment(prev => ({ 
+            ...prev, 
+            method: purchasePaymentMethods[0].type 
+          }));
+        }
+      } else {
+        // Fallback to default methods if none configured (excluding credit)
+        setPaymentMethods([
+          { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+          { id: 'default-card', name: 'Credit/Debit Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 },
+          { id: 'default-bank', name: 'Bank Transfer', type: 'bank_transfer', is_active: true, requires_reference: true, display_order: 3 },
+          { id: 'default-check', name: 'Check', type: 'check', is_active: true, requires_reference: true, display_order: 4 }
+        ]);
+        setNewPayment(prev => ({ ...prev, method: 'cash' }));
+      }
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      toast({
+        title: "Warning",
+        description: "Could not load payment methods. Using defaults.",
+        variant: "destructive",
+      });
+      // Use fallback methods
+      setPaymentMethods([
+        { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+        { id: 'default-card', name: 'Credit/Debit Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 }
+      ]);
+      setNewPayment(prev => ({ ...prev, method: 'cash' }));
+    } finally {
+      setIsLoadingMethods(false);
+    }
+  };
+
   const handleAddPayment = () => {
+    const selectedMethod = paymentMethods.find(m => m.type === newPayment.method);
+    
     if (!newPayment.method || newPayment.amount <= 0) {
+      toast({
+        title: "Invalid Payment",
+        description: "Please select a payment method and enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if reference is required
+    if (selectedMethod?.requires_reference && !newPayment.reference?.trim()) {
+      toast({
+        title: "Reference Required",
+        description: `${selectedMethod.name} payments require a reference number`,
+        variant: "destructive",
+      });
       return;
     }
 
     if (newPayment.amount > remainingAmount) {
+      toast({
+        title: "Amount Too High",
+        description: "Payment amount cannot exceed remaining balance",
+        variant: "destructive",
+      });
       return;
     }
 
     onAddPayment(newPayment);
     setNewPayment({
-      method: '',
+      method: paymentMethods.length > 0 ? paymentMethods[0].type : '',
       amount: 0,
       reference: '',
       date: new Date().toISOString().split('T')[0],
@@ -76,8 +168,18 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   };
 
   const getPaymentMethodIcon = (method: string) => {
-    const methodConfig = PAYMENT_METHODS.find(m => m.value === method);
-    return methodConfig?.icon || DollarSign;
+    // Map payment types to icons
+    const iconMap: Record<string, any> = {
+      cash: Banknote,
+      card: CreditCard,
+      digital: Smartphone,
+      bank_transfer: Building2,
+      check: Receipt,
+      gift_card: CreditCard,
+      trade_credit: Receipt,
+    };
+    const Icon = iconMap[method] || DollarSign;
+    return Icon;
   };
 
   const getStatusColor = (status: string) => {
@@ -139,14 +241,14 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             <Label>Payment History</Label>
             {payments.map((payment) => {
               const Icon = getPaymentMethodIcon(payment.method);
+              const methodName = paymentMethods.find(m => m.type === payment.method)?.name || 
+                               payment.method.replace('_', ' ').toUpperCase();
               return (
                 <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4" />
                     <div>
-                      <div className="font-medium">
-                        {PAYMENT_METHODS.find(m => m.value === payment.method)?.label}
-                      </div>
+                      <div className="font-medium">{methodName}</div>
                       <div className="text-sm text-muted-foreground">
                         {payment.date} {payment.reference && `• ${payment.reference}`}
                       </div>
@@ -183,21 +285,28 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 <Select
                   value={newPayment.method}
                   onValueChange={(value) => setNewPayment(prev => ({ ...prev, method: value }))}
+                  disabled={isLoadingMethods}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_METHODS.map((method) => (
-                      <SelectItem key={method.value} value={method.value}>
-                        <div className="flex items-center gap-2">
-                          <method.icon className="h-4 w-4" />
-                          {method.label}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {paymentMethods.map((method) => {
+                      const Icon = getPaymentMethodIcon(method.type);
+                      return (
+                        <SelectItem key={method.id} value={method.type}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {method.name}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
+                {isLoadingMethods && (
+                  <p className="text-xs text-muted-foreground mt-1">Loading payment methods...</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="payment-amount">Amount</Label>
@@ -215,12 +324,15 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="payment-reference">Reference Number</Label>
+                <Label htmlFor="payment-reference">
+                  Reference Number {paymentMethods.find(m => m.type === newPayment.method)?.requires_reference && '*'}
+                </Label>
                 <Input
                   id="payment-reference"
                   value={newPayment.reference}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, reference: e.target.value }))}
                   placeholder="Check #, Transaction ID, etc."
+                  required={paymentMethods.find(m => m.type === newPayment.method)?.requires_reference}
                 />
               </div>
               <div className="space-y-2">
@@ -245,7 +357,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleAddPayment} disabled={!newPayment.method || newPayment.amount <= 0}>
+              <Button 
+                onClick={handleAddPayment} 
+                disabled={!newPayment.method || newPayment.amount <= 0 || isLoadingMethods}
+              >
                 Add Payment
               </Button>
               <Button
