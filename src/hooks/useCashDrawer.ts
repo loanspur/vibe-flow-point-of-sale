@@ -52,6 +52,22 @@ export interface CashTransferRequest {
   updated_at: string;
 }
 
+export interface BankTransferRequest {
+  id: string;
+  tenant_id: string;
+  cash_drawer_id: string;
+  requested_by: string;
+  amount: number;
+  bank_account_name: string;
+  reference_number: string | null;
+  reason: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const useCashDrawer = () => {
   const { user, tenantId } = useAuth();
   const [currentDrawer, setCurrentDrawer] = useState<CashDrawer | null>(null);

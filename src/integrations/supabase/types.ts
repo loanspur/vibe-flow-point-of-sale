@@ -941,6 +941,62 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_bank_transfer_requests: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_name: string
+          cash_drawer_id: string
+          created_at: string
+          id: string
+          reason: string | null
+          reference_number: string | null
+          requested_by: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_name: string
+          cash_drawer_id: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reference_number?: string | null
+          requested_by: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_name?: string
+          cash_drawer_id?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reference_number?: string | null
+          requested_by?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_bank_transfer_requests_cash_drawer_id_fkey"
+            columns: ["cash_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_drawers: {
         Row: {
           closed_at: string | null
@@ -6185,6 +6241,14 @@ export type Database = {
       }
       open_cash_drawer: {
         Args: { drawer_id_param: string; opening_balance_param: number }
+        Returns: boolean
+      }
+      process_bank_transfer: {
+        Args: {
+          transfer_id_param: string
+          action_param: string
+          notes_param?: string
+        }
         Returns: boolean
       }
       process_cash_transfer: {
