@@ -1,5 +1,8 @@
 project_id = "qwtybhvdbbkbcelisuek"
 
+[functions.validate-subdomains]
+verify_jwt = false
+
 [functions.send-invitation-email]
 verify_jwt = false
 

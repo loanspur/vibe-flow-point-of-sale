@@ -5856,6 +5856,14 @@ export type Database = {
         }
         Returns: string
       }
+      ensure_tenant_subdomain: {
+        Args: { tenant_id_param: string }
+        Returns: string
+      }
+      fix_tenants_without_subdomains: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       generate_domain_verification_token: {
         Args: Record<PropertyKey, never>
         Returns: string

@@ -108,7 +108,7 @@ export const useDomainManagement = () => {
           verification_token: verificationToken,
           verification_method: verificationMethod || 'dns_txt',
           verification_value: domainType === 'subdomain' 
-            ? `${verificationToken}.yourapp.com` 
+            ? `${verificationToken}.vibenet.shop` 
             : verificationToken,
           created_by: user.user.id,
           status: domainType === 'subdomain' ? 'verified' : 'pending'
