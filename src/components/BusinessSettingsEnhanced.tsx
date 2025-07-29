@@ -192,7 +192,7 @@ const businessSettingsSchema = z.object({
   
   // Tax settings
   tax_inclusive: z.boolean().default(false),
-  currency_symbol: z.string().default("KES"),
+  currency_symbol: z.string().default("$"),
   date_format: z.string().default("MM/DD/YYYY")
 });
 
@@ -382,7 +382,7 @@ export function BusinessSettingsEnhanced() {
       
       // Tax settings
       tax_inclusive: false,
-      currency_symbol: "KES",
+      currency_symbol: "$",
       date_format: "MM/DD/YYYY"
     },
   });
@@ -390,12 +390,6 @@ export function BusinessSettingsEnhanced() {
   useEffect(() => {
     fetchSettings();
     fetchLocations();
-    
-    // Auto-update currency to USD
-    const initCurrency = async () => {
-      await updateCurrencyToUSD();
-    };
-    initCurrency();
   }, []);
 
   const fetchSettings = async () => {
@@ -465,75 +459,6 @@ export function BusinessSettingsEnhanced() {
         description: "Failed to upload logo. Please try again.",
         variant: "destructive",
       });
-    }
-  };
-
-  const updateCurrencyToUSD = async () => {
-    setIsSaving(true);
-    try {
-      // Get the current user's tenant ID
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user?.user?.id) {
-        throw new Error('User not authenticated');
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id, role')
-        .eq('user_id', user.user.id)
-        .single();
-
-      if (profileError) {
-        throw new Error('Failed to get user profile: ' + profileError.message);
-      }
-
-      if (!profile?.tenant_id) {
-        throw new Error('No tenant associated with user');
-      }
-
-      // Check if user has permission to modify settings
-      if (profile.role !== 'superadmin' && profile.role !== 'admin') {
-        throw new Error('Insufficient permissions to modify business settings');
-      }
-
-      // Update currency settings to USD
-      const currencyData = {
-        currency_code: 'USD',
-        currency_symbol: '$'
-      };
-
-      const { error: updateError } = await supabase
-        .from('business_settings')
-        .update(currencyData)
-        .eq('tenant_id', profile.tenant_id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      // Update form values
-      form.setValue('currency_code', 'USD');
-      
-      // Fetch updated settings
-      await fetchSettings();
-
-      // Clear currency cache to refresh with new settings
-      clearCurrencyCache();
-
-      toast({
-        title: "Currency updated",
-        description: "Base currency has been updated to USD successfully.",
-      });
-    } catch (error: any) {
-      console.error('Error updating currency:', error);
-      toast({
-        title: "Error updating currency",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -1059,7 +984,17 @@ export function BusinessSettingsEnhanced() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Default Currency</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select 
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Auto-update currency symbol when currency changes
+                                const selectedCurrency = currencies.find(c => c.code === value);
+                                if (selectedCurrency) {
+                                  form.setValue('currency_symbol', selectedCurrency.symbol);
+                                }
+                              }} 
+                              value={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger className="border-2 focus:border-primary/50">
                                   <SelectValue placeholder="Select currency" />
