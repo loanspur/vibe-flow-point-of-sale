@@ -2,6 +2,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { processSaleInventory } from './inventory-integration';
 import { initializeDefaultChartOfAccounts } from './default-accounts';
 
+// Enhanced payment method interface for accounting integration
+interface PaymentMethodAccount {
+  id: string;
+  name: string;
+  type: string;
+  account_id?: string; // For existing payment_methods table compatibility
+}
+
 export interface AccountingEntry {
   account_id: string;
   debit_amount?: number;
@@ -177,6 +185,191 @@ export const createJournalEntry = async (
     return accountingTransaction;
   } catch (error) {
     console.error('Error creating journal entry:', error);
+    throw error;
+  }
+};
+
+// Get payment method asset account mapping
+export const getPaymentMethodAccount = async (
+  tenantId: string, 
+  paymentMethodType: string
+): Promise<string> => {
+  try {
+    // Since the existing payment_methods table doesn't have account_id,
+    // we'll use the default account mapping based on payment type
+    const accounts = await getDefaultAccounts(tenantId);
+    
+    switch (paymentMethodType) {
+      case 'cash':
+        if (!accounts.cash) throw new Error('Cash account not found');
+        return accounts.cash;
+        
+      case 'card':
+      case 'digital':
+      case 'bank_transfer':
+        // Try to find a bank/card account, fallback to cash
+        return accounts.bank || accounts.cash;
+        
+      case 'credit':
+        if (!accounts.accounts_receivable) throw new Error('Accounts Receivable account not found');
+        return accounts.accounts_receivable;
+        
+      default:
+        // Default to cash account for unknown payment types
+        if (!accounts.cash) throw new Error('Cash account not found');
+        return accounts.cash;
+    }
+  } catch (error) {
+    console.error('Error getting payment method account:', error);
+    throw error;
+  }
+};
+
+// Enhanced sales transaction accounting integration with proper payment method accounting
+export const createEnhancedSalesJournalEntry = async (
+  tenantId: string,
+  saleData: {
+    saleId: string;
+    customerId?: string;
+    totalAmount: number;
+    discountAmount: number;
+    taxAmount: number;
+    payments: Array<{ method: string; amount: number }>;
+    cashierId: string;
+    items?: Array<{ productId: string; variantId?: string; quantity: number; unitCost?: number }>;
+  }
+) => {
+  try {
+    // Fetch customer name for better transaction description
+    let customerName = 'Walk-in Customer';
+    if (saleData.customerId) {
+      try {
+        const { data: customerData, error: customerError } = await supabase
+          .from('contacts')
+          .select('name, company')
+          .eq('id', saleData.customerId)
+          .eq('tenant_id', tenantId)
+          .single();
+        
+        if (!customerError && customerData) {
+          customerName = customerData.company || customerData.name;
+        }
+      } catch (error) {
+        console.warn('Could not fetch customer name:', error);
+      }
+    }
+    
+    const accounts = await getDefaultAccounts(tenantId);
+    const { totalAmount, discountAmount, taxAmount, payments } = saleData;
+    
+    const subtotal = totalAmount + discountAmount - taxAmount;
+    const entries: AccountingEntry[] = [];
+    
+    // Handle each payment method with its specific asset account
+    let totalCreditAmount = 0;
+    
+    for (const payment of payments) {
+      const accountId = await getPaymentMethodAccount(tenantId, payment.method);
+      
+      if (payment.method === 'credit') {
+        totalCreditAmount += payment.amount;
+      }
+      
+      // Debit the appropriate asset account for this payment method
+      entries.push({
+        account_id: accountId,
+        debit_amount: payment.amount,
+        description: `Payment via ${payment.method}`
+      });
+    }
+
+    // Credit: Sales Revenue
+    if (!accounts.sales_revenue) throw new Error('Sales Revenue account not found');
+    entries.push({
+      account_id: accounts.sales_revenue,
+      credit_amount: subtotal,
+      description: 'Sales revenue'
+    });
+
+    // Credit: Sales Tax Payable (if applicable)
+    if (taxAmount > 0 && accounts.sales_tax_payable) {
+      entries.push({
+        account_id: accounts.sales_tax_payable,
+        credit_amount: taxAmount,
+        description: 'Sales tax collected'
+      });
+    }
+
+    // Debit: Discount Given (if applicable)
+    if (discountAmount > 0 && accounts.discount_given) {
+      entries.push({
+        account_id: accounts.discount_given,
+        debit_amount: discountAmount,
+        description: 'Discount given to customer'
+      });
+    }
+
+    // Cost of Goods Sold and Inventory adjustment
+    if (saleData.items && saleData.items.length > 0 && accounts.cost_of_goods_sold && accounts.inventory) {
+      const totalCOGS = saleData.items.reduce((sum, item) => {
+        return sum + ((item.unitCost || 0) * item.quantity);
+      }, 0);
+
+      if (totalCOGS > 0) {
+        // Debit: Cost of Goods Sold
+        entries.push({
+          account_id: accounts.cost_of_goods_sold,
+          debit_amount: totalCOGS,
+          description: 'Cost of goods sold'
+        });
+
+        // Credit: Inventory
+        entries.push({
+          account_id: accounts.inventory,
+          credit_amount: totalCOGS,
+          description: 'Inventory reduction from sale'
+        });
+      }
+    }
+
+    const transaction: AccountingTransaction = {
+      description: `Sale to ${customerName}${totalCreditAmount > 0 ? ' (Credit Sale)' : ''}`,
+      reference_id: saleData.saleId,
+      reference_type: 'sale',
+      entries
+    };
+
+    // Create the journal entry first
+    const result = await createJournalEntry(tenantId, transaction, saleData.cashierId);
+
+    // Create AR record for credit payments only
+    if (saleData.customerId && totalCreditAmount > 0) {
+      try {
+        await supabase.rpc('create_accounts_receivable_record', {
+          tenant_id_param: tenantId,
+          sale_id_param: saleData.saleId,
+          customer_id_param: saleData.customerId,
+          total_amount_param: totalCreditAmount
+        });
+        console.log('AR record created for credit amount:', totalCreditAmount);
+      } catch (arError) {
+        console.error('Error creating AR record:', arError);
+      }
+    }
+
+    // Update inventory for sale items
+    if (saleData.items && saleData.items.length > 0) {
+      try {
+        await processSaleInventory(tenantId, saleData.saleId, saleData.items);
+      } catch (inventoryError) {
+        console.error('Error updating inventory for sale:', inventoryError);
+        // Don't fail the transaction if inventory update fails, but log it
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error creating enhanced sales journal entry:', error);
     throw error;
   }
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,23 @@ import { useCurrencySettings } from "@/lib/currency";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, CreditCard, Banknote, Smartphone, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Payment {
   id: string;
   method: string;
   amount: number;
   reference?: string;
+}
+
+interface PaymentMethod {
+  id: string;
+  name: string;
+  type: string;
+  is_active: boolean;
+  requires_reference: boolean;
+  display_order: number;
 }
 
 interface PaymentProcessorProps {
@@ -24,7 +35,10 @@ interface PaymentProcessorProps {
 
 export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing = false }: PaymentProcessorProps) {
   const { formatAmount } = useCurrencySettings();
+  const { tenantId } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [newPayment, setNewPayment] = useState({
     method: "cash",
     amount: 0,
@@ -35,22 +49,78 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
   const paidAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
   const remainingBalance = totalAmount - paidAmount;
 
-  const paymentMethods = [
-    { value: "cash", label: "Cash", icon: Banknote },
-    { value: "card", label: "Card", icon: CreditCard },
-    { value: "digital", label: "Digital Wallet", icon: Smartphone },
-    { value: "bank_transfer", label: "Bank Transfer", icon: Building2 },
-    { value: "check", label: "Check", icon: CreditCard },
-    { value: "gift_card", label: "Gift Card", icon: CreditCard },
-    { value: "credit", label: "Credit Sale (Pay Later)", icon: Building2 },
-  ];
+  // Fetch payment methods from database
+  useEffect(() => {
+    fetchPaymentMethods();
+  }, [tenantId]);
+
+  const fetchPaymentMethods = async () => {
+    if (!tenantId) {
+      setPaymentMethods([]);
+      setIsLoadingMethods(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setPaymentMethods(data);
+        // Set first payment method as default
+        setNewPayment(prev => ({ 
+          ...prev, 
+          method: data[0].type 
+        }));
+      } else {
+        // Fallback to default methods if none configured
+        setPaymentMethods([
+          { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+          { id: 'default-card', name: 'Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 },
+          { id: 'default-credit', name: 'Credit Sale', type: 'credit', is_active: true, requires_reference: true, display_order: 3 }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      toast({
+        title: "Warning",
+        description: "Could not load payment methods. Using defaults.",
+        variant: "destructive",
+      });
+      // Use fallback methods
+      setPaymentMethods([
+        { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+        { id: 'default-card', name: 'Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 }
+      ]);
+    } finally {
+      setIsLoadingMethods(false);
+    }
+  };
 
   const addPayment = () => {
+    const selectedMethod = paymentMethods.find(m => m.type === newPayment.method);
+    
     // For non-credit payments, validate amount is greater than 0
     if (newPayment.method !== "credit" && newPayment.amount <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Payment amount must be greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if reference is required
+    if (selectedMethod?.requires_reference && !newPayment.reference?.trim()) {
+      toast({
+        title: "Reference Required",
+        description: `${selectedMethod.name} payments require a reference number`,
         variant: "destructive",
       });
       return;
@@ -108,8 +178,17 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
   };
 
   const getPaymentIcon = (method: string) => {
-    const paymentMethod = paymentMethods.find(pm => pm.value === method);
-    const Icon = paymentMethod?.icon || CreditCard;
+    // Map payment types to icons
+    const iconMap: Record<string, any> = {
+      cash: Banknote,
+      card: CreditCard,
+      digital: Smartphone,
+      bank_transfer: Building2,
+      check: CreditCard,
+      gift_card: CreditCard,
+      credit: Building2,
+    };
+    const Icon = iconMap[method] || CreditCard;
     return <Icon className="h-4 w-4" />;
   };
 
@@ -155,7 +234,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
         <Separator />
 
         {/* Add New Payment */}
-        {remainingBalance > 0 && (
+        {remainingBalance > 0 && !isLoadingMethods && (
           <div className="space-y-3">
             <h4 className="font-medium">Add Payment</h4>
             
@@ -165,21 +244,25 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
                 <Select 
                   value={newPayment.method} 
                   onValueChange={(value) => setNewPayment(prev => ({ ...prev, method: value }))}
+                  disabled={isLoadingMethods}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {paymentMethods.map((method) => (
-                      <SelectItem key={method.value} value={method.value}>
+                      <SelectItem key={method.id} value={method.type}>
                         <div className="flex items-center gap-2">
-                          <method.icon className="h-4 w-4" />
-                          {method.label}
+                          {getPaymentIcon(method.type)}
+                          {method.name}
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {isLoadingMethods && (
+                  <p className="text-xs text-muted-foreground mt-1">Loading payment methods...</p>
+                )}
               </div>
 
               <div>
@@ -220,7 +303,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
               </div>
             </div>
 
-            {(newPayment.method === "card" || newPayment.method === "bank_transfer" || newPayment.method === "check" || newPayment.method === "credit") && (
+            {paymentMethods.find(m => m.type === newPayment.method)?.requires_reference && (
               <div>
                 <label className="text-sm font-medium">
                   {newPayment.method === "credit" ? "Customer Reference" : "Reference/Authorization"}
@@ -229,6 +312,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
                   value={newPayment.reference}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, reference: e.target.value }))}
                   placeholder={newPayment.method === "credit" ? "Customer PO or reference..." : "Enter reference number..."}
+                  required={paymentMethods.find(m => m.type === newPayment.method)?.requires_reference}
                 />
               </div>
             )}
@@ -253,7 +337,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, isProcessing =
                 <div className="flex items-center gap-3">
                   {getPaymentIcon(payment.method)}
                   <div>
-                    <p className="font-medium">{payment.method.replace('_', ' ').toUpperCase()}</p>
+                     <p className="font-medium">{paymentMethods.find(m => m.type === payment.method)?.name || payment.method.replace('_', ' ').toUpperCase()}</p>
                     {payment.reference && (
                       <p className="text-sm text-muted-foreground">Ref: {payment.reference}</p>
                     )}

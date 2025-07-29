@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { createSalesJournalEntry } from "@/lib/accounting-integration";
+import { createEnhancedSalesJournalEntry } from "@/lib/accounting-integration";
 import { processSaleInventory } from "@/lib/inventory-integration";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -589,9 +589,9 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
         };
       });
 
-      // Create accounting journal entry
+      // Create accounting journal entry with enhanced payment method handling
       try {
-        await createSalesJournalEntry(tenantData, {
+        await createEnhancedSalesJournalEntry(tenantData, {
           saleId: sale.id,
           customerId: values.customer_id && values.customer_id !== "walk-in" ? values.customer_id : undefined,
           totalAmount: totalAmount,
