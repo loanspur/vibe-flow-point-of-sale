@@ -112,6 +112,14 @@ export const getDefaultAccounts = async (tenantId: string) => {
       map.sales_revenue = account.id;
       console.log('✓ Mapped sales revenue:', account.name, account.id);
     }
+    if (name.includes('shipping') && category === 'income') {
+      map.shipping_revenue = account.id;
+      console.log('✓ Mapped shipping revenue:', account.name, account.id);
+    }
+    if (name.includes('shipping') && category === 'expenses') {
+      map.shipping_expense = account.id;
+      console.log('✓ Mapped shipping expense:', account.name, account.id);
+    }
     if (name.includes('cost') || name.includes('cogs') || (name.includes('goods') && name.includes('sold'))) {
       map.cost_of_goods_sold = account.id;
       console.log('✓ Mapped COGS:', account.name, account.id);
@@ -234,6 +242,7 @@ export const createEnhancedSalesJournalEntry = async (
     totalAmount: number;
     discountAmount: number;
     taxAmount: number;
+    shippingAmount?: number;
     payments: Array<{ method: string; amount: number }>;
     cashierId: string;
     items?: Array<{ productId: string; variantId?: string; quantity: number; unitCost?: number }>;
@@ -283,13 +292,27 @@ export const createEnhancedSalesJournalEntry = async (
       });
     }
 
-    // Credit: Sales Revenue
+    // Credit: Sales Revenue (adjusted for shipping - shipping is separate income)
     if (!accounts.sales_revenue) throw new Error('Sales Revenue account not found');
-    entries.push({
-      account_id: accounts.sales_revenue,
-      credit_amount: subtotal,
-      description: 'Sales revenue'
-    });
+    const salesRevenue = subtotal - (saleData.shippingAmount || 0);
+    if (salesRevenue > 0) {
+      entries.push({
+        account_id: accounts.sales_revenue,
+        credit_amount: salesRevenue,
+        description: 'Sales revenue'
+      });
+    }
+
+    // Credit: Shipping Revenue (if shipping charges exist)
+    if (saleData.shippingAmount && saleData.shippingAmount > 0) {
+      // Try to find shipping revenue account, fallback to sales revenue
+      const shippingAccount = accounts.shipping_revenue || accounts.sales_revenue;
+      entries.push({
+        account_id: shippingAccount,
+        credit_amount: saleData.shippingAmount,
+        description: 'Shipping charges'
+      });
+    }
 
     // Credit: Sales Tax Payable (if applicable)
     if (taxAmount > 0 && accounts.sales_tax_payable) {
@@ -381,6 +404,7 @@ export const createEnhancedPurchaseJournalEntry = async (
     purchaseId: string;
     supplierId: string;
     totalAmount: number;
+    shippingAmount?: number;
     isReceived: boolean;
     payments?: Array<{ method: string; amount: number }>;
     createdBy: string;
@@ -406,17 +430,34 @@ export const createEnhancedPurchaseJournalEntry = async (
     }
     
     const accounts = await getDefaultAccounts(tenantId);
-    const { totalAmount, isReceived, payments = [] } = purchaseData;
+    const { totalAmount, shippingAmount = 0, isReceived, payments = [] } = purchaseData;
     const entries: AccountingEntry[] = [];
     
     if (isReceived) {
-      // Debit: Inventory (for received goods)
-      if (!accounts.inventory) throw new Error('Inventory account not found');
-      entries.push({
-        account_id: accounts.inventory,
-        debit_amount: totalAmount,
-        description: 'Inventory received from purchase'
-      });
+      const inventoryAmount = totalAmount - shippingAmount;
+      
+      // Debit: Inventory (for received goods, excluding shipping)
+      if (inventoryAmount > 0) {
+        if (!accounts.inventory) throw new Error('Inventory account not found');
+        entries.push({
+          account_id: accounts.inventory,
+          debit_amount: inventoryAmount,
+          description: 'Inventory received from purchase'
+        });
+      }
+
+      // Debit: Shipping Expense (if shipping charges exist)
+      if (shippingAmount > 0) {
+        // Try to find shipping expense account, fallback to general expense
+        const shippingExpenseAccount = accounts.shipping_expense || accounts.cost_of_goods_sold;
+        if (shippingExpenseAccount) {
+          entries.push({
+            account_id: shippingExpenseAccount,
+            debit_amount: shippingAmount,
+            description: 'Shipping charges on purchase'
+          });
+        }
+      }
 
       // Handle payments if provided
       if (payments && payments.length > 0) {
