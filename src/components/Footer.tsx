@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import { TrialSignupModal } from "@/components/TrialSignupModal";
+import { VersionBadge } from "@/components/VersionBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react";
 
@@ -170,9 +171,12 @@ const Footer = () => {
           <Separator className="my-8" />
 
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <p className="text-muted-foreground text-sm">
-              © 2024 vibePOS. All rights reserved.
-            </p>
+            <div className="flex items-center space-x-4">
+              <p className="text-muted-foreground text-sm">
+                © 2024 vibePOS. All rights reserved.
+              </p>
+              <VersionBadge variant="minimal" />
+            </div>
             <div className="flex items-center space-x-6">
               <a href="/privacy-policy" className="text-muted-foreground hover:text-foreground transition-colors">
                 Privacy Policy
