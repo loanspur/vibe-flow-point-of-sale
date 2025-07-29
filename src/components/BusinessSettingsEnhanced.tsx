@@ -745,14 +745,13 @@ export function BusinessSettingsEnhanced() {
         {/* Enhanced Navigation with Modern Glass Effect */}
         <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5 h-auto bg-transparent gap-2 p-0">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
                 value="company" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
               >
                 <Building className="h-4 w-4 transition-transform group-hover:scale-110" />
-                <span className="font-medium hidden sm:inline">Company & Branding</span>
-                <span className="font-medium sm:hidden">Company</span>
+                <span className="font-medium hidden sm:inline">Company</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="operations" 
@@ -760,7 +759,20 @@ export function BusinessSettingsEnhanced() {
               >
                 <Settings className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Operations</span>
-                <span className="font-medium sm:hidden">Operations</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="sales-products" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Package className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium hidden sm:inline">Sales</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="notifications" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium hidden sm:inline">Notifications</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="payments" 
@@ -768,6 +780,20 @@ export function BusinessSettingsEnhanced() {
               >
                 <CreditCard className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Payments</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="domains" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Globe className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Domains</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="billing" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Receipt className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Billing</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="locations" 
@@ -1379,6 +1405,359 @@ export function BusinessSettingsEnhanced() {
                         ))}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Sales & Products Tab */}
+              <TabsContent value="sales-products" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  
+                  {/* Sales Settings Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <ShoppingCart className="h-6 w-6 text-primary" />
+                        </div>
+                        Sales Configuration
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure sales processes and customer interactions
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="pos_ask_customer_info"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Ask Customer Info</FormLabel>
+                              <FormDescription>
+                                Prompt for customer information during sales
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="pos_enable_discounts"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Enable Discounts</FormLabel>
+                              <FormDescription>
+                                Allow discount application during sales
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="pos_max_discount_percent"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium flex items-center gap-2">
+                              <Tag className="h-4 w-4 text-primary" />
+                              Maximum Discount Percentage
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                min="0" 
+                                max="100" 
+                                placeholder="0" 
+                                className="border-2 focus:border-primary/50 transition-colors" 
+                                {...field} 
+                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Product Settings Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Package className="h-6 w-6 text-primary" />
+                        </div>
+                        Product Management
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure product features and inventory settings
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="enable_brands"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Product Brands</FormLabel>
+                              <FormDescription>
+                                Enable brand management for products
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_barcode_scanning"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Barcode Scanning</FormLabel>
+                              <FormDescription>
+                                Enable barcode scanning for products
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="auto_generate_sku"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Auto Generate SKU</FormLabel>
+                              <FormDescription>
+                                Automatically generate SKUs for new products
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_negative_stock"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Allow Negative Stock</FormLabel>
+                              <FormDescription>
+                                Allow products to have negative inventory
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Notifications & Templates Tab */}
+              <TabsContent value="notifications" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  
+                  {/* Notification Settings Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Bell className="h-6 w-6 text-primary" />
+                        </div>
+                        Notification Settings
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure email, SMS, and system notifications
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="email_notifications"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Email Notifications</FormLabel>
+                              <FormDescription>
+                                Send email notifications for important events
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="sms_enable_notifications"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">SMS Notifications</FormLabel>
+                              <FormDescription>
+                                Send SMS notifications to customers
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="low_stock_alerts"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Low Stock Alerts</FormLabel>
+                              <FormDescription>
+                                Receive alerts when inventory is low
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="daily_reports"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Daily Reports</FormLabel>
+                              <FormDescription>
+                                Receive daily business reports via email
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Document Templates Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <FileText className="h-6 w-6 text-primary" />
+                        </div>
+                        Document Templates
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Customize invoice, receipt, and quote templates
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <DocumentTemplateEditor tenantId={settings?.tenant_id || ''} />
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Domains Tab */}
+              <TabsContent value="domains" className="space-y-8 mt-0">
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <Globe className="h-6 w-6 text-primary" />
+                      </div>
+                      Domain Management
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Manage custom domains and SSL certificates
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DomainManagement />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Billing Tab */}
+              <TabsContent value="billing" className="space-y-8 mt-0">
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <Receipt className="h-6 w-6 text-primary" />
+                      </div>
+                      Billing Management
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Manage subscription plans, billing cycles, and payments
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <BillingManagement />
                   </CardContent>
                 </Card>
               </TabsContent>
