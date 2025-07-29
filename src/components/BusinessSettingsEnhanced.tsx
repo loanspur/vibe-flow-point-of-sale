@@ -63,7 +63,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
 import { timezones } from "@/lib/timezones";
-import { countries, type Country } from "@/lib/countries";
+// Simple country list to avoid type issues
+const COUNTRY_LIST = [
+  'United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Australia', 
+  'Japan', 'China', 'India', 'Brazil', 'Mexico', 'South Africa', 'Nigeria', 'Kenya'
+];
 import { clearCurrencyCache } from "@/lib/currency";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -258,7 +262,7 @@ export function BusinessSettingsEnhanced() {
   });
   const [currencySearch, setCurrencySearch] = useState("");
   const [timezoneSearch, setTimezoneSearch] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewType, setPreviewType] = useState<"invoice" | "receipt" | "quote">("invoice");
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
@@ -671,7 +675,7 @@ export function BusinessSettingsEnhanced() {
       )
     : timezones;
 
-  const countryNames = countries.map(country => country.name);
+  const countryOptions = COUNTRY_LIST;
 
   if (isLoading) {
     return (
@@ -1217,7 +1221,7 @@ export function BusinessSettingsEnhanced() {
                                   <SelectValue placeholder="Select Country" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-background/95 backdrop-blur-sm border border-border/50">
-                                  {countryNames.map((countryName) => (
+                                  {countryOptions.map((countryName) => (
                                     <SelectItem key={countryName} value={countryName}>
                                       {countryName}
                                     </SelectItem>
