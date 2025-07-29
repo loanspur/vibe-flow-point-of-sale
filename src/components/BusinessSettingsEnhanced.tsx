@@ -1262,7 +1262,66 @@ export function BusinessSettingsEnhanced() {
                              />
                            </div>
 
-                           <Separator className="my-6" />
+            {/* Company logo upload section moved here */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="logo-upload" className="text-base font-medium">Company Logo</Label>
+                <p className="text-sm text-muted-foreground">Upload your company logo for branding</p>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <div className="flex-shrink-0">
+                  {logoPreview ? (
+                    <img
+                      src={logoPreview}
+                      alt="Company Logo"
+                      className="w-20 h-20 object-cover rounded-lg border"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-muted rounded-lg border flex items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input
+                    id="logo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Logo
+                    </Button>
+                    {logoPreview && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setLogoPreview(null);
+                          form.setValue('company_logo_url', '');
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Recommended: 200x200px, PNG or JPEG
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="my-6" />
 
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              <FormField
