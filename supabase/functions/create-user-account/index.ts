@@ -179,7 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
     const emailResponse = await resend.emails.send({
-      from: 'VibePOS <noreply@vibenet.shop>',
+      from: 'VibePOS <onboarding@resend.dev>',
       to: [email],
       subject: emailSubject,
       html: htmlContent,
