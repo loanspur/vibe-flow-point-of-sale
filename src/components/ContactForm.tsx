@@ -174,7 +174,7 @@ const ContactForm = ({ isOpen, onOpenChange }: ContactFormProps) => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Phone className="h-4 w-4 text-primary" />
-                  <span>+254 700 000 000</span>
+                  <span>+254 727638940</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MapPin className="h-4 w-4 text-primary" />
@@ -277,7 +277,7 @@ const ContactForm = ({ isOpen, onOpenChange }: ContactFormProps) => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Phone className="h-4 w-4 text-primary" />
-                  <span>+254 700 000 000</span>
+                  <span>+254 727638940</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MapPin className="h-4 w-4 text-primary" />
