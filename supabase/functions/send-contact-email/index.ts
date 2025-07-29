@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
+import { Resend } from "npm:resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -28,7 +28,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending contact email:", { name, email, subject });
 
     const emailResponse = await resend.emails.send({
-      from: "VibePOS Support <noreply@resend.dev>",
+      from: "VibePOS Support <noreply@vibepos.shop>",
       to: ["itsupport@loanspur.com"],
       replyTo: email,
       subject: `Support Request: ${subject}`,

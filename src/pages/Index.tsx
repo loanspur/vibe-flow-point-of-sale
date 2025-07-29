@@ -14,6 +14,7 @@ import { PricingCardSkeleton } from "@/components/ui/skeleton-loader";
 import { useOptimizedPricing } from "@/hooks/useOptimizedPricing";
 import { usePreloader } from "@/hooks/usePreloader";
 import { TenantCreationModal } from "@/components/TenantCreationModal";
+import ContactForm from "@/components/ContactForm";
 
 interface BillingPlan {
   id: string;
@@ -1203,6 +1204,9 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Contact Section */}
+      <ContactForm />
       
       {/* Tenant Creation Modal */}
       <TenantCreationModal
