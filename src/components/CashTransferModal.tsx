@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CashDrawer } from '@/hooks/useCashDrawer';
+import { CashDrawer, useCashDrawer } from '@/hooks/useCashDrawer';
 import { ArrowRightLeft, CreditCard, Wallet, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,6 +55,7 @@ export function CashTransferModal({
   formatAmount
 }: CashTransferModalProps) {
   const { user, tenantId } = useAuth();
+  const { refresh: refreshCashDrawerData } = useCashDrawer();
   
   const [transferType, setTransferType] = useState<'cash_drawer' | 'account'>('cash_drawer');
   const [selectedDrawerId, setSelectedDrawerId] = useState<string>('');
@@ -290,9 +291,21 @@ export function CashTransferModal({
       
       setIsSubmitting(true);
       try {
-        await createSplitTransferRequests(validSplits);
-        toast.success('Split transfer requests created successfully');
-        onClose();
+      await createSplitTransferRequests(validSplits);
+      toast.success('Split transfer requests created successfully');
+      
+      // Refresh cash drawer data after successful transfer
+      refreshCashDrawerData();
+      
+      // Clear dashboard cache to refresh banked amounts
+      const cacheKey = `dashboard-metrics-${tenantId}-${new Date().toISOString().split('T')[0]}`;
+      if (typeof window !== 'undefined') {
+        const cache = window.localStorage;
+        const cacheEntries = Object.keys(cache).filter(key => key.startsWith(cacheKey));
+        cacheEntries.forEach(key => cache.removeItem(key));
+      }
+      
+      onClose();
       } catch (error) {
         console.error('Split transfer failed:', error);
         toast.error('Failed to create split transfer requests');
@@ -329,6 +342,18 @@ export function CashTransferModal({
     try {
       await createTransferRequest();
       toast.success('Transfer request created successfully');
+      
+      // Refresh cash drawer data after successful transfer
+      refreshCashDrawerData();
+      
+      // Clear dashboard cache to refresh banked amounts
+      const cacheKey = `dashboard-metrics-${tenantId}-${new Date().toISOString().split('T')[0]}`;
+      if (typeof window !== 'undefined') {
+        const cache = window.localStorage;
+        const cacheEntries = Object.keys(cache).filter(key => key.startsWith(cacheKey));
+        cacheEntries.forEach(key => cache.removeItem(key));
+      }
+      
       onClose();
     } catch (error) {
       console.error('Transfer failed:', error);

@@ -11,7 +11,8 @@ import {
   ShoppingBag, 
   Users,
   ArrowUpRight,
-  Activity
+  Activity,
+  Building2
 } from "lucide-react";
 import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,17 +51,17 @@ const Dashboard = () => {
       trend: "up"
     },
     {
+      title: "Banked Today",
+      value: "0",
+      change: "0%",
+      icon: Building2,
+      trend: "up"
+    },
+    {
       title: "Products Sold",
       value: "0",
       change: "0%",
       icon: ShoppingBag,
-      trend: "up"
-    },
-    {
-      title: "Customers",
-      value: "0",
-      change: "0%",
-      icon: Users,
       trend: "up"
     }
   ]);
@@ -83,7 +84,7 @@ const Dashboard = () => {
       const today = new Date().toISOString().split('T')[0];
       
       // Optimized parallel queries with only needed fields
-      const [todaySalesResponse, customersResponse, saleItemsResponse] = await Promise.all([
+      const [todaySalesResponse, customersResponse, saleItemsResponse, bankTransfersResponse] = await Promise.all([
         supabase
           .from('sales')
           .select('total_amount')
@@ -97,24 +98,33 @@ const Dashboard = () => {
           .from('sale_items')
           .select('quantity, sales!inner(tenant_id)')
           .eq('sales.tenant_id', tenantId)
-          .gte('sales.created_at', today)
+          .gte('sales.created_at', today),
+        supabase
+          .from('cash_bank_transfer_requests')
+          .select('amount')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'approved')
+          .gte('created_at', today)
       ]);
 
       if (todaySalesResponse.error) throw todaySalesResponse.error;
       if (customersResponse.error) throw customersResponse.error;
       if (saleItemsResponse.error) throw saleItemsResponse.error;
+      if (bankTransfersResponse.error) throw bankTransfersResponse.error;
 
       const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
       const todayTransactions = todaySalesResponse.data?.length || 0;
       const totalProductsSold = saleItemsResponse.data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
       const totalCustomers = customersResponse.count || 0;
+      const todayBankedAmount = bankTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
 
       return {
         data: {
           todayRevenue,
           todayTransactions,
           totalProductsSold,
-          totalCustomers
+          totalCustomers,
+          todayBankedAmount
         },
         error: null
       };
@@ -149,17 +159,17 @@ const Dashboard = () => {
         trend: "up"
       },
       {
+        title: "Banked Today",
+        value: formatCurrency(dashboardData.todayBankedAmount),
+        change: "Bank Transfers",
+        icon: Building2,
+        trend: "up"
+      },
+      {
         title: "Products Sold",
         value: dashboardData.totalProductsSold.toString(),
         change: "0%",
         icon: ShoppingBag,
-        trend: "up"
-      },
-      {
-        title: "Customers",
-        value: dashboardData.totalCustomers.toString(),
-        change: "0%",
-        icon: Users,
         trend: "up"
       }
     ];
