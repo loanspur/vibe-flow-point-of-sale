@@ -209,7 +209,7 @@ export function CashTransferModal({
   const createSplitTransferRequests = async (validSplits: SplitTransfer[]) => {
     if (!tenantId || !user?.id) return;
 
-    const promises = validSplits.map(split => {
+    const promises = validSplits.map(async split => {
       const transferData = {
         tenant_id: tenantId,
         transfer_type: 'account' as const,
@@ -220,13 +220,32 @@ export function CashTransferModal({
         from_drawer_id: currentDrawer.id,
         to_account_id: split.account_id,
         reason: split.notes || reason || null,
-        status: 'pending' as const,
+        status: 'approved' as const, // Auto-approve account transfers
         reference_number: generateReferenceNumber()
       };
 
-      return supabase
+      const { data: transferRequest, error } = await supabase
         .from('transfer_requests')
-        .insert([transferData]);
+        .insert([transferData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Immediately process the transfer
+      if (transferRequest) {
+        const { error: processError } = await supabase.rpc('process_transfer_request', {
+          transfer_request_id: transferRequest.id,
+          action: 'approve'
+        });
+
+        if (processError) {
+          console.error('Error processing split transfer:', processError);
+          throw processError;
+        }
+      }
+
+      return { data: transferRequest, error: null };
     });
 
     const results = await Promise.all(promises);
@@ -328,15 +347,30 @@ export function CashTransferModal({
       to_drawer_id: transferType === 'cash_drawer' ? selectedDrawerId : null,
       to_account_id: transferType === 'account' ? selectedAccountId : null,
       reason: reason || null,
-      status: 'pending',
+      status: transferType === 'account' ? 'approved' : 'pending', // Auto-approve account transfers
       reference_number: generateReferenceNumber()
     };
 
-    const { error } = await supabase
+    const { data: transferRequest, error } = await supabase
       .from('transfer_requests')
-      .insert([transferData]);
+      .insert([transferData])
+      .select()
+      .single();
 
     if (error) throw error;
+
+    // If it's an account transfer, immediately process it
+    if (transferType === 'account' && transferRequest) {
+      const { error: processError } = await supabase.rpc('process_transfer_request', {
+        transfer_request_id: transferRequest.id,
+        action: 'approve'
+      });
+
+      if (processError) {
+        console.error('Error processing account transfer:', processError);
+        throw processError;
+      }
+    }
   };
 
   const generateReferenceNumber = () => {
