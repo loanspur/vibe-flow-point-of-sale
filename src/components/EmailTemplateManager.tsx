@@ -424,6 +424,8 @@ export const EmailTemplateManager = ({ isSystemAdmin = false }: EmailTemplateMan
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       Define variables that can be inserted into templates. Use {`{{variable_name}}`} in your content.
+                      <br />
+                      <strong>Tenant-specific variables are automatically added:</strong> {`{{tenant_url}}, {{login_url}}, {{dashboard_url}}, {{support_url}}`}
                     </p>
                   </div>
                 </TabsContent>

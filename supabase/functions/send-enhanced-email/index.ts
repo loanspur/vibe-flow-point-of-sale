@@ -65,13 +65,38 @@ const handler = async (req: Request): Promise<Response> => {
       throw queueError;
     }
 
+    // Get tenant-specific email configuration and domain info
+    const { data: tenantDomain } = await supabase
+      .from('tenant_domains')
+      .select('domain_name, domain_type, is_primary')
+      .eq('tenant_id', emailData.tenantId)
+      .eq('is_active', true)
+      .order('is_primary', { ascending: false })
+      .limit(1)
+      .single();
+
     // Process template variables
     let processedHtml = emailData.htmlContent;
     let processedSubject = emailData.subject;
     let processedText = emailData.textContent || '';
 
     if (emailData.variables) {
-      for (const [key, value] of Object.entries(emailData.variables)) {
+      // Add tenant-specific variables if not already provided
+      const enhancedVariables = {
+        ...emailData.variables,
+        tenant_url: tenantDomain 
+          ? (tenantDomain.domain_type === 'custom_domain' 
+              ? `https://${tenantDomain.domain_name}`
+              : `https://${tenantDomain.domain_name}`)
+          : `https://tenant-${emailData.tenantId}.vibenet.shop`,
+        support_url: tenantDomain
+          ? (tenantDomain.domain_type === 'custom_domain'
+              ? `https://${tenantDomain.domain_name}/support`
+              : `https://${tenantDomain.domain_name}/support`)
+          : `https://tenant-${emailData.tenantId}.vibenet.shop/support`
+      };
+
+      for (const [key, value] of Object.entries(enhancedVariables)) {
         const placeholder = `{{${key}}}`;
         processedHtml = processedHtml.replace(new RegExp(placeholder, 'g'), String(value));
         processedSubject = processedSubject.replace(new RegExp(placeholder, 'g'), String(value));
