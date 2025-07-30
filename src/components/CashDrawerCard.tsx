@@ -101,6 +101,13 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
         .lte('created_at', endDate)
         .eq('status', 'approved');
 
+      console.log('🏦 Bank transfers query result:', {
+        transfersData,
+        transfersError,
+        dateRange: { startDate, endDate },
+        tenantId
+      });
+
       if (transfersError) throw transfersError;
 
       setCashDrawers((drawersData as any) || []);
@@ -117,6 +124,14 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
   const totalBankedCash = bankTransfers.reduce((sum, transfer) => sum + transfer.amount, 0);
   const openDrawersCount = cashDrawers.filter(drawer => drawer.status === 'open').length;
   const totalDrawersCount = cashDrawers.length;
+
+  console.log('💰 Cash calculations:', {
+    cashDrawers: cashDrawers.length,
+    bankTransfers: bankTransfers.length,
+    totalUnbankedCash,
+    totalBankedCash,
+    bankTransfersData: bankTransfers
+  });
 
   if (loading) {
     return (
