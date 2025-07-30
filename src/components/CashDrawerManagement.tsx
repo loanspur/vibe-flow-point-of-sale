@@ -245,7 +245,12 @@ export function CashDrawerManagement() {
       setSelectedTransfer(null);
       setActionType(null);
       setActionNotes('');
-      fetchAllTransfers();
+      
+      // Refresh all relevant data after successful action
+      await Promise.all([
+        fetchAllTransfers(),
+        location.reload() // Force full data refresh including cash drawer balances
+      ]);
     } catch (error) {
       console.error('Error processing action:', error);
       toast.error(`Failed to ${actionType} transfer: ${error.message || 'Unknown error'}`);
