@@ -168,32 +168,8 @@ export function CashTransferModal({
 
       if (error) throw error;
 
-      // Immediately process the transfer
-      if (transferRequest) {
-        const { error: processError } = await supabase.rpc('process_transfer_request', {
-          transfer_request_id: transferRequest.id,
-          action: 'approve'
-        });
-
-        if (processError) {
-          console.error('Error processing split transfer:', processError);
-          throw processError;
-        }
-
-        // Mark as completed after processing
-        const { error: updateError } = await supabase
-          .from('transfer_requests')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', transferRequest.id);
-
-        if (updateError) {
-          console.error('Error updating split transfer status:', updateError);
-          throw updateError;
-        }
-      }
+      // Leave split transfer request as pending for admin approval
+      console.log('Split transfer request created and pending approval:', transferRequest?.reference_number);
 
       return { data: transferRequest, error: null };
     });
@@ -319,32 +295,8 @@ export function CashTransferModal({
 
     if (error) throw error;
 
-    // Immediately process the account transfer
-    if (transferRequest) {
-      const { error: processError } = await supabase.rpc('process_transfer_request', {
-        transfer_request_id: transferRequest.id,
-        action: 'approve'
-      });
-
-      if (processError) {
-        console.error('Error processing account transfer:', processError);
-        throw processError;
-      }
-
-      // Mark as completed after processing
-      const { error: updateError } = await supabase
-        .from('transfer_requests')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', transferRequest.id);
-
-      if (updateError) {
-        console.error('Error updating transfer status:', updateError);
-        throw updateError;
-      }
-    }
+    // Leave transfer request as pending for admin approval
+    console.log('Transfer request created and pending approval:', transferRequest.reference_number);
   };
 
   const generateReferenceNumber = () => {

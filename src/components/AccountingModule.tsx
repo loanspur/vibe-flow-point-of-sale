@@ -7,6 +7,7 @@ import FinancialStatements from './accounting/FinancialStatements';
 import AccountingBalanceCheck from './accounting/AccountingBalanceCheck';
 import AccountsReceivablePayable from './AccountsReceivablePayable';
 import { CashDrawerManagement } from './CashDrawerManagement';
+import { EnhancedTransferManagement } from './EnhancedTransferManagement';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +19,7 @@ import {
   Receipt,
   DollarSign,
   Wallet,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 export default function AccountingModule() {
@@ -49,7 +51,7 @@ export default function AccountingModule() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <BarChart3 className="w-4 h-4" />
             <span>Overview</span>
@@ -77,6 +79,10 @@ export default function AccountingModule() {
           <TabsTrigger value="cash-drawer" className="flex items-center space-x-2">
             <Wallet className="w-4 h-4" />
             <span>Cash Drawer</span>
+          </TabsTrigger>
+          <TabsTrigger value="transfers" className="flex items-center space-x-2">
+            <ArrowRightLeft className="w-4 h-4" />
+            <span>Transfers</span>
           </TabsTrigger>
         </TabsList>
 
@@ -106,6 +112,10 @@ export default function AccountingModule() {
 
         <TabsContent value="cash-drawer">
           <CashDrawerManagement />
+        </TabsContent>
+
+        <TabsContent value="transfers">
+          <EnhancedTransferManagement />
         </TabsContent>
       </Tabs>
     </div>
