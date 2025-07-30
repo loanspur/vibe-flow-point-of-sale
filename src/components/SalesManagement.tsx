@@ -33,7 +33,7 @@ interface Sale {
   created_at: string;
   customer_id?: string;
   cashier_id: string;
-  customers?: {
+  contacts?: {
     name: string;
     email?: string;
     phone?: string;
@@ -100,7 +100,7 @@ export default function SalesManagement() {
         .from('sales')
         .select(`
           *,
-          customers!sales_customer_id_fkey (
+          contacts!sales_customer_id_fkey (
             id,
             name,
             email,
@@ -133,7 +133,7 @@ export default function SalesManagement() {
       const invoicesWithProfiles = (data || []).map(invoice => ({
         ...invoice,
         profiles: profilesMap[invoice.cashier_id] || null,
-        customers: invoice.customers || null
+        contacts: invoice.contacts || null
       }));
 
       setInvoices(invoicesWithProfiles);
@@ -151,7 +151,7 @@ export default function SalesManagement() {
         .from('sales')
         .select(`
           *,
-          customers!sales_customer_id_fkey (
+          contacts!sales_customer_id_fkey (
             id,
             name,
             email,
@@ -181,11 +181,11 @@ export default function SalesManagement() {
         profilesMap[profile.user_id] = profile;
       });
       
-      // Add profile data to sales and ensure customers is properly handled
+      // Add profile data to sales and ensure contacts is properly handled
       const salesWithProfiles = (data || []).map(sale => ({
         ...sale,
         profiles: profilesMap[sale.cashier_id] || null,
-        customers: sale.customers || null
+        contacts: sale.contacts || null
       }));
 
       setSales(salesWithProfiles);
@@ -268,7 +268,7 @@ export default function SalesManagement() {
 
   const filteredSales = sales.filter(sale => {
     const matchesSearch = sale.receipt_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         sale.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+                         sale.contacts?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || sale.status === filterStatus;
     const matchesPayment = filterPayment === "all" || sale.payment_method === filterPayment;
     
@@ -599,7 +599,7 @@ export default function SalesManagement() {
                     <div>
                       <p className="font-medium">{sale.receipt_number}</p>
                       <p className="text-sm text-muted-foreground">
-                        {sale.customers?.name || "Walk-in Customer"} • {formatDate(sale.created_at)}
+                        {sale.contacts?.name || "Walk-in Customer"} • {formatDate(sale.created_at)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -712,11 +712,11 @@ export default function SalesManagement() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {sale.customers?.name || "Walk-in Customer"}
+                              {sale.contacts?.name || "Walk-in Customer"}
                             </div>
-                            {sale.customers?.email && (
+                            {sale.contacts?.email && (
                               <div className="text-sm text-muted-foreground">
-                                {sale.customers.email}
+                                {sale.contacts.email}
                               </div>
                             )}
                           </div>
@@ -862,7 +862,7 @@ export default function SalesManagement() {
                         {invoices
                           .filter(invoice => 
                             invoice.receipt_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            invoice.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+                            invoice.contacts?.name?.toLowerCase().includes(searchTerm.toLowerCase())
                           )
                           .map((invoice) => {
                             const paymentStatus = salesPaymentStatus[invoice.id];
@@ -882,11 +882,11 @@ export default function SalesManagement() {
                                 <TableCell>
                                   <div>
                                     <div className="font-medium">
-                                      {invoice.customers?.name || "Walk-in Customer"}
+                                      {invoice.contacts?.name || "Walk-in Customer"}
                                     </div>
-                                    {invoice.customers?.email && (
+                                    {invoice.contacts?.email && (
                                       <div className="text-sm text-muted-foreground">
-                                        {invoice.customers.email}
+                                        {invoice.contacts.email}
                                       </div>
                                     )}
                                   </div>
@@ -1079,7 +1079,7 @@ export default function SalesManagement() {
               </div>
               <div className="text-sm space-y-1">
                 <div>Receipt: {saleForReturn?.receipt_number}</div>
-                <div>Customer: {saleForReturn?.customers?.name || "Walk-in Customer"}</div>
+                <div>Customer: {saleForReturn?.contacts?.name || "Walk-in Customer"}</div>
                 <div>Amount: {saleForReturn ? formatAmount(saleForReturn.total_amount) : formatAmount(0)}</div>
                 <div>Date: {saleForReturn ? formatDate(saleForReturn.created_at) : ""}</div>
               </div>
