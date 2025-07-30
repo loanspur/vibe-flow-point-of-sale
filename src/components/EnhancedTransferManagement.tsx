@@ -30,21 +30,25 @@ interface TransferRequest {
   id: string;
   amount: number;
   status: string;
+  transfer_type: string;
   reason?: string;
   notes?: string;
-  requested_at: string;
+  reference_number?: string;
+  requested_at?: string;
   responded_at?: string;
   from_user_id: string;
   to_user_id: string;
   responded_by?: string;
   from_drawer_id: string;
-  to_drawer_id: string;
+  to_drawer_id?: string;
+  to_account_id?: string;
   tenant_id: string;
   created_at: string;
   updated_at: string;
   profiles_from?: { full_name: string } | null;
   profiles_to?: { full_name: string } | null;
   profiles_responded?: { full_name: string } | null;
+  accounts?: { name: string; code: string } | null;
   cash_drawers_from?: { drawer_name: string } | null;
   cash_drawers_to?: { drawer_name: string } | null;
 }
@@ -72,28 +76,55 @@ export function EnhancedTransferManagement() {
 
     setLoading(true);
     try {
-      let query = supabase
-        .from('cash_transfer_requests')
-        .select(`
-          *,
-          profiles_from:profiles!from_user_id(full_name),
-          profiles_to:profiles!to_user_id(full_name),
-          profiles_responded:profiles!responded_by(full_name),
-          cash_drawers_from:cash_drawers!from_drawer_id(drawer_name),
-          cash_drawers_to:cash_drawers!to_drawer_id(drawer_name)
-        `)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
+      // Fetch both cash drawer transfers and bank transfers
+      const [cashTransfersResponse, bankTransfersResponse] = await Promise.all([
+        supabase
+          .from('cash_transfer_requests')
+          .select(`
+            *,
+            profiles_from:profiles!from_user_id(full_name),
+            profiles_to:profiles!to_user_id(full_name),
+            profiles_responded:profiles!responded_by(full_name),
+            cash_drawers_from:cash_drawers!from_drawer_id(drawer_name),
+            cash_drawers_to:cash_drawers!to_drawer_id(drawer_name)
+          `)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false }),
+        
+        supabase
+          .from('transfer_requests')
+          .select(`
+            *,
+            profiles_from:profiles!from_user_id(full_name),
+            profiles_to:profiles!to_user_id(full_name),
+            profiles_responded:profiles!responded_by(full_name),
+            accounts:accounts!to_account_id(name, code),
+            cash_drawers_from:cash_drawers!from_drawer_id(drawer_name)
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('transfer_type', 'account')
+          .order('created_at', { ascending: false })
+      ]);
 
-      // Non-admin users can only see their own transfers
+      if (cashTransfersResponse.error) throw cashTransfersResponse.error;
+      if (bankTransfersResponse.error) throw bankTransfersResponse.error;
+
+      // Combine and sort transfers
+      const cashTransfers = (cashTransfersResponse.data || []).map(t => ({ ...t, transfer_type: 'drawer' })) as unknown as TransferRequest[];
+      const bankTransfers = (bankTransfersResponse.data || []).map(t => ({ ...t, transfer_type: 'account' })) as unknown as TransferRequest[];
+      
+      const allTransfers = [...cashTransfers, ...bankTransfers]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      // Filter for non-admin users
       if (!isAdmin) {
-        query = query.or(`from_user_id.eq.${user?.id},to_user_id.eq.${user?.id}`);
+        const filteredTransfers = allTransfers.filter(transfer => 
+          transfer.from_user_id === user?.id || transfer.to_user_id === user?.id
+        );
+        setTransfers(filteredTransfers);
+      } else {
+        setTransfers(allTransfers);
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setTransfers((data || []) as unknown as TransferRequest[]);
     } catch (error) {
       console.error('Error fetching transfers:', error);
       toast.error('Failed to load transfer requests');
@@ -114,55 +145,49 @@ export function EnhancedTransferManagement() {
 
     setProcessingAction(true);
     try {
-      const updateData: any = {
-        status: actionType === 'approve' ? 'approved' : 'rejected',
-        responded_by: user?.id,
-        responded_at: new Date().toISOString(),
-        notes: actionNotes || null
-      };
-
-      // If approving, use the database function to process the transfer safely
-      if (actionType === 'approve') {
-        try {
+      if (selectedTransfer.transfer_type === 'drawer') {
+        // Handle cash drawer transfers using the existing RPC function
+        if (actionType === 'approve') {
           const { error: processError } = await supabase.rpc('process_cash_transfer_request', {
             transfer_request_id_param: selectedTransfer.id,
             action_param: 'approve'
           });
 
           if (processError) {
-            // Handle specific error cases
             if (processError.message?.includes('Insufficient funds')) {
               toast.error(`Transfer rejected: ${processError.message}`);
               return;
             }
             throw processError;
           }
-
-          toast.success('Transfer approved and processed successfully');
-        } catch (rpcError) {
-          console.error('Transfer processing error:', rpcError);
-          toast.error(`Failed to process transfer: ${rpcError.message}`);
-          return;
-        }
-      } else {
-        // Reject the transfer
-        try {
+          toast.success('Drawer transfer approved and processed successfully');
+        } else {
           const { error: processError } = await supabase.rpc('process_cash_transfer_request', {
             transfer_request_id_param: selectedTransfer.id,
             action_param: 'reject'
           });
 
           if (processError) throw processError;
-          
-          toast.success('Transfer rejected successfully');
-        } catch (rpcError) {
-          console.error('Transfer rejection error:', rpcError);
-          toast.error(`Failed to reject transfer: ${rpcError.message}`);
-          return;
+          toast.success('Drawer transfer rejected successfully');
         }
+      } else {
+        // Handle bank account transfers - update status only
+        const updateData: any = {
+          status: actionType === 'approve' ? 'approved' : 'rejected',
+          responded_by: user?.id,
+          responded_at: new Date().toISOString(),
+          notes: actionNotes || null
+        };
+
+        const { error } = await supabase
+          .from('transfer_requests')
+          .update(updateData)
+          .eq('id', selectedTransfer.id);
+
+        if (error) throw error;
+        toast.success(`Bank transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
       }
 
-      toast.success(`Transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
       setActionDialogOpen(false);
       fetchTransfers();
     } catch (error) {
@@ -188,8 +213,8 @@ export function EnhancedTransferManagement() {
     }
   };
 
-  const getTransferTypeIcon = () => {
-    return <ArrowRightLeft className="h-4 w-4" />;
+  const getTransferTypeIcon = (type: string) => {
+    return type === 'account' ? <Building2 className="h-4 w-4" /> : <ArrowRightLeft className="h-4 w-4" />;
   };
 
   const filteredTransfers = transfers.filter(transfer => {
@@ -247,8 +272,10 @@ export function EnhancedTransferManagement() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
-                          {getTransferTypeIcon()}
-                          <span className="font-medium">Transfer #{transfer.id.slice(-8)}</span>
+                          {getTransferTypeIcon(transfer.transfer_type)}
+                          <span className="font-medium">
+                            {transfer.reference_number ? `#${transfer.reference_number}` : `Transfer #${transfer.id.slice(-8)}`}
+                          </span>
                           {getStatusBadge(transfer.status)}
                         </div>
                         
@@ -271,8 +298,17 @@ export function EnhancedTransferManagement() {
 
                         <div className="text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
-                            <ArrowRightLeft className="h-4 w-4" />
-                            <span>To Drawer: {transfer.cash_drawers_to?.drawer_name || 'Unknown Drawer'}</span>
+                            {transfer.transfer_type === 'account' ? (
+                              <>
+                                <Building2 className="h-4 w-4" />
+                                <span>To Account: {transfer.accounts?.name || 'Unknown Account'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowRightLeft className="h-4 w-4" />
+                                <span>To Drawer: {transfer.cash_drawers_to?.drawer_name || 'Unknown Drawer'}</span>
+                              </>
+                            )}
                           </div>
                         </div>
 
@@ -361,7 +397,7 @@ export function EnhancedTransferManagement() {
             </DialogTitle>
             {selectedTransfer && (
               <DialogDescription>
-                Transfer #{selectedTransfer.id.slice(-8)}
+                {selectedTransfer.reference_number ? `Transfer #${selectedTransfer.reference_number}` : `Transfer #${selectedTransfer.id.slice(-8)}`}
               </DialogDescription>
             )}
           </DialogHeader>
@@ -383,17 +419,24 @@ export function EnhancedTransferManagement() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Requested At</Label>
-                  <div>{new Date(selectedTransfer.created_at).toLocaleString()}</div>
+                  <div>{new Date(selectedTransfer.requested_at || selectedTransfer.created_at).toLocaleString()}</div>
                 </div>
               </div>
 
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">Transfer Details</Label>
                 <div className="mt-1">
-                  <div className="flex items-center gap-2">
-                    <ArrowRightLeft className="h-4 w-4" />
-                    <span>From: {selectedTransfer.cash_drawers_from?.drawer_name} → To: {selectedTransfer.cash_drawers_to?.drawer_name}</span>
-                  </div>
+                  {selectedTransfer.transfer_type === 'account' ? (
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      <span>Bank Account: {selectedTransfer.accounts?.name} ({selectedTransfer.accounts?.code})</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <ArrowRightLeft className="h-4 w-4" />
+                      <span>From: {selectedTransfer.cash_drawers_from?.drawer_name} → To: {selectedTransfer.cash_drawers_to?.drawer_name}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
