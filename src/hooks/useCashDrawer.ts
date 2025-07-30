@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
+import { createCashDrawerJournalEntry } from '@/lib/accounting-integration';
 
 export interface CashDrawer {
   id: string;
@@ -230,7 +231,7 @@ export const useCashDrawer = () => {
       }
 
       // Record opening transaction
-      await supabase
+      const { data: transactionData, error: transactionError } = await supabase
         .from('cash_transactions')
         .insert({
           tenant_id: tenantId,
@@ -240,7 +241,26 @@ export const useCashDrawer = () => {
           balance_after: openingBalance,
           description: 'Cash drawer opened',
           performed_by: user?.id
-        });
+        })
+        .select()
+        .single();
+
+      if (transactionError) {
+        console.error('Error recording opening transaction:', transactionError);
+      } else if (transactionData) {
+        // Create accounting journal entry for opening balance
+        try {
+          await createCashDrawerJournalEntry(tenantId, {
+            transactionId: transactionData.id,
+            transactionType: 'opening_balance',
+            amount: openingBalance,
+            description: 'Cash drawer opened',
+            performedBy: user.id
+          });
+        } catch (accountingError) {
+          console.warn('Failed to create accounting entry for cash drawer opening:', accountingError);
+        }
+      }
 
       await fetchCurrentDrawer();
       await fetchTransactions();
@@ -371,7 +391,7 @@ export const useCashDrawer = () => {
     try {
       const newBalance = currentDrawer.current_balance + amount;
 
-      const { error } = await supabase
+      const { data: transactionData, error } = await supabase
         .from('cash_transactions')
         .insert({
           tenant_id: tenantId,
@@ -383,11 +403,30 @@ export const useCashDrawer = () => {
           reference_id: referenceId,
           description,
           performed_by: user.id
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Error recording transaction:', error);
         return;
+      }
+
+      // Create accounting journal entry
+      if (transactionData) {
+        try {
+          await createCashDrawerJournalEntry(tenantId, {
+            transactionId: transactionData.id,
+            transactionType: type,
+            amount,
+            description,
+            referenceType,
+            referenceId,
+            performedBy: user.id
+          });
+        } catch (accountingError) {
+          console.warn('Failed to create accounting entry for cash transaction:', accountingError);
+        }
       }
 
       // Update drawer balance

@@ -253,8 +253,11 @@ export function CashDrawerManagement() {
       // Refresh all relevant data after successful action
       await Promise.all([
         fetchAllTransfers(),
-        refreshCashDrawer() // This will refresh cash drawer balances, transactions, and all drawer data
+        refreshCashDrawer(), // This will refresh cash drawer balances, transactions, and all drawer data
+        new Promise(resolve => setTimeout(resolve, 500)) // Small delay to ensure database updates are complete
       ]);
+      
+      console.log('✅ All data refreshed after transfer action');
     } catch (error) {
       console.error('Error processing action:', error);
       toast.error(`Failed to ${actionType} transfer: ${error.message || 'Unknown error'}`);

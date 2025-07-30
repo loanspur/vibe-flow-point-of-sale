@@ -1034,3 +1034,147 @@ export const createPurchaseReturnJournalEntry = async (
     throw error;
   }
 };
+
+// Cash drawer accounting integration
+export const createCashDrawerJournalEntry = async (
+  tenantId: string,
+  transactionData: {
+    transactionId: string;
+    transactionType: string;
+    amount: number;
+    description: string;
+    referenceType?: string;
+    referenceId?: string;
+    performedBy: string;
+  }
+) => {
+  try {
+    const accounts = await getDefaultAccounts(tenantId);
+    
+    if (!accounts.cash) {
+      console.warn('Cash account not found for tenant, skipping accounting entry');
+      return;
+    }
+
+    const entries: AccountingEntry[] = [];
+    const { transactionType, amount, description } = transactionData;
+
+    // Handle different types of cash drawer transactions
+    switch (transactionType) {
+      case 'opening_balance':
+        // Debit: Cash, Credit: Owner's Equity (or Capital Account)
+        entries.push({
+          account_id: accounts.cash,
+          debit_amount: amount,
+          description: 'Cash drawer opening balance'
+        });
+        // For simplicity, we'll credit the equity account
+        if (accounts.owner_equity || accounts.equity) {
+          entries.push({
+            account_id: accounts.owner_equity || accounts.equity,
+            credit_amount: amount,
+            description: 'Cash drawer funding'
+          });
+        }
+        break;
+
+      case 'drawer_transfer_out':
+        // This would be handled by the transfer process itself
+        // No accounting entry needed here as it's an internal transfer
+        return;
+
+      case 'drawer_transfer_in':
+        // This would be handled by the transfer process itself
+        // No accounting entry needed here as it's an internal transfer
+        return;
+
+      case 'bank_deposit':
+        // Debit: Bank Account, Credit: Cash
+        if (accounts.bank) {
+          entries.push({
+            account_id: accounts.bank,
+            debit_amount: Math.abs(amount),
+            description: 'Cash deposited to bank'
+          });
+          entries.push({
+            account_id: accounts.cash,
+            credit_amount: Math.abs(amount),
+            description: 'Cash transferred to bank'
+          });
+        }
+        break;
+
+      case 'expense_payment':
+        // This should be handled by expense management
+        // For now, we'll create a simple expense entry
+        entries.push({
+          account_id: accounts.cash,
+          credit_amount: Math.abs(amount),
+          description: 'Cash expense payment'
+        });
+        // Debit to a general expense account if available
+        if (accounts.general_expense || accounts.office_expense) {
+          entries.push({
+            account_id: accounts.general_expense || accounts.office_expense,
+            debit_amount: Math.abs(amount),
+            description: 'Expense paid with cash'
+          });
+        }
+        break;
+
+      case 'adjustment':
+        // Cash shortage/overage adjustment
+        if (amount > 0) {
+          // Cash overage
+          entries.push({
+            account_id: accounts.cash,
+            debit_amount: amount,
+            description: 'Cash overage adjustment'
+          });
+          if (accounts.misc_income || accounts.other_income) {
+            entries.push({
+              account_id: accounts.misc_income || accounts.other_income,
+              credit_amount: amount,
+              description: 'Cash overage'
+            });
+          }
+        } else {
+          // Cash shortage
+          entries.push({
+            account_id: accounts.cash,
+            credit_amount: Math.abs(amount),
+            description: 'Cash shortage adjustment'
+          });
+          if (accounts.misc_expense || accounts.other_expense) {
+            entries.push({
+              account_id: accounts.misc_expense || accounts.other_expense,
+              debit_amount: Math.abs(amount),
+              description: 'Cash shortage'
+            });
+          }
+        }
+        break;
+
+      default:
+        // For other transaction types, we might not need accounting entries
+        console.log(`No accounting integration for transaction type: ${transactionType}`);
+        return;
+    }
+
+    // Only create journal entry if we have entries
+    if (entries.length > 0) {
+      const transaction: AccountingTransaction = {
+        description: description,
+        reference_id: transactionData.transactionId,
+        reference_type: 'cash_transaction',
+        entries
+      };
+
+      return await createJournalEntry(tenantId, transaction, transactionData.performedBy);
+    }
+  } catch (error) {
+    console.error('Error creating cash drawer journal entry:', error);
+    // Don't throw error to avoid breaking cash drawer operations
+    console.warn('Cash drawer operation completed but accounting entry failed');
+  }
+};
