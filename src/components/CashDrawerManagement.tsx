@@ -257,6 +257,15 @@ export function CashDrawerManagement() {
         new Promise(resolve => setTimeout(resolve, 500)) // Small delay to ensure database updates are complete
       ]);
       
+      // Emit custom event to trigger dashboard refresh
+      window.dispatchEvent(new CustomEvent('cashDrawerUpdated', { 
+        detail: { 
+          type: 'transfer_approved', 
+          transferId: selectedTransfer.id,
+          action: actionType 
+        } 
+      }));
+      
       console.log('✅ All data refreshed after transfer action');
     } catch (error) {
       console.error('Error processing action:', error);

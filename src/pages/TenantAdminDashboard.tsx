@@ -58,6 +58,7 @@ function TenantAdminDashboard() {
     endDate: new Date()
   });
   const [openDialog, setOpenDialog] = useState<string | null>(null);
+  const [cashDrawerRefreshKey, setCashDrawerRefreshKey] = useState(0);
 
   // Get effective pricing for the current subscription
   const { effectivePricing } = useEffectivePricing(
@@ -75,6 +76,16 @@ function TenantAdminDashboard() {
       fetchUserProfile();
     }
   }, [tenantId, user?.id]);
+
+  // Listen for cash drawer updates
+  useEffect(() => {
+    const handleCashDrawerUpdate = () => {
+      setCashDrawerRefreshKey(prev => prev + 1);
+    };
+
+    window.addEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
+    return () => window.removeEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
+  }, []);
 
   const fetchCurrentSubscription = async () => {
     try {
@@ -1077,7 +1088,7 @@ function TenantAdminDashboard() {
               <CashDrawerCard dateRange={{
                 startDate: format(dateRange.startDate, 'yyyy-MM-dd'),
                 endDate: format(dateRange.endDate, 'yyyy-MM-dd')
-              }} />
+              }} refreshKey={cashDrawerRefreshKey} />
               {businessStats.map((stat, index) => {
                 const Icon = stat.icon;
                 const isPositive = stat.changeType === 'positive';

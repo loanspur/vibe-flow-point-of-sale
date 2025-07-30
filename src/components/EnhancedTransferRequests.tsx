@@ -16,9 +16,10 @@ import {
 
 interface EnhancedTransferRequestsProps {
   formatAmount: (amount: number) => string;
+  onTransferUpdate?: () => void;
 }
 
-export function EnhancedTransferRequests({ formatAmount }: EnhancedTransferRequestsProps) {
+export function EnhancedTransferRequests({ formatAmount, onTransferUpdate }: EnhancedTransferRequestsProps) {
   const {
     transferRequests,
     loading,
@@ -87,6 +88,8 @@ export function EnhancedTransferRequests({ formatAmount }: EnhancedTransferReque
   const handleApprove = async (requestId: string) => {
     try {
       await respondToTransferRequest(requestId, 'approved');
+      // Trigger parent refresh after successful approval
+      onTransferUpdate?.();
     } catch (error) {
       console.error('Failed to approve request:', error);
     }
@@ -95,6 +98,8 @@ export function EnhancedTransferRequests({ formatAmount }: EnhancedTransferReque
   const handleReject = async (requestId: string) => {
     try {
       await respondToTransferRequest(requestId, 'rejected');
+      // Trigger parent refresh after successful rejection
+      onTransferUpdate?.();
     } catch (error) {
       console.error('Failed to reject request:', error);
     }

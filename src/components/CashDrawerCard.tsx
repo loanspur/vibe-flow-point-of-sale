@@ -36,9 +36,10 @@ interface CashDrawerCardProps {
     startDate: string;
     endDate: string;
   };
+  refreshKey?: number;
 }
 
-export function CashDrawerCard({ dateRange }: CashDrawerCardProps) {
+export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
   const { tenantId } = useAuth();
   const { formatAmount } = useCurrencyUpdate();
   const [cashDrawers, setCashDrawers] = useState<CashDrawerData[]>([]);
@@ -50,7 +51,7 @@ export function CashDrawerCard({ dateRange }: CashDrawerCardProps) {
     if (tenantId) {
       fetchCashDrawerData();
     }
-  }, [tenantId, dateRange]);
+  }, [tenantId, dateRange, refreshKey]);
 
   const fetchCashDrawerData = async () => {
     try {
