@@ -102,25 +102,13 @@ export function CashDrawerManagement() {
       const [cashTransfersResponse, bankTransfersResponse] = await Promise.all([
         supabase
           .from('cash_transfer_requests')
-          .select(`
-            *,
-            profiles_from:profiles!from_user_id(full_name),
-            profiles_to:profiles!to_user_id(full_name),
-            profiles_responded:profiles!responded_by(full_name)
-          `)
+          .select('*')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false }),
         
         supabase
           .from('transfer_requests')
-          .select(`
-            *,
-            profiles_from:profiles!from_user_id(full_name),
-            profiles_to:profiles!to_user_id(full_name),
-            profiles_responded:profiles!responded_by(full_name),
-            accounts:accounts!to_account_id(name, code),
-            cash_drawers_from:cash_drawers!from_drawer_id(drawer_name)
-          `)
+          .select('*')
           .eq('tenant_id', tenantId)
           .eq('transfer_type', 'account')
           .order('created_at', { ascending: false })
