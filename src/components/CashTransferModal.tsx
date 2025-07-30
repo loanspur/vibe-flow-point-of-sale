@@ -46,6 +46,8 @@ export function CashTransferModal({
   const { user, tenantId } = useAuth();
   const { refresh: refreshCashDrawerData } = useCashDrawer();
   
+  const [transferType, setTransferType] = useState<'drawer' | 'account'>('drawer');
+  const [selectedDrawerId, setSelectedDrawerId] = useState<string>('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [reason, setReason] = useState<string>('');
@@ -185,7 +187,7 @@ export function CashTransferModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isSplitMode) {
+    if (transferType === 'account' && isSplitMode) {
       // Handle split transfers
       const totalAmount = getTotalSplitAmount();
       const validSplits = splitTransfers.filter(st => st.account_id && Number(st.amount) > 0);
@@ -202,21 +204,21 @@ export function CashTransferModal({
       
       setIsSubmitting(true);
       try {
-      await createSplitTransferRequests(validSplits);
-      toast.success('Split transfer requests created successfully');
-      
-      // Refresh cash drawer data after successful transfer
-      refreshCashDrawerData();
-      
-      // Clear dashboard cache to refresh banked amounts
-      const cacheKey = `dashboard-metrics-${tenantId}-${new Date().toISOString().split('T')[0]}`;
-      if (typeof window !== 'undefined') {
-        const cache = window.localStorage;
-        const cacheEntries = Object.keys(cache).filter(key => key.startsWith(cacheKey));
-        cacheEntries.forEach(key => cache.removeItem(key));
-      }
-      
-      onClose();
+        await createSplitTransferRequests(validSplits);
+        toast.success('Split transfer requests created successfully');
+        
+        // Refresh cash drawer data after successful transfer
+        refreshCashDrawerData();
+        
+        // Clear dashboard cache to refresh banked amounts
+        const cacheKey = `dashboard-metrics-${tenantId}-${new Date().toISOString().split('T')[0]}`;
+        if (typeof window !== 'undefined') {
+          const cache = window.localStorage;
+          const cacheEntries = Object.keys(cache).filter(key => key.startsWith(cacheKey));
+          cacheEntries.forEach(key => cache.removeItem(key));
+        }
+        
+        onClose();
       } catch (error) {
         console.error('Split transfer failed:', error);
         toast.error('Failed to create split transfer requests');
@@ -238,16 +240,21 @@ export function CashTransferModal({
       return;
     }
 
-    // Validate account selection (always bank account transfer)
-    if (!selectedAccountId) {
-      toast.error('Please select an account');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      await createTransferRequest();
-      toast.success('Transfer request created successfully');
+      if (transferType === 'drawer') {
+        // Use the cash drawer transfer function from the hook
+        await onTransfer(selectedDrawerId, transferAmount, reason);
+        toast.success('Drawer transfer request created successfully');
+      } else {
+        // Bank account transfer
+        if (!selectedAccountId) {
+          toast.error('Please select an account');
+          return;
+        }
+        await createTransferRequest();
+        toast.success('Bank transfer request created successfully');
+      }
       
       // Refresh cash drawer data after successful transfer
       refreshCashDrawerData();
@@ -319,7 +326,7 @@ export function CashTransferModal({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <ArrowRightLeft className="h-5 w-5" />
-          Bank Account Transfer
+          Transfer Cash
         </DialogTitle>
       </DialogHeader>
       
@@ -333,165 +340,251 @@ export function CashTransferModal({
 
         <div className="space-y-2">
           <Label>Transfer Type</Label>
-          <div className="p-3 bg-muted rounded-lg font-medium flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Bank Account Transfer
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTransferType('drawer')}
+              className={`p-3 rounded-lg border-2 transition-colors ${
+                transferType === 'drawer'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted hover:border-muted-foreground/20'
+              }`}
+            >
+              <div className="flex items-center gap-2 justify-center">
+                <ArrowRightLeft className="h-4 w-4" />
+                <span className="text-sm font-medium">Cash Drawer</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTransferType('account')}
+              className={`p-3 rounded-lg border-2 transition-colors ${
+                transferType === 'account'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted hover:border-muted-foreground/20'
+              }`}
+            >
+              <div className="flex items-center gap-2 justify-center">
+                <Building2 className="h-4 w-4" />
+                <span className="text-sm font-medium">Bank Account</span>
+              </div>
+            </button>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          <div className="flex items-center justify-between">
-            <Label>Transfer To Bank Account</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="split-mode"
-                checked={isSplitMode}
-                onChange={(e) => setIsSplitMode(e.target.checked)}
-                className="rounded"
-              />
-              <Label htmlFor="split-mode" className="text-sm">Split to multiple accounts</Label>
-            </div>
-          </div>
+          {transferType === 'drawer' ? (
+            // Cash Drawer Transfer
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Transfer To Cash Drawer</Label>
+                <Select value={selectedDrawerId} onValueChange={setSelectedDrawerId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a cash drawer" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    {allDrawers
+                      .filter(drawer => drawer.id !== currentDrawer.id && drawer.is_active)
+                      .map((drawer) => (
+                        <SelectItem key={drawer.id} value={drawer.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{drawer.drawer_name}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {drawer.location_name || 'No location'} • Balance: {formatAmount(drawer.current_balance)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {allDrawers.filter(d => d.id !== currentDrawer.id && d.is_active).length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No other active cash drawers available for transfer.
+                  </p>
+                )}
+              </div>
 
-          {!isSplitMode ? (
-            // Single transfer mode
-            <div className="space-y-2">
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an account" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border z-50">
-                  {transferAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{account.name}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {account.code} • {account.account_type}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="drawer-amount">Amount</Label>
+                <Input
+                  id="drawer-amount"
+                  type="number"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="drawer-reason">Reason (Optional)</Label>
+                <Textarea
+                  id="drawer-reason"
+                  placeholder="Reason for transfer..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
             </div>
           ) : (
-            // Split transfer mode - Compact design
-            <div className="space-y-3">
-              {splitTransfers.map((split, index) => (
-                <div key={split.id} className="border rounded-md p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">#{index + 1}</span>
-                    {splitTransfers.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeSplitTransfer(split.id)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <Select 
-                        value={split.account_id} 
-                        onValueChange={(value) => updateSplitTransfer(split.id, 'account_id', value)}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue placeholder="Account" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background border z-50">
-                          {transferAccounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              <span className="text-sm">{account.name}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+            // Bank Account Transfer
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Transfer To Bank Account</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="split-mode"
+                    checked={isSplitMode}
+                    onChange={(e) => setIsSplitMode(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="split-mode" className="text-sm">Split to multiple accounts</Label>
+                </div>
+              </div>
+
+              {!isSplitMode ? (
+                // Single transfer mode
+                <div className="space-y-2">
+                  <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an account" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {transferAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{account.name}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {account.code} • {account.account_type}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                // Split transfer mode - Compact design
+                <div className="space-y-3">
+                  {splitTransfers.map((split, index) => (
+                    <div key={split.id} className="border rounded-md p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">#{index + 1}</span>
+                        {splitTransfers.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSplitTransfer(split.id)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-2">
+                          <Select 
+                            value={split.account_id} 
+                            onValueChange={(value) => updateSplitTransfer(split.id, 'account_id', value)}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="Account" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border z-50">
+                              {transferAccounts.map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  <span className="text-sm">{account.name}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Input
+                            type="number"
+                            placeholder="Amount"
+                            value={split.amount}
+                            onChange={(e) => updateSplitTransfer(split.id, 'amount', e.target.value)}
+                            step="0.01"
+                            className="h-8"
+                          />
+                        </div>
+                      </div>
+                      
+                      {split.notes !== undefined && (
+                        <Input
+                          placeholder="Notes (optional)"
+                          value={split.notes || ''}
+                          onChange={(e) => updateSplitTransfer(split.id, 'notes', e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      )}
                     </div>
-                    
-                    <div>
-                      <Input
-                        type="number"
-                        placeholder="Amount"
-                        value={split.amount}
-                        onChange={(e) => updateSplitTransfer(split.id, 'amount', e.target.value)}
-                        step="0.01"
-                        className="h-8"
-                      />
+                  ))}
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addSplitTransfer}
+                    size="sm"
+                    className="w-full h-8"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Transfer
+                  </Button>
+                  
+                  <div className="bg-muted/50 p-2 rounded-md">
+                    <div className="flex justify-between text-xs">
+                      <span>Total:</span>
+                      <span className="font-medium">{formatAmount(getTotalSplitAmount())}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Available:</span>
+                      <span>{formatAmount(currentDrawer.current_balance)}</span>
                     </div>
                   </div>
-                  
-                  {split.notes !== undefined && (
-                    <Input
-                      placeholder="Notes (optional)"
-                      value={split.notes || ''}
-                      onChange={(e) => updateSplitTransfer(split.id, 'notes', e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  )}
                 </div>
-              ))}
-              
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addSplitTransfer}
-                size="sm"
-                className="w-full h-8"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Add Transfer
-              </Button>
-              
-              <div className="bg-muted/50 p-2 rounded-md">
-                <div className="flex justify-between text-xs">
-                  <span>Total:</span>
-                  <span className="font-medium">{formatAmount(getTotalSplitAmount())}</span>
+              )}
+
+              {transferAccounts.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No transfer accounts available. Set up accounts in the accounting section.
+                </p>
+              )}
+
+              {!isSplitMode && (
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    step="0.01"
+                    required
+                  />
                 </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Available:</span>
-                  <span>{formatAmount(currentDrawer.current_balance)}</span>
-                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason (Optional)</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="Reason for transfer..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={3}
+                />
               </div>
             </div>
           )}
-
-          {transferAccounts.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No transfer accounts available. Set up accounts in the accounting section.
-            </p>
-          )}
-
-          {!isSplitMode && (
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                step="0.01"
-                required
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason (Optional)</Label>
-            <Textarea
-              id="reason"
-              placeholder="Reason for transfer..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-            />
-          </div>
 
           <div className="flex gap-2 justify-end">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -501,11 +594,14 @@ export function CashTransferModal({
               type="submit" 
               disabled={
                 isSubmitting ||
-                (!isSplitMode && (!selectedAccountId || transferAccounts.length === 0 || !amount || Number(amount) > currentDrawer.current_balance)) ||
-                (isSplitMode && (getTotalSplitAmount() === 0 || getTotalSplitAmount() > currentDrawer.current_balance || splitTransfers.filter(st => st.account_id && Number(st.amount) > 0).length === 0))
+                (transferType === 'drawer' && (!selectedDrawerId || !amount || Number(amount) > currentDrawer.current_balance)) ||
+                (transferType === 'account' && !isSplitMode && (!selectedAccountId || transferAccounts.length === 0 || !amount || Number(amount) > currentDrawer.current_balance)) ||
+                (transferType === 'account' && isSplitMode && (getTotalSplitAmount() === 0 || getTotalSplitAmount() > currentDrawer.current_balance || splitTransfers.filter(st => st.account_id && Number(st.amount) > 0).length === 0))
               }
             >
-              {isSubmitting ? 'Creating...' : isSplitMode ? 'Create Split Transfers' : 'Create Bank Transfer'}
+              {isSubmitting ? 'Creating...' : 
+                transferType === 'drawer' ? 'Create Drawer Transfer' :
+                isSplitMode ? 'Create Split Transfers' : 'Create Bank Transfer'}
             </Button>
           </div>
         </form>
