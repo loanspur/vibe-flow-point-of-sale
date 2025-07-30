@@ -56,13 +56,10 @@ export function CashDrawerCard({ dateRange }: CashDrawerCardProps) {
     try {
       setLoading(true);
       
-      // Fetch cash drawers with user profiles
+      // Fetch cash drawers without foreign key join
       const { data: drawersData, error: drawersError } = await supabase
         .from('cash_drawers')
-        .select(`
-          *,
-          profiles!cash_drawers_user_id_fkey(full_name)
-        `)
+        .select('*')
         .eq('tenant_id', tenantId)
         .eq('is_active', true);
 
@@ -236,10 +233,10 @@ export function CashDrawerCard({ dateRange }: CashDrawerCardProps) {
                                   {drawer.location_name}
                                 </div>
                               )}
-                              <div className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                {drawer.profiles?.full_name || 'Unknown User'}
-                              </div>
+                               <div className="flex items-center gap-1">
+                                 <User className="h-3 w-3" />
+                                 User ID: {drawer.user_id.slice(0, 8)}...
+                               </div>
                               {drawer.status === 'open' && drawer.opened_at && (
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />

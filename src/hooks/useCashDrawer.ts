@@ -78,9 +78,14 @@ export const useCashDrawer = () => {
 
   // Fetch current user's drawer
   const fetchCurrentDrawer = async () => {
-    if (!user?.id || !tenantId) return;
+    if (!user?.id || !tenantId) {
+      console.log('Missing user or tenant:', { userId: user?.id, tenantId });
+      return;
+    }
 
     try {
+      console.log('Fetching cash drawer for:', { userId: user.id, tenantId });
+      
       const { data, error } = await supabase
         .from('cash_drawers')
         .select('*')
@@ -94,6 +99,7 @@ export const useCashDrawer = () => {
         return;
       }
 
+      console.log('Cash drawer data:', data);
       setCurrentDrawer(data as CashDrawer);
     } catch (error) {
       console.error('Error fetching current drawer:', error);
