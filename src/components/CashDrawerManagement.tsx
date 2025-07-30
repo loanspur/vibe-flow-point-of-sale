@@ -11,20 +11,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { 
   Wallet, 
-  DollarSign, 
   TrendingUp, 
   TrendingDown, 
-  Clock, 
-  Users,
   ArrowRightLeft,
   Plus,
-  FileText,
-  AlertCircle
+  FileText
 } from 'lucide-react';
 import { CashTransferModal } from './CashTransferModal';
 import { CashTransactionHistory } from './CashTransactionHistory';
 import { CashJournalReport } from './CashJournalReport';
-import { EnhancedTransferManagement } from './EnhancedTransferManagement';
 
 export function CashDrawerManagement() {
   const { businessSettings } = useApp();
@@ -32,14 +27,11 @@ export function CashDrawerManagement() {
     currentDrawer,
     allDrawers,
     transactions,
-    transferRequests,
     loading,
     initializeDrawer,
     openDrawer,
     closeDrawer,
-    createTransferRequest,
-    respondToTransferRequest,
-    recordCashTransaction
+    createTransferRequest
   } = useCashDrawer();
 
   const [openingBalance, setOpeningBalance] = useState<string>('0');
@@ -73,8 +65,6 @@ export function CashDrawerManagement() {
       default: return <ArrowRightLeft className="h-4 w-4 text-gray-500" />;
     }
   };
-
-  const pendingRequests = transferRequests.filter(req => req.status === 'pending');
 
   if (loading) {
     return <div className="flex items-center justify-center p-8">Loading cash drawer...</div>;
@@ -157,17 +147,6 @@ export function CashDrawerManagement() {
                 Close Cash Drawer
               </Button>
             )}
-
-            {pendingRequests.length > 0 && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                  <span className="text-sm font-medium text-yellow-800">
-                    {pendingRequests.length} pending transfer request(s)
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -178,7 +157,7 @@ export function CashDrawerManagement() {
           <DialogTrigger asChild>
             <Button variant="outline" className="flex items-center gap-2">
               <ArrowRightLeft className="h-4 w-4" />
-              Transfer Cash
+              Quick Transfer
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -214,88 +193,39 @@ export function CashDrawerManagement() {
         </Button>
       </div>
 
-      {/* Tabs for different views */}
+      {/* Tabs for drawer-specific views */}
       <Tabs defaultValue="transactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="transactions">Recent Transactions</TabsTrigger>
-          <TabsTrigger value="transfers">Transfer Requests</TabsTrigger>
-          <TabsTrigger value="enhanced-transfers">Transfer Management</TabsTrigger>
+          <TabsTrigger value="journal">Daily Journal</TabsTrigger>
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-4">
           <CashTransactionHistory
-            transactions={transactions.slice(0, 10)}
+            transactions={transactions.slice(0, 15)}
             formatAmount={formatAmount}
             getTransactionIcon={getTransactionIcon}
           />
         </TabsContent>
 
-        <TabsContent value="transfers" className="space-y-4">
+        <TabsContent value="journal" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Cash Drawer Transfer Requests</CardTitle>
+              <CardTitle>Daily Cash Journal</CardTitle>
               <CardDescription>
-                Manage cash transfer requests between cash drawers
+                Complete transaction history for today
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {transferRequests.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">
-                  No transfer requests found
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {transferRequests.map((request) => (
-                    <div key={request.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p className="font-medium">
-                            {formatAmount(request.amount)} Transfer
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {request.reason || 'No reason provided'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(request.requested_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={
-                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'
-                          }>
-                            {request.status}
-                          </Badge>
-                          {request.status === 'pending' && request.to_user_id === currentDrawer.user_id && (
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                onClick={() => respondToTransferRequest(request.id, 'approved')}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => respondToTransferRequest(request.id, 'rejected')}
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <CashTransactionHistory
+                transactions={transactions.filter(t => 
+                  new Date(t.transaction_date).toDateString() === new Date().toDateString()
+                )}
+                formatAmount={formatAmount}
+                getTransactionIcon={getTransactionIcon}
+              />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="enhanced-transfers" className="space-y-4">
-          <EnhancedTransferManagement />
         </TabsContent>
       </Tabs>
     </div>
