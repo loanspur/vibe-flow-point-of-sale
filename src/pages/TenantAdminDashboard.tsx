@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
+import { format } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { 
   BarChart3, 
   Users, 
@@ -22,7 +26,7 @@ import {
   AlertTriangle,
   Crown,
   Settings,
-  Calendar,
+  CalendarIcon,
   TrendingDown,
   Boxes,
   PiggyBank,
@@ -50,8 +54,8 @@ function TenantAdminDashboard() {
   const { formatPrice } = useCurrencyUpdate();
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
   const [dateRange, setDateRange] = useState({
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+    startDate: new Date(),
+    endDate: new Date()
   });
   const [openDialog, setOpenDialog] = useState<string | null>(null);
 
@@ -121,8 +125,8 @@ function TenantAdminDashboard() {
     async () => {
       if (!tenantId) return { data: null, error: null };
       
-      const startDate = `${dateRange.startDate}T00:00:00.000Z`;
-      const endDate = `${dateRange.endDate}T23:59:59.999Z`;
+      const startDate = `${format(dateRange.startDate, 'yyyy-MM-dd')}T00:00:00.000Z`;
+      const endDate = `${format(dateRange.endDate, 'yyyy-MM-dd')}T23:59:59.999Z`;
       
       try {
         console.log('Fetching dashboard data for tenant:', tenantId, 'Date range:', dateRange);
@@ -891,70 +895,94 @@ function TenantAdminDashboard() {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                type="date"
-                id="startDate"
-                value={dateRange.startDate}
-                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-auto"
-              />
+              <Label>Start Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[140px] justify-start text-left font-normal",
+                      !dateRange.startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange.startDate ? format(dateRange.startDate, "MMM dd") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateRange.startDate}
+                    onSelect={(date) => date && setDateRange(prev => ({ ...prev, startDate: date }))}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="flex items-center gap-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                type="date"
-                id="endDate"
-                value={dateRange.endDate}
-                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-auto"
-              />
+              <Label>End Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[140px] justify-start text-left font-normal",
+                      !dateRange.endDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange.endDate ? format(dateRange.endDate, "MMM dd") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateRange.endDate}
+                    onSelect={(date) => date && setDateRange(prev => ({ ...prev, endDate: date }))}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="flex gap-2">
               <Button 
-                variant={dateRange.startDate === new Date().toISOString().split('T')[0] && 
-                         dateRange.endDate === new Date().toISOString().split('T')[0] ? "default" : "outline"}
+                variant="default"
                 size="sm"
-                onClick={() => setDateRange({
-                  startDate: new Date().toISOString().split('T')[0],
-                  endDate: new Date().toISOString().split('T')[0]
-                })}
+                onClick={() => {
+                  const today = new Date();
+                  setDateRange({
+                    startDate: today,
+                    endDate: today
+                  });
+                }}
               >
                 Today
               </Button>
               <Button 
-                variant={(() => {
-                  const today = new Date();
-                  const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                  return dateRange.startDate === lastWeek.toISOString().split('T')[0] && 
-                         dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
-                })()}
+                variant="outline"
                 size="sm"
                 onClick={() => {
                   const today = new Date();
                   const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
                   setDateRange({
-                    startDate: lastWeek.toISOString().split('T')[0],
-                    endDate: today.toISOString().split('T')[0]
+                    startDate: lastWeek,
+                    endDate: today
                   });
                 }}
               >
                 Last 7 Days
               </Button>
               <Button 
-                variant={(() => {
-                  const today = new Date();
-                  const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                  return dateRange.startDate === lastMonth.toISOString().split('T')[0] && 
-                         dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
-                })()}
+                variant="outline"
                 size="sm"
                 onClick={() => {
                   const today = new Date();
                   const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
                   setDateRange({
-                    startDate: lastMonth.toISOString().split('T')[0],
-                    endDate: today.toISOString().split('T')[0]
+                    startDate: lastMonth,
+                    endDate: today
                   });
                 }}
               >
@@ -1044,19 +1072,22 @@ function TenantAdminDashboard() {
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {/* Cash Drawer Card */}
-              <CashDrawerCard dateRange={dateRange} />
+              <CashDrawerCard dateRange={{
+                startDate: format(dateRange.startDate, 'yyyy-MM-dd'),
+                endDate: format(dateRange.endDate, 'yyyy-MM-dd')
+              }} />
               {businessStats.map((stat, index) => {
                 const Icon = stat.icon;
                 const isPositive = stat.changeType === 'positive';
                 const isWarning = stat.changeType === 'warning';
                 const isNeutral = stat.changeType === 'neutral';
                 
-                const getNavigationPath = (title: string) => {
-                  const params = new URLSearchParams({
-                    startDate: dateRange.startDate,
-                    endDate: dateRange.endDate,
-                    tenantId: tenantId || ''
-                  });
+                 const getNavigationPath = (title: string) => {
+                   const params = new URLSearchParams({
+                     startDate: format(dateRange.startDate, 'yyyy-MM-dd'),
+                     endDate: format(dateRange.endDate, 'yyyy-MM-dd'),
+                     tenantId: tenantId || ''
+                   });
                   
                   switch (title) {
                     case 'Revenue':
