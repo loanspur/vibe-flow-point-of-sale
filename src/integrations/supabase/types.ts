@@ -1126,6 +1126,7 @@ export type Database = {
           reason: string | null
           requested_at: string
           responded_at: string | null
+          responded_by: string | null
           status: string
           tenant_id: string
           to_drawer_id: string
@@ -1142,6 +1143,7 @@ export type Database = {
           reason?: string | null
           requested_at?: string
           responded_at?: string | null
+          responded_by?: string | null
           status?: string
           tenant_id: string
           to_drawer_id: string
@@ -1158,6 +1160,7 @@ export type Database = {
           reason?: string | null
           requested_at?: string
           responded_at?: string | null
+          responded_by?: string | null
           status?: string
           tenant_id?: string
           to_drawer_id?: string
@@ -6536,6 +6539,10 @@ export type Database = {
           action_param: string
           notes_param?: string
         }
+        Returns: boolean
+      }
+      process_cash_transfer_request: {
+        Args: { transfer_request_id_param: string; action_param: string }
         Returns: boolean
       }
       process_return: {

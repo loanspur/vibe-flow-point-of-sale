@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
 
 export interface CashDrawer {
@@ -70,6 +71,7 @@ export interface BankTransferRequest {
 
 export const useCashDrawer = () => {
   const { user, tenantId } = useAuth();
+  const { formatCurrency } = useApp();
   const [currentDrawer, setCurrentDrawer] = useState<CashDrawer | null>(null);
   const [allDrawers, setAllDrawers] = useState<CashDrawer[]>([]);
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
@@ -271,11 +273,17 @@ export const useCashDrawer = () => {
     }
   };
 
-  // Create transfer request
+  // Create transfer request with overdraw protection
   const createTransferRequest = async (toDrawerId: string, amount: number, reason?: string) => {
     if (!currentDrawer?.id || !user?.id || !tenantId) return;
 
     try {
+      // Check if source drawer has sufficient balance
+      if (currentDrawer.current_balance < amount) {
+        toast.error(`Insufficient funds. Available: ${formatCurrency(currentDrawer.current_balance)}, Requested: ${formatCurrency(amount)}`);
+        return;
+      }
+
       const { error } = await supabase
         .from('cash_transfer_requests')
         .insert({
@@ -285,7 +293,8 @@ export const useCashDrawer = () => {
           from_user_id: user.id,
           to_user_id: allDrawers.find(d => d.id === toDrawerId)?.user_id,
           amount,
-          reason
+          reason,
+          status: 'pending' // Always start as pending for admin approval
         });
 
       if (error) {
@@ -295,7 +304,7 @@ export const useCashDrawer = () => {
       }
 
       await fetchTransferRequests();
-      toast.success('Transfer request created successfully');
+      toast.success('Transfer request created successfully and awaiting approval');
     } catch (error) {
       console.error('Error creating transfer request:', error);
       toast.error('Failed to create transfer request');
@@ -303,12 +312,11 @@ export const useCashDrawer = () => {
   };
 
   // Respond to transfer request
-  const respondToTransferRequest = async (requestId: string, action: 'approved' | 'rejected', notes?: string) => {
+  const respondToTransferRequest = async (requestId: string, action: 'approved' | 'rejected') => {
     try {
-      const { error } = await supabase.rpc('process_cash_transfer', {
+      const { error } = await supabase.rpc('process_cash_transfer_request', {
         transfer_request_id_param: requestId,
-        action_param: action,
-        notes_param: notes
+        action_param: action
       });
 
       if (error) {

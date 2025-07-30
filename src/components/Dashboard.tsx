@@ -84,7 +84,7 @@ const Dashboard = () => {
       const today = new Date().toISOString().split('T')[0];
       
       // Optimized parallel queries with only needed fields
-      const [todaySalesResponse, customersResponse, saleItemsResponse, bankTransfersResponse] = await Promise.all([
+      const [todaySalesResponse, customersResponse, saleItemsResponse, bankTransfersResponse, cashTransfersResponse] = await Promise.all([
         supabase
           .from('sales')
           .select('total_amount')
@@ -105,6 +105,12 @@ const Dashboard = () => {
           .eq('tenant_id', tenantId)
           .eq('transfer_type', 'account')
           .eq('status', 'approved')
+          .gte('created_at', today),
+        supabase
+          .from('cash_transfer_requests')
+          .select('amount')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'approved')
           .gte('created_at', today)
       ]);
 
@@ -112,12 +118,15 @@ const Dashboard = () => {
       if (customersResponse.error) throw customersResponse.error;
       if (saleItemsResponse.error) throw saleItemsResponse.error;
       if (bankTransfersResponse.error) throw bankTransfersResponse.error;
+      if (cashTransfersResponse.error) throw cashTransfersResponse.error;
 
       const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
       const todayTransactions = todaySalesResponse.data?.length || 0;
       const totalProductsSold = saleItemsResponse.data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
       const totalCustomers = customersResponse.count || 0;
-      const todayBankedAmount = bankTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
+      const bankTransferAmount = bankTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
+      const cashTransferAmount = cashTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
+      const todayBankedAmount = bankTransferAmount + cashTransferAmount;
 
       return {
         data: {

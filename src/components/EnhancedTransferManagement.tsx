@@ -125,47 +125,45 @@ export function EnhancedTransferManagement() {
         notes: actionNotes || null
       };
 
-      // If approving, also process the transfer
+      // If approving, use the database function to process the transfer safely
       if (actionType === 'approve') {
-        // First update the status
-        const { error: updateError } = await supabase
-          .from('cash_transfer_requests')
-          .update(updateData)
-          .eq('id', selectedTransfer.id);
-
-        if (updateError) throw updateError;
-
-        // Then process the transfer using RPC if it exists
         try {
-          const { error: processError } = await supabase.rpc('process_transfer_request', {
-            transfer_request_id: selectedTransfer.id,
-            action: 'approve'
+          const { error: processError } = await supabase.rpc('process_cash_transfer_request', {
+            transfer_request_id_param: selectedTransfer.id,
+            action_param: 'approve'
           });
 
           if (processError) {
-            console.warn('RPC function not available, manual processing needed:', processError);
+            // Handle specific error cases
+            if (processError.message?.includes('Insufficient funds')) {
+              toast.error(`Transfer rejected: ${processError.message}`);
+              return;
+            }
+            throw processError;
           }
 
-          // Mark as completed after processing
-          await supabase
-            .from('cash_transfer_requests')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString()
-            })
-            .eq('id', selectedTransfer.id);
-
+          toast.success('Transfer approved and processed successfully');
         } catch (rpcError) {
-          console.warn('Transfer processing may need manual completion:', rpcError);
+          console.error('Transfer processing error:', rpcError);
+          toast.error(`Failed to process transfer: ${rpcError.message}`);
+          return;
         }
       } else {
-        // Just reject the transfer
-        const { error: updateError } = await supabase
-          .from('cash_transfer_requests')
-          .update(updateData)
-          .eq('id', selectedTransfer.id);
+        // Reject the transfer
+        try {
+          const { error: processError } = await supabase.rpc('process_cash_transfer_request', {
+            transfer_request_id_param: selectedTransfer.id,
+            action_param: 'reject'
+          });
 
-        if (updateError) throw updateError;
+          if (processError) throw processError;
+          
+          toast.success('Transfer rejected successfully');
+        } catch (rpcError) {
+          console.error('Transfer rejection error:', rpcError);
+          toast.error(`Failed to reject transfer: ${rpcError.message}`);
+          return;
+        }
       }
 
       toast.success(`Transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
