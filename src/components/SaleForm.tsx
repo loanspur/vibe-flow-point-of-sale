@@ -68,6 +68,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedVariant, setSelectedVariant] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [customPrice, setCustomPrice] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [payments, setPayments] = useState<any[]>([]);
   const [remainingBalance, setRemainingBalance] = useState(0);
@@ -350,6 +351,11 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       }
     }
 
+    // Use custom price if set
+    if (customPrice !== null && customPrice > 0) {
+      unitPrice = customPrice;
+    }
+
     // Check if item already exists in sale
     const existingItemIndex = saleItems.findIndex(item => 
       item.product_id === selectedProduct && 
@@ -381,6 +387,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     setSelectedVariant("");
     setSearchTerm("");
     setQuantity(1);
+    setCustomPrice(null);
   };
 
   const removeItem = (index: number) => {
@@ -396,6 +403,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
       setSelectedProduct(productId);
       setSelectedVariant("");
       setSearchTerm("");
+      setCustomPrice(null); // Reset custom price when selecting a new product
     } catch (error) {
       console.error('Error selecting product:', error);
       toast({
@@ -891,40 +899,61 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
                                   <Badge variant="secondary">{formatAmount(product.price)}</Badge>
                                 </div>
 
-                                {product.product_variants && product.product_variants.length > 0 && (
-                                  <div>
-                                    <label className="text-sm font-medium">Variant</label>
-                                    <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select variant" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="no-variant">No variant</SelectItem>
-                                        {product.product_variants.map((variant: any) => (
-                                          <SelectItem key={variant.id} value={variant.id}>
-                                            {variant.name}: {variant.value} - {formatAmount(variant.sale_price || product.price)}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                )}
+                                 {product.product_variants && product.product_variants.length > 0 && (
+                                   <div>
+                                     <label className="text-sm font-medium">Variant</label>
+                                     <Select value={selectedVariant} onValueChange={setSelectedVariant}>
+                                       <SelectTrigger>
+                                         <SelectValue placeholder="Select variant" />
+                                       </SelectTrigger>
+                                       <SelectContent>
+                                         <SelectItem value="no-variant">No variant</SelectItem>
+                                         {product.product_variants.map((variant: any) => (
+                                           <SelectItem key={variant.id} value={variant.id}>
+                                             {variant.name}: {variant.value} - {formatAmount(variant.sale_price || product.price)}
+                                           </SelectItem>
+                                         ))}
+                                       </SelectContent>
+                                     </Select>
+                                   </div>
+                                 )}
 
-                                <div className="flex items-center gap-4">
-                                  <div className="flex-1">
-                                    <label className="text-sm font-medium">Quantity</label>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      value={quantity}
-                                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                                    />
-                                  </div>
-                                  <Button onClick={addItemToSale} className="mt-6">
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add
-                                  </Button>
-                                </div>
+                                 <div>
+                                   <label className="text-sm font-medium">Custom Price (Optional)</label>
+                                   <Input
+                                     type="number"
+                                     min="0"
+                                     step="0.01"
+                                     placeholder={(() => {
+                                       let defaultPrice = product.price;
+                                       if (selectedVariant && selectedVariant !== "no-variant") {
+                                         const variant = product.product_variants.find((v: any) => v.id === selectedVariant);
+                                         if (variant) {
+                                           defaultPrice = variant.sale_price || product.price;
+                                         }
+                                       }
+                                       return `Default: ${formatAmount(defaultPrice)}`;
+                                     })()}
+                                     value={customPrice || ""}
+                                     onChange={(e) => setCustomPrice(e.target.value ? parseFloat(e.target.value) : null)}
+                                   />
+                                 </div>
+
+                                 <div className="flex items-center gap-4">
+                                   <div className="flex-1">
+                                     <label className="text-sm font-medium">Quantity</label>
+                                     <Input
+                                       type="number"
+                                       min="1"
+                                       value={quantity}
+                                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                                     />
+                                   </div>
+                                   <Button onClick={addItemToSale} className="mt-6">
+                                     <Plus className="h-4 w-4 mr-2" />
+                                     Add
+                                   </Button>
+                                 </div>
                               </div>
                             );
                           })()}
