@@ -107,6 +107,42 @@ export function CashTransferModal({
     fetchData();
   }, [tenantId, currentDrawer.id]);
 
+  const generateReferenceNumber = () => {
+    const prefix = 'TAC';
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+    return `${prefix}-${timestamp}-${random}`;
+  };
+
+  const createTransferRequest = async () => {
+    if (!tenantId || !user?.id) return;
+
+    const transferData = {
+      tenant_id: tenantId,
+      transfer_type: 'account' as const,
+      amount: Number(amount),
+      currency_code: currencyCode,
+      from_user_id: user.id,
+      to_user_id: user.id,
+      from_drawer_id: currentDrawer.id,
+      to_drawer_id: null,
+      to_account_id: selectedAccountId,
+      reason: reason || null,
+      status: 'pending',
+      reference_number: generateReferenceNumber()
+    };
+
+    const { data: transferRequest, error } = await supabase
+      .from('transfer_requests')
+      .insert([transferData])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log('Transfer request created and pending approval:', transferRequest.reference_number);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -147,42 +183,6 @@ export function CashTransferModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const createTransferRequest = async () => {
-    if (!tenantId || !user?.id) return;
-
-    const transferData = {
-      tenant_id: tenantId,
-      transfer_type: 'account' as const,
-      amount: Number(amount),
-      currency_code: currencyCode,
-      from_user_id: user.id,
-      to_user_id: user.id,
-      from_drawer_id: currentDrawer.id,
-      to_drawer_id: null,
-      to_account_id: selectedAccountId,
-      reason: reason || null,
-      status: 'pending',
-      reference_number: generateReferenceNumber()
-    };
-
-    const { data: transferRequest, error } = await supabase
-      .from('transfer_requests')
-      .insert([transferData])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    console.log('Transfer request created and pending approval:', transferRequest.reference_number);
-  };
-
-  const generateReferenceNumber = () => {
-    const prefix = 'TAC';
-    const timestamp = Date.now().toString().slice(-6);
-    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-    return `${prefix}-${timestamp}-${random}`;
   };
 
   if (loading) {
