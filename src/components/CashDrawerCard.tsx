@@ -60,6 +60,22 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
     }
   }, [tenantId, dateRange, refreshKey]);
 
+  // Listen for bank transfer updates
+  useEffect(() => {
+    const handleBankTransferUpdate = () => {
+      console.log('🏦 Bank transfer update detected, refreshing cash drawer data');
+      setTimeout(() => {
+        fetchCashDrawerData();
+      }, 1500); // Give extra time for database to sync
+    };
+
+    window.addEventListener('bankTransferUpdated', handleBankTransferUpdate);
+    
+    return () => {
+      window.removeEventListener('bankTransferUpdated', handleBankTransferUpdate);
+    };
+  }, []);
+
   const fetchCashDrawerData = async () => {
     try {
       setLoading(true);

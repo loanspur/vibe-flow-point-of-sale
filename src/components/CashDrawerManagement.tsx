@@ -271,6 +271,11 @@ export function CashDrawerManagement() {
           );
           
           console.log('✅ Cash drawer updated for bank transfer');
+          
+          // Force refresh of all dashboard components after bank transfer
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('bankTransferUpdated'));
+          }, 1000);
         }
         
         toast.success(`Bank transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
