@@ -185,16 +185,28 @@ export function CashDrawerManagement() {
 
   const processTransferAction = async () => {
     if (!selectedTransfer || !actionType) {
-      console.error('Missing transfer or action type:', { selectedTransfer, actionType });
+      console.error('❌ Missing transfer or action type:', { selectedTransfer, actionType });
       return;
     }
 
-    console.log('Processing transfer action:', {
+    console.log('🔄 Processing transfer action:', {
       transferId: selectedTransfer.id,
       action: actionType,
       transferType: selectedTransfer.transfer_type,
-      selectedTransfer
+      amount: selectedTransfer.amount,
+      fromDrawerId: selectedTransfer.from_drawer_id,
+      toDrawerId: selectedTransfer.to_drawer_id
     });
+
+    // Check for invalid self-transfer
+    if (selectedTransfer.transfer_type === 'drawer' && 
+        selectedTransfer.from_drawer_id === selectedTransfer.to_drawer_id) {
+      console.error('❌ Cannot transfer to the same drawer');
+      toast.error('Cannot transfer money to the same drawer');
+      setActionDialogOpen(false);
+      setProcessingAction(false);
+      return;
+    }
 
     setProcessingAction(true);
     try {

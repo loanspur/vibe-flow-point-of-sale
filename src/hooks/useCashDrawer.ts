@@ -357,23 +357,32 @@ export const useCashDrawer = () => {
   // Respond to transfer request
   const respondToTransferRequest = async (requestId: string, action: 'approved' | 'rejected') => {
     try {
+      console.log('🔄 Processing transfer request:', { requestId, action });
+      
       const { error } = await supabase.rpc('process_cash_transfer_request', {
         transfer_request_id_param: requestId,
         action_param: action
       });
 
       if (error) {
-        console.error('Error processing transfer:', error);
-        toast.error('Failed to process transfer request');
+        console.error('❌ Error processing transfer:', error);
+        toast.error(`Failed to process transfer request: ${error.message}`);
         return;
       }
 
-      await fetchTransferRequests();
-      await fetchCurrentDrawer();
-      await fetchTransactions();
+      console.log('✅ Transfer request processed successfully');
+      
+      // Force refresh of all cash drawer data
+      await Promise.all([
+        fetchTransferRequests(),
+        fetchCurrentDrawer(),
+        fetchAllDrawers(),
+        fetchTransactions()
+      ]);
+      
       toast.success(`Transfer request ${action} successfully`);
     } catch (error) {
-      console.error('Error responding to transfer:', error);
+      console.error('❌ Error responding to transfer:', error);
       toast.error('Failed to process transfer request');
     }
   };
