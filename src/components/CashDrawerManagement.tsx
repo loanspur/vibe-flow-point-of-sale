@@ -98,6 +98,24 @@ export function CashDrawerManagement() {
 
     setTransfersLoading(true);
     try {
+      // First get user profiles separately
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('tenant_id', tenantId);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+      }
+
+      // Create a map for quick lookup
+      const profileMap = new Map();
+      if (profiles) {
+        profiles.forEach(profile => {
+          profileMap.set(profile.user_id, profile.full_name);
+        });
+      }
+
       // Fetch both cash drawer transfers and bank transfers
       const [cashTransfersResponse, bankTransfersResponse] = await Promise.all([
         supabase
@@ -117,16 +135,29 @@ export function CashDrawerManagement() {
       if (cashTransfersResponse.error) throw cashTransfersResponse.error;
       if (bankTransfersResponse.error) throw bankTransfersResponse.error;
 
-      // Combine and sort transfers
-      const cashTransfers = (cashTransfersResponse.data || []).map(t => ({ ...t, transfer_type: 'drawer' })) as unknown as TransferRequest[];
-      const bankTransfers = (bankTransfersResponse.data || []).map(t => ({ ...t, transfer_type: 'account' })) as unknown as TransferRequest[];
+      // Combine and sort transfers, adding profile names
+      const cashTransfers = (cashTransfersResponse.data || []).map(t => ({ 
+        ...t, 
+        transfer_type: 'drawer',
+        profiles_from: { full_name: profileMap.get(t.from_user_id) || 'Unknown User' },
+        profiles_to: { full_name: profileMap.get(t.to_user_id) || 'Unknown User' },
+        profiles_responded: t.responded_by ? { full_name: profileMap.get(t.responded_by) || 'Unknown User' } : null
+      })) as unknown as TransferRequest[];
+      
+      const bankTransfers = (bankTransfersResponse.data || []).map(t => ({ 
+        ...t, 
+        transfer_type: 'account',
+        profiles_from: { full_name: profileMap.get(t.from_user_id) || 'Unknown User' },
+        profiles_to: { full_name: profileMap.get(t.to_user_id) || 'Unknown User' },
+        profiles_responded: t.responded_by ? { full_name: profileMap.get(t.responded_by) || 'Unknown User' } : null
+      })) as unknown as TransferRequest[];
       
       const allTransfers = [...cashTransfers, ...bankTransfers]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       // Filter for non-admin users
       if (!isAdmin) {
-        const filteredTransfers = allTransfers.filter(transfer => 
+        const filteredTransfers = allTransfers.filter(transfer =>
           transfer.from_user_id === user?.id || transfer.to_user_id === user?.id
         );
         setAllTransfers(filteredTransfers);
@@ -197,6 +228,9 @@ export function CashDrawerManagement() {
       }
 
       setActionDialogOpen(false);
+      setSelectedTransfer(null);
+      setActionType(null);
+      setActionNotes('');
       fetchAllTransfers();
     } catch (error) {
       console.error('Error processing action:', error);
