@@ -42,6 +42,7 @@ interface TransferRequest {
   reason?: string;
   notes?: string;
   reference_number?: string;
+  account_name?: string; // Added for bank transfers
   requested_at?: string;
   responded_at?: string;
   from_user_id: string;
@@ -70,6 +71,7 @@ export function CashDrawerManagement() {
     openDrawer,
     closeDrawer,
     createTransferRequest,
+    recordCashTransaction,
     refresh: refreshCashDrawer
   } = useCashDrawer();
 
@@ -234,7 +236,7 @@ export function CashDrawerManagement() {
         }
         toast.success(`Drawer transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
       } else {
-        // Handle bank account transfers - update status only
+        // Handle bank account transfers - update status AND deduct cash if approved
         console.log('Updating bank transfer status');
         const updateData: any = {
           status: actionType === 'approve' ? 'approved' : 'rejected',
@@ -254,6 +256,23 @@ export function CashDrawerManagement() {
           console.error('Update error:', error);
           throw error;
         }
+
+        // If approved, deduct money from cash drawer and create transaction
+        if (actionType === 'approve') {
+          console.log('🏦 Processing bank transfer - deducting from cash drawer');
+          
+          // Record cash transaction for bank transfer
+          await recordCashTransaction(
+            'account_transfer',
+            -selectedTransfer.amount, // Negative amount (deduction)
+            `Transfer to account: ${selectedTransfer.account_name || 'Bank Account'}`,
+            'transfer_request',
+            selectedTransfer.id
+          );
+          
+          console.log('✅ Cash drawer updated for bank transfer');
+        }
+        
         toast.success(`Bank transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
       }
 
