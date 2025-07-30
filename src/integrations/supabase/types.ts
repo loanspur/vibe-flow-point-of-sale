@@ -6542,6 +6542,10 @@ export type Database = {
         Args: { return_id_param: string }
         Returns: boolean
       }
+      process_transfer_request: {
+        Args: { transfer_request_id: string; action: string }
+        Returns: boolean
+      }
       queue_campaign_emails: {
         Args: { campaign_id_param: string }
         Returns: number
