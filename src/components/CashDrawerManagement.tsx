@@ -254,36 +254,6 @@ export function CashDrawerManagement() {
     }
   };
 
-  // Debug function to create a test transfer request
-  const createTestTransfer = async () => {
-    if (!tenantId || !user?.id || !currentDrawer?.id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('cash_transfer_requests')
-        .insert({
-          tenant_id: tenantId,
-          from_user_id: user.id,
-          to_user_id: user.id, // Self-approval for testing
-          from_drawer_id: currentDrawer.id,
-          to_drawer_id: currentDrawer.id,
-          amount: 100.00,
-          reason: 'Test transfer for debugging',
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      console.log('Test transfer created:', data);
-      toast.success('Test transfer request created');
-      fetchAllTransfers();
-    } catch (error) {
-      console.error('Error creating test transfer:', error);
-      toast.error('Failed to create test transfer');
-    }
-  };
-
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -530,16 +500,6 @@ export function CashDrawerManagement() {
         <Button variant="outline" className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Add Adjustment
-        </Button>
-
-        {/* Debug button - remove in production */}
-        <Button 
-          variant="outline" 
-          onClick={createTestTransfer}
-          className="flex items-center gap-2 bg-yellow-50 border-yellow-200"
-        >
-          <AlertCircle className="h-4 w-4" />
-          Create Test Transfer
         </Button>
       </div>
 
