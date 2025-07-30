@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { domainRouter } from '@/lib/domain-router';
 
 type UserRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
 
@@ -35,9 +36,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
 
-  // Fetch user role and tenant info
+  // Fetch user role and tenant info with domain context support
   const fetchUserInfo = async (userId: string) => {
     try {
+      // First check if we're on a subdomain and get the domain tenant
+      const domainConfig = await domainRouter.getCurrentDomainConfig();
+      
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -48,7 +52,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error && error.code !== 'PGRST116') {
         console.warn('Error fetching user profile:', error);
         setUserRole('user');
-        setTenantId(null);
+        // Use domain tenant if available, otherwise null
+        setTenantId(domainConfig?.tenantId || null);
         setRequirePasswordChange(false);
         return;
       }
@@ -56,13 +61,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (profile) {
         console.log('User profile loaded:', profile);
         setUserRole(profile.role);
-        setTenantId(profile.tenant_id);
+        
+        // If we're on a subdomain, prioritize the domain's tenant ID
+        // This ensures proper tenant context on subdomains
+        const effectiveTenantId = domainConfig?.tenantId || profile.tenant_id;
+        setTenantId(effectiveTenantId);
         setRequirePasswordChange(profile.require_password_change || false);
+        
+        // If domain has a tenant but user profile doesn't, update the profile
+        if (domainConfig?.tenantId && !profile.tenant_id && domainConfig.tenantId !== profile.tenant_id) {
+          console.log('Updating user profile with domain tenant ID:', domainConfig.tenantId);
+          await supabase
+            .from('profiles')
+            .update({ tenant_id: domainConfig.tenantId })
+            .eq('user_id', userId);
+        }
       } else {
         console.log('No profile found, setting default role');
-        // Fallback if no profile found
+        // Fallback if no profile found but we have domain context
         setUserRole('user');
-        setTenantId(null);
+        setTenantId(domainConfig?.tenantId || null);
         setRequirePasswordChange(false);
       }
     } catch (error) {

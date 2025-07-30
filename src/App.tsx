@@ -166,13 +166,30 @@ const DomainRouter = () => {
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
+          {/* Auth routes */}
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          
+          {/* Main dashboard route */}
           <Route 
             path="/" 
             element={
               <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <TenantAdminDashboard />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Tenant Admin routes - all the same as main domain */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -189,6 +206,20 @@ const DomainRouter = () => {
                   <TenantAdminLayout>
                     <Products />
                   </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/stock" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="advanced_inventory">
+                    <TenantAdminLayout>
+                      <StockManagement />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
                 </SubscriptionGuard>
               </ProtectedRoute>
             } 
@@ -218,6 +249,30 @@ const DomainRouter = () => {
             } 
           />
           <Route 
+            path="/admin/purchases" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Purchases />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/accounting" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Accounting />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/admin/reports" 
             element={
               <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
@@ -230,6 +285,44 @@ const DomainRouter = () => {
             } 
           />
           <Route 
+            path="/admin/team" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <Team />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/settings" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <TenantSettings />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/communications" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <TenantCommunications />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Profile Route - accessible to all authenticated users */}
+          <Route 
             path="/profile" 
             element={
               <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
@@ -241,6 +334,8 @@ const DomainRouter = () => {
               </ProtectedRoute>
             } 
           />
+          
+          {/* Fallback routes */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
