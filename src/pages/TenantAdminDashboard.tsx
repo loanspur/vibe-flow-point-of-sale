@@ -995,9 +995,9 @@ function TenantAdminDashboard() {
 
         {/* Alerts Bar */}
         {alerts.length > 0 && (
-          <div className="mb-6 space-y-2">
+          <div className="mb-6 flex gap-3 overflow-x-auto">
             {alerts.map((alert, index) => (
-              <div key={index} className={`flex items-center justify-between rounded-lg p-3 min-h-[56px] ${
+              <div key={index} className={`flex items-center justify-between rounded-lg p-3 min-h-[56px] flex-shrink-0 min-w-[300px] ${
                 alert.type === 'error' 
                   ? 'bg-red-50 border border-red-200' 
                   : alert.type === 'warning' 
