@@ -26,6 +26,7 @@ interface DrawerWithUser {
   status: string;
   user_id: string;
   user_name: string;
+  location?: string;
 }
 
 interface CashTransferModalProps {
@@ -87,28 +88,29 @@ export function CashTransferModal({
           console.error('Error fetching payment methods:', paymentError);
         }
 
-        // Fetch actual existing cash drawers from database (not from props)
+        // Fetch actual existing active cash drawers from active users
         const { data: allCashDrawers, error: drawersError } = await supabase
           .from('cash_drawers')
           .select('id, drawer_name, current_balance, status, user_id, location_name')
           .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .eq('status', 'open')
-          .neq('id', currentDrawer.id); // Exclude current drawer
+          .eq('is_active', true)         // Cash drawer must be active
+          .eq('status', 'open')          // Cash drawer must be open
+          .neq('id', currentDrawer.id);  // Exclude current drawer
 
         if (drawersError) {
           console.error('Error fetching cash drawers:', drawersError);
         }
 
-        // Get user profiles for all drawer owners
-        const drawerUserIds = allCashDrawers?.map(d => d.user_id) || [];
+        // Get user profiles for drawer owners to ensure they are active
+        const drawerUserIds = (allCashDrawers || []).map(d => d.user_id);
         let userProfiles: any[] = [];
         
         if (drawerUserIds.length > 0) {
           const { data: profiles, error: profilesError } = await supabase
             .from('profiles')
-            .select('user_id, full_name, email')
-            .in('user_id', drawerUserIds);
+            .select('user_id, full_name, email, tenant_id')
+            .in('user_id', drawerUserIds)
+            .eq('tenant_id', tenantId); // Only users from same tenant
 
           if (profilesError) {
             console.error('Error fetching user profiles:', profilesError);
@@ -117,8 +119,13 @@ export function CashTransferModal({
           }
         }
 
-        // Combine drawer data with user information
-        const drawersWithUsers = (allCashDrawers || []).map(drawer => {
+        // Only include cash drawers from active users in same tenant
+        const validCashDrawers = (allCashDrawers || []).filter(drawer => {
+          return userProfiles.some(profile => profile.user_id === drawer.user_id);
+        });
+
+        // Format drawer data with user information
+        const drawersWithUsers = validCashDrawers.map(drawer => {
           const profile = userProfiles.find(p => p.user_id === drawer.user_id);
           return {
             id: drawer.id,
@@ -126,7 +133,8 @@ export function CashTransferModal({
             current_balance: drawer.current_balance,
             status: drawer.status,
             user_id: drawer.user_id,
-            user_name: profile?.full_name || profile?.email || 'Unknown User'
+            user_name: profile?.full_name || profile?.email || 'Unknown User',
+            location: drawer.location_name
           };
         });
 
@@ -272,9 +280,10 @@ export function CashTransferModal({
                     {drawerUsers.map((drawer) => (
                       <SelectItem key={drawer.id} value={drawer.id}>
                         <div className="flex flex-col">
-                          <span>{drawer.drawer_name}</span>
+                          <span className="font-medium">{drawer.drawer_name}</span>
                           <span className="text-sm text-muted-foreground">
                             Owner: {drawer.user_name} • Balance: {formatAmount(drawer.current_balance)}
+                            {drawer.location && ` • ${drawer.location}`}
                           </span>
                         </div>
                       </SelectItem>
@@ -283,7 +292,7 @@ export function CashTransferModal({
                 </Select>
                 {drawerUsers.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No other open cash drawers available
+                    No active cash drawers available from other users
                   </p>
                 )}
               </div>
