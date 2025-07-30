@@ -486,6 +486,7 @@ export function CashDrawerManagement() {
               onTransfer={createTransferRequest}
               onClose={() => setShowTransferModal(false)}
               formatAmount={formatAmount}
+              onSuccess={fetchAllTransfers} // Refresh transfer list when transfer request is created
             />
           </DialogContent>
         </Dialog>

@@ -23,9 +23,10 @@ interface TransferAccount {
 interface CashTransferModalProps {
   allDrawers: CashDrawer[];
   currentDrawer: CashDrawer;
-  onTransfer: (toDrawerId: string, amount: number, reason?: string) => Promise<void>;
+  onTransfer: (toDrawerId: string, amount: number, reason?: string) => Promise<boolean | void>;
   onClose: () => void;
   formatAmount: (amount: number) => string;
+  onSuccess?: () => void; // Add callback for successful transfer creation
 }
 
 export function CashTransferModal({
@@ -33,7 +34,8 @@ export function CashTransferModal({
   currentDrawer,
   onTransfer,
   onClose,
-  formatAmount
+  formatAmount,
+  onSuccess
 }: CashTransferModalProps) {
   const { user, tenantId } = useAuth();
   const { refresh: refreshCashDrawerData } = useCashDrawer();
@@ -164,8 +166,12 @@ export function CashTransferModal({
           toast.error('Please select a cash drawer');
           return;
         }
-        await onTransfer(selectedDrawerId, transferAmount, reason);
-        toast.success('Cash drawer transfer request created');
+        const success = await onTransfer(selectedDrawerId, transferAmount, reason);
+        if (success !== false) {
+          toast.success('Cash drawer transfer request created');
+          // Call the parent's success callback to refresh transfer list
+          onSuccess?.();
+        }
       } else {
         if (!selectedAccountId) {
           toast.error('Please select a bank account');
@@ -173,6 +179,8 @@ export function CashTransferModal({
         }
         await createTransferRequest();
         toast.success('Bank transfer request created');
+        // Call the parent's success callback to refresh transfer list
+        onSuccess?.();
       }
       
       refreshCashDrawerData();

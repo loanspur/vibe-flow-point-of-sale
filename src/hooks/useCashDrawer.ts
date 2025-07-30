@@ -325,9 +325,12 @@ export const useCashDrawer = () => {
 
       await fetchTransferRequests();
       toast.success('Transfer request created successfully and awaiting approval');
+      // Return true to indicate success so calling components can refresh their data
+      return true;
     } catch (error) {
       console.error('Error creating transfer request:', error);
       toast.error('Failed to create transfer request');
+      return false;
     }
   };
 
