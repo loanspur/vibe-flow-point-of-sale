@@ -25,7 +25,6 @@ import { CashTransferModal } from './CashTransferModal';
 import { CashTransactionHistory } from './CashTransactionHistory';
 import { CashJournalReport } from './CashJournalReport';
 import { EnhancedTransferRequests } from './EnhancedTransferRequests';
-import { TransferStatusTracker } from './TransferStatusTracker';
 
 export function CashDrawerManagement() {
   const { businessSettings } = useApp();
@@ -217,11 +216,10 @@ export function CashDrawerManagement() {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="transactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="transactions">Recent Transactions</TabsTrigger>
-          <TabsTrigger value="transfers">Legacy Transfers</TabsTrigger>
-          <TabsTrigger value="enhanced-transfers">Enhanced Transfers</TabsTrigger>
-          <TabsTrigger value="status-tracker">Status Tracker</TabsTrigger>
+          <TabsTrigger value="transfers">Transfer Requests</TabsTrigger>
+          <TabsTrigger value="enhanced-transfers">Transfer Management</TabsTrigger>
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-4">
@@ -298,10 +296,6 @@ export function CashDrawerManagement() {
 
         <TabsContent value="enhanced-transfers" className="space-y-4">
           <EnhancedTransferRequests formatAmount={formatAmount} />
-        </TabsContent>
-
-        <TabsContent value="status-tracker" className="space-y-4">
-          <TransferStatusTracker formatAmount={formatAmount} />
         </TabsContent>
       </Tabs>
     </div>
