@@ -5519,6 +5519,114 @@ export type Database = {
           },
         ]
       }
+      transfer_requests: {
+        Row: {
+          amount: number
+          completed_at: string | null
+          created_at: string
+          currency_code: string | null
+          from_drawer_id: string | null
+          from_payment_method_id: string | null
+          from_user_id: string
+          id: string
+          notes: string | null
+          reason: string | null
+          reference_number: string | null
+          requested_at: string
+          responded_at: string | null
+          responded_by: string | null
+          status: string
+          tenant_id: string
+          to_drawer_id: string | null
+          to_payment_method_id: string | null
+          to_user_id: string
+          transfer_type: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          completed_at?: string | null
+          created_at?: string
+          currency_code?: string | null
+          from_drawer_id?: string | null
+          from_payment_method_id?: string | null
+          from_user_id: string
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          tenant_id: string
+          to_drawer_id?: string | null
+          to_payment_method_id?: string | null
+          to_user_id: string
+          transfer_type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          completed_at?: string | null
+          created_at?: string
+          currency_code?: string | null
+          from_drawer_id?: string | null
+          from_payment_method_id?: string | null
+          from_user_id?: string
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          tenant_id?: string
+          to_drawer_id?: string | null
+          to_payment_method_id?: string | null
+          to_user_id?: string
+          transfer_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_requests_from_drawer_id_fkey"
+            columns: ["from_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_from_payment_method_id_fkey"
+            columns: ["from_payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_to_drawer_id_fkey"
+            columns: ["to_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_to_payment_method_id_fkey"
+            columns: ["to_payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_activity_logs: {
         Row: {
           action_type: string
@@ -6067,7 +6175,74 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      transfer_requests_with_details: {
+        Row: {
+          amount: number | null
+          completed_at: string | null
+          created_at: string | null
+          currency_code: string | null
+          from_drawer_id: string | null
+          from_drawer_name: string | null
+          from_payment_method_id: string | null
+          from_payment_method_name: string | null
+          from_user_email: string | null
+          from_user_id: string | null
+          id: string | null
+          notes: string | null
+          reason: string | null
+          reference_number: string | null
+          requested_at: string | null
+          responded_at: string | null
+          responded_by: string | null
+          status: string | null
+          tenant_id: string | null
+          to_drawer_id: string | null
+          to_drawer_name: string | null
+          to_payment_method_id: string | null
+          to_payment_method_name: string | null
+          to_user_email: string | null
+          to_user_id: string | null
+          transfer_type: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_requests_from_drawer_id_fkey"
+            columns: ["from_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_from_payment_method_id_fkey"
+            columns: ["from_payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_to_drawer_id_fkey"
+            columns: ["to_drawer_id"]
+            isOneToOne: false
+            referencedRelation: "cash_drawers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_to_payment_method_id_fkey"
+            columns: ["to_payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_aging_analysis: {
