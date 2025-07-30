@@ -100,10 +100,11 @@ const Dashboard = () => {
           .eq('sales.tenant_id', tenantId)
           .gte('sales.created_at', today),
         supabase
-          .from('cash_bank_transfer_requests')
+          .from('transfer_requests')
           .select('amount')
           .eq('tenant_id', tenantId)
-          .eq('status', 'approved')
+          .eq('transfer_type', 'account')
+          .eq('status', 'completed')
           .gte('created_at', today)
       ]);
 
