@@ -888,183 +888,82 @@ function TenantAdminDashboard() {
 
       {/* Date Filter Section */}
       <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Date Range Filter
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
               <Label htmlFor="startDate">Start Date</Label>
               <Input
                 type="date"
                 id="startDate"
                 value={dateRange.startDate}
                 onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-full"
+                className="w-auto"
               />
             </div>
-            <div className="space-y-2">
+            <div className="flex items-center gap-2">
               <Label htmlFor="endDate">End Date</Label>
               <Input
                 type="date"
                 id="endDate"
                 value={dateRange.endDate}
                 onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-full"
+                className="w-auto"
               />
             </div>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Button 
-              variant={dateRange.startDate === new Date().toISOString().split('T')[0] && 
-                       dateRange.endDate === new Date().toISOString().split('T')[0] ? "default" : "outline"}
-              size="sm"
-              onClick={() => setDateRange({
-                startDate: new Date().toISOString().split('T')[0],
-                endDate: new Date().toISOString().split('T')[0]
-              })}
-            >
-              Today
-            </Button>
-            <Button 
-              variant={(() => {
-                const today = new Date();
-                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                return dateRange.startDate === lastWeek.toISOString().split('T')[0] && 
-                       dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
-              })()}
-              size="sm"
-              onClick={() => {
-                const today = new Date();
-                const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                setDateRange({
-                  startDate: lastWeek.toISOString().split('T')[0],
-                  endDate: today.toISOString().split('T')[0]
-                });
-              }}
-            >
-              Last 7 Days
-            </Button>
-            <Button 
-              variant={(() => {
-                const today = new Date();
-                const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                return dateRange.startDate === lastMonth.toISOString().split('T')[0] && 
-                       dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
-              })()}
-              size="sm"
-              onClick={() => {
-                const today = new Date();
-                const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                setDateRange({
-                  startDate: lastMonth.toISOString().split('T')[0],
-                  endDate: today.toISOString().split('T')[0]
-                });
-              }}
-            >
-              Last 30 Days
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant={dateRange.startDate === new Date().toISOString().split('T')[0] && 
+                         dateRange.endDate === new Date().toISOString().split('T')[0] ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDateRange({
+                  startDate: new Date().toISOString().split('T')[0],
+                  endDate: new Date().toISOString().split('T')[0]
+                })}
+              >
+                Today
+              </Button>
+              <Button 
+                variant={(() => {
+                  const today = new Date();
+                  const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                  return dateRange.startDate === lastWeek.toISOString().split('T')[0] && 
+                         dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
+                })()}
+                size="sm"
+                onClick={() => {
+                  const today = new Date();
+                  const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                  setDateRange({
+                    startDate: lastWeek.toISOString().split('T')[0],
+                    endDate: today.toISOString().split('T')[0]
+                  });
+                }}
+              >
+                Last 7 Days
+              </Button>
+              <Button 
+                variant={(() => {
+                  const today = new Date();
+                  const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                  return dateRange.startDate === lastMonth.toISOString().split('T')[0] && 
+                         dateRange.endDate === today.toISOString().split('T')[0] ? "default" : "outline";
+                })()}
+                size="sm"
+                onClick={() => {
+                  const today = new Date();
+                  const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                  setDateRange({
+                    startDate: lastMonth.toISOString().split('T')[0],
+                    endDate: today.toISOString().split('T')[0]
+                  });
+                }}
+              >
+                Last 30 Days
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Billing Plan Display */}
-      {currentSubscription ? (
-        <Card className="mb-6 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Crown className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-blue-900">
-                    {currentSubscription.billing_plans?.name} Plan
-                  </p>
-                  <p className="text-sm text-blue-600">
-                    {currentSubscription.status === 'pending' ? (
-                      <>Payment pending</>
-                    ) : currentSubscription.status === 'trialing' || currentSubscription.status === 'trial' ? (
-                      <>Trialing {currentSubscription.billing_plans?.name} features</>
-                    ) : currentSubscription.trial_end && new Date(currentSubscription.trial_end) > new Date() ? (
-                      <>Trial expires {new Date(currentSubscription.trial_end).toLocaleDateString()}</>
-                    ) : currentSubscription.trial_end ? (
-                      <>Trial expired - Payment required</>
-                    ) : (
-                      <>Active subscription</>
-                    )}
-                  </p>
-                   {currentSubscription.next_billing_date && (
-                     <p className="text-xs text-blue-500 mt-1">
-                       Next billing: {(() => {
-                         const nextBillingDate = new Date(currentSubscription.next_billing_date);
-                         // Ensure billing is always on the 1st of the month
-                         nextBillingDate.setDate(1);
-                         return nextBillingDate.toLocaleDateString();
-                       })()}
-                     </p>
-                   )}
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-               <div className="text-right">
-                   <p className="text-2xl font-bold text-blue-900">
-                     {formatPrice(effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0)}
-                   </p>
-                   <p className="text-sm text-blue-600">
-                     per {currentSubscription.billing_plans?.period}
-                     {effectivePricing?.is_custom && (
-                       <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 rounded">Custom</span>
-                     )}
-                   </p>
-                   {effectivePricing?.is_custom && effectivePricing?.discount_percentage && (
-                     <p className="text-xs text-blue-500">
-                       {effectivePricing.discount_percentage}% discount applied
-                     </p>
-                   )}
-                 </div>
-                <Link to="/admin/settings?tab=billing">
-                  <Button variant="outline" size="sm" className="border-blue-200 text-blue-700 hover:bg-blue-100">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Manage Plan
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="mb-6 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <AlertTriangle className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-orange-900">
-                    No Active Subscription
-                  </p>
-                  <p className="text-sm text-orange-600">
-                    Choose a plan to unlock all features
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Link to="/admin/settings?tab=billing">
-                  <Button className="bg-orange-600 hover:bg-orange-700 text-white">
-                    <Crown className="h-4 w-4 mr-2" />
-                    Choose Plan
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
         {/* Alerts Bar */}
         {alerts.length > 0 && (
