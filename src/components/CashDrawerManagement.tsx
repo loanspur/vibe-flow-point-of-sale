@@ -24,7 +24,7 @@ import {
 import { CashTransferModal } from './CashTransferModal';
 import { CashTransactionHistory } from './CashTransactionHistory';
 import { CashJournalReport } from './CashJournalReport';
-import { EnhancedTransferRequests } from './EnhancedTransferRequests';
+import { EnhancedTransferManagement } from './EnhancedTransferManagement';
 
 export function CashDrawerManagement() {
   const { businessSettings } = useApp();
@@ -295,7 +295,7 @@ export function CashDrawerManagement() {
         </TabsContent>
 
         <TabsContent value="enhanced-transfers" className="space-y-4">
-          <EnhancedTransferRequests formatAmount={formatAmount} />
+          <EnhancedTransferManagement />
         </TabsContent>
       </Tabs>
     </div>
