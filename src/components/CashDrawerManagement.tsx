@@ -180,37 +180,46 @@ export function CashDrawerManagement() {
   };
 
   const processTransferAction = async () => {
-    if (!selectedTransfer || !actionType) return;
+    if (!selectedTransfer || !actionType) {
+      console.error('Missing transfer or action type:', { selectedTransfer, actionType });
+      return;
+    }
+
+    console.log('Processing transfer action:', {
+      transferId: selectedTransfer.id,
+      action: actionType,
+      transferType: selectedTransfer.transfer_type,
+      selectedTransfer
+    });
 
     setProcessingAction(true);
     try {
       if (selectedTransfer.transfer_type === 'drawer') {
         // Handle cash drawer transfers using the existing RPC function
-        if (actionType === 'approve') {
-          const { error: processError } = await supabase.rpc('process_cash_transfer_request', {
-            transfer_request_id_param: selectedTransfer.id,
-            action_param: 'approve'
-          });
+        console.log('Calling process_cash_transfer_request RPC with:', {
+          transfer_request_id_param: selectedTransfer.id,
+          action_param: actionType
+        });
 
-          if (processError) {
-            if (processError.message?.includes('Insufficient funds')) {
-              toast.error(`Transfer rejected: ${processError.message}`);
-              return;
-            }
-            throw processError;
+        const { data, error: processError } = await supabase.rpc('process_cash_transfer_request', {
+          transfer_request_id_param: selectedTransfer.id,
+          action_param: actionType
+        });
+
+        console.log('RPC response:', { data, processError });
+
+        if (processError) {
+          console.error('RPC error:', processError);
+          if (processError.message?.includes('Insufficient funds')) {
+            toast.error(`Transfer rejected: ${processError.message}`);
+            return;
           }
-          toast.success('Drawer transfer approved and processed successfully');
-        } else {
-          const { error: processError } = await supabase.rpc('process_cash_transfer_request', {
-            transfer_request_id_param: selectedTransfer.id,
-            action_param: 'reject'
-          });
-
-          if (processError) throw processError;
-          toast.success('Drawer transfer rejected successfully');
+          throw processError;
         }
+        toast.success(`Drawer transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
       } else {
         // Handle bank account transfers - update status only
+        console.log('Updating bank transfer status');
         const updateData: any = {
           status: actionType === 'approve' ? 'approved' : 'rejected',
           responded_by: user?.id,
@@ -218,12 +227,17 @@ export function CashDrawerManagement() {
           notes: actionNotes || null
         };
 
+        console.log('Updating transfer_requests with:', updateData);
+
         const { error } = await supabase
           .from('transfer_requests')
           .update(updateData)
           .eq('id', selectedTransfer.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
         toast.success(`Bank transfer ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
       }
 
@@ -234,9 +248,39 @@ export function CashDrawerManagement() {
       fetchAllTransfers();
     } catch (error) {
       console.error('Error processing action:', error);
-      toast.error(`Failed to ${actionType} transfer`);
+      toast.error(`Failed to ${actionType} transfer: ${error.message || 'Unknown error'}`);
     } finally {
       setProcessingAction(false);
+    }
+  };
+
+  // Debug function to create a test transfer request
+  const createTestTransfer = async () => {
+    if (!tenantId || !user?.id || !currentDrawer?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('cash_transfer_requests')
+        .insert({
+          tenant_id: tenantId,
+          from_user_id: user.id,
+          to_user_id: user.id, // Self-approval for testing
+          from_drawer_id: currentDrawer.id,
+          to_drawer_id: currentDrawer.id,
+          amount: 100.00,
+          reason: 'Test transfer for debugging',
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      console.log('Test transfer created:', data);
+      toast.success('Test transfer request created');
+      fetchAllTransfers();
+    } catch (error) {
+      console.error('Error creating test transfer:', error);
+      toast.error('Failed to create test transfer');
     }
   };
 
@@ -486,6 +530,16 @@ export function CashDrawerManagement() {
         <Button variant="outline" className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Add Adjustment
+        </Button>
+
+        {/* Debug button - remove in production */}
+        <Button 
+          variant="outline" 
+          onClick={createTestTransfer}
+          className="flex items-center gap-2 bg-yellow-50 border-yellow-200"
+        >
+          <AlertCircle className="h-4 w-4" />
+          Create Test Transfer
         </Button>
       </div>
 
