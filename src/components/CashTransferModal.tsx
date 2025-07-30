@@ -89,7 +89,7 @@ export function CashTransferModal({
           setCurrencyCode(businessSettings.currency_code);
         }
 
-        // Fetch actual business accounts for transfers (exclude cash drawer account)
+        // Fetch actual business accounts for transfers (only asset accounts)
         console.log('Fetching transfer accounts for tenant:', tenantId);
         const { data: accountsData, error: accountsError } = await supabase
           .from('accounts')
@@ -100,7 +100,7 @@ export function CashTransferModal({
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
           .neq('code', '1010') // Exclude cash account since we're transferring FROM cash
-          .in('account_types.category', ['assets', 'liabilities']) // Only asset and liability accounts for transfers
+          .eq('account_types.category', 'assets') // Only asset accounts for transfers
           .order('code', { ascending: true });
 
         console.log('Transfer accounts fetched:', accountsData, 'Error:', accountsError);
