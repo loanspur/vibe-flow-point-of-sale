@@ -74,43 +74,67 @@ export function CashTransferModal({
           setCurrencyCode(businessSettings.currency_code);
         }
 
-        // Fetch payment methods (bank, card, etc. - not cash)
-        const { data: paymentMethodsData } = await supabase
+        // Fetch actual existing payment methods from database
+        const { data: paymentMethodsData, error: paymentError } = await supabase
           .from('payment_methods')
-          .select('id, name, type, is_active')
+          .select('id, name, type, is_active, display_order')
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
           .neq('type', 'cash') // Exclude cash since we're transferring FROM cash drawer
-          .order('display_order');
+          .order('display_order', { ascending: true });
 
-        // Fetch other cash drawers with user information
-        const availableDrawers = allDrawers.filter(
-          drawer => drawer.id !== currentDrawer.id && drawer.status === 'open'
-        );
+        if (paymentError) {
+          console.error('Error fetching payment methods:', paymentError);
+        }
 
-        // Get user names for available drawers
-        const drawerUserIds = availableDrawers.map(d => d.user_id);
-        const { data: userProfiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name')
-          .in('user_id', drawerUserIds);
+        // Fetch actual existing cash drawers from database (not from props)
+        const { data: allCashDrawers, error: drawersError } = await supabase
+          .from('cash_drawers')
+          .select('id, drawer_name, current_balance, status, user_id, location_name')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .eq('status', 'open')
+          .neq('id', currentDrawer.id); // Exclude current drawer
 
-        const drawersWithUsers = availableDrawers.map(drawer => {
-          const profile = userProfiles?.find(p => p.user_id === drawer.user_id);
+        if (drawersError) {
+          console.error('Error fetching cash drawers:', drawersError);
+        }
+
+        // Get user profiles for all drawer owners
+        const drawerUserIds = allCashDrawers?.map(d => d.user_id) || [];
+        let userProfiles: any[] = [];
+        
+        if (drawerUserIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, email')
+            .in('user_id', drawerUserIds);
+
+          if (profilesError) {
+            console.error('Error fetching user profiles:', profilesError);
+          } else {
+            userProfiles = profiles || [];
+          }
+        }
+
+        // Combine drawer data with user information
+        const drawersWithUsers = (allCashDrawers || []).map(drawer => {
+          const profile = userProfiles.find(p => p.user_id === drawer.user_id);
           return {
             id: drawer.id,
             drawer_name: drawer.drawer_name,
             current_balance: drawer.current_balance,
             status: drawer.status,
             user_id: drawer.user_id,
-            user_name: profile?.full_name || 'Unknown User'
+            user_name: profile?.full_name || profile?.email || 'Unknown User'
           };
         });
 
         setPaymentMethods(paymentMethodsData || []);
         setDrawerUsers(drawersWithUsers);
+        
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching transfer data:', error);
         toast.error('Failed to load transfer options');
       } finally {
         setLoading(false);
@@ -118,7 +142,7 @@ export function CashTransferModal({
     };
 
     fetchData();
-  }, [tenantId, user?.id, allDrawers, currentDrawer.id]);
+  }, [tenantId, currentDrawer.id]); // Removed dependency on allDrawers prop
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
