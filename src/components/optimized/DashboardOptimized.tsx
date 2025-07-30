@@ -16,6 +16,8 @@ import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import dashboardImage from "@/assets/dashboard-preview.jpg";
+import { useCashDrawer } from "@/hooks/useCashDrawer";
+import { Wallet } from "lucide-react";
 
 interface MetricCardProps {
   title: string;
@@ -95,6 +97,7 @@ const QuickActionsCard = React.memo(() => {
 export const DashboardOptimized = React.memo(() => {
   const { tenantId } = useAuth();
   const { formatCurrency, tenantCurrency } = useApp();
+  const { currentDrawer } = useCashDrawer();
   
   // Preload dashboard image when component mounts
   useEffect(() => {
@@ -114,10 +117,10 @@ export const DashboardOptimized = React.memo(() => {
       trend: "up"
     },
     {
-      title: "Transactions",
+      title: "Cash Balance",
       value: "0",
       change: "0%",
-      icon: Activity,
+      icon: Wallet,
       trend: "up"
     },
     {
@@ -212,10 +215,10 @@ export const DashboardOptimized = React.memo(() => {
         trend: "up"
       },
       {
-        title: "Transactions",
-        value: dashboardData.todayTransactions.toString(),
-        change: "0%",
-        icon: Activity,
+        title: "Cash Balance",
+        value: formatCurrency(currentDrawer?.current_balance || 0),
+        change: currentDrawer?.status === 'open' ? 'Open' : 'Closed',
+        icon: Wallet,
         trend: "up"
       },
       {
@@ -233,7 +236,7 @@ export const DashboardOptimized = React.memo(() => {
         trend: "up"
       }
     ];
-  }, [dashboardData, formatCurrency, tenantCurrency, initialMetrics]);
+  }, [dashboardData, formatCurrency, tenantCurrency, initialMetrics, currentDrawer]);
 
   return (
     <section className="py-20 bg-muted/30">
