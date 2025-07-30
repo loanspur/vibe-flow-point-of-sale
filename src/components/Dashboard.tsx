@@ -3,15 +3,12 @@ import { Card } from "@/components/ui/card";
 import { initializeDefaultChartOfAccounts } from "@/lib/default-accounts";
 import { useApp } from "@/contexts/AppContext";
 import { useOptimizedQuery } from "@/hooks/useOptimizedQuery";
-import { verifyAccountingIntegration, syncExistingTransactions } from "@/lib/accounting-verification";
 import { Button } from "@/components/ui/button";
 import { 
   TrendingUp, 
   DollarSign, 
   ShoppingBag, 
-  Users,
   ArrowUpRight,
-  Activity,
   Building2
 } from "lucide-react";
 import { CurrencyIcon } from "@/components/ui/currency-icon";
@@ -185,14 +182,6 @@ const Dashboard = () => {
     ];
   }, [dashboardData, formatCurrency, initialMetrics, currentDrawer]);
 
-  // Initialize accounting system only once
-  useEffect(() => {
-    if (tenantId) {
-      initializeDefaultChartOfAccounts(tenantId).catch(error => {
-        console.error('Error initializing accounting system:', error);
-      });
-    }
-  }, [tenantId]);
 
   return (
     <section className="py-20 bg-muted/30">

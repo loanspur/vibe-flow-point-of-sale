@@ -28,7 +28,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
-import { useCashDrawer } from "@/hooks/useCashDrawer";
+
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
@@ -57,7 +57,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const { tenantId } = useAuth();
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
-  const { currentDrawer } = useCashDrawer();
+  
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
