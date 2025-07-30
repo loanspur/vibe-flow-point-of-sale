@@ -5,12 +5,13 @@ import { useTransferRequests, TransferRequest } from '@/hooks/useTransferRequest
 import { 
   ArrowRightLeft, 
   Wallet, 
-  Users, 
   CreditCard, 
   CheckCircle, 
   XCircle, 
   Clock,
-  Ban
+  Ban,
+  Building2,
+  AlertCircle
 } from 'lucide-react';
 
 interface EnhancedTransferRequestsProps {
@@ -31,10 +32,8 @@ export function EnhancedTransferRequests({ formatAmount }: EnhancedTransferReque
     switch (type) {
       case 'cash_drawer':
         return <Wallet className="h-4 w-4" />;
-      case 'user_to_user':
-        return <Users className="h-4 w-4" />;
       case 'payment_method':
-        return <CreditCard className="h-4 w-4" />;
+        return <Building2 className="h-4 w-4" />;
       default:
         return <ArrowRightLeft className="h-4 w-4" />;
     }
@@ -43,44 +42,43 @@ export function EnhancedTransferRequests({ formatAmount }: EnhancedTransferReque
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/10 text-warning-foreground border-warning/20';
       case 'approved':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-info/10 text-info-foreground border-info/20';
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success-foreground border-success/20';
       case 'rejected':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive-foreground border-destructive/20';
       case 'cancelled':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground border-muted';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground border-muted';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Clock className="h-4 w-4" />;
+        return <Clock className="h-3 w-3" />;
       case 'approved':
+        return <AlertCircle className="h-3 w-3" />;
       case 'completed':
-        return <CheckCircle className="h-4 w-4" />;
+        return <CheckCircle className="h-3 w-3" />;
       case 'rejected':
-        return <XCircle className="h-4 w-4" />;
+        return <XCircle className="h-3 w-3" />;
       case 'cancelled':
-        return <Ban className="h-4 w-4" />;
+        return <Ban className="h-3 w-3" />;
       default:
-        return <Clock className="h-4 w-4" />;
+        return <Clock className="h-3 w-3" />;
     }
   };
 
   const formatTransferType = (type: string) => {
     switch (type) {
       case 'cash_drawer':
-        return 'Cash Drawer Transfer';
-      case 'user_to_user':
-        return 'User to User Transfer';
+        return 'To Cash Drawer';
       case 'payment_method':
-        return 'Payment Method Transfer';
+        return 'To Bank/Card';
       default:
         return 'Transfer';
     }
@@ -128,7 +126,7 @@ export function EnhancedTransferRequests({ formatAmount }: EnhancedTransferReque
           Enhanced Transfer Requests
         </CardTitle>
         <CardDescription>
-          Manage transfer requests across different payment methods and users
+          Track and approve cash transfers to other drawers or bank/card accounts
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -227,10 +225,15 @@ function TransferRequestCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className={getStatusColor(request.status)}>
+          <Badge variant="outline" className={getStatusColor(request.status)}>
             {getStatusIcon(request.status)}
             <span className="ml-1 capitalize">{request.status}</span>
           </Badge>
+          {request.reference_number && (
+            <Badge variant="secondary" className="text-xs">
+              {request.reference_number}
+            </Badge>
+          )}
         </div>
       </div>
       

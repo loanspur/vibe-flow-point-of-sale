@@ -7,10 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CashDrawer } from '@/hooks/useCashDrawer';
-import { ArrowRightLeft, Users, CreditCard, Wallet } from 'lucide-react';
+import { ArrowRightLeft, CreditCard, Wallet, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useApp } from '@/contexts/AppContext';
+import { toast } from 'sonner';
 
 interface PaymentMethod {
   id: string;
@@ -19,10 +19,13 @@ interface PaymentMethod {
   is_active: boolean;
 }
 
-interface User {
+interface DrawerWithUser {
   id: string;
-  email: string;
-  full_name: string;
+  drawer_name: string;
+  current_balance: number;
+  status: string;
+  user_id: string;
+  user_name: string;
 }
 
 interface CashTransferModalProps {
@@ -42,122 +45,144 @@ export function CashTransferModal({
 }: CashTransferModalProps) {
   const { user, tenantId } = useAuth();
   
-  const [transferType, setTransferType] = useState<'cash_drawer' | 'user_to_user' | 'payment_method'>('cash_drawer');
+  const [transferType, setTransferType] = useState<'cash_drawer' | 'payment_method'>('cash_drawer');
   const [selectedDrawerId, setSelectedDrawerId] = useState<string>('');
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [drawerUsers, setDrawerUsers] = useState<DrawerWithUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currencyCode, setCurrencyCode] = useState('KES');
 
-  const availableDrawers = allDrawers.filter(
-    drawer => drawer.id !== currentDrawer.id && drawer.status === 'open'
-  );
-
-  // Fetch payment methods and users
+  // Fetch payment methods, drawer users, and business settings
   useEffect(() => {
     const fetchData = async () => {
       if (!tenantId) return;
       
       setLoading(true);
       try {
-        // Fetch payment methods
+        // Fetch business settings for currency
+        const { data: businessSettings } = await supabase
+          .from('business_settings')
+          .select('currency_code')
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (businessSettings?.currency_code) {
+          setCurrencyCode(businessSettings.currency_code);
+        }
+
+        // Fetch payment methods (bank, card, etc. - not cash)
         const { data: paymentMethodsData } = await supabase
           .from('payment_methods')
           .select('id, name, type, is_active')
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
+          .neq('type', 'cash') // Exclude cash since we're transferring FROM cash drawer
           .order('display_order');
 
-        // Fetch tenant users with profiles
-        const { data: usersData } = await supabase
+        // Fetch other cash drawers with user information
+        const availableDrawers = allDrawers.filter(
+          drawer => drawer.id !== currentDrawer.id && drawer.status === 'open'
+        );
+
+        // Get user names for available drawers
+        const drawerUserIds = availableDrawers.map(d => d.user_id);
+        const { data: userProfiles } = await supabase
           .from('profiles')
           .select('user_id, full_name')
-          .eq('tenant_id', tenantId)
-          .neq('user_id', user?.id);
+          .in('user_id', drawerUserIds);
 
-        if (paymentMethodsData) setPaymentMethods(paymentMethodsData);
-        if (usersData) {
-          const formattedUsers = usersData.map(u => ({
-            id: u.user_id,
-            email: '', // We'll get this from auth if needed
-            full_name: u.full_name || 'Unknown User'
-          }));
-          setUsers(formattedUsers);
-        }
+        const drawersWithUsers = availableDrawers.map(drawer => {
+          const profile = userProfiles?.find(p => p.user_id === drawer.user_id);
+          return {
+            id: drawer.id,
+            drawer_name: drawer.drawer_name,
+            current_balance: drawer.current_balance,
+            status: drawer.status,
+            user_id: drawer.user_id,
+            user_name: profile?.full_name || 'Unknown User'
+          };
+        });
+
+        setPaymentMethods(paymentMethodsData || []);
+        setDrawerUsers(drawersWithUsers);
       } catch (error) {
         console.error('Error fetching data:', error);
+        toast.error('Failed to load transfer options');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [tenantId, user?.id]);
+  }, [tenantId, user?.id, allDrawers, currentDrawer.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const transferAmount = Number(amount);
     if (transferAmount <= 0) {
-      alert('Amount must be greater than 0');
+      toast.error('Amount must be greater than 0');
+      return;
+    }
+
+    if (transferAmount > currentDrawer.current_balance) {
+      toast.error('Insufficient balance in cash drawer');
       return;
     }
 
     // Validate based on transfer type
-    if (transferType === 'cash_drawer') {
-      if (!selectedDrawerId || transferAmount > currentDrawer.current_balance) {
-        alert('Invalid transfer amount or drawer selection');
-        return;
-      }
-    } else if (transferType === 'user_to_user') {
-      if (!selectedUserId) {
-        alert('Please select a user to transfer to');
-        return;
-      }
-    } else if (transferType === 'payment_method') {
-      if (!selectedPaymentMethodId) {
-        alert('Please select a payment method');
-        return;
-      }
+    if (transferType === 'cash_drawer' && !selectedDrawerId) {
+      toast.error('Please select a cash drawer to transfer to');
+      return;
+    }
+    
+    if (transferType === 'payment_method' && !selectedPaymentMethodId) {
+      toast.error('Please select a payment method');
+      return;
     }
 
     setIsSubmitting(true);
     try {
-      if (transferType === 'cash_drawer') {
-        // Use existing cash drawer transfer
-        await onTransfer(selectedDrawerId, transferAmount, reason || undefined);
-      } else {
-        // Create enhanced transfer request
-        await createEnhancedTransferRequest();
-      }
+      await createTransferRequest();
+      toast.success('Transfer request created successfully');
       onClose();
     } catch (error) {
       console.error('Transfer failed:', error);
+      toast.error('Failed to create transfer request');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const createEnhancedTransferRequest = async () => {
+  const createTransferRequest = async () => {
     if (!tenantId || !user?.id) return;
+
+    let targetUserId = user.id; // Default to self for payment methods
+    
+    if (transferType === 'cash_drawer') {
+      const targetDrawer = drawerUsers.find(d => d.id === selectedDrawerId);
+      if (targetDrawer) {
+        targetUserId = targetDrawer.user_id;
+      }
+    }
 
     const transferData = {
       tenant_id: tenantId,
       transfer_type: transferType,
       amount: Number(amount),
-      currency_code: 'KES', // Could be dynamic from business settings
+      currency_code: currencyCode,
       from_user_id: user.id,
-      to_user_id: transferType === 'user_to_user' ? selectedUserId : user.id,
-      from_drawer_id: transferType === 'cash_drawer' ? currentDrawer.id : null,
+      to_user_id: targetUserId,
+      from_drawer_id: currentDrawer.id,
       to_drawer_id: transferType === 'cash_drawer' ? selectedDrawerId : null,
-      from_payment_method_id: transferType === 'payment_method' ? currentDrawer.id : null, // Assuming cash drawer for now
       to_payment_method_id: transferType === 'payment_method' ? selectedPaymentMethodId : null,
       reason: reason || null,
-      status: 'pending'
+      status: 'pending',
+      reference_number: generateReferenceNumber()
     };
 
     const { error } = await supabase
@@ -165,6 +190,13 @@ export function CashTransferModal({
       .insert([transferData]);
 
     if (error) throw error;
+  };
+
+  const generateReferenceNumber = () => {
+    const prefix = transferType === 'cash_drawer' ? 'TCD' : 'TPM';
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+    return `${prefix}-${timestamp}-${random}`;
   };
 
   if (loading) {
@@ -193,18 +225,14 @@ export function CashTransferModal({
         </div>
 
         <Tabs value={transferType} onValueChange={(value) => setTransferType(value as any)}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="cash_drawer" className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
-              Cash Drawer
-            </TabsTrigger>
-            <TabsTrigger value="user_to_user" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              User to User
+              To Cash Drawer
             </TabsTrigger>
             <TabsTrigger value="payment_method" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              Payment Method
+              <Building2 className="h-4 w-4" />
+              To Bank/Card
             </TabsTrigger>
           </TabsList>
 
@@ -217,37 +245,29 @@ export function CashTransferModal({
                     <SelectValue placeholder="Select a cash drawer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableDrawers.map((drawer) => (
+                    {drawerUsers.map((drawer) => (
                       <SelectItem key={drawer.id} value={drawer.id}>
-                        {drawer.drawer_name} - {formatAmount(drawer.current_balance)}
+                        <div className="flex flex-col">
+                          <span>{drawer.drawer_name}</span>
+                          <span className="text-sm text-muted-foreground">
+                            Owner: {drawer.user_name} • Balance: {formatAmount(drawer.current_balance)}
+                          </span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="user_to_user" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="user">Transfer To User</Label>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {drawerUsers.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No other open cash drawers available
+                  </p>
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="payment_method" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="payment-method">Transfer To Payment Method</Label>
+                <Label htmlFor="payment-method">Transfer To Bank/Card Account</Label>
                 <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a payment method" />
@@ -255,11 +275,19 @@ export function CashTransferModal({
                   <SelectContent>
                     {paymentMethods.map((method) => (
                       <SelectItem key={method.id} value={method.id}>
-                        {method.name} ({method.type})
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4" />
+                          {method.name} ({method.type.toUpperCase()})
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {paymentMethods.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No payment methods available. Add bank or card accounts in settings.
+                  </p>
+                )}
               </div>
             </TabsContent>
 
@@ -297,12 +325,12 @@ export function CashTransferModal({
                 disabled={
                   !amount || 
                   isSubmitting ||
-                  (transferType === 'cash_drawer' && !selectedDrawerId) ||
-                  (transferType === 'user_to_user' && !selectedUserId) ||
-                  (transferType === 'payment_method' && !selectedPaymentMethodId)
+                  Number(amount) > currentDrawer.current_balance ||
+                  (transferType === 'cash_drawer' && (!selectedDrawerId || drawerUsers.length === 0)) ||
+                  (transferType === 'payment_method' && (!selectedPaymentMethodId || paymentMethods.length === 0))
                 }
               >
-                {isSubmitting ? 'Processing...' : 'Create Transfer Request'}
+                {isSubmitting ? 'Creating...' : 'Create Transfer Request'}
               </Button>
             </div>
           </form>

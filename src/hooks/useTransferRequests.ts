@@ -91,10 +91,20 @@ export function useTransferRequests() {
     if (!request) return;
 
     try {
-      // Here you would implement the actual transfer logic
-      // For cash drawer transfers, you'd update balances
-      // For user-to-user transfers, you might create wallet transactions
-      // For payment method transfers, you'd update those accounts
+      if (request.transfer_type === 'cash_drawer') {
+        // Call the existing cash drawer transfer function for cash-to-cash transfers
+        await supabase.rpc('process_cash_transfer', {
+          transfer_request_id_param: requestId,
+          action_param: 'approved',
+          notes_param: 'Auto-processed approved transfer'
+        });
+      } else if (request.transfer_type === 'payment_method') {
+        // For payment method transfers, we need to:
+        // 1. Deduct from cash drawer
+        // 2. Create accounting entries
+        // 3. Update cash transactions
+        await processPaymentMethodTransfer(request);
+      }
 
       // Mark as completed
       const { error } = await supabase
@@ -108,7 +118,121 @@ export function useTransferRequests() {
       if (error) throw error;
     } catch (error) {
       console.error('Error processing approved transfer:', error);
+      
+      // Mark as failed if processing fails
+      await supabase
+        .from('transfer_requests')
+        .update({
+          status: 'rejected',
+          notes: `Processing failed: ${error.message}`,
+          responded_at: new Date().toISOString()
+        })
+        .eq('id', requestId);
+      
       throw error;
+    }
+  };
+
+  const processPaymentMethodTransfer = async (request: TransferRequest) => {
+    if (!request.from_drawer_id) return;
+
+    // 1. Get current drawer balance first
+    const { data: currentDrawer, error: drawerFetchError } = await supabase
+      .from('cash_drawers')
+      .select('current_balance')
+      .eq('id', request.from_drawer_id)
+      .single();
+
+    if (drawerFetchError) throw drawerFetchError;
+
+    const newBalance = currentDrawer.current_balance - request.amount;
+
+    // 2. Create cash transaction for the deduction
+    const { error: cashError } = await supabase
+      .from('cash_transactions')
+      .insert({
+        tenant_id: request.tenant_id,
+        cash_drawer_id: request.from_drawer_id,
+        transaction_type: 'transfer_out',
+        amount: -request.amount, // Negative for outgoing
+        balance_after: newBalance,
+        description: `Transfer to payment method - ${request.reason || 'No reason'}`,
+        reference_type: 'transfer_request',
+        reference_id: request.id,
+        performed_by: request.from_user_id,
+        approved_by: request.responded_by,
+        transaction_date: new Date().toISOString()
+      });
+
+    if (cashError) throw cashError;
+    // 3. Update cash drawer balance
+    const { error: drawerUpdateError } = await supabase
+      .from('cash_drawers')
+      .update({
+        current_balance: newBalance,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', request.from_drawer_id);
+
+    if (drawerUpdateError) throw drawerUpdateError;
+
+    // 4. Create accounting transaction
+    const transactionNumber = `TR-${Date.now()}`;
+    
+    const { data: accountingTransaction, error: transactionError } = await supabase
+      .from('accounting_transactions')
+      .insert({
+        tenant_id: request.tenant_id,
+        transaction_number: transactionNumber,
+        description: `Cash transfer to payment method - ${request.reference_number}`,
+        transaction_date: new Date().toISOString().split('T')[0],
+        total_amount: request.amount,
+        reference_type: 'transfer_request',
+        reference_id: request.id,
+        created_by: request.responded_by || request.from_user_id,
+        is_posted: true
+      })
+      .select()
+      .single();
+
+    if (transactionError) throw transactionError;
+
+    // 5. Create accounting entries (Cash debit, Payment Method credit)
+    const { data: cashAccount } = await supabase
+      .from('accounts')
+      .select('id')
+      .eq('tenant_id', request.tenant_id)
+      .eq('name', 'Cash')
+      .single();
+
+    const { data: paymentMethodAccount } = await supabase
+      .from('accounts')
+      .select('id')
+      .eq('tenant_id', request.tenant_id)
+      .ilike('name', '%bank%')
+      .single();
+
+    if (cashAccount && paymentMethodAccount) {
+      const { error: entriesError } = await supabase
+        .from('accounting_entries')
+        .insert([
+          {
+            transaction_id: accountingTransaction.id,
+            account_id: cashAccount.id,
+            debit_amount: 0,
+            credit_amount: request.amount,
+            description: 'Cash transfer out'
+          },
+          {
+            transaction_id: accountingTransaction.id,
+            account_id: paymentMethodAccount.id,
+            debit_amount: request.amount,
+            credit_amount: 0,
+            description: 'Payment method transfer in'
+          }
+        ]);
+
+      if (entriesError) throw entriesError;
     }
   };
 
