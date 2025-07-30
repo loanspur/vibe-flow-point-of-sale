@@ -87,9 +87,9 @@ export const useCashDrawer = () => {
         .eq('tenant_id', tenantId)
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching drawer:', error);
         return;
       }
