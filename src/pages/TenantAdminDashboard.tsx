@@ -33,6 +33,7 @@ import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
+import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart, Tooltip, Legend } from "recharts";
 
 const getTimeBasedGreeting = () => {
@@ -1143,6 +1144,8 @@ function TenantAdminDashboard() {
               </div>
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {/* Cash Drawer Card */}
+              <CashDrawerCard dateRange={dateRange} />
               {businessStats.map((stat, index) => {
                 const Icon = stat.icon;
                 const isPositive = stat.changeType === 'positive';
