@@ -250,20 +250,28 @@ export function CashDrawerManagement() {
       setActionType(null);
       setActionNotes('');
       
+      // Wait for database update to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Refresh all relevant data after successful action
       await Promise.all([
         fetchAllTransfers(),
-        refreshCashDrawer(), // This will refresh cash drawer balances, transactions, and all drawer data
-        new Promise(resolve => setTimeout(resolve, 500)) // Small delay to ensure database updates are complete
+        refreshCashDrawer()
       ]);
       
-      // Emit custom event to trigger dashboard refresh
+      // Emit custom events to trigger all relevant refreshes
       window.dispatchEvent(new CustomEvent('cashDrawerUpdated', { 
         detail: { 
-          type: 'transfer_approved', 
+          type: 'transfer_action_completed', 
           transferId: selectedTransfer.id,
-          action: actionType 
+          action: actionType,
+          timestamp: Date.now()
         } 
+      }));
+      
+      // Also trigger general dashboard refresh
+      window.dispatchEvent(new CustomEvent('dashboardRefresh', {
+        detail: { source: 'cashDrawerTransfer' }
       }));
       
       console.log('✅ All data refreshed after transfer action');

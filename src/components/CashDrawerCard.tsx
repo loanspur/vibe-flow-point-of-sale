@@ -49,7 +49,14 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
 
   useEffect(() => {
     if (tenantId) {
-      fetchCashDrawerData();
+      // Add small delay when refreshKey changes to ensure database updates are complete
+      if (refreshKey && refreshKey > 0) {
+        setTimeout(() => {
+          fetchCashDrawerData();
+        }, 500);
+      } else {
+        fetchCashDrawerData();
+      }
     }
   }, [tenantId, dateRange, refreshKey]);
 

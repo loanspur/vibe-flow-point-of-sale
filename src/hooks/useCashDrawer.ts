@@ -463,6 +463,22 @@ export const useCashDrawer = () => {
     }
   }, [currentDrawer?.id]);
 
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchCurrentDrawer(),
+        fetchAllDrawers(), 
+        fetchTransactions(),
+        fetchTransferRequests()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing cash drawer data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     currentDrawer,
     allDrawers,
@@ -475,11 +491,6 @@ export const useCashDrawer = () => {
     createTransferRequest,
     respondToTransferRequest,
     recordCashTransaction,
-    refresh: () => {
-      fetchCurrentDrawer();
-      fetchAllDrawers();
-      fetchTransactions();
-      fetchTransferRequests();
-    }
+    refresh
   };
 };

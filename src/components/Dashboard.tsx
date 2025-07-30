@@ -182,6 +182,16 @@ const Dashboard = () => {
     ];
   }, [dashboardData, formatCurrency, initialMetrics, currentDrawer]);
 
+  // Listen for dashboard refresh events
+  useEffect(() => {
+    const handleDashboardRefresh = () => {
+      // Force refetch of dashboard data by clearing cache
+      window.location.reload();
+    };
+
+    window.addEventListener('dashboardRefresh', handleDashboardRefresh);
+    return () => window.removeEventListener('dashboardRefresh', handleDashboardRefresh);
+  }, []);
 
   return (
     <section className="py-20 bg-muted/30">
