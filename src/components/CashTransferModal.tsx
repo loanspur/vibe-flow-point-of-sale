@@ -89,13 +89,13 @@ export function CashTransferModal({
           setCurrencyCode(businessSettings.currency_code);
         }
 
-        // Fetch actual business accounts for transfers (only asset accounts)
+        // Fetch actual business accounts for transfers (only asset accounts, excluding cash)
         console.log('Fetching transfer accounts for tenant:', tenantId);
         const { data: accountsData, error: accountsError } = await supabase
           .from('accounts')
           .select(`
             id, name, code, is_active,
-            account_types(name, category)
+            account_types!inner(name, category)
           `)
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
@@ -107,6 +107,7 @@ export function CashTransferModal({
 
         if (accountsError) {
           console.error('Error fetching transfer accounts:', accountsError);
+          toast.error('Failed to load transfer accounts');
         }
 
         // Fetch actual existing active cash drawers from active users

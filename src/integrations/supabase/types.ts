@@ -5537,6 +5537,7 @@ export type Database = {
           responded_by: string | null
           status: string
           tenant_id: string
+          to_account_id: string | null
           to_drawer_id: string | null
           to_payment_method_id: string | null
           to_user_id: string
@@ -5560,6 +5561,7 @@ export type Database = {
           responded_by?: string | null
           status?: string
           tenant_id: string
+          to_account_id?: string | null
           to_drawer_id?: string | null
           to_payment_method_id?: string | null
           to_user_id: string
@@ -5583,6 +5585,7 @@ export type Database = {
           responded_by?: string | null
           status?: string
           tenant_id?: string
+          to_account_id?: string | null
           to_drawer_id?: string | null
           to_payment_method_id?: string | null
           to_user_id?: string
@@ -5609,6 +5612,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_requests_to_account_id_fkey"
+            columns: ["to_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
           {
