@@ -104,7 +104,7 @@ const Dashboard = () => {
           .select('amount')
           .eq('tenant_id', tenantId)
           .eq('transfer_type', 'account')
-          .eq('status', 'completed')
+          .eq('status', 'approved')
           .gte('created_at', today)
       ]);
 
