@@ -29,25 +29,22 @@ import { toast } from 'sonner';
 interface TransferRequest {
   id: string;
   amount: number;
-  currency_code: string;
   status: string;
-  transfer_type: string;
   reason?: string;
   notes?: string;
-  reference_number: string;
   requested_at: string;
   responded_at?: string;
-  completed_at?: string;
   from_user_id: string;
   to_user_id: string;
   responded_by?: string;
-  from_drawer_id?: string;
-  to_drawer_id?: string;
-  to_account_id?: string;
+  from_drawer_id: string;
+  to_drawer_id: string;
+  tenant_id: string;
+  created_at: string;
+  updated_at: string;
   profiles_from?: { full_name: string } | null;
   profiles_to?: { full_name: string } | null;
   profiles_responded?: { full_name: string } | null;
-  accounts?: { name: string; code: string } | null;
   cash_drawers_from?: { drawer_name: string } | null;
   cash_drawers_to?: { drawer_name: string } | null;
 }
@@ -79,12 +76,11 @@ export function EnhancedTransferManagement() {
         .from('cash_transfer_requests')
         .select(`
           *,
-          profiles_from:profiles!cash_transfer_requests_from_user_id_fkey(full_name),
-          profiles_to:profiles!cash_transfer_requests_to_user_id_fkey(full_name),
-          profiles_responded:profiles!cash_transfer_requests_responded_by_fkey(full_name),
-          accounts:accounts!cash_transfer_requests_to_account_id_fkey(name, code),
-          cash_drawers_from:cash_drawers!cash_transfer_requests_from_drawer_id_fkey(drawer_name),
-          cash_drawers_to:cash_drawers!cash_transfer_requests_to_drawer_id_fkey(drawer_name)
+          profiles_from:profiles!from_user_id(full_name),
+          profiles_to:profiles!to_user_id(full_name),
+          profiles_responded:profiles!responded_by(full_name),
+          cash_drawers_from:cash_drawers!from_drawer_id(drawer_name),
+          cash_drawers_to:cash_drawers!to_drawer_id(drawer_name)
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
@@ -192,8 +188,8 @@ export function EnhancedTransferManagement() {
     }
   };
 
-  const getTransferTypeIcon = (type: string) => {
-    return type === 'account' ? <Building2 className="h-4 w-4" /> : <ArrowRightLeft className="h-4 w-4" />;
+  const getTransferTypeIcon = () => {
+    return <ArrowRightLeft className="h-4 w-4" />;
   };
 
   const filteredTransfers = transfers.filter(transfer => {
@@ -251,8 +247,8 @@ export function EnhancedTransferManagement() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
-                          {getTransferTypeIcon(transfer.transfer_type)}
-                          <span className="font-medium">#{transfer.reference_number}</span>
+                          {getTransferTypeIcon()}
+                          <span className="font-medium">Transfer #{transfer.id.slice(-8)}</span>
                           {getStatusBadge(transfer.status)}
                         </div>
                         
@@ -269,23 +265,14 @@ export function EnhancedTransferManagement() {
                           
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span>{new Date(transfer.requested_at).toLocaleDateString()}</span>
+                            <span>{new Date(transfer.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
 
                         <div className="text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
-                            {transfer.transfer_type === 'account' ? (
-                              <>
-                                <Building2 className="h-4 w-4" />
-                                <span>To Account: {transfer.accounts?.name || 'Unknown Account'}</span>
-                              </>
-                            ) : (
-                              <>
-                                <ArrowRightLeft className="h-4 w-4" />
-                                <span>To: {transfer.cash_drawers_to?.drawer_name || transfer.profiles_to?.full_name || 'Unknown'}</span>
-                              </>
-                            )}
+                            <ArrowRightLeft className="h-4 w-4" />
+                            <span>To Drawer: {transfer.cash_drawers_to?.drawer_name || 'Unknown Drawer'}</span>
                           </div>
                         </div>
 
@@ -374,7 +361,7 @@ export function EnhancedTransferManagement() {
             </DialogTitle>
             {selectedTransfer && (
               <DialogDescription>
-                Transfer #{selectedTransfer.reference_number}
+                Transfer #{selectedTransfer.id.slice(-8)}
               </DialogDescription>
             )}
           </DialogHeader>
@@ -396,24 +383,17 @@ export function EnhancedTransferManagement() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Requested At</Label>
-                  <div>{new Date(selectedTransfer.requested_at).toLocaleString()}</div>
+                  <div>{new Date(selectedTransfer.created_at).toLocaleString()}</div>
                 </div>
               </div>
 
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">Transfer Details</Label>
                 <div className="mt-1">
-                  {selectedTransfer.transfer_type === 'account' ? (
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      <span>Bank Account: {selectedTransfer.accounts?.name} ({selectedTransfer.accounts?.code})</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <ArrowRightLeft className="h-4 w-4" />
-                      <span>Cash Drawer: {selectedTransfer.cash_drawers_to?.drawer_name}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <ArrowRightLeft className="h-4 w-4" />
+                    <span>From: {selectedTransfer.cash_drawers_from?.drawer_name} → To: {selectedTransfer.cash_drawers_to?.drawer_name}</span>
+                  </div>
                 </div>
               </div>
 
