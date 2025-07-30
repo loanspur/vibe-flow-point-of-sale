@@ -94,9 +94,10 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
       const endDate = `${dateRange.endDate}T23:59:59.999Z`;
       
       const { data: transfersData, error: transfersError } = await supabase
-        .from('cash_bank_transfer_requests')
+        .from('transfer_requests')
         .select('*')
         .eq('tenant_id', tenantId)
+        .eq('transfer_type', 'account')
         .gte('created_at', startDate)
         .lte('created_at', endDate)
         .eq('status', 'approved');
@@ -327,7 +328,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-blue-600" />
                         <div>
-                          <div className="font-medium text-blue-900">{transfer.bank_account_name}</div>
+                          <div className="font-medium text-blue-900">Bank Transfer</div>
                           <div className="text-xs text-blue-600">
                             {new Date(transfer.created_at).toLocaleDateString()} • {transfer.reference_number || 'No reference'}
                           </div>
