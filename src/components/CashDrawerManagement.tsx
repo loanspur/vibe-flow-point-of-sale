@@ -69,8 +69,12 @@ export function CashDrawerManagement() {
     initializeDrawer,
     openDrawer,
     closeDrawer,
-    createTransferRequest
+    createTransferRequest,
+    refresh: refreshCashDrawer
   } = useCashDrawer();
+
+  // Add separate method names for clarity
+  const fetchCashDrawers = refreshCashDrawer;
 
   const [openingBalance, setOpeningBalance] = useState<string>('0');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -249,7 +253,7 @@ export function CashDrawerManagement() {
       // Refresh all relevant data after successful action
       await Promise.all([
         fetchAllTransfers(),
-        location.reload() // Force full data refresh including cash drawer balances
+        refreshCashDrawer() // This will refresh cash drawer balances, transactions, and all drawer data
       ]);
     } catch (error) {
       console.error('Error processing action:', error);
