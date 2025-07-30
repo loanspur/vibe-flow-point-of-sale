@@ -220,7 +220,7 @@ export function CashTransferModal({
         from_drawer_id: currentDrawer.id,
         to_account_id: split.account_id,
         reason: split.notes || reason || null,
-        status: 'approved' as const, // Auto-approve account transfers
+        status: 'pending' as const, // Create as pending, then process
         reference_number: generateReferenceNumber()
       };
 
@@ -242,6 +242,20 @@ export function CashTransferModal({
         if (processError) {
           console.error('Error processing split transfer:', processError);
           throw processError;
+        }
+
+        // Mark as completed after processing
+        const { error: updateError } = await supabase
+          .from('transfer_requests')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', transferRequest.id);
+
+        if (updateError) {
+          console.error('Error updating split transfer status:', updateError);
+          throw updateError;
         }
       }
 
@@ -347,7 +361,7 @@ export function CashTransferModal({
       to_drawer_id: transferType === 'cash_drawer' ? selectedDrawerId : null,
       to_account_id: transferType === 'account' ? selectedAccountId : null,
       reason: reason || null,
-      status: transferType === 'account' ? 'approved' : 'pending', // Auto-approve account transfers
+      status: 'pending', // Always create as pending, then process
       reference_number: generateReferenceNumber()
     };
 
@@ -369,6 +383,20 @@ export function CashTransferModal({
       if (processError) {
         console.error('Error processing account transfer:', processError);
         throw processError;
+      }
+
+      // Mark as completed after processing
+      const { error: updateError } = await supabase
+        .from('transfer_requests')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', transferRequest.id);
+
+      if (updateError) {
+        console.error('Error updating transfer status:', updateError);
+        throw updateError;
       }
     }
   };
