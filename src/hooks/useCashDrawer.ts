@@ -211,16 +211,36 @@ export const useCashDrawer = () => {
     if (!currentDrawer?.id) return;
 
     try {
-      const { error } = await supabase.rpc('open_cash_drawer', {
-        drawer_id_param: currentDrawer.id,
-        opening_balance_param: openingBalance
-      });
+      // Update drawer status and balance directly
+      const { error } = await supabase
+        .from('cash_drawers')
+        .update({
+          status: 'open',
+          opening_balance: openingBalance,
+          current_balance: openingBalance,
+          opened_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentDrawer.id);
 
       if (error) {
         console.error('Error opening drawer:', error);
         toast.error('Failed to open cash drawer');
         return;
       }
+
+      // Record opening transaction
+      await supabase
+        .from('cash_transactions')
+        .insert({
+          tenant_id: tenantId,
+          cash_drawer_id: currentDrawer.id,
+          transaction_type: 'opening_balance',
+          amount: openingBalance,
+          balance_after: openingBalance,
+          description: 'Cash drawer opened',
+          performed_by: user?.id
+        });
 
       await fetchCurrentDrawer();
       await fetchTransactions();
