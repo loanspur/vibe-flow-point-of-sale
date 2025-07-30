@@ -893,7 +893,7 @@ function TenantAdminDashboard() {
       {/* Date Filter Section */}
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-4 overflow-x-auto">
             <div className="flex items-center gap-2">
               <Label>Start Date</Label>
               <Popover>
