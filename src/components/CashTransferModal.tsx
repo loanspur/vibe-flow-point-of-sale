@@ -11,6 +11,7 @@ import { ArrowRightLeft, CreditCard, Wallet, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface PaymentMethod {
   id: string;
@@ -27,6 +28,13 @@ interface DrawerWithUser {
   user_id: string;
   user_name: string;
   location?: string;
+}
+
+interface SplitTransfer {
+  id: string;
+  payment_method_id: string;
+  amount: string;
+  notes?: string;
 }
 
 interface CashTransferModalProps {
@@ -56,6 +64,10 @@ export function CashTransferModal({
   const [drawerUsers, setDrawerUsers] = useState<DrawerWithUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [currencyCode, setCurrencyCode] = useState('KES');
+  const [splitTransfers, setSplitTransfers] = useState<SplitTransfer[]>([
+    { id: '1', payment_method_id: '', amount: '', notes: '' }
+  ]);
+  const [isSplitMode, setIsSplitMode] = useState(false);
 
   // Fetch payment methods, drawer users, and business settings
   useEffect(() => {
@@ -76,6 +88,7 @@ export function CashTransferModal({
         }
 
         // Fetch actual existing payment methods from database
+        console.log('Fetching payment methods for tenant:', tenantId);
         const { data: paymentMethodsData, error: paymentError } = await supabase
           .from('payment_methods')
           .select('id, name, type, is_active, display_order')
@@ -83,6 +96,8 @@ export function CashTransferModal({
           .eq('is_active', true)
           .neq('type', 'cash') // Exclude cash since we're transferring FROM cash drawer
           .order('display_order', { ascending: true });
+
+        console.log('Payment methods fetched:', paymentMethodsData, 'Error:', paymentError);
 
         if (paymentError) {
           console.error('Error fetching payment methods:', paymentError);
@@ -152,9 +167,92 @@ export function CashTransferModal({
     fetchData();
   }, [tenantId, currentDrawer.id]); // Removed dependency on allDrawers prop
 
+  // Split transfer management functions
+  const addSplitTransfer = () => {
+    const newId = (splitTransfers.length + 1).toString();
+    setSplitTransfers([...splitTransfers, { id: newId, payment_method_id: '', amount: '', notes: '' }]);
+  };
+
+  const removeSplitTransfer = (id: string) => {
+    if (splitTransfers.length > 1) {
+      setSplitTransfers(splitTransfers.filter(st => st.id !== id));
+    }
+  };
+
+  const updateSplitTransfer = (id: string, field: keyof SplitTransfer, value: string) => {
+    setSplitTransfers(splitTransfers.map(st => 
+      st.id === id ? { ...st, [field]: value } : st
+    ));
+  };
+
+  const getTotalSplitAmount = () => {
+    return splitTransfers.reduce((total, st) => total + (Number(st.amount) || 0), 0);
+  };
+
+  const createSplitTransferRequests = async (validSplits: SplitTransfer[]) => {
+    if (!tenantId || !user?.id) return;
+
+    const promises = validSplits.map(split => {
+      const transferData = {
+        tenant_id: tenantId,
+        transfer_type: 'payment_method' as const,
+        amount: Number(split.amount),
+        currency_code: currencyCode,
+        from_user_id: user.id,
+        to_user_id: user.id,
+        from_drawer_id: currentDrawer.id,
+        to_payment_method_id: split.payment_method_id,
+        reason: split.notes || reason || null,
+        status: 'pending' as const,
+        reference_number: generateReferenceNumber()
+      };
+
+      return supabase
+        .from('transfer_requests')
+        .insert([transferData]);
+    });
+
+    const results = await Promise.all(promises);
+    const errors = results.filter(result => result.error);
+    
+    if (errors.length > 0) {
+      throw new Error(`Failed to create ${errors.length} transfer requests`);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (transferType === 'payment_method' && isSplitMode) {
+      // Handle split transfers
+      const totalAmount = getTotalSplitAmount();
+      const validSplits = splitTransfers.filter(st => st.payment_method_id && Number(st.amount) > 0);
+      
+      if (validSplits.length === 0) {
+        toast.error('Please add at least one valid split transfer');
+        return;
+      }
+      
+      if (totalAmount > currentDrawer.current_balance) {
+        toast.error('Total split amount exceeds cash drawer balance');
+        return;
+      }
+      
+      setIsSubmitting(true);
+      try {
+        await createSplitTransferRequests(validSplits);
+        toast.success('Split transfer requests created successfully');
+        onClose();
+      } catch (error) {
+        console.error('Split transfer failed:', error);
+        toast.error('Failed to create split transfer requests');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+    
+    // Handle single transfers
     const transferAmount = Number(amount);
     if (transferAmount <= 0) {
       toast.error('Amount must be greater than 0');
@@ -264,7 +362,7 @@ export function CashTransferModal({
             </TabsTrigger>
             <TabsTrigger value="payment_method" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
-              To Bank/Card
+              Other Account
             </TabsTrigger>
           </TabsList>
 
@@ -299,44 +397,150 @@ export function CashTransferModal({
             </TabsContent>
 
             <TabsContent value="payment_method" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="payment-method">Transfer To Bank/Card Account</Label>
-                <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method.id} value={method.id}>
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" />
-                          {method.name} ({method.type.toUpperCase()})
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {paymentMethods.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No payment methods available. Add bank or card accounts in settings.
-                  </p>
-                )}
+              <div className="flex items-center justify-between">
+                <Label>Transfer To Other Account</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="split-mode"
+                    checked={isSplitMode}
+                    onChange={(e) => setIsSplitMode(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="split-mode" className="text-sm">Split to multiple accounts</Label>
+                </div>
               </div>
+
+              {!isSplitMode ? (
+                // Single transfer mode
+                <div className="space-y-2">
+                  <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an account" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method.id} value={method.id}>
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            {method.name} ({method.type.toUpperCase()})
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                // Split transfer mode
+                <div className="space-y-4">
+                  {splitTransfers.map((split, index) => (
+                    <div key={split.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Transfer #{index + 1}</span>
+                        {splitTransfers.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSplitTransfer(split.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-sm">Account</Label>
+                          <Select 
+                            value={split.payment_method_id} 
+                            onValueChange={(value) => updateSplitTransfer(split.id, 'payment_method_id', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select account" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border z-50">
+                              {paymentMethods.map((method) => (
+                                <SelectItem key={method.id} value={method.id}>
+                                  <div className="flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4" />
+                                    {method.name} ({method.type.toUpperCase()})
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-sm">Amount</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            value={split.amount}
+                            onChange={(e) => updateSplitTransfer(split.id, 'amount', e.target.value)}
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm">Notes (Optional)</Label>
+                        <Textarea
+                          placeholder="Notes for this transfer..."
+                          value={split.notes || ''}
+                          onChange={(e) => updateSplitTransfer(split.id, 'notes', e.target.value)}
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addSplitTransfer}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Another Transfer
+                  </Button>
+                  
+                  <div className="bg-muted p-3 rounded-lg">
+                    <div className="flex justify-between text-sm">
+                      <span>Total Amount:</span>
+                      <span className="font-medium">{formatAmount(getTotalSplitAmount())}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Available Balance:</span>
+                      <span>{formatAmount(currentDrawer.current_balance)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethods.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No other accounts available. Add bank or card accounts in settings.
+                </p>
+              )}
             </TabsContent>
 
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                max={transferType === 'cash_drawer' ? currentDrawer.current_balance : undefined}
-                step="0.01"
-                required
-              />
-            </div>
+            {!isSplitMode && (
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  max={transferType === 'cash_drawer' ? currentDrawer.current_balance : undefined}
+                  step="0.01"
+                  required
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="reason">Reason (Optional)</Label>
@@ -356,14 +560,13 @@ export function CashTransferModal({
               <Button 
                 type="submit" 
                 disabled={
-                  !amount || 
                   isSubmitting ||
-                  Number(amount) > currentDrawer.current_balance ||
-                  (transferType === 'cash_drawer' && (!selectedDrawerId || drawerUsers.length === 0)) ||
-                  (transferType === 'payment_method' && (!selectedPaymentMethodId || paymentMethods.length === 0))
+                  (transferType === 'cash_drawer' && (!selectedDrawerId || drawerUsers.length === 0 || !amount || Number(amount) > currentDrawer.current_balance)) ||
+                  (transferType === 'payment_method' && !isSplitMode && (!selectedPaymentMethodId || paymentMethods.length === 0 || !amount || Number(amount) > currentDrawer.current_balance)) ||
+                  (transferType === 'payment_method' && isSplitMode && (getTotalSplitAmount() === 0 || getTotalSplitAmount() > currentDrawer.current_balance || splitTransfers.filter(st => st.payment_method_id && Number(st.amount) > 0).length === 0))
                 }
               >
-                {isSubmitting ? 'Creating...' : 'Create Transfer Request'}
+                {isSubmitting ? 'Creating...' : isSplitMode ? 'Create Split Transfers' : 'Create Transfer Request'}
               </Button>
             </div>
           </form>
