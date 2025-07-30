@@ -76,15 +76,15 @@ export function EnhancedTransferManagement() {
     setLoading(true);
     try {
       let query = supabase
-        .from('transfer_requests')
+        .from('cash_transfer_requests')
         .select(`
           *,
-          profiles_from:profiles!transfer_requests_from_user_id_fkey(full_name),
-          profiles_to:profiles!transfer_requests_to_user_id_fkey(full_name),
-          profiles_responded:profiles!transfer_requests_responded_by_fkey(full_name),
-          accounts:accounts!transfer_requests_to_account_id_fkey(name, code),
-          cash_drawers_from:cash_drawers!transfer_requests_from_drawer_id_fkey(drawer_name),
-          cash_drawers_to:cash_drawers!transfer_requests_to_drawer_id_fkey(drawer_name)
+          profiles_from:profiles!cash_transfer_requests_from_user_id_fkey(full_name),
+          profiles_to:profiles!cash_transfer_requests_to_user_id_fkey(full_name),
+          profiles_responded:profiles!cash_transfer_requests_responded_by_fkey(full_name),
+          accounts:accounts!cash_transfer_requests_to_account_id_fkey(name, code),
+          cash_drawers_from:cash_drawers!cash_transfer_requests_from_drawer_id_fkey(drawer_name),
+          cash_drawers_to:cash_drawers!cash_transfer_requests_to_drawer_id_fkey(drawer_name)
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
@@ -129,7 +129,7 @@ export function EnhancedTransferManagement() {
       if (actionType === 'approve') {
         // First update the status
         const { error: updateError } = await supabase
-          .from('transfer_requests')
+          .from('cash_transfer_requests')
           .update(updateData)
           .eq('id', selectedTransfer.id);
 
@@ -148,7 +148,7 @@ export function EnhancedTransferManagement() {
 
           // Mark as completed after processing
           await supabase
-            .from('transfer_requests')
+            .from('cash_transfer_requests')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString()
@@ -161,7 +161,7 @@ export function EnhancedTransferManagement() {
       } else {
         // Just reject the transfer
         const { error: updateError } = await supabase
-          .from('transfer_requests')
+          .from('cash_transfer_requests')
           .update(updateData)
           .eq('id', selectedTransfer.id);
 
