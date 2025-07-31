@@ -326,7 +326,7 @@ const Index = () => {
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="text-lg px-8 py-6 border-white/20 text-white hover:bg-white/10"
+                className="text-lg px-8 py-6 border-white/20 text-black hover:bg-white/10"
                 onClick={() => scrollToSection('contact')}
               >
                 Get in Touch
