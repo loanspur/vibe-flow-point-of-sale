@@ -133,32 +133,6 @@ const Careers = () => {
             </div>
           </div>
 
-          {/* Open Positions */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {positionTypes.map((position) => {
-              const Icon = position.icon;
-              return (
-                <Card key={position.value} className="hover:shadow-lg transition-shadow duration-300">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Icon className="h-6 w-6 text-primary" />
-                      </div>
-                      <CardTitle className="text-lg">{position.label}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">
-                      Join our team and help shape the future of vibePOS technology.
-                    </p>
-                    <Badge variant="secondary" className="mt-2">
-                      Remote
-                    </Badge>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
         </div>
 
         <Card className="max-w-4xl mx-auto">
