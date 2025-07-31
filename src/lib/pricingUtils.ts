@@ -28,7 +28,7 @@ export function calculatePricing(config: PricingConfig): CalculatedPricing {
     monthlyPrice, 
     annualDiscountMonths = 2, 
     annualDiscountPercentage,
-    currency = 'KES'
+    currency = 'USD'
   } = config;
 
   let annualPrice: number;
@@ -110,6 +110,6 @@ export function planToPricingConfig(plan: any): PricingConfig {
     monthlyPrice: plan.price || 0,
     annualDiscountMonths: plan.annual_discount_months || 2,
     annualDiscountPercentage: plan.annual_discount_percentage,
-    currency: plan.currency || 'KES'
+    currency: plan.currency || 'USD'
   };
 }
