@@ -1184,6 +1184,107 @@ export type Database = {
           },
         ]
       }
+      client_reviews: {
+        Row: {
+          category: string | null
+          client_type: string
+          cons: string | null
+          contact_id: string | null
+          content: string
+          created_at: string
+          id: string
+          is_featured: boolean | null
+          is_public: boolean | null
+          metadata: Json | null
+          priority: string
+          pros: string | null
+          rating: number | null
+          responded_at: string | null
+          responded_by: string | null
+          review_type: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_company: string | null
+          reviewer_email: string
+          reviewer_name: string
+          reviewer_phone: string | null
+          source: string
+          status: string
+          tags: Json | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          client_type: string
+          cons?: string | null
+          contact_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          is_featured?: boolean | null
+          is_public?: boolean | null
+          metadata?: Json | null
+          priority?: string
+          pros?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          responded_by?: string | null
+          review_type: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_company?: string | null
+          reviewer_email: string
+          reviewer_name: string
+          reviewer_phone?: string | null
+          source: string
+          status?: string
+          tags?: Json | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          client_type?: string
+          cons?: string | null
+          contact_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_featured?: boolean | null
+          is_public?: boolean | null
+          metadata?: Json | null
+          priority?: string
+          pros?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          responded_by?: string | null
+          review_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_company?: string | null
+          reviewer_email?: string
+          reviewer_name?: string
+          reviewer_phone?: string | null
+          source?: string
+          status?: string
+          tags?: Json | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_reviews_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_segments: {
         Row: {
           created_at: string
@@ -3850,6 +3951,136 @@ export type Database = {
           },
         ]
       }
+      review_analytics: {
+        Row: {
+          average_rating: number | null
+          category_breakdown: Json | null
+          client_type_breakdown: Json | null
+          created_at: string
+          date: string
+          id: string
+          new_reviews: number | null
+          responded_reviews: number | null
+          response_time_hours: number | null
+          satisfaction_score: number | null
+          tenant_id: string
+          total_reviews: number | null
+          updated_at: string
+        }
+        Insert: {
+          average_rating?: number | null
+          category_breakdown?: Json | null
+          client_type_breakdown?: Json | null
+          created_at?: string
+          date?: string
+          id?: string
+          new_reviews?: number | null
+          responded_reviews?: number | null
+          response_time_hours?: number | null
+          satisfaction_score?: number | null
+          tenant_id: string
+          total_reviews?: number | null
+          updated_at?: string
+        }
+        Update: {
+          average_rating?: number | null
+          category_breakdown?: Json | null
+          client_type_breakdown?: Json | null
+          created_at?: string
+          date?: string
+          id?: string
+          new_reviews?: number | null
+          responded_reviews?: number | null
+          response_time_hours?: number | null
+          satisfaction_score?: number | null
+          tenant_id?: string
+          total_reviews?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      review_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string
+          file_url: string
+          id: string
+          review_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          id?: string
+          review_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          id?: string
+          review_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_attachments_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "client_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_responses: {
+        Row: {
+          created_at: string
+          id: string
+          is_public: boolean | null
+          responder_id: string
+          response_text: string
+          response_type: string
+          review_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_public?: boolean | null
+          responder_id: string
+          response_text: string
+          response_type: string
+          review_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_public?: boolean | null
+          responder_id?: string
+          response_text?: string
+          response_type?: string
+          review_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_responses_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "client_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           created_at: string | null
@@ -6246,6 +6477,10 @@ export type Database = {
       calculate_purchase_total: {
         Args: { purchase_id_param: string }
         Returns: number
+      }
+      calculate_review_analytics: {
+        Args: { tenant_id_param: string; date_param?: string }
+        Returns: undefined
       }
       calculate_tax_amount: {
         Args: {
