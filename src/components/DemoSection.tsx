@@ -20,8 +20,12 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { LazyImage } from "@/components/ui/image-lazy";
-import dashboardPreview from "@/assets/dashboard-preview.jpg";
-import posSystemHero from "@/assets/pos-system-hero.jpg";
+import demoPosImage from "@/assets/demo-pos.jpg";
+import demoInventoryImage from "@/assets/demo-inventory.jpg";
+import demoAnalyticsImage from "@/assets/demo-analytics.jpg";
+import demoCustomersImage from "@/assets/demo-customers.jpg";
+import demoAccountingImage from "@/assets/demo-accounting.jpg";
+import demoMarketingImage from "@/assets/demo-marketing.jpg";
 
 interface DemoSectionProps {
   onStartTrial: () => void;
@@ -38,6 +42,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onStartTrial }) => {
       icon: ShoppingCart,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
+      image: demoPosImage,
       features: [
         "Barcode scanning",
         "Multiple payment methods",
@@ -53,6 +58,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onStartTrial }) => {
       icon: Package,
       color: "text-green-500",
       bgColor: "bg-green-500/10",
+      image: demoInventoryImage,
       features: [
         "Real-time stock levels",
         "Low stock alerts",
@@ -68,6 +74,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onStartTrial }) => {
       icon: BarChart3,
       color: "text-purple-500", 
       bgColor: "bg-purple-500/10",
+      image: demoAnalyticsImage,
       features: [
         "Sales reports",
         "Profit analysis",
@@ -83,6 +90,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onStartTrial }) => {
       icon: Users,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
+      image: demoCustomersImage,
       features: [
         "Customer profiles",
         "Purchase history",
@@ -98,6 +106,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onStartTrial }) => {
       icon: Receipt,
       color: "text-cyan-500",
       bgColor: "bg-cyan-500/10",
+      image: demoAccountingImage,
       features: [
         "Chart of accounts",
         "Financial statements",
@@ -113,6 +122,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onStartTrial }) => {
       icon: Mail,
       color: "text-red-500",
       bgColor: "bg-red-500/10",
+      image: demoMarketingImage,
       features: [
         "Campaign management",
         "Client segmentation",
@@ -206,7 +216,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onStartTrial }) => {
                   
                   <div className="relative">
                     <LazyImage 
-                      src={feature.id === "analytics" ? dashboardPreview : posSystemHero}
+                      src={feature.image}
                       alt={`${feature.title} Demo`}
                       className="w-full h-auto rounded-2xl shadow-[var(--shadow-elegant)] transform hover:scale-105 transition-transform duration-500"
                       loading="lazy"
