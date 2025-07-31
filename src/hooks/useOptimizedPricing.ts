@@ -110,10 +110,26 @@ export const useOptimizedPricing = () => {
 
   const formatFeatures = (features: any) => {
     if (Array.isArray(features)) {
-      return features;
+      return features.map(feature => {
+        // If feature is an object with name property, extract the name
+        if (typeof feature === 'object' && feature !== null && feature.name) {
+          return feature.name;
+        }
+        // If feature is already a string, return it
+        if (typeof feature === 'string') {
+          return feature;
+        }
+        // Fallback to string conversion
+        return String(feature);
+      });
     }
     if (typeof features === 'object' && features !== null) {
-      return Object.values(features).flat();
+      return Object.values(features).map(feature => {
+        if (typeof feature === 'object' && feature !== null && (feature as any).name) {
+          return (feature as any).name;
+        }
+        return String(feature);
+      }).flat();
     }
     return [];
   };
