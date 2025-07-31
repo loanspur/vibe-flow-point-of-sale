@@ -151,21 +151,6 @@ const Index = () => {
               </Button>
             </div>
             
-            {/* Trust indicators */}
-            <div className="flex flex-wrap items-center justify-center gap-8 mt-12 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                <span>Bank-level Security</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span>1000+ Happy Customers</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                <span>99.9% Uptime</span>
-              </div>
-            </div>
           </div>
 
           {/* Hero Images */}
