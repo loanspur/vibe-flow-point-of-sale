@@ -2,26 +2,31 @@ import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { initializeDefaultChartOfAccounts } from "@/lib/default-accounts";
 import { useApp } from "@/contexts/AppContext";
-import { useOptimizedQuery } from "@/hooks/useOptimizedQuery";
+import { useOptimizedDashboard } from "@/hooks/useOptimizedDashboard";
 import { Button } from "@/components/ui/button";
 import { 
   TrendingUp, 
   DollarSign, 
   ShoppingBag, 
   ArrowUpRight,
-  Building2
+  Building2,
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 import { CurrencyIcon } from "@/components/ui/currency-icon";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import dashboardImage from "@/assets/dashboard-preview.jpg";
 import { useCashDrawer } from "@/hooks/useCashDrawer";
 import { Wallet } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const Dashboard = () => {
   const { tenantId } = useAuth();
   const { formatCurrency, tenantCurrency } = useApp();
   const { currentDrawer } = useCashDrawer();
+  
+  // Use optimized dashboard hook with auto-refresh
+  const { data: dashboardData, loading, refresh, percentageChanges } = useOptimizedDashboard();
 
   // Preload dashboard image when component mounts
   useEffect(() => {
@@ -32,37 +37,6 @@ const Dashboard = () => {
     preloadImage();
   }, []);
 
-  const [initialMetrics] = useState([
-    {
-      title: "Today's Sales",
-      value: "0",
-      change: "0%",
-      icon: DollarSign,
-      trend: "up"
-    },
-    {
-      title: "Cash Balance",
-      value: "0",
-      change: "0%",
-      icon: Wallet,
-      trend: "up"
-    },
-    {
-      title: "Banked Today",
-      value: "0",
-      change: "0%",
-      icon: Building2,
-      trend: "up"
-    },
-    {
-      title: "Products Sold",
-      value: "0",
-      change: "0%",
-      icon: ShoppingBag,
-      trend: "up"
-    }
-  ]);
-
   // Initialize accounting system only once
   useEffect(() => {
     if (tenantId) {
@@ -72,137 +46,115 @@ const Dashboard = () => {
     }
   }, [tenantId]);
 
-
-  // Optimized data fetching with caching and minimal fields
-  const { data: dashboardData, loading } = useOptimizedQuery(
-    async () => {
-      if (!tenantId) return { data: null, error: null };
-      
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Optimized parallel queries with only needed fields
-      const [todaySalesResponse, customersResponse, saleItemsResponse, bankTransfersResponse, cashTransfersResponse] = await Promise.all([
-        supabase
-          .from('sales')
-          .select('total_amount')
-          .eq('tenant_id', tenantId)
-          .gte('created_at', today),
-        supabase
-          .from('customers')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId),
-        supabase
-          .from('sale_items')
-          .select('quantity, sales!inner(tenant_id)')
-          .eq('sales.tenant_id', tenantId)
-          .gte('sales.created_at', today),
-        supabase
-          .from('transfer_requests')
-          .select('amount')
-          .eq('tenant_id', tenantId)
-          .eq('transfer_type', 'account')
-          .eq('status', 'approved')
-          .gte('created_at', today),
-        supabase
-          .from('cash_transfer_requests')
-          .select('amount')
-          .eq('tenant_id', tenantId)
-          .eq('status', 'approved')
-          .gte('created_at', today)
-      ]);
-
-      if (todaySalesResponse.error) throw todaySalesResponse.error;
-      if (customersResponse.error) throw customersResponse.error;
-      if (saleItemsResponse.error) throw saleItemsResponse.error;
-      if (bankTransfersResponse.error) throw bankTransfersResponse.error;
-      if (cashTransfersResponse.error) throw cashTransfersResponse.error;
-
-      const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
-      const todayTransactions = todaySalesResponse.data?.length || 0;
-      const totalProductsSold = saleItemsResponse.data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-      const totalCustomers = customersResponse.count || 0;
-      const bankTransferAmount = bankTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
-      const cashTransferAmount = cashTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
-      const todayBankedAmount = bankTransferAmount + cashTransferAmount;
-
-      return {
-        data: {
-          todayRevenue,
-          todayTransactions,
-          totalProductsSold,
-          totalCustomers,
-          todayBankedAmount
-        },
-        error: null
-      };
-    },
-    [tenantId],
-    {
-      enabled: !!tenantId,
-      staleTime: 3 * 60 * 1000, // 3 minutes cache for dashboard
-      cacheKey: `dashboard-metrics-${tenantId}-${new Date().toISOString().split('T')[0]}`
-    }
-  );
-
-  // Memoize display metrics calculation
+  // Memoize display metrics calculation with performance indicators
   const displayMetrics = useMemo(() => {
     if (!dashboardData) {
-      return initialMetrics;
+      return [
+        {
+          title: "Today's Sales",
+          value: "Loading...",
+          change: "0%",
+          icon: DollarSign,
+          trend: "up",
+          loading: true
+        },
+        {
+          title: "Cash Balance",
+          value: "Loading...",
+          change: "0%",
+          icon: Wallet,
+          trend: "up",
+          loading: true
+        },
+        {
+          title: "Banked Today",
+          value: "Loading...",
+          change: "0%",
+          icon: Building2,
+          trend: "up",
+          loading: true
+        },
+        {
+          title: "Products Sold",
+          value: "Loading...",
+          change: "0%",
+          icon: ShoppingBag,
+          trend: "up",
+          loading: true
+        }
+      ];
     }
 
     return [
       {
         title: "Today's Sales",
         value: formatCurrency(dashboardData.todayRevenue),
-        change: "0%",
+        change: percentageChanges?.dailyVsWeekly ? `${percentageChanges.dailyVsWeekly > 0 ? '+' : ''}${percentageChanges.dailyVsWeekly}%` : "0%",
         icon: () => <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-5 w-5 text-primary" />,
-        trend: "up"
+        trend: percentageChanges?.dailyVsWeekly >= 0 ? "up" : "down",
+        loading: false
       },
       {
         title: "Cash Balance",
         value: formatCurrency(currentDrawer?.current_balance || 0),
         change: currentDrawer?.status === 'open' ? 'Open' : 'Closed',
         icon: Wallet,
-        trend: "up"
+        trend: "up",
+        loading: false
       },
       {
         title: "Banked Today",
         value: formatCurrency(dashboardData.todayBankedAmount),
         change: "Bank Transfers",
         icon: Building2,
-        trend: "up"
+        trend: "up",
+        loading: false
       },
       {
         title: "Products Sold",
         value: dashboardData.totalProductsSold.toString(),
-        change: "0%",
+        change: "Today",
         icon: ShoppingBag,
-        trend: "up"
+        trend: "up",
+        loading: false,
+        alert: dashboardData.lowStockItems > 0 ? `${dashboardData.lowStockItems} low stock` : undefined
       }
     ];
-  }, [dashboardData, formatCurrency, initialMetrics, currentDrawer]);
+  }, [dashboardData, formatCurrency, currentDrawer, percentageChanges, tenantCurrency]);
 
-  // Listen for dashboard refresh events
+  // Listen for dashboard refresh events and manual refresh
   useEffect(() => {
     const handleDashboardRefresh = () => {
-      // Force refetch of dashboard data by clearing cache
-      window.location.reload();
+      refresh();
     };
 
     window.addEventListener('dashboardRefresh', handleDashboardRefresh);
     return () => window.removeEventListener('dashboardRefresh', handleDashboardRefresh);
-  }, []);
+  }, [refresh]);
 
   return (
     <section className="py-20 bg-muted/30">
       <div className="container mx-auto px-4">
         <div className="text-center space-y-4 mb-16">
-          <h2 className="text-4xl lg:text-5xl font-bold text-foreground">
-            Powerful insights at
-            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent"> your fingertips</span>
-          </h2>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <h2 className="text-4xl lg:text-5xl font-bold text-foreground">
+              Powerful insights at
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent"> your fingertips</span>
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refresh}
+              className="flex items-center gap-2"
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Make data-driven decisions with real-time analytics, comprehensive reporting, and actionable business insights.
+            <Badge variant="outline" className="ml-2">Auto-refreshes every 30s</Badge>
           </p>
         </div>
 
@@ -210,14 +162,32 @@ const Dashboard = () => {
           <div className="space-y-8">
             <div className="grid grid-cols-2 gap-4">
               {displayMetrics.map((metric, index) => (
-                <Card key={index} className="p-6 bg-card border-border hover:shadow-[var(--shadow-card)] transition-all duration-300">
+                <Card key={index} className={`p-6 bg-card border-border hover:shadow-[var(--shadow-card)] transition-all duration-300 ${
+                  metric.loading ? 'animate-pulse' : ''
+                }`}>
                   <div className="flex items-start justify-between">
                     <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground font-medium">{metric.title}</p>
-                      <p className="text-2xl font-bold text-foreground">{metric.value}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground font-medium">{metric.title}</p>
+                        {metric.alert && (
+                          <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            {metric.alert}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className={`text-2xl font-bold text-foreground ${metric.loading ? 'bg-muted rounded h-8 w-20' : ''}`}>
+                        {metric.loading ? '' : metric.value}
+                      </p>
                       <div className="flex items-center gap-1">
-                        <ArrowUpRight className="h-4 w-4 text-pos-success" />
-                        <span className="text-sm text-pos-success font-medium">{metric.change}</span>
+                        <ArrowUpRight className={`h-4 w-4 ${
+                          metric.trend === 'up' ? 'text-pos-success' : 'text-destructive'
+                        }`} />
+                        <span className={`text-sm font-medium ${
+                          metric.trend === 'up' ? 'text-pos-success' : 'text-destructive'
+                        }`}>
+                          {metric.loading ? '' : metric.change}
+                        </span>
                       </div>
                     </div>
                     <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">

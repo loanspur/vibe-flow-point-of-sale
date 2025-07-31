@@ -39,6 +39,9 @@ export default defineConfig(({ mode }) => ({
     cssMinify: true,
     reportCompressedSize: false,
     chunkSizeWarningLimit: 1000,
-    sourcemap: false // Disable sourcemaps in production for smaller bundle
+    sourcemap: false, // Disable sourcemaps in production for smaller bundle
+    optimizeDeps: {
+      include: ['react', 'react-dom', '@supabase/supabase-js']
+    }
   }
 }));
