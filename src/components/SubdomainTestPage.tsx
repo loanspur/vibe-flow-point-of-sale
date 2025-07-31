@@ -1,12 +1,61 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, ExternalLink, Globe, Shield } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { CheckCircle, ExternalLink, Globe, Shield, AlertCircle, Clock } from 'lucide-react';
 import { useDomainContext } from '@/lib/domain-router';
+import { supabase } from '@/integrations/supabase/client';
 
 const SubdomainTestPage = () => {
   const { domainConfig, loading } = useDomainContext();
+  const [testSubdomain, setTestSubdomain] = useState('demo-restaurant.vibenet.shop');
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResults, setTestResults] = useState<any>(null);
+
+  const testDNSPropagation = async () => {
+    setTestLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('test-dns-propagation', {
+        body: { subdomain: testSubdomain }
+      });
+
+      if (error) throw error;
+      setTestResults(data);
+    } catch (error) {
+      console.error('DNS test error:', error);
+      setTestResults({
+        success: false,
+        error: error.message
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'success':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'failed':
+      case 'error':
+        return <AlertCircle className="h-4 w-4 text-red-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'success':
+        return 'bg-green-100 text-green-800';
+      case 'failed':
+      case 'error':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-yellow-100 text-yellow-800';
+    }
+  };
   
   if (loading) {
     return (
@@ -96,6 +145,135 @@ const SubdomainTestPage = () => {
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* DNS Propagation Test */}
+      <Card>
+        <CardHeader>
+          <CardTitle>DNS Propagation Test</CardTitle>
+          <CardDescription>
+            Test DNS propagation and connectivity for a specific subdomain
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              value={testSubdomain}
+              onChange={(e) => setTestSubdomain(e.target.value)}
+              placeholder="Enter subdomain (e.g., demo-restaurant.vibenet.shop)"
+              className="flex-1"
+            />
+            <Button 
+              onClick={testDNSPropagation} 
+              disabled={testLoading || !testSubdomain}
+            >
+              {testLoading ? 'Testing...' : 'Test DNS'}
+            </Button>
+          </div>
+
+          {testResults && (
+            <div className="space-y-4">
+              {testResults.success ? (
+                <>
+                  <div className="p-4 border rounded-lg bg-card">
+                    <h3 className="font-semibold mb-2">Test Summary</h3>
+                    <div className="space-y-2">
+                      <p>
+                        <span className="font-medium">Domain:</span> {testResults.summary.subdomain}
+                      </p>
+                      <p>
+                        <span className="font-medium">Propagation Score:</span> {testResults.summary.propagation_score}
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium">Status:</span>
+                        <Badge 
+                          variant={testResults.summary.propagated ? "default" : "secondary"}
+                          className={testResults.summary.propagated ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                        >
+                          {testResults.summary.propagated ? 'Propagated' : 'In Progress'}
+                        </Badge>
+                      </p>
+                    </div>
+
+                    {testResults.summary.recommendations.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="font-medium mb-2">Recommendations:</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                          {testResults.summary.recommendations.map((rec: string, index: number) => (
+                            <li key={index}>{rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="font-semibold">Detailed Test Results</h3>
+                    {testResults.results.tests.map((test: any, index: number) => (
+                      <Card key={index}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium flex items-center gap-2">
+                              {getStatusIcon(test.status)}
+                              {test.test}
+                            </h4>
+                            <Badge className={getStatusColor(test.status)}>
+                              {test.status}
+                            </Badge>
+                          </div>
+                          
+                          {test.error && (
+                            <p className="text-sm text-red-600 mb-2">
+                              Error: {test.error}
+                            </p>
+                          )}
+                          
+                          {test.statusCode && (
+                            <p className="text-sm text-muted-foreground">
+                              HTTP Status: {test.statusCode}
+                            </p>
+                          )}
+                          
+                          {test.records && test.records.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-sm font-medium">DNS Records:</p>
+                              <pre className="text-xs bg-muted p-2 rounded mt-1 overflow-x-auto">
+                                {JSON.stringify(test.records, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          
+                          {test.domain_status && (
+                            <div className="mt-2 text-sm">
+                              <p><span className="font-medium">Domain Status:</span> {test.domain_status}</p>
+                              <p><span className="font-medium">SSL Status:</span> {test.ssl_status}</p>
+                              <p><span className="font-medium">Active:</span> {test.is_active ? 'Yes' : 'No'}</p>
+                              {test.verified_at && (
+                                <p><span className="font-medium">Verified:</span> {new Date(test.verified_at).toLocaleString()}</p>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="font-medium">Test Failed</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {testResults.error}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
