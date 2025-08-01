@@ -436,13 +436,13 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                        <SelectValue placeholder="Select product" />
                      </SelectTrigger>
                      <SelectContent>
-                       {products
-                         .filter(product => product.id && product.id.trim() !== '')
-                         .map((product) => (
-                           <SelectItem key={product.id} value={product.id}>
-                             {product.name} - {product.sku}
-                           </SelectItem>
-                         ))}
+                      {products
+                        .filter(product => product.id && typeof product.id === 'string' && product.id.trim() !== '')
+                        .map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name} - {product.sku}
+                          </SelectItem>
+                        ))}
                      </SelectContent>
                    </Select>
                  </div>
@@ -533,7 +533,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers
-                      .filter(supplier => supplier.id && supplier.id.trim() !== '')
+                      .filter(supplier => supplier.id && typeof supplier.id === 'string' && supplier.id.trim() !== '')
                       .map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.name} {supplier.company && `(${supplier.company})`}
