@@ -27,6 +27,41 @@ export interface ProductHistorySummary {
   stock_adjustments: number;
   status_changes: number;
   most_active_user: string | null;
+  total_sales: number;
+  total_purchases: number;
+  total_returns: number;
+  sales_revenue: number;
+  purchase_cost: number;
+  return_amount: number;
+}
+
+export interface ProductTransactionData {
+  sales: Array<{
+    id: string;
+    sale_date: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    customer_name?: string;
+    cashier_name?: string;
+  }>;
+  purchases: Array<{
+    id: string;
+    purchase_date: string;
+    quantity_ordered: number;
+    quantity_received: number;
+    unit_cost: number;
+    total_cost: number;
+    supplier_name?: string;
+  }>;
+  returns: Array<{
+    id: string;
+    return_date: string;
+    quantity_returned: number;
+    reason: string;
+    refund_amount: number;
+    customer_name?: string;
+  }>;
 }
 
 export const useProductHistory = (productId: string) => {
@@ -117,6 +152,101 @@ export const useProductHistory = (productId: string) => {
     staleTime: 30000, // 30 seconds
   });
 
+  // Fetch sales data for the product
+  const { data: salesData = [] } = useQuery({
+    queryKey: ['product-sales', productId, tenantId],
+    queryFn: async () => {
+      if (!productId || !tenantId) return [];
+
+      const { data, error } = await supabase
+        .from('sale_items')
+        .select(`
+          id,
+          quantity,
+          unit_price,
+          total_price,
+          sales!inner(
+            id,
+            created_at,
+            customer_id,
+            cashier_id,
+            customers(name),
+            profiles(full_name)
+          )
+        `)
+        .eq('product_id', productId)
+        .eq('sales.tenant_id', tenantId)
+        .order('sales.created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!productId && !!tenantId,
+  });
+
+  // Fetch purchases data for the product
+  const { data: purchasesData = [] } = useQuery({
+    queryKey: ['product-purchases', productId, tenantId],
+    queryFn: async () => {
+      if (!productId || !tenantId) return [];
+
+      const { data, error } = await supabase
+        .from('purchase_items')
+        .select(`
+          id,
+          quantity_ordered,
+          quantity_received,
+          unit_cost,
+          total_cost,
+          purchases!inner(
+            id,
+            created_at,
+            supplier_id,
+            contacts(name)
+          )
+        `)
+        .eq('product_id', productId)
+        .eq('purchases.tenant_id', tenantId)
+        .order('purchases.created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!productId && !!tenantId,
+  });
+
+  // Fetch returns data for the product
+  const { data: returnsData = [] } = useQuery({
+    queryKey: ['product-returns', productId, tenantId],
+    queryFn: async () => {
+      if (!productId || !tenantId) return [];
+
+      const { data, error } = await supabase
+        .from('return_items')
+        .select(`
+          id,
+          quantity_returned,
+          total_price,
+          unit_price,
+          returns!inner(
+            id,
+            created_at,
+            customer_id,
+            custom_reason,
+            refund_amount,
+            customers(name)
+          )
+        `)
+        .eq('product_id', productId)
+        .eq('returns.tenant_id', tenantId)
+        .order('returns.created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!productId && !!tenantId,
+  });
+
   // Fetch user profiles for history entries
   const { data: userProfiles = {} } = useQuery({
     queryKey: ['user-profiles-history', history.map(h => h.changed_by)],
@@ -139,14 +269,50 @@ export const useProductHistory = (productId: string) => {
     enabled: history.length > 0,
   });
 
-  // Calculate summary from history data
+  // Calculate enhanced summary with sales, purchases, and returns data
   const summary: ProductHistorySummary = {
     total_changes: history.length,
     last_change_date: history.length > 0 ? history[0].created_at : null,
     price_changes: history.filter(h => h.action_type === 'price_change').length,
     stock_adjustments: history.filter(h => h.action_type === 'stock_adjustment').length,
     status_changes: history.filter(h => h.action_type === 'status_change').length,
-    most_active_user: null // Could be calculated if needed
+    most_active_user: null, // Could be calculated if needed
+    total_sales: salesData.reduce((sum, item) => sum + (item.quantity || 0), 0),
+    total_purchases: purchasesData.reduce((sum, item) => sum + (item.quantity_received || 0), 0),
+    total_returns: returnsData.reduce((sum, item) => sum + (item.quantity_returned || 0), 0),
+    sales_revenue: salesData.reduce((sum, item) => sum + (item.total_price || 0), 0),
+    purchase_cost: purchasesData.reduce((sum, item) => sum + (item.total_cost || 0), 0),
+    return_amount: returnsData.reduce((sum, item) => sum + (item.returns.refund_amount || 0), 0),
+  };
+
+  // Prepare transaction data for detailed view
+  const transactionData: ProductTransactionData = {
+    sales: salesData.map((item: any) => ({
+      id: item.sales.id,
+      sale_date: item.sales.created_at,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.total_price,
+      customer_name: item.sales.customers?.name,
+      cashier_name: item.sales.profiles?.full_name,
+    })),
+    purchases: purchasesData.map((item: any) => ({
+      id: item.purchases.id,
+      purchase_date: item.purchases.created_at,
+      quantity_ordered: item.quantity_ordered,
+      quantity_received: item.quantity_received,
+      unit_cost: item.unit_cost,
+      total_cost: item.total_cost,
+      supplier_name: item.purchases.contacts?.name,
+    })),
+    returns: returnsData.map((item: any) => ({
+      id: item.returns.id,
+      return_date: item.returns.created_at,
+      quantity_returned: item.quantity_returned,
+      reason: item.returns.custom_reason || 'No reason provided',
+      refund_amount: item.returns.refund_amount,
+      customer_name: item.returns.customers?.name,
+    })),
   };
 
   // Filter history based on search and action type
@@ -165,6 +331,7 @@ export const useProductHistory = (productId: string) => {
     history: filteredHistory,
     allHistory: history,
     summary,
+    transactionData,
     userProfiles,
     isLoading,
     searchTerm,

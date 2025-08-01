@@ -1,5 +1,5 @@
 import { useApp } from '@/contexts/AppContext';
-import { useProductHistory, type ProductHistoryEntry, type ProductHistorySummary } from '@/hooks/useProductHistory';
+import { useProductHistory, type ProductHistoryEntry, type ProductHistorySummary, type ProductTransactionData } from '@/hooks/useProductHistory';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,11 @@ import {
   Trash2,
   BarChart3,
   Search,
-  Filter
+  Filter,
+  ShoppingCart,
+  Package,
+  RotateCcw,
+  DollarSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -40,6 +44,7 @@ export default function ProductHistory({ productId, productName }: ProductHistor
   const {
     history: filteredHistory,
     summary,
+    transactionData,
     userProfiles,
     isLoading,
     searchTerm,
@@ -150,6 +155,60 @@ export default function ProductHistory({ productId, productName }: ProductHistor
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Transaction Summary */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
+                  <p className="text-2xl font-bold">{summary.total_sales}</p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(summary.sales_revenue)}</p>
+                </div>
+                <ShoppingCart className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Purchases</p>
+                  <p className="text-2xl font-bold">{summary.total_purchases}</p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(summary.purchase_cost)}</p>
+                </div>
+                <Package className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Returns</p>
+                  <p className="text-2xl font-bold">{summary.total_returns}</p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(summary.return_amount)}</p>
+                </div>
+                <RotateCcw className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Net Profit</p>
+                  <p className="text-2xl font-bold">{formatCurrency(summary.sales_revenue - summary.purchase_cost - summary.return_amount)}</p>
+                  <p className="text-xs text-muted-foreground">Revenue - Cost - Returns</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* History Summary */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -224,9 +283,133 @@ export default function ProductHistory({ productId, productName }: ProductHistor
             <SelectItem value="stock_adjustment">Stock Adjustments</SelectItem>
             <SelectItem value="status_change">Status Changes</SelectItem>
             <SelectItem value="deleted">Deleted</SelectItem>
+            <SelectItem value="sales">Sales</SelectItem>
+            <SelectItem value="purchases">Purchases</SelectItem>
+            <SelectItem value="returns">Returns</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {/* Transaction History Tabs */}
+      {transactionData && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Transaction History</CardTitle>
+            <CardDescription>
+              Detailed sales, purchases, and returns for this product
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* Sales */}
+              {transactionData.sales.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Sales ({transactionData.sales.length})
+                  </h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Unit Price</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Cashier</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactionData.sales.slice(0, 5).map((sale) => (
+                        <TableRow key={sale.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(sale.sale_date), 'MMM dd, yyyy')}
+                          </TableCell>
+                          <TableCell>{sale.quantity}</TableCell>
+                          <TableCell>{formatCurrency(sale.unit_price)}</TableCell>
+                          <TableCell>{formatCurrency(sale.total_price)}</TableCell>
+                          <TableCell className="text-sm">{sale.customer_name || 'Walk-in'}</TableCell>
+                          <TableCell className="text-sm">{sale.cashier_name || 'Unknown'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Purchases */}
+              {transactionData.purchases.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Purchases ({transactionData.purchases.length})
+                  </h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Ordered</TableHead>
+                        <TableHead>Received</TableHead>
+                        <TableHead>Unit Cost</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                        <TableHead>Supplier</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactionData.purchases.slice(0, 5).map((purchase) => (
+                        <TableRow key={purchase.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(purchase.purchase_date), 'MMM dd, yyyy')}
+                          </TableCell>
+                          <TableCell>{purchase.quantity_ordered}</TableCell>
+                          <TableCell>{purchase.quantity_received}</TableCell>
+                          <TableCell>{formatCurrency(purchase.unit_cost)}</TableCell>
+                          <TableCell>{formatCurrency(purchase.total_cost)}</TableCell>
+                          <TableCell className="text-sm">{purchase.supplier_name || 'Unknown'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Returns */}
+              {transactionData.returns.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <RotateCcw className="h-4 w-4" />
+                    Returns ({transactionData.returns.length})
+                  </h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Refund Amount</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Customer</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactionData.returns.slice(0, 5).map((returnItem) => (
+                        <TableRow key={returnItem.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(returnItem.return_date), 'MMM dd, yyyy')}
+                          </TableCell>
+                          <TableCell>{returnItem.quantity_returned}</TableCell>
+                          <TableCell>{formatCurrency(returnItem.refund_amount)}</TableCell>
+                          <TableCell className="text-sm">{returnItem.reason}</TableCell>
+                          <TableCell className="text-sm">{returnItem.customer_name || 'Unknown'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* History Table */}
       <Card>
