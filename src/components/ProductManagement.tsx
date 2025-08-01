@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,7 @@ import { useDeletionControl } from '@/hooks/useDeletionControl';
 import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
+import ProductHistory from './ProductHistory';
 import {
   Dialog,
   DialogContent,
@@ -316,6 +317,21 @@ export default function ProductManagement() {
                         <DialogDescription>Product details and variants</DialogDescription>
                       </DialogHeader>
                       <ProductVariants productId={product.id} />
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" title="View history">
+                        <History className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Product History</DialogTitle>
+                        <DialogDescription>View all changes made to this product</DialogDescription>
+                      </DialogHeader>
+                      <ProductHistory productId={product.id} productName={product.name} />
                     </DialogContent>
                   </Dialog>
                   
