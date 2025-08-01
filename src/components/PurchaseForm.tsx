@@ -435,15 +435,21 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                      <SelectTrigger>
                        <SelectValue placeholder="Select product" />
                      </SelectTrigger>
-                     <SelectContent>
-                      {products
-                        .filter(product => product.id && typeof product.id === 'string' && product.id.trim() !== '')
-                        .map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name} - {product.sku}
-                          </SelectItem>
-                        ))}
-                     </SelectContent>
+                      <SelectContent>
+                        {products
+                          .filter(product => 
+                            product && 
+                            product.id && 
+                            typeof product.id === 'string' && 
+                            product.id.trim() !== '' &&
+                            product.name
+                          )
+                          .map((product) => (
+                            <SelectItem key={product.id} value={product.id}>
+                              {product.name} - {product.sku || 'No SKU'}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
                    </Select>
                  </div>
 
@@ -533,10 +539,16 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers
-                      .filter(supplier => supplier.id && typeof supplier.id === 'string' && supplier.id.trim() !== '')
+                      .filter(supplier => 
+                        supplier && 
+                        supplier.id && 
+                        typeof supplier.id === 'string' && 
+                        supplier.id.trim() !== '' &&
+                        supplier.name
+                      )
                       .map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.name} {supplier.company && `(${supplier.company})`}
+                          {supplier.name} {supplier.company ? `(${supplier.company})` : ''}
                         </SelectItem>
                       ))}
                   </SelectContent>
