@@ -532,11 +532,13 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                     <SelectValue placeholder="Select supplier" />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name} {supplier.company && `(${supplier.company})`}
-                      </SelectItem>
-                    ))}
+                    {suppliers
+                      .filter(supplier => supplier.id && supplier.id.trim() !== '')
+                      .map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {supplier.name} {supplier.company && `(${supplier.company})`}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
