@@ -436,11 +436,13 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                        <SelectValue placeholder="Select product" />
                      </SelectTrigger>
                      <SelectContent>
-                       {products.map((product) => (
-                         <SelectItem key={product.id} value={product.id}>
-                           {product.name} - {product.sku}
-                         </SelectItem>
-                       ))}
+                       {products
+                         .filter(product => product.id && product.id.trim() !== '')
+                         .map((product) => (
+                           <SelectItem key={product.id} value={product.id}>
+                             {product.name} - {product.sku}
+                           </SelectItem>
+                         ))}
                      </SelectContent>
                    </Select>
                  </div>
