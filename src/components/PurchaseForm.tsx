@@ -62,7 +62,24 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         .eq('is_active', true);
       
       if (error) throw error;
-      setSuppliers(data || []);
+      console.log('🔍 Raw suppliers data:', data);
+      
+      // Filter out any invalid suppliers before setting state
+      const validSuppliers = (data || []).filter(supplier => {
+        const isValid = supplier && 
+          supplier.id && 
+          typeof supplier.id === 'string' && 
+          supplier.id.trim() !== '' &&
+          supplier.name;
+        
+        if (!isValid) {
+          console.warn('❌ Invalid supplier filtered out:', supplier);
+        }
+        return isValid;
+      });
+      
+      console.log('✅ Valid suppliers after filtering:', validSuppliers);
+      setSuppliers(validSuppliers);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
     }
@@ -72,14 +89,38 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, cost')
+        .select('id, name, sku, cost_price')
         .eq('tenant_id', tenantId)
         .eq('is_active', true);
       
-      if (error) throw error;
-      setProducts(data || []);
+      if (error) {
+        console.error('❌ Database error fetching products:', error);
+        throw error;
+      }
+      
+      console.log('🔍 Raw products data:', data);
+      
+      // Filter out any invalid products before setting state
+      const validProducts = (data || []).filter(product => {
+        const isValid = product && 
+          product.id && 
+          typeof product.id === 'string' && 
+          product.id.trim() !== '' &&
+          product.name && 
+          product.name.trim() !== '';
+        
+        if (!isValid) {
+          console.warn('❌ Invalid product filtered out:', product);
+        }
+        return isValid;
+      });
+      
+      console.log('✅ Valid products after filtering:', validProducts);
+      console.log('🔢 Number of valid products:', validProducts.length);
+      setProducts(validProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
+      setProducts([]); // Set empty array on error
     }
   };
 
@@ -345,7 +386,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
             .from('products')
             .update({
               stock_quantity: newStock,
-              cost: item.unit_cost, // Update product cost
+              cost_price: item.unit_cost, // Update product cost
             })
             .eq('id', item.product_id)
             .eq('tenant_id', tenantId);
@@ -426,29 +467,30 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                    <Label>Product</Label>
                    <Select value={selectedProduct} onValueChange={(value) => {
                      setSelectedProduct(value);
-                     // Auto-populate unit cost when product is selected
-                     const product = products.find(p => p.id === value);
-                     if (product && product.cost > 0) {
-                       setUnitCost(product.cost);
-                     }
+                      // Auto-populate unit cost when product is selected
+                      const product = products.find(p => p.id === value);
+                      if (product && product.cost_price > 0) {
+                        setUnitCost(product.cost_price);
+                      }
                    }}>
                      <SelectTrigger>
                        <SelectValue placeholder="Select product" />
                      </SelectTrigger>
                       <SelectContent>
-                        {products
-                          .filter(product => 
-                            product && 
-                            product.id && 
-                            typeof product.id === 'string' && 
-                            product.id.trim() !== '' &&
-                            product.name
-                          )
-                          .map((product) => (
-                            <SelectItem key={product.id} value={product.id}>
-                              {product.name} - {product.sku || 'No SKU'}
-                            </SelectItem>
-                          ))}
+                        {products.length > 0 ? (
+                          products.map((product) => {
+                            console.log('🎯 Rendering product SelectItem:', { id: product.id, name: product.name });
+                            return (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name} - {product.sku || 'No SKU'}
+                              </SelectItem>
+                            );
+                          })
+                        ) : (
+                          <SelectItem key="no-products" value="no-products" disabled>
+                            No products available
+                          </SelectItem>
+                        )}
                       </SelectContent>
                    </Select>
                  </div>
@@ -538,19 +580,20 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                     <SelectValue placeholder="Select supplier" />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers
-                      .filter(supplier => 
-                        supplier && 
-                        supplier.id && 
-                        typeof supplier.id === 'string' && 
-                        supplier.id.trim() !== '' &&
-                        supplier.name
-                      )
-                      .map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.name} {supplier.company ? `(${supplier.company})` : ''}
-                        </SelectItem>
-                      ))}
+                    {suppliers.length > 0 ? (
+                      suppliers.map((supplier) => {
+                        console.log('🎯 Rendering supplier SelectItem:', { id: supplier.id, name: supplier.name });
+                        return (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.name} {supplier.company ? `(${supplier.company})` : ''}
+                          </SelectItem>
+                        );
+                      })
+                    ) : (
+                      <SelectItem key="no-suppliers" value="no-suppliers" disabled>
+                        No suppliers available
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
