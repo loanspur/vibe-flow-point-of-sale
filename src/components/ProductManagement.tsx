@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -57,6 +58,10 @@ interface Product {
   is_active: boolean;
   category_id: string;
   subcategory_id: string;
+  product_type: 'product' | 'service';
+  is_billable?: boolean;
+  service_duration_minutes?: number;
+  requires_appointment?: boolean;
   product_categories?: { name: string };
   product_subcategories?: { name: string };
   variants?: any[];
@@ -73,13 +78,14 @@ export default function ProductManagement() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [activeTab, setActiveTab] = useState('products');
+  const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product' | 'service'>('all');
 
   // Optimized product fetching with minimal fields and caching
   const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
     async () => {
       if (!tenantId) return { data: [], error: null };
       
-      const { data, error } = await supabase
+        const { data, error } = await supabase
         .from('products')
         .select(`
           id,
@@ -93,6 +99,10 @@ export default function ProductManagement() {
           is_active,
           category_id,
           subcategory_id,
+          product_type,
+          is_billable,
+          service_duration_minutes,
+          requires_appointment,
           product_categories!left(name),
           product_subcategories!left(name),
           product_variants!left(id, stock_quantity, name, value)
@@ -114,20 +124,34 @@ export default function ProductManagement() {
   // Memoized filtered products for better performance
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
-    if (!debouncedSearchTerm) return products;
     
-    return products.filter(product =>
-      product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      product.product_categories?.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-    );
-  }, [products, debouncedSearchTerm]);
+    let filtered = products;
+    
+    // Filter by product type
+    if (productTypeFilter !== 'all') {
+      filtered = filtered.filter(product => product.product_type === productTypeFilter);
+    }
+    
+    // Filter by search term
+    if (debouncedSearchTerm) {
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        product.product_categories?.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  }, [products, debouncedSearchTerm, productTypeFilter]);
 
-  // Memoized low stock calculation
+  // Memoized low stock calculation (only for products, not services)
   const lowStockProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
     
     return products.filter(product => {
+      // Skip services - they don't have stock
+      if (product.product_type === 'service') return false;
+      
       // For products with variants, calculate total stock from variants
       if (product.product_variants && product.product_variants.length > 0) {
         const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
@@ -192,7 +216,8 @@ export default function ProductManagement() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Product</TableHead>
+            <TableHead>Product/Service</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>SKU</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Price</TableHead>
@@ -221,7 +246,9 @@ export default function ProductManagement() {
                   <div>
                     <div className="font-medium">{product.name}</div>
                     {(() => {
-                      // Calculate if product is low stock based on variants or main stock
+                      // Calculate if product is low stock based on variants or main stock (only for products)
+                      if (product.product_type === 'service') return null;
+                      
                       let isLowStock = false;
                       let currentStock = product.stock_quantity || 0;
                       
@@ -240,24 +267,38 @@ export default function ProductManagement() {
                         </Badge>
                       ) : null;
                     })()}
+                    {product.product_type === 'service' && product.service_duration_minutes && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Duration: {product.service_duration_minutes} mins
+                      </div>
+                    )}
                   </div>
                 </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant={product.product_type === 'service' ? "outline" : "secondary"}>
+                  {product.product_type === 'service' ? 'Service' : 'Product'}
+                </Badge>
               </TableCell>
               <TableCell>{product.sku || 'N/A'}</TableCell>
               <TableCell>{product.product_categories?.name || 'None'}</TableCell>
               <TableCell>{formatCurrency(product.price)}</TableCell>
               <TableCell>
-                {(() => {
-                  // Show total stock including variants
-                  if (product.product_variants && product.product_variants.length > 0) {
-                    const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
-                      return total + (variant.stock_quantity || 0);
-                    }, 0);
-                    const mainStock = product.stock_quantity || 0;
-                    return mainStock + totalVariantStock;
-                  }
-                  return product.stock_quantity || 0;
-                })()}
+                {product.product_type === 'service' ? (
+                  <span className="text-muted-foreground text-sm">N/A</span>
+                ) : (
+                  (() => {
+                    // Show total stock including variants
+                    if (product.product_variants && product.product_variants.length > 0) {
+                      const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
+                        return total + (variant.stock_quantity || 0);
+                      }, 0);
+                      const mainStock = product.stock_quantity || 0;
+                      return mainStock + totalVariantStock;
+                    }
+                    return product.stock_quantity || 0;
+                  })()
+                )}
               </TableCell>
               <TableCell>
                 <Badge variant={product.is_active ? "secondary" : "outline"}>
@@ -369,7 +410,7 @@ export default function ProductManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Product Management</h2>
+          <h2 className="text-2xl font-bold">Product & Service Management</h2>
         </div>
         
         <div className="flex gap-2">
@@ -388,7 +429,7 @@ export default function ProductManagement() {
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Product
+            Add Product/Service
           </Button>
         </div>
       </div>
@@ -439,15 +480,25 @@ export default function ProductManagement() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search products..."
+                placeholder="Search products and services..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
+            <Select value={productTypeFilter} onValueChange={(value: 'all' | 'product' | 'service') => setProductTypeFilter(value)}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="product">Products Only</SelectItem>
+                <SelectItem value="service">Services Only</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline">
               <Filter className="h-4 w-4 mr-2" />
-              Filter
+              More Filters
             </Button>
           </div>
 
@@ -456,9 +507,9 @@ export default function ProductManagement() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Products Found</h3>
+                <h3 className="text-lg font-semibold mb-2">No Items Found</h3>
                 <p className="text-muted-foreground text-center mb-4">
-                  {searchTerm ? 'No products match your search.' : 'Get started by adding your first product.'}
+                  {searchTerm || productTypeFilter !== 'all' ? 'No items match your search criteria.' : 'Get started by adding your first product or service.'}
                 </p>
                 <Button 
                   onClick={() => {
@@ -467,7 +518,7 @@ export default function ProductManagement() {
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Product
+                  Add Product/Service
                 </Button>
               </CardContent>
             </Card>

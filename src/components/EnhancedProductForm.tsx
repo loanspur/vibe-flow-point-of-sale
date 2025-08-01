@@ -17,10 +17,10 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import { Package, Barcode, Shield, Layers } from 'lucide-react';
+import { Package, Barcode, Shield, Layers, Clock } from 'lucide-react';
 
 const productSchema = z.object({
-  name: z.string().min(1, 'Product name is required'),
+  name: z.string().min(1, 'Product/Service name is required'),
   description: z.string().optional(),
   sku: z.string().optional(),
   barcode: z.string().optional(),
@@ -37,6 +37,10 @@ const productSchema = z.object({
   warranty_period_months: z.number().min(0).optional(),
   warranty_type: z.string().optional(),
   warranty_terms: z.string().optional(),
+  product_type: z.enum(['product', 'service']).default('product'),
+  is_billable: z.boolean().default(true),
+  service_duration_minutes: z.number().min(0).optional(),
+  requires_appointment: z.boolean().default(false),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -69,6 +73,10 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
       warranty_period_months: 0,
       warranty_type: 'manufacturer',
       warranty_terms: '',
+      product_type: 'product',
+      is_billable: true,
+      service_duration_minutes: 0,
+      requires_appointment: false,
     },
   });
 
@@ -206,6 +214,10 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         warranty_period_months: warrantyInfo?.warranty_period_months || 0,
         warranty_type: warrantyInfo?.warranty_type || 'manufacturer',
         warranty_terms: warrantyInfo?.warranty_terms || '',
+        product_type: existingProduct.product_type || 'product',
+        is_billable: existingProduct.is_billable ?? true,
+        service_duration_minutes: existingProduct.service_duration_minutes || 0,
+        requires_appointment: existingProduct.requires_appointment || false,
       });
     }
   }, [existingProduct, form]);
@@ -242,10 +254,14 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         unit_id: hasFeature('enable_product_units') ? (data.unit_id || null) : null,
         price: data.price,
         default_profit_margin: data.default_profit_margin || null,
-        stock_quantity: data.stock_quantity,
-        has_expiry_date: data.has_expiry_date,
+        stock_quantity: data.product_type === 'service' ? 0 : data.stock_quantity,
+        has_expiry_date: data.product_type === 'service' ? false : data.has_expiry_date,
         is_combo_product: hasFeature('enable_combo_products') ? data.is_combo_product : false,
         allow_negative_stock: hasFeature('enable_negative_stock') ? data.allow_negative_stock : false,
+        product_type: data.product_type,
+        is_billable: data.is_billable,
+        service_duration_minutes: data.product_type === 'service' ? (data.service_duration_minutes || null) : null,
+        requires_appointment: data.product_type === 'service' ? data.requires_appointment : false,
         tenant_id: tenantId,
       };
 
