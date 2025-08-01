@@ -13,14 +13,15 @@ services:
   instance_size_slug: basic-xxs
   http_port: 8080
   build_command: npm ci && npm run build
-  source_dir: /
+  engines:
+    node: 18.x
   envs:
+  - key: NODE_ENV
+    value: production
   - key: VITE_SUPABASE_URL
-    scope: RUN_AND_BUILD_TIME
-    type: SECRET
+    value: https://qwtybhvdbbkbcelisuek.supabase.co
   - key: VITE_SUPABASE_ANON_KEY
-    scope: RUN_AND_BUILD_TIME
-    type: SECRET
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE
   routes:
   - path: /
     preserve_path_prefix: false
