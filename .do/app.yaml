@@ -7,17 +7,21 @@ services:
     repo: your-username/your-repo-name
     branch: main
     deploy_on_push: true
-  run_command: npm start
+  run_command: npm run preview -- --host 0.0.0.0 --port 8080
   environment_slug: node-js
   instance_count: 1
   instance_size_slug: basic-xxs
   http_port: 8080
   build_command: npm run build
+  engines:
+    node: "18"
   envs:
   - key: VITE_SUPABASE_URL
-    value: https://qwtybhvdbbkbcelisuek.supabase.co
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
   - key: VITE_SUPABASE_ANON_KEY
-    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
   routes:
   - path: /
     preserve_path_prefix: false
