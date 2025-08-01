@@ -214,10 +214,10 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         warranty_period_months: warrantyInfo?.warranty_period_months || 0,
         warranty_type: warrantyInfo?.warranty_type || 'manufacturer',
         warranty_terms: warrantyInfo?.warranty_terms || '',
-        product_type: existingProduct.product_type || 'product',
-        is_billable: existingProduct.is_billable ?? true,
-        service_duration_minutes: existingProduct.service_duration_minutes || 0,
-        requires_appointment: existingProduct.requires_appointment || false,
+        product_type: (existingProduct as any)?.product_type || 'product',
+        is_billable: (existingProduct as any)?.is_billable ?? true,
+        service_duration_minutes: (existingProduct as any)?.service_duration_minutes || 0,
+        requires_appointment: (existingProduct as any)?.requires_appointment || false,
       });
     }
   }, [existingProduct, form]);

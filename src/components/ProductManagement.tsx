@@ -58,7 +58,7 @@ interface Product {
   is_active: boolean;
   category_id: string;
   subcategory_id: string;
-  product_type: 'product' | 'service';
+  product_type?: 'product' | 'service';
   is_billable?: boolean;
   service_duration_minutes?: number;
   requires_appointment?: boolean;
@@ -87,26 +87,7 @@ export default function ProductManagement() {
       
         const { data, error } = await supabase
         .from('products')
-        .select(`
-          id,
-          name,
-          sku,
-          price,
-          default_profit_margin,
-          stock_quantity,
-          min_stock_level,
-          image_url,
-          is_active,
-          category_id,
-          subcategory_id,
-          product_type,
-          is_billable,
-          service_duration_minutes,
-          requires_appointment,
-          product_categories!left(name),
-          product_subcategories!left(name),
-          product_variants!left(id, stock_quantity, name, value)
-        `)
+        .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
@@ -129,15 +110,14 @@ export default function ProductManagement() {
     
     // Filter by product type
     if (productTypeFilter !== 'all') {
-      filtered = filtered.filter(product => product.product_type === productTypeFilter);
+      filtered = filtered.filter(product => ((product as any).product_type || 'product') === productTypeFilter);
     }
     
     // Filter by search term
     if (debouncedSearchTerm) {
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.product_categories?.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+        product.sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
       );
     }
     
@@ -150,11 +130,11 @@ export default function ProductManagement() {
     
     return products.filter(product => {
       // Skip services - they don't have stock
-      if (product.product_type === 'service') return false;
+      if (((product as any).product_type || 'product') === 'service') return false;
       
       // For products with variants, calculate total stock from variants
-      if (product.product_variants && product.product_variants.length > 0) {
-        const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
+      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+        const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
           return total + (variant.stock_quantity || 0);
         }, 0);
         return totalVariantStock <= (product.min_stock_level || 0);
@@ -247,13 +227,13 @@ export default function ProductManagement() {
                     <div className="font-medium">{product.name}</div>
                     {(() => {
                       // Calculate if product is low stock based on variants or main stock (only for products)
-                      if (product.product_type === 'service') return null;
+                      if (((product as any).product_type || 'product') === 'service') return null;
                       
                       let isLowStock = false;
                       let currentStock = product.stock_quantity || 0;
                       
-                      if (product.product_variants && product.product_variants.length > 0) {
-                        currentStock = product.product_variants.reduce((total: number, variant: any) => {
+                      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                        currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
                           return total + (variant.stock_quantity || 0);
                         }, 0);
                       }
@@ -267,30 +247,30 @@ export default function ProductManagement() {
                         </Badge>
                       ) : null;
                     })()}
-                    {product.product_type === 'service' && product.service_duration_minutes && (
+                    {((product as any).product_type || 'product') === 'service' && (product as any).service_duration_minutes && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        Duration: {product.service_duration_minutes} mins
+                        Duration: {(product as any).service_duration_minutes} mins
                       </div>
                     )}
                   </div>
                 </div>
               </TableCell>
               <TableCell>
-                <Badge variant={product.product_type === 'service' ? "outline" : "secondary"}>
-                  {product.product_type === 'service' ? 'Service' : 'Product'}
+                <Badge variant={((product as any).product_type || 'product') === 'service' ? "outline" : "secondary"}>
+                  {((product as any).product_type || 'product') === 'service' ? 'Service' : 'Product'}
                 </Badge>
               </TableCell>
               <TableCell>{product.sku || 'N/A'}</TableCell>
-              <TableCell>{product.product_categories?.name || 'None'}</TableCell>
+              <TableCell>None</TableCell>
               <TableCell>{formatCurrency(product.price)}</TableCell>
               <TableCell>
-                {product.product_type === 'service' ? (
+                {((product as any).product_type || 'product') === 'service' ? (
                   <span className="text-muted-foreground text-sm">N/A</span>
                 ) : (
                   (() => {
                     // Show total stock including variants
-                    if (product.product_variants && product.product_variants.length > 0) {
-                      const totalVariantStock = product.product_variants.reduce((total: number, variant: any) => {
+                    if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                      const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
                         return total + (variant.stock_quantity || 0);
                       }, 0);
                       const mainStock = product.stock_quantity || 0;
@@ -306,9 +286,9 @@ export default function ProductManagement() {
                 </Badge>
               </TableCell>
               <TableCell>
-                {product.product_variants && product.product_variants.length > 0 ? (
+                {(product as any).product_variants && (product as any).product_variants.length > 0 ? (
                   <div className="space-y-1">
-                    {product.product_variants.slice(0, 2).map((variant: any, index: number) => (
+                    {(product as any).product_variants.slice(0, 2).map((variant: any, index: number) => (
                       <div key={index} className="text-xs flex items-center justify-between">
                         <Badge variant="outline" className="text-xs">
                           {variant.name}: {variant.value}
@@ -318,9 +298,9 @@ export default function ProductManagement() {
                         </span>
                       </div>
                     ))}
-                    {product.product_variants.length > 2 && (
+                    {(product as any).product_variants.length > 2 && (
                       <div className="text-xs text-muted-foreground">
-                        +{product.product_variants.length - 2} more variants
+                        +{(product as any).product_variants.length - 2} more variants
                       </div>
                     )}
                   </div>
@@ -451,8 +431,8 @@ export default function ProductManagement() {
               {lowStockProducts.map(product => {
                 // Calculate current stock (including variants)
                 let currentStock = product.stock_quantity || 0;
-                if (product.product_variants && product.product_variants.length > 0) {
-                  currentStock = product.product_variants.reduce((total: number, variant: any) => {
+                if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                  currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
                     return total + (variant.stock_quantity || 0);
                   }, 0);
                 }
