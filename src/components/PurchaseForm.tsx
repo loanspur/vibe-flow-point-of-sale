@@ -84,21 +84,83 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   };
 
   const addItemToPurchase = () => {
-    const product = products.find(p => p.id === selectedProduct);
-    if (!product || quantity <= 0 || unitCost <= 0) return;
+    try {
+      console.log("🛒 Adding item to purchase:", { 
+        selectedProduct, 
+        quantity, 
+        unitCost, 
+        productsLength: products.length 
+      });
+      
+      const product = products.find(p => p.id === selectedProduct);
+      console.log("🔍 Found product:", product);
+      
+      if (!product) {
+        console.warn("❌ Product not found!");
+        toast({
+          title: "Error",
+          description: "Product not found. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (quantity <= 0) {
+        console.warn("❌ Invalid quantity:", quantity);
+        toast({
+          title: "Error",
+          description: "Please enter a valid quantity.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (unitCost <= 0) {
+        console.warn("❌ Invalid unit cost:", unitCost);
+        toast({
+          title: "Error",
+          description: "Please enter a valid unit cost.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    const newItem: PurchaseItem = {
-      product_id: selectedProduct,
-      product_name: product.name,
-      quantity,
-      unit_cost: unitCost,
-      total_cost: quantity * unitCost,
-    };
+      const newItem: PurchaseItem = {
+        product_id: selectedProduct,
+        product_name: product.name,
+        quantity,
+        unit_cost: unitCost,
+        total_cost: quantity * unitCost,
+      };
 
-    setPurchaseItems([...purchaseItems, newItem]);
-    setSelectedProduct('');
-    setQuantity(1);
-    setUnitCost(0);
+      console.log("✅ New item created:", newItem);
+      
+      setPurchaseItems(prevItems => {
+        const updatedItems = [...prevItems, newItem];
+        console.log("📦 Updated purchase items:", updatedItems);
+        return updatedItems;
+      });
+      
+      // Reset form fields
+      setSelectedProduct('');
+      setQuantity(1);
+      setUnitCost(0);
+      
+      toast({
+        title: "Item Added",
+        description: `${product.name} added to purchase`,
+      });
+      
+      console.log("🎉 Item successfully added to purchase");
+      
+    } catch (error) {
+      console.error("💥 Error in addItemToPurchase:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add item to purchase. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const removeItem = (index: number) => {
