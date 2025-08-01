@@ -68,7 +68,7 @@ interface ReviewResponse {
 
 const REVIEW_TYPES = [
   { value: 'product', label: 'Product Review' },
-  { value: 'service', label: 'Service Review' },
+  
   { value: 'support', label: 'Support Experience' },
   { value: 'general', label: 'General Feedback' },
   { value: 'feature_request', label: 'Feature Request' },

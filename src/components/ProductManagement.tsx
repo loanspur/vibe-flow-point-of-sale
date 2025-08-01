@@ -58,10 +58,6 @@ interface Product {
   is_active: boolean;
   category_id: string;
   subcategory_id: string;
-  product_type?: 'product' | 'service';
-  is_billable?: boolean;
-  service_duration_minutes?: number;
-  requires_appointment?: boolean;
   product_categories?: { name: string };
   product_subcategories?: { name: string };
   variants?: any[];
@@ -78,7 +74,7 @@ export default function ProductManagement() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [activeTab, setActiveTab] = useState('products');
-  const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product' | 'service'>('all');
+  const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
 
   // Optimized product fetching with minimal fields and caching
   const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
@@ -108,10 +104,8 @@ export default function ProductManagement() {
     
     let filtered = products;
     
-    // Filter by product type
-    if (productTypeFilter !== 'all') {
-      filtered = filtered.filter(product => ((product as any).product_type || 'product') === productTypeFilter);
-    }
+    // Filter by product type (all products are 'product' type now)
+    // No filtering needed since we only have products
     
     // Filter by search term
     if (debouncedSearchTerm) {
@@ -124,13 +118,11 @@ export default function ProductManagement() {
     return filtered;
   }, [products, debouncedSearchTerm, productTypeFilter]);
 
-  // Memoized low stock calculation (only for products, not services)
+  // Memoized low stock calculation
   const lowStockProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
     
     return products.filter(product => {
-      // Skip services - they don't have stock
-      if (((product as any).product_type || 'product') === 'service') return false;
       
       // For products with variants, calculate total stock from variants
       if ((product as any).product_variants && (product as any).product_variants.length > 0) {
@@ -196,7 +188,7 @@ export default function ProductManagement() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Product/Service</TableHead>
+            <TableHead>Product</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>SKU</TableHead>
             <TableHead>Category</TableHead>
@@ -225,9 +217,8 @@ export default function ProductManagement() {
                   )}
                   <div>
                     <div className="font-medium">{product.name}</div>
-                    {(() => {
-                      // Calculate if product is low stock based on variants or main stock (only for products)
-                      if (((product as any).product_type || 'product') === 'service') return null;
+                     {(() => {
+                       // Calculate if product is low stock based on variants or main stock
                       
                       let isLowStock = false;
                       let currentStock = product.stock_quantity || 0;
@@ -247,39 +238,30 @@ export default function ProductManagement() {
                         </Badge>
                       ) : null;
                     })()}
-                    {((product as any).product_type || 'product') === 'service' && (product as any).service_duration_minutes && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Duration: {(product as any).service_duration_minutes} mins
-                      </div>
-                    )}
                   </div>
                 </div>
               </TableCell>
-              <TableCell>
-                <Badge variant={((product as any).product_type || 'product') === 'service' ? "outline" : "secondary"}>
-                  {((product as any).product_type || 'product') === 'service' ? 'Service' : 'Product'}
-                </Badge>
-              </TableCell>
+               <TableCell>
+                 <Badge variant="secondary">
+                   Product
+                 </Badge>
+               </TableCell>
               <TableCell>{product.sku || 'N/A'}</TableCell>
               <TableCell>None</TableCell>
               <TableCell>{formatCurrency(product.price)}</TableCell>
-              <TableCell>
-                {((product as any).product_type || 'product') === 'service' ? (
-                  <span className="text-muted-foreground text-sm">N/A</span>
-                ) : (
-                  (() => {
-                    // Show total stock including variants
-                    if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                      const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                        return total + (variant.stock_quantity || 0);
-                      }, 0);
-                      const mainStock = product.stock_quantity || 0;
-                      return mainStock + totalVariantStock;
-                    }
-                    return product.stock_quantity || 0;
-                  })()
-                )}
-              </TableCell>
+               <TableCell>
+                 {(() => {
+                   // Show total stock including variants
+                   if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                     const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+                       return total + (variant.stock_quantity || 0);
+                     }, 0);
+                     const mainStock = product.stock_quantity || 0;
+                     return mainStock + totalVariantStock;
+                   }
+                   return product.stock_quantity || 0;
+                 })()}
+               </TableCell>
               <TableCell>
                 <Badge variant={product.is_active ? "secondary" : "outline"}>
                   {product.is_active ? "Active" : "Inactive"}
@@ -390,7 +372,7 @@ export default function ProductManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Product & Service Management</h2>
+          <h2 className="text-2xl font-bold">Product Management</h2>
         </div>
         
         <div className="flex gap-2">
@@ -409,7 +391,7 @@ export default function ProductManagement() {
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Product/Service
+            Add Product
           </Button>
         </div>
       </div>
@@ -460,22 +442,21 @@ export default function ProductManagement() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search products and services..."
+                placeholder="Search products..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Select value={productTypeFilter} onValueChange={(value: 'all' | 'product' | 'service') => setProductTypeFilter(value)}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="product">Products Only</SelectItem>
-                <SelectItem value="service">Services Only</SelectItem>
-              </SelectContent>
-            </Select>
+             <Select value={productTypeFilter} onValueChange={(value: 'all' | 'product') => setProductTypeFilter(value)}>
+               <SelectTrigger className="w-48">
+                 <SelectValue placeholder="Filter by type" />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="all">All Products</SelectItem>
+                 <SelectItem value="product">Active Products</SelectItem>
+               </SelectContent>
+             </Select>
             <Button variant="outline">
               <Filter className="h-4 w-4 mr-2" />
               More Filters
@@ -489,7 +470,7 @@ export default function ProductManagement() {
                 <Package className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Items Found</h3>
                 <p className="text-muted-foreground text-center mb-4">
-                  {searchTerm || productTypeFilter !== 'all' ? 'No items match your search criteria.' : 'Get started by adding your first product or service.'}
+                  {searchTerm || productTypeFilter !== 'all' ? 'No items match your search criteria.' : 'Get started by adding your first product.'}
                 </p>
                 <Button 
                   onClick={() => {
@@ -498,7 +479,7 @@ export default function ProductManagement() {
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Product/Service
+                  Add Product
                 </Button>
               </CardContent>
             </Card>

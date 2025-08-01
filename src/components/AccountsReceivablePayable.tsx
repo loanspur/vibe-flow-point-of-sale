@@ -1070,7 +1070,6 @@ const AccountsReceivablePayable: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="sale">Sale</SelectItem>
                     <SelectItem value="invoice">Invoice</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1190,7 +1189,7 @@ const AccountsReceivablePayable: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="purchase">Purchase</SelectItem>
                     <SelectItem value="expense">Expense</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
+                    
                   </SelectContent>
                 </Select>
               </div>

@@ -20,7 +20,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Package, Barcode, Shield, Layers, Clock } from 'lucide-react';
 
 const productSchema = z.object({
-  name: z.string().min(1, 'Product/Service name is required'),
+  name: z.string().min(1, 'Product name is required'),
   description: z.string().optional(),
   sku: z.string().optional(),
   barcode: z.string().optional(),
@@ -37,10 +37,6 @@ const productSchema = z.object({
   warranty_period_months: z.number().min(0).optional(),
   warranty_type: z.string().optional(),
   warranty_terms: z.string().optional(),
-  product_type: z.enum(['product', 'service']).default('product'),
-  is_billable: z.boolean().default(true),
-  service_duration_minutes: z.number().min(0).optional(),
-  requires_appointment: z.boolean().default(false),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -73,10 +69,6 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
       warranty_period_months: 0,
       warranty_type: 'manufacturer',
       warranty_terms: '',
-      product_type: 'product',
-      is_billable: true,
-      service_duration_minutes: 0,
-      requires_appointment: false,
     },
   });
 
@@ -214,10 +206,6 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         warranty_period_months: warrantyInfo?.warranty_period_months || 0,
         warranty_type: warrantyInfo?.warranty_type || 'manufacturer',
         warranty_terms: warrantyInfo?.warranty_terms || '',
-        product_type: (existingProduct as any)?.product_type || 'product',
-        is_billable: (existingProduct as any)?.is_billable ?? true,
-        service_duration_minutes: (existingProduct as any)?.service_duration_minutes || 0,
-        requires_appointment: (existingProduct as any)?.requires_appointment || false,
       });
     }
   }, [existingProduct, form]);
@@ -254,14 +242,10 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
         unit_id: hasFeature('enable_product_units') ? (data.unit_id || null) : null,
         price: data.price,
         default_profit_margin: data.default_profit_margin || null,
-        stock_quantity: data.product_type === 'service' ? 0 : data.stock_quantity,
-        has_expiry_date: data.product_type === 'service' ? false : data.has_expiry_date,
+        stock_quantity: data.stock_quantity,
+        has_expiry_date: data.has_expiry_date,
         is_combo_product: hasFeature('enable_combo_products') ? data.is_combo_product : false,
         allow_negative_stock: hasFeature('enable_negative_stock') ? data.allow_negative_stock : false,
-        product_type: data.product_type,
-        is_billable: data.is_billable,
-        service_duration_minutes: data.product_type === 'service' ? (data.service_duration_minutes || null) : null,
-        requires_appointment: data.product_type === 'service' ? data.requires_appointment : false,
         tenant_id: tenantId,
       };
 
@@ -352,10 +336,10 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="h-5 w-5" />
-          {productId ? 'Edit Product/Service' : 'Add New Product/Service'}
+          {productId ? 'Edit Product' : 'Add New Product'}
         </CardTitle>
         <CardDescription>
-          {productId ? 'Update product or service information' : 'Create a new product or service with advanced features'}
+          {productId ? 'Update product information' : 'Create a new product with advanced features'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -400,102 +384,19 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Enter product/service description" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="product_type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Type *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="product">📦 Product</SelectItem>
-                            <SelectItem value="service">🛠️ Service</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {form.watch('product_type') === 'service' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg border">
-                    <FormField
-                      control={form.control}
-                      name="service_duration_minutes"
-                      render={({ field }) => (
+                 <FormField
+                   control={form.control}
+                   name="description"
+                   render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Duration (minutes)</FormLabel>
+                          <FormLabel>Description</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="number" 
-                              placeholder="60" 
-                              {...field} 
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                            />
+                            <Textarea placeholder="Enter product description" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="is_billable"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                          <div className="space-y-0.5">
-                            <FormLabel>Billable Service</FormLabel>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="requires_appointment"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                          <div className="space-y-0.5">
-                            <FormLabel>Requires Appointment</FormLabel>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
+                   )}
+                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
