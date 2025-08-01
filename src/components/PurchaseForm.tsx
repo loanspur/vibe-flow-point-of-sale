@@ -89,37 +89,55 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         selectedProduct, 
         quantity, 
         unitCost, 
-        productsLength: products.length 
+        productsLength: products.length,
+        selectedProductType: typeof selectedProduct,
+        quantityType: typeof quantity,
+        unitCostType: typeof unitCost
       });
+      
+      // Validate selectedProduct
+      if (!selectedProduct || selectedProduct.trim() === '') {
+        console.warn("❌ No product selected!");
+        toast({
+          title: "Error",
+          description: "Please select a product.",
+          variant: "destructive",
+        });
+        return;
+      }
       
       const product = products.find(p => p.id === selectedProduct);
       console.log("🔍 Found product:", product);
       
       if (!product) {
-        console.warn("❌ Product not found!");
+        console.warn("❌ Product not found for ID:", selectedProduct);
         toast({
-          title: "Error",
-          description: "Product not found. Please try again.",
+          title: "Error", 
+          description: "Product not found. Please try selecting again.",
           variant: "destructive",
         });
         return;
       }
       
-      if (quantity <= 0) {
-        console.warn("❌ Invalid quantity:", quantity);
+      // Validate quantity
+      const validQuantity = Number(quantity);
+      if (isNaN(validQuantity) || validQuantity <= 0) {
+        console.warn("❌ Invalid quantity:", quantity, "converted:", validQuantity);
         toast({
           title: "Error",
-          description: "Please enter a valid quantity.",
+          description: "Please enter a valid quantity greater than 0.",
           variant: "destructive",
         });
         return;
       }
       
-      if (unitCost <= 0) {
-        console.warn("❌ Invalid unit cost:", unitCost);
+      // Validate unit cost
+      const validUnitCost = Number(unitCost);
+      if (isNaN(validUnitCost) || validUnitCost <= 0) {
+        console.warn("❌ Invalid unit cost:", unitCost, "converted:", validUnitCost);
         toast({
           title: "Error",
-          description: "Please enter a valid unit cost.",
+          description: "Please enter a valid unit cost greater than 0.",
           variant: "destructive",
         });
         return;
@@ -404,21 +422,28 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
             <CardContent className="space-y-4">
               {/* Product Addition Form */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>Product</Label>
-                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} - {product.sku}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                 <div className="space-y-2">
+                   <Label>Product</Label>
+                   <Select value={selectedProduct} onValueChange={(value) => {
+                     setSelectedProduct(value);
+                     // Auto-populate unit cost when product is selected
+                     const product = products.find(p => p.id === value);
+                     if (product && product.cost > 0) {
+                       setUnitCost(product.cost);
+                     }
+                   }}>
+                     <SelectTrigger>
+                       <SelectValue placeholder="Select product" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {products.map((product) => (
+                         <SelectItem key={product.id} value={product.id}>
+                           {product.name} - {product.sku}
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
 
                 <div className="space-y-2">
                   <Label>Quantity</Label>
