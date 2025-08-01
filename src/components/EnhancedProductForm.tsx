@@ -352,10 +352,10 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="h-5 w-5" />
-          {productId ? 'Edit Product' : 'Add New Product'}
+          {productId ? 'Edit Product/Service' : 'Add New Product/Service'}
         </CardTitle>
         <CardDescription>
-          {productId ? 'Update product information' : 'Create a new product with advanced inventory features'}
+          {productId ? 'Update product or service information' : 'Create a new product or service with advanced features'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -407,12 +407,95 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Enter product description" {...field} />
+                        <Textarea placeholder="Enter product/service description" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="product_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="product">📦 Product</SelectItem>
+                            <SelectItem value="service">🛠️ Service</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {form.watch('product_type') === 'service' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg border">
+                    <FormField
+                      control={form.control}
+                      name="service_duration_minutes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Duration (minutes)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              placeholder="60" 
+                              {...field} 
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="is_billable"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>Billable Service</FormLabel>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="requires_appointment"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>Requires Appointment</FormLabel>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField

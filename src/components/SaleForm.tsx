@@ -181,6 +181,10 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
           min_stock_level,
           image_url,
           is_active,
+          product_type,
+          service_duration_minutes,
+          requires_appointment,
+          is_billable,
           product_variants (
             id,
             name,
@@ -343,11 +347,19 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
     let unitPrice = product.price;
     let productName = product.name;
 
+    // Add service indicator to name
+    if ((product as any).product_type === 'service') {
+      productName = `🛠️ ${product.name}`;
+      if ((product as any).service_duration_minutes) {
+        productName += ` (${(product as any).service_duration_minutes}min)`;
+      }
+    }
+
     if (selectedVariant && selectedVariant !== "no-variant") {
       variant = product.product_variants.find((v: any) => v.id === selectedVariant);
       if (variant) {
         unitPrice = variant.sale_price || product.price;
-        productName = `${product.name} - ${variant.name}: ${variant.value}`;
+        productName = `${productName} - ${variant.name}: ${variant.value}`;
       }
     }
 
