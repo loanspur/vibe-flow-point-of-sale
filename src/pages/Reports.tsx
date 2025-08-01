@@ -32,6 +32,8 @@ interface ReportMetrics {
 
 type ReportView = 'overview' | 'sales' | 'products' | 'customers' | 'financial' | 'inventory' | 'custom';
 
+import { SafeWrapper } from '@/components/SafeWrapper';
+
 const Reports = () => {
   const { tenantId } = useAuth();
   const { tenantCurrency } = useApp();
@@ -996,40 +998,42 @@ const Reports = () => {
     }
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="container mx-auto px-4 py-8">
-        {currentView === 'overview' ? (
-          <>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/dashboard" className="flex items-center gap-2">
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to Dashboard
-                  </Link>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-violet-600 flex items-center justify-center">
-                    <BarChart3 className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold">Reports</h1>
-                    <p className="text-muted-foreground">Business analytics and insights</p>
+    <SafeWrapper>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="container mx-auto px-4 py-8">
+          {currentView === 'overview' ? (
+            <>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/dashboard" className="flex items-center gap-2">
+                      <ArrowLeft className="h-4 w-4" />
+                      Back to Dashboard
+                    </Link>
+                  </Button>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-violet-600 flex items-center justify-center">
+                      <BarChart3 className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h1 className="text-3xl font-bold">Reports</h1>
+                      <p className="text-muted-foreground">Business analytics and insights</p>
+                    </div>
                   </div>
                 </div>
+                <Button>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Data
+                </Button>
               </div>
-              <Button>
-                <Download className="h-4 w-4 mr-2" />
-                Export Data
-              </Button>
-            </div>
-          </>
-        ) : null}
-        
-        {renderReportView()}
+            </>
+          ) : null}
+          
+          {renderReportView()}
+        </div>
       </div>
-    </div>
+    </SafeWrapper>
   );
 };
 

@@ -1,9 +1,12 @@
 import ContactManagement from '@/components/ContactManagement';
+import { SafeWrapper } from '@/components/SafeWrapper';
 
 const Customers = () => {
   return (
     <div className="p-6">
-      <ContactManagement />
+      <SafeWrapper>
+        <ContactManagement />
+      </SafeWrapper>
     </div>
   );
 };

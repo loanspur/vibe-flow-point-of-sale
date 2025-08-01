@@ -1,6 +1,7 @@
 import ProductManagement from '@/components/ProductManagement';
 import { StockManagement } from '@/components/StockManagement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SafeWrapper } from '@/components/SafeWrapper';
 
 const Products = () => {
   return (
@@ -11,10 +12,14 @@ const Products = () => {
           <TabsTrigger value="stock">Stock Management</TabsTrigger>
         </TabsList>
         <TabsContent value="products">
-          <ProductManagement />
+          <SafeWrapper>
+            <ProductManagement />
+          </SafeWrapper>
         </TabsContent>
         <TabsContent value="stock">
-          <StockManagement />
+          <SafeWrapper>
+            <StockManagement />
+          </SafeWrapper>
         </TabsContent>
       </Tabs>
     </div>

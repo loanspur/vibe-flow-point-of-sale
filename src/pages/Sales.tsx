@@ -1,5 +1,10 @@
 import SalesManagement from '@/components/SalesManagement';
+import { SafeWrapper } from '@/components/SafeWrapper';
 
 export default function Sales() {
-  return <SalesManagement />;
+  return (
+    <SafeWrapper>
+      <SalesManagement />
+    </SafeWrapper>
+  );
 }

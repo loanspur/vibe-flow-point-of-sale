@@ -1,5 +1,10 @@
 import PurchaseManagement from '@/components/PurchaseManagement';
+import { SafeWrapper } from '@/components/SafeWrapper';
 
 export default function Purchases() {
-  return <PurchaseManagement />;
+  return (
+    <SafeWrapper>
+      <PurchaseManagement />
+    </SafeWrapper>
+  );
 }
