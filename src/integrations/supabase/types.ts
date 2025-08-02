@@ -2933,6 +2933,54 @@ export type Database = {
           },
         ]
       }
+      product_history: {
+        Row: {
+          action_type: string
+          change_reason: string | null
+          changed_by: string
+          created_at: string
+          field_changed: string | null
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          new_value: Json | null
+          old_value: Json | null
+          product_id: string
+          tenant_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          action_type: string
+          change_reason?: string | null
+          changed_by: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+          product_id: string
+          tenant_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          action_type?: string
+          change_reason?: string | null
+          changed_by?: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+          product_id?: string
+          tenant_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       product_pricing: {
         Row: {
           created_at: string
@@ -6628,6 +6676,17 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_product_history_summary: {
+        Args: { product_id_param: string }
+        Returns: {
+          total_changes: number
+          last_change_date: string
+          price_changes: number
+          stock_adjustments: number
+          status_changes: number
+          most_active_user: string
+        }[]
       }
       get_tenant_by_domain: {
         Args: { domain_name_param: string }
