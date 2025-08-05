@@ -39,9 +39,9 @@ export class SubdomainInitializer {
       // Verify tenant exists and is active
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .select('id, name, subdomain, status')
+        .select('id, name, is_active')
         .eq('id', tenantId)
-        .eq('status', 'active')
+        .eq('is_active', true)
         .maybeSingle();
 
       if (error || !tenant) {
