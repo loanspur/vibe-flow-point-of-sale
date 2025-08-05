@@ -267,6 +267,7 @@ export function BusinessSettingsEnhanced() {
   });
   const [currencySearch, setCurrencySearch] = useState("");
   const [timezoneSearch, setTimezoneSearch] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewType, setPreviewType] = useState<"invoice" | "receipt" | "quote">("invoice");
@@ -805,6 +806,15 @@ export function BusinessSettingsEnhanced() {
         timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
       )
     : timezones;
+
+  const filteredLocations = locationSearch
+    ? locations.filter(location => 
+        location.name.toLowerCase().includes(locationSearch.toLowerCase()) ||
+        location.city?.toLowerCase().includes(locationSearch.toLowerCase()) ||
+        location.state_province?.toLowerCase().includes(locationSearch.toLowerCase()) ||
+        location.manager_name?.toLowerCase().includes(locationSearch.toLowerCase())
+      )
+    : locations;
 
   const countryOptions = COUNTRY_LIST;
 
@@ -1810,26 +1820,41 @@ export function BusinessSettingsEnhanced() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-6">
-                        {/* Add Location Button */}
-                        <div className="flex justify-between items-center">
-                          <p className="text-muted-foreground">
-                            {isLoading 
-                              ? "Loading locations..."
-                              : locations.length === 0 
-                                ? "No locations added yet. Add your first business location."
-                                : `Managing ${locations.length} location${locations.length > 1 ? 's' : ''}`
-                            }
-                          </p>
-                          <Button
-                            onClick={() => {
-                              resetLocationForm();
-                              setIsLocationDialogOpen(true);
-                            }}
-                            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Location
-                          </Button>
+                        {/* Add Location Button and Search */}
+                        <div className="flex justify-between items-center gap-4">
+                          <div className="flex-1 max-w-md">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search locations..."
+                                value={locationSearch}
+                                onChange={(e) => setLocationSearch(e.target.value)}
+                                className="pl-10 border-2 focus:border-primary/50"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-muted-foreground text-sm">
+                              {isLoading 
+                                ? "Loading locations..."
+                                : filteredLocations.length === 0 && locationSearch
+                                  ? "No locations match your search"
+                                  : locations.length === 0 
+                                    ? "No locations added yet. Add your first business location."
+                                    : `${filteredLocations.length} of ${locations.length} location${locations.length > 1 ? 's' : ''}`
+                              }
+                            </p>
+                            <Button
+                              onClick={() => {
+                                resetLocationForm();
+                                setIsLocationDialogOpen(true);
+                              }}
+                              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Location
+                            </Button>
+                          </div>
                         </div>
 
                         {/* Locations List */}
@@ -1851,9 +1876,9 @@ export function BusinessSettingsEnhanced() {
                               </Card>
                             ))}
                           </div>
-                        ) : locations.length > 0 ? (
+                        ) : filteredLocations.length > 0 ? (
                           <div className="grid gap-4">
-                            {locations.map((location) => (
+                            {filteredLocations.map((location) => (
                               <Card key={location.id} className="p-4 border border-border/50 hover:shadow-lg transition-all duration-300">
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
@@ -1906,8 +1931,12 @@ export function BusinessSettingsEnhanced() {
                         ) : !isLoading && (
                           <div className="text-center py-8">
                             <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <p className="text-muted-foreground">No locations found</p>
-                            <p className="text-sm text-muted-foreground">Get started by adding your first business location</p>
+                            <p className="text-muted-foreground">
+                              {locationSearch ? "No locations match your search" : "No locations found"}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {locationSearch ? "Try adjusting your search terms" : "Get started by adding your first business location"}
+                            </p>
                           </div>
                         )}
 
