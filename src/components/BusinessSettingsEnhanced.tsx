@@ -498,10 +498,23 @@ export function BusinessSettingsEnhanced() {
         return;
       }
 
-      console.log('🏪 Making database query...');
+      // Get user's tenant_id
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', authResponse.user.id)
+        .single();
+
+      if (profileError || !profile?.tenant_id) {
+        console.error('❌ fetchLocations: Profile error:', profileError);
+        return;
+      }
+
+      console.log('🏪 Making database query for tenant:', profile.tenant_id);
       const { data, error } = await supabase
         .from('store_locations')
         .select('*')
+        .eq('tenant_id', profile.tenant_id)
         .order('is_primary', { ascending: false });
       
       console.log('🏪 Database response:', { 
