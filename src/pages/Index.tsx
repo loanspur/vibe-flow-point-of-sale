@@ -43,6 +43,14 @@ const Index = () => {
     { name: "Contact", id: "contact" }
   ];
 
+  // Add admin settings link for testing
+  const isLoggedIn = false; // You can check actual auth state here
+  
+  const debugNavigationItems = [
+    ...navigationItems,
+    ...(isLoggedIn ? [{ name: "Admin Settings", id: "admin", href: "/admin/settings" }] : [])
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Fixed Navigation Header */}
