@@ -43,7 +43,7 @@ const businessItems = [
   { title: "Accounting", url: "/admin/accounting", icon: Calculator, featureRequired: "advanced_accounting" },
   { title: "Reports", url: "/admin/reports", icon: BarChart3, featureRequired: "advanced_reporting" },
   { title: "Team", url: "/admin/team", icon: Users, featureRequired: "user_roles" },
-  { title: "Communications", url: "/admin/communications", icon: Mail, featureRequired: "communication_features" },
+  { title: "Communications", url: "/admin/communications", icon: Mail, featureRequired: "advanced_notifications" },
 ];
 
 const systemItems = [
