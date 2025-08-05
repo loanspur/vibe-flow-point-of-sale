@@ -389,8 +389,39 @@ export function BusinessSettingsEnhanced() {
   });
 
   useEffect(() => {
-    fetchSettings();
-    fetchLocations();
+    const initializeData = async () => {
+      console.log('🚀 BusinessSettingsEnhanced: Initializing...');
+      
+      // Wait for auth state to stabilize
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('👤 Auth check:', user ? 'Authenticated' : 'Not authenticated');
+      
+      if (user) {
+        await fetchSettings();
+        await fetchLocations();
+      } else {
+        console.log('⏳ No user found, will retry when auth state changes');
+      }
+    };
+
+    initializeData();
+  }, []);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event, session?.user?.id || 'No user');
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        await fetchSettings();
+        await fetchLocations(); 
+      } else if (event === 'SIGNED_OUT') {
+        setLocations([]);
+        setSettings(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const fetchSettings = async () => {
@@ -416,16 +447,45 @@ export function BusinessSettingsEnhanced() {
 
   const fetchLocations = async () => {
     try {
-      const { data } = await supabase
+      console.log('🏪 Fetching locations...');
+      
+      // Check authentication state
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('👤 Current user:', user?.id || 'No user');
+      
+      if (!user) {
+        console.log('❌ No authenticated user, skipping location fetch');
+        return;
+      }
+
+      const { data, error } = await supabase
         .from('store_locations')
         .select('*')
         .order('is_primary', { ascending: false });
       
+      console.log('🏪 Locations response:', { data, error });
+      
+      if (error) {
+        console.error('❌ Location fetch error:', error);
+        toast({
+          title: "Error loading locations",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+      
       if (data) {
+        console.log('✅ Setting locations:', data.length);
         setLocations(data);
       }
-    } catch (error) {
-      // Handle error silently
+    } catch (error: any) {
+      console.error('❌ Location fetch exception:', error);
+      toast({
+        title: "Error loading locations", 
+        description: error.message || "Failed to load store locations",
+        variant: "destructive"
+      });
     }
   };
 
@@ -1665,9 +1725,11 @@ export function BusinessSettingsEnhanced() {
                         {/* Add Location Button */}
                         <div className="flex justify-between items-center">
                           <p className="text-muted-foreground">
-                            {locations.length === 0 
-                              ? "No locations added yet. Add your first business location."
-                              : `Managing ${locations.length} location${locations.length > 1 ? 's' : ''}`
+                            {isLoading 
+                              ? "Loading locations..."
+                              : locations.length === 0 
+                                ? "No locations added yet. Add your first business location."
+                                : `Managing ${locations.length} location${locations.length > 1 ? 's' : ''}`
                             }
                           </p>
                           <Button
@@ -1683,7 +1745,25 @@ export function BusinessSettingsEnhanced() {
                         </div>
 
                         {/* Locations List */}
-                        {locations.length > 0 && (
+                        {isLoading ? (
+                          <div className="grid gap-4">
+                            {[1, 2, 3].map((i) => (
+                              <Card key={i} className="p-4 border border-border/50 animate-pulse">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
+                                    <div className="h-3 bg-muted rounded w-2/3"></div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <div className="h-8 w-8 bg-muted rounded"></div>
+                                    <div className="h-8 w-8 bg-muted rounded"></div>
+                                    <div className="h-8 w-8 bg-muted rounded"></div>
+                                  </div>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : locations.length > 0 ? (
                           <div className="grid gap-4">
                             {locations.map((location) => (
                               <Card key={location.id} className="p-4 border border-border/50 hover:shadow-lg transition-all duration-300">
@@ -1734,6 +1814,12 @@ export function BusinessSettingsEnhanced() {
                                 </div>
                               </Card>
                             ))}
+                          </div>
+                        ) : !isLoading && (
+                          <div className="text-center py-8">
+                            <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                            <p className="text-muted-foreground">No locations found</p>
+                            <p className="text-sm text-muted-foreground">Get started by adding your first business location</p>
                           </div>
                         )}
 
