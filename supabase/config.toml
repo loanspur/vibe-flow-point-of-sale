@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.send-contact-email]
 verify_jwt = false
+
+[functions.send-otp-verification]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false

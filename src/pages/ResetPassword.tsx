@@ -122,42 +122,22 @@ const ResetPassword = () => {
         hasNewPassword: !!formData.password
       });
 
-      const response = await fetch(`https://qwtybhvdbbkbcelisuek.supabase.co/functions/v1/verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE'}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE',
-          'Content-Type': 'application/json',
-          'x-application-name': 'vibePOS'
-        },
-        body: JSON.stringify({
+      // SECURITY FIX: Use Supabase client instead of hardcoded API keys
+      const response = await supabase.functions.invoke('verify-otp', {
+        body: {
           email: formData.email,
           otpCode: formData.otpCode,
           otpType: 'password_reset',
           newPassword: formData.password
-        })
+        }
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      const responseText = await response.text();
-      console.log('Response body:', responseText);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Failed to parse response JSON:', e);
-        setPasswordError(`Server error: ${responseText}`);
-        setLoading(false);
-        return;
-      }
+      console.log('Password reset response:', response);
 
-      if (!response.ok) {
-        console.error('Server returned error:', data);
-        setPasswordError(data.error || `Server error (${response.status}): ${data.details || 'Unknown error'}`);
-      } else if (data?.success) {
+      if (response.error) {
+        console.error('Server returned error:', response.error);
+        setPasswordError(response.error.message || 'Failed to reset password. Please try again.');
+      } else if (response.data?.success) {
         setResetComplete(true);
         toast({
           title: "Password updated successfully",
