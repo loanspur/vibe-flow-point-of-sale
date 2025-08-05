@@ -76,8 +76,9 @@ serve(async (req) => {
           planName: subscription.billing_plans?.name 
         });
 
-        // Calculate billing amount (should be full amount for regular monthly billing)
-        const billingAmount = subscription.next_billing_amount || subscription.billing_plans?.price;
+        // Calculate billing amount (ensure whole number for monthly billing)
+        const rawAmount = subscription.next_billing_amount || subscription.billing_plans?.price;
+        const billingAmount = Math.round(rawAmount); // Ensure whole number
         
         if (!billingAmount) {
           logStep("Skipping subscription - no billing amount", { tenantId: subscription.tenant_id });
@@ -93,7 +94,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             email: subscription.paystack_customer_id, // This should be the customer email
-            amount: Math.round(billingAmount * 100), // Amount in kobo
+            amount: billingAmount * 100, // Amount in kobo (billingAmount already rounded)
             currency: 'KES',
             reference: `monthly_${subscription.tenant_id}_${Date.now()}`,
             customer: subscription.paystack_customer_id,

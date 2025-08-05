@@ -134,7 +134,7 @@ serve(async (req) => {
     }
 
     const billingInfo = billingCycleData[0];
-    const actualAmount = billingInfo.billing_amount;
+    const actualAmount = Math.round(billingInfo.billing_amount); // Ensure whole number
     const isProrated = billingInfo.is_prorated;
     const nextBillingDate = billingInfo.next_billing_date;
 
@@ -154,7 +154,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         email: user.email,
-        amount: Math.round(actualAmount * 100), // Amount in kobo, rounded
+        amount: actualAmount * 100, // Amount in kobo (actualAmount already rounded)
         currency: 'KES',
         reference: `sub_${profile.tenant_id}_${Date.now()}`,
         callback_url: `${req.headers.get("origin")}/success?payment=success`,

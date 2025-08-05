@@ -6486,7 +6486,7 @@ export type Database = {
         }[]
       }
       calculate_next_billing_date: {
-        Args: { start_date: string }
+        Args: { input_date?: string }
         Returns: string
       }
       calculate_profit_loss: {
@@ -6519,7 +6519,6 @@ export type Database = {
           prorated_amount: number
           days_in_period: number
           total_days_in_month: number
-          next_billing_date: string
         }[]
       }
       calculate_purchase_total: {
