@@ -1016,14 +1016,14 @@ const PurchaseManagement = () => {
                           <div className="col-span-2">
                             <Label>Variant</Label>
                             <Select
-                              value={item.variant_id || ''}
-                              onValueChange={(value) => updateItem(index, 'variant_id', value)}
+                              value={item.variant_id || 'no-variant'}
+                              onValueChange={(value) => updateItem(index, 'variant_id', value === 'no-variant' ? null : value)}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select variant" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">No Variant</SelectItem>
+                                <SelectItem value="no-variant">No Variant</SelectItem>
                                 {selectedProduct.product_variants.map((variant) => (
                                   <SelectItem key={variant.id} value={variant.id}>
                                     {variant.name}: {variant.value}
