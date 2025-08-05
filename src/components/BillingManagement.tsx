@@ -418,7 +418,11 @@ export default function BillingManagement() {
               </div>
               <div className="flex items-center space-x-2">
                 <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                  {currentSubscription.status?.toUpperCase()}
+                  {(() => {
+                    const trialEnd = currentSubscription.trial_end ? new Date(currentSubscription.trial_end) : null;
+                    const isOnTrial = trialEnd && new Date() < trialEnd;
+                    return isOnTrial ? 'TRIAL' : currentSubscription.status?.toUpperCase();
+                  })()}
                 </Badge>
                 {effectivePricing?.is_custom && (
                   <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
@@ -519,9 +523,9 @@ export default function BillingManagement() {
                                  currentSubscription.current_period_end ? new Date(currentSubscription.current_period_end) : null;
                 const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
                 const isExpired = expiryDate && daysLeft <= 0;
-                const isPending = currentSubscription.status === 'pending';
+                const isPending = currentSubscription.status === 'pending' && !isOnTrial; // Only pending if not on trial
                 
-                if (isOnTrial || isPending) {
+                if (isOnTrial) {
                   return (
                     <div className="flex flex-col items-end space-y-2">
                       <Button 
@@ -546,24 +550,49 @@ export default function BillingManagement() {
                             </>
                          )}
                       </Button>
-                      {isOnTrial && (
-                        <p className="text-xs text-orange-600 text-center">
-                          {isTrialEnding ? 
-                            `Trial ends in ${daysLeftInTrial} day${daysLeftInTrial !== 1 ? 's' : ''}` :
-                            `${daysLeftInTrial} days left in trial`
-                          }
-                        </p>
-                      )}
-                      {isPending && (
-                        <p className="text-xs text-blue-600 text-center">
-                          Subscription pending payment
-                        </p>
-                      )}
+                       <p className="text-xs text-blue-600 text-center">
+                         {isTrialEnding ? 
+                           `Trial ends in ${daysLeftInTrial} day${daysLeftInTrial !== 1 ? 's' : ''}` :
+                           `${daysLeftInTrial} days left in trial`
+                         }
+                       </p>
                     </div>
-                  );
-                }
-                
-                if (isExpired) {
+                   );
+                 }
+                 
+                 if (isPending) {
+                   return (
+                     <div className="flex flex-col items-end space-y-2">
+                       <Button 
+                         className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                         onClick={() => handleUpgrade(currentSubscription.billing_plan_id)}
+                         disabled={upgrading === currentSubscription.billing_plan_id}
+                       >
+                         {upgrading === currentSubscription.billing_plan_id ? (
+                           <>
+                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                             Processing...
+                           </>
+                         ) : (
+                             <>
+                               Pay {effectivePricing ? 
+                                 formatPrice(effectivePricing.effective_amount) :
+                                 (currentSubscription.billing_plans?.price ? 
+                                   formatPrice(currentSubscription.billing_plans.price) : 
+                                   'Current Plan')
+                               }
+                               <ExternalLink className="h-4 w-4 ml-2" />
+                             </>
+                          )}
+                       </Button>
+                       <p className="text-xs text-yellow-600 text-center">
+                         Subscription pending payment
+                       </p>
+                     </div>
+                   );
+                 }
+                 
+                 if (isExpired) {
                   return (
                     <div className="flex flex-col items-end space-y-2">
                       <Button 

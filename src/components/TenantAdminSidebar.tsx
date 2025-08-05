@@ -58,6 +58,9 @@ export function TenantAdminSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
 
+  // Check if user is on trial
+  const isOnTrial = subscription?.trial_end && new Date(subscription.trial_end) > new Date();
+
   // Get the appropriate badge text based on subscription plan
   const getUpgradeBadge = () => {
     const planName = subscription?.billing_plans?.name?.toLowerCase();
@@ -127,20 +130,21 @@ export function TenantAdminSidebar() {
             <SidebarMenu>
               {businessItems.map((item) => {
                 const hasAccess = !item.featureRequired || hasFeature(item.featureRequired);
+                const showUpgradeBadge = !hasAccess && !isOnTrial; // Don't show badge if on trial
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <NavLink 
-                        to={hasAccess ? item.url : "/admin/settings?tab=billing"}
+                        to={hasAccess || isOnTrial ? item.url : "/admin/settings?tab=billing"}
                         className={({ isActive: navActive }) => 
-                          `${getNavCls(navActive)} ${!hasAccess ? 'opacity-60' : ''}`
+                          `${getNavCls(navActive)} ${!hasAccess && !isOnTrial ? 'opacity-60' : ''}`
                         }
                       >
                         <item.icon className="h-4 w-4" />
                         {!collapsed && (
                           <div className="flex items-center justify-between w-full">
                             <span>{item.title}</span>
-                            {!hasAccess && (
+                            {showUpgradeBadge && (
                               <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
                                 {getUpgradeBadge()}
                               </Badge>

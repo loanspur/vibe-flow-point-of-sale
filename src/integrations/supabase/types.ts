@@ -6676,6 +6676,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      get_effective_subscription_status: {
+        Args: { subscription_status: string; trial_end: string }
+        Returns: string
+      }
       get_product_history_summary: {
         Args: { product_id_param: string }
         Returns: {
