@@ -181,17 +181,17 @@ export const useFeatureAccess = () => {
       // Check subscription status and trial validity outside the if block
       const isActive = finalSubscription?.status === 'active';
       const isTrial = finalSubscription?.status === 'trial';
-      const isTrialing = finalSubscription?.status === 'trialing'; // Handle "trialing" status
-      const isPending = finalSubscription?.status === 'pending'; // Handle "pending" status
+      const isTrialing = finalSubscription?.status === 'trialing';
+      const isPending = finalSubscription?.status === 'pending';
       const trialEnd = (finalSubscription as any)?.trial_end;
       const expiryDate = (finalSubscription as any)?.expires_at || 
                         (finalSubscription as any)?.current_period_end;
       
-      // Check if trial is still valid (including pending subscriptions with valid trial periods)
-      const isTrialValid = (isTrial || isTrialing || isPending) && (!trialEnd || new Date(trialEnd) > new Date());
+      // Check if trial is still valid - any status with a valid trial_end date is considered trial
+      const isTrialValid = trialEnd && new Date(trialEnd) > new Date();
       const isNotExpired = !expiryDate || new Date(expiryDate) > new Date();
       const isValidSubscription = isActive && isNotExpired;
-      const isValidTrial = isTrialValid || isTrialing; // "trialing" status is considered valid
+      const isValidTrial = isTrialValid; // Trial is valid if trial_end is in the future
       
       if (finalSubscription?.billing_plans?.features) {
         const planFeatures = finalSubscription.billing_plans.features;
