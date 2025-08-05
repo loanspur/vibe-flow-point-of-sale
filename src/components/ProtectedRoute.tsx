@@ -14,6 +14,14 @@ export default function ProtectedRoute({
   allowedRoles
 }: ProtectedRouteProps) {
   const { user, userRole, loading } = useAuth();
+  
+  console.log('🛡️ ProtectedRoute check:', { 
+    hasUser: !!user, 
+    userRole, 
+    loading,
+    allowedRoles,
+    currentPath: window.location.pathname 
+  });
 
   // Show loading while auth is initializing
   if (loading) {

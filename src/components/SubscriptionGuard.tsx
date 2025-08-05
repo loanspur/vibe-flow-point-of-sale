@@ -27,6 +27,15 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const navigate = useNavigate();
+  
+  console.log('🎫 SubscriptionGuard check:', { 
+    hasUser: !!user, 
+    tenantId, 
+    authLoading,
+    loading,
+    hasAccess,
+    currentPath: window.location.pathname 
+  });
 
   useEffect(() => {
     if (!user || !tenantId || authLoading) return;

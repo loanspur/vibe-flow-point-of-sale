@@ -223,6 +223,9 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
+  console.log('🎯 BusinessSettingsEnhanced component is LOADING!');
+  console.log('🎯 Current timestamp:', new Date().toISOString());
+  console.log('🎯 Window location:', window.location.href);
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
