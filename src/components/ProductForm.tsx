@@ -64,9 +64,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     price: '',
     default_profit_margin: '',
     barcode: '',
-    category_id: '',
-    subcategory_id: '',
-    revenue_account_id: '',
+    category_id: undefined,
+    subcategory_id: undefined,
+    revenue_account_id: undefined,
     stock_quantity: '',
     min_stock_level: '',
     has_expiry_date: false,
@@ -140,9 +140,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         price: product.price?.toString() || '',
         default_profit_margin: product.default_profit_margin?.toString() || '',
         barcode: product.barcode || '',
-        category_id: product.category_id || '',
-        subcategory_id: product.subcategory_id || '',
-        revenue_account_id: product.revenue_account_id || '',
+        category_id: product.category_id || undefined,
+        subcategory_id: product.subcategory_id || undefined,
+        revenue_account_id: product.revenue_account_id || undefined,
         stock_quantity: product.stock_quantity?.toString() || '',
         min_stock_level: product.min_stock_level?.toString() || '',
         has_expiry_date: product.has_expiry_date || false,
@@ -160,7 +160,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       fetchSubcategories(formData.category_id);
     } else {
       setSubcategories([]);
-      setFormData(prev => ({ ...prev, subcategory_id: '' }));
+      setFormData(prev => ({ ...prev, subcategory_id: undefined }));
     }
   }, [formData.category_id]);
 

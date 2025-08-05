@@ -69,7 +69,7 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
   const [subcategoryForm, setSubcategoryForm] = useState({
     name: '',
     description: '',
-    category_id: '',
+    category_id: undefined,
   });
 
   useEffect(() => {
@@ -180,7 +180,7 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
 
       setShowSubcategoryForm(false);
       setSelectedSubcategory(null);
-      setSubcategoryForm({ name: '', description: '', category_id: '' });
+      setSubcategoryForm({ name: '', description: '', category_id: undefined });
       fetchCategories();
       onUpdate?.();
     } catch (error: any) {
