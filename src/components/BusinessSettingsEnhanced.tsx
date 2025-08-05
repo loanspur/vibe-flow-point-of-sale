@@ -392,16 +392,41 @@ export function BusinessSettingsEnhanced() {
     const initializeData = async () => {
       console.log('🚀 BusinessSettingsEnhanced: Initializing...');
       
-      // Wait for auth state to stabilize
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('👤 Auth check:', user ? 'Authenticated' : 'Not authenticated');
+      // Check current URL
+      console.log('📍 Current URL:', window.location.href);
+      console.log('📍 Current pathname:', window.location.pathname);
       
-      if (user) {
-        await fetchSettings();
-        await fetchLocations();
-      } else {
-        console.log('⏳ No user found, will retry when auth state changes');
-      }
+      // Check auth state multiple times to catch timing issues
+      let authAttempts = 0;
+      const maxAttempts = 5;
+      
+      const checkAuth = async () => {
+        authAttempts++;
+        console.log(`🔐 Auth check attempt ${authAttempts}/${maxAttempts}`);
+        
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        console.log('👤 Auth response:', { 
+          user: authData?.user?.id || 'No user', 
+          email: authData?.user?.email || 'No email',
+          error: authError?.message || 'No error'
+        });
+        
+        if (authData?.user) {
+          console.log('✅ User authenticated, fetching data...');
+          await fetchSettings();
+          await fetchLocations();
+          return true;
+        } else if (authAttempts < maxAttempts) {
+          console.log('⏳ No user yet, retrying in 1 second...');
+          setTimeout(checkAuth, 1000);
+          return false;
+        } else {
+          console.log('❌ Max auth attempts reached, no user found');
+          return false;
+        }
+      };
+      
+      await checkAuth();
     };
 
     initializeData();
@@ -409,19 +434,25 @@ export function BusinessSettingsEnhanced() {
 
   // Listen for auth state changes
   useEffect(() => {
+    console.log('🔄 Setting up auth state listener...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔄 Auth state changed:', event, session?.user?.id || 'No user');
       
       if (event === 'SIGNED_IN' && session?.user) {
+        console.log('✅ User signed in, fetching data...');
         await fetchSettings();
         await fetchLocations(); 
       } else if (event === 'SIGNED_OUT') {
+        console.log('👋 User signed out, clearing data...');
         setLocations([]);
         setSettings(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('🧹 Cleaning up auth listener...');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchSettings = async () => {
@@ -447,26 +478,39 @@ export function BusinessSettingsEnhanced() {
 
   const fetchLocations = async () => {
     try {
-      console.log('🏪 Fetching locations...');
+      console.log('🏪 fetchLocations: Starting...');
+      console.log('🏪 Current URL:', window.location.href);
       
-      // Check authentication state
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('👤 Current user:', user?.id || 'No user');
+      // Check authentication state with detailed logging
+      const { data: authResponse, error: authError } = await supabase.auth.getUser();
+      console.log('🏪 Auth check result:', { 
+        hasUser: !!authResponse?.user,
+        userId: authResponse?.user?.id || 'None',
+        email: authResponse?.user?.email || 'None',
+        authError: authError?.message || 'None'
+      });
       
-      if (!user) {
-        console.log('❌ No authenticated user, skipping location fetch');
+      if (!authResponse?.user) {
+        console.log('❌ fetchLocations: No authenticated user, skipping');
         return;
       }
 
+      console.log('🏪 Making database query...');
       const { data, error } = await supabase
         .from('store_locations')
         .select('*')
         .order('is_primary', { ascending: false });
       
-      console.log('🏪 Locations response:', { data, error });
+      console.log('🏪 Database response:', { 
+        data: data || 'null',
+        dataLength: data?.length || 0,
+        error: error?.message || 'None',
+        errorCode: error?.code || 'None',
+        errorDetails: error?.details || 'None'
+      });
       
       if (error) {
-        console.error('❌ Location fetch error:', error);
+        console.error('❌ fetchLocations: Database error:', error);
         toast({
           title: "Error loading locations",
           description: error.message,
@@ -476,11 +520,14 @@ export function BusinessSettingsEnhanced() {
       }
       
       if (data) {
-        console.log('✅ Setting locations:', data.length);
+        console.log('✅ fetchLocations: Setting locations:', data.length);
         setLocations(data);
+      } else {
+        console.log('⚠️ fetchLocations: No data returned');
+        setLocations([]);
       }
     } catch (error: any) {
-      console.error('❌ Location fetch exception:', error);
+      console.error('❌ fetchLocations: Exception:', error);
       toast({
         title: "Error loading locations", 
         description: error.message || "Failed to load store locations",
@@ -1706,6 +1753,31 @@ export function BusinessSettingsEnhanced() {
 
               {/* Locations Tab */}
               <TabsContent value="locations" className="space-y-8 mt-0">
+                {/* Debug Panel - Temporary */}
+                <Card className="border-yellow-200 bg-yellow-50">
+                  <CardHeader>
+                    <CardTitle className="text-yellow-800">🐛 Debug Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm">
+                    <div className="space-y-2">
+                      <p><strong>Loading State:</strong> {isLoading ? 'true' : 'false'}</p>
+                      <p><strong>Locations Count:</strong> {locations.length}</p>
+                      <p><strong>Auth State:</strong> Check console for detailed logs</p>
+                      <p><strong>Current URL:</strong> {window.location.href}</p>
+                      <Button 
+                        onClick={() => {
+                          console.log('🔄 Manual refresh triggered');
+                          fetchLocations();
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        Refresh Locations
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+                
                 <div className="space-y-8">
                   {/* Store Locations Management Card */}
                   <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
