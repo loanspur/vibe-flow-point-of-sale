@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface DashboardMetrics {
   todayRevenue: number;
+  totalRevenue: number;
   todayTransactions: number;
   totalProductsSold: number;
   totalCustomers: number;
@@ -35,6 +36,7 @@ export const useOptimizedDashboard = () => {
       // Batch all queries for maximum efficiency
       const [
         todaySalesResponse,
+        allSalesResponse,
         weeklySalesResponse,
         monthlySalesResponse,
         customersResponse,
@@ -49,6 +51,12 @@ export const useOptimizedDashboard = () => {
           .select('total_amount')
           .eq('tenant_id', tenantId)
           .gte('created_at', today),
+        
+        // All sales ever made
+        supabase
+          .from('sales')
+          .select('total_amount')
+          .eq('tenant_id', tenantId),
         
         // Weekly sales
         supabase
@@ -104,6 +112,7 @@ export const useOptimizedDashboard = () => {
 
       // Process all data
       const todayRevenue = todaySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+      const totalRevenue = allSalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
       const weeklyRevenue = weeklySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
       const monthlyRevenue = monthlySalesResponse.data?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
       const todayTransactions = todaySalesResponse.data?.length || 0;
@@ -120,6 +129,7 @@ export const useOptimizedDashboard = () => {
       return {
         data: {
           todayRevenue,
+          totalRevenue,
           todayTransactions,
           totalProductsSold,
           totalCustomers,

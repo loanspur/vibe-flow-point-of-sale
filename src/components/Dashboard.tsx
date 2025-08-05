@@ -51,9 +51,9 @@ const Dashboard = () => {
     if (!dashboardData) {
       return [
         {
-          title: "Today's Sales",
+          title: "Total Sales",
           value: "Loading...",
-          change: "0%",
+          change: "Loading...",
           icon: DollarSign,
           trend: "up",
           loading: true
@@ -87,11 +87,11 @@ const Dashboard = () => {
 
     return [
       {
-        title: "Today's Sales",
-        value: formatCurrency(dashboardData.todayRevenue),
-        change: percentageChanges?.dailyVsWeekly ? `${percentageChanges.dailyVsWeekly > 0 ? '+' : ''}${percentageChanges.dailyVsWeekly}%` : "0%",
+        title: "Total Sales",
+        value: formatCurrency(dashboardData.totalRevenue),
+        change: `Today: ${formatCurrency(dashboardData.todayRevenue)}`,
         icon: () => <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-5 w-5 text-primary" />,
-        trend: percentageChanges?.dailyVsWeekly >= 0 ? "up" : "down",
+        trend: "up",
         loading: false
       },
       {
