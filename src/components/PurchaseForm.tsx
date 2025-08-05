@@ -485,12 +485,12 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                                 {product.name} - {product.sku || 'No SKU'}
                               </SelectItem>
                             );
-                          })
-                        ) : (
-                          <SelectItem key="no-products" value="no-products" disabled>
-                            No products available
-                          </SelectItem>
-                        )}
+                           })
+                         ) : (
+                           <SelectItem key="no-products" value="disabled-no-products" disabled>
+                             No products available
+                           </SelectItem>
+                         )}
                       </SelectContent>
                    </Select>
                  </div>
@@ -588,12 +588,12 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                             {supplier.name} {supplier.company ? `(${supplier.company})` : ''}
                           </SelectItem>
                         );
-                      })
-                    ) : (
-                      <SelectItem key="no-suppliers" value="no-suppliers" disabled>
-                        No suppliers available
-                      </SelectItem>
-                    )}
+                       })
+                     ) : (
+                       <SelectItem key="no-suppliers" value="disabled-no-suppliers" disabled>
+                         No suppliers available
+                       </SelectItem>
+                     )}
                   </SelectContent>
                 </Select>
               </div>
