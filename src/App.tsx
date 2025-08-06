@@ -23,7 +23,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
-const SubdomainTestPage = lazy(() => import("./components/SubdomainTestPage"));
+
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Demo = lazy(() => import("./pages/Demo"));
@@ -408,7 +408,7 @@ const DomainRouter = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         
-        <Route path="/test-subdomains" element={<SubdomainTestPage />} />
+        
         <Route path="/signup" element={<Navigate to="/" replace />} />
         <Route path="/success" element={<Success />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
