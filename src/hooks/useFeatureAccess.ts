@@ -282,7 +282,10 @@ export const useFeatureAccess = () => {
                 'Dedicated Account Manager': ['dedicated_account_manager'],
                 'Advanced Security Features': ['enterprise_support'],
                 'SLA Guarantee': ['sla_guarantee'],
-                'Priority Feature Requests': ['priority_feature_requests']
+                'Priority Feature Requests': ['priority_feature_requests'],
+                // Communication features
+                'Communications Suite': ['advanced_notifications'],
+                'Basic Communications': ['advanced_notifications']
               };
               
               // Apply feature mappings
