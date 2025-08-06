@@ -562,6 +562,29 @@ export function BusinessSettingsEnhanced() {
     loadLocations();
   }, []);
 
+  // Load locations when the locations tab is activated
+  useEffect(() => {
+    if (activeTab === 'locations') {
+      const loadLocationsForTab = async () => {
+        const { data: authUser } = await supabase.auth.getUser();
+        if (authUser?.user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('user_id', authUser.user.id)
+            .single();
+
+          if (profile?.tenant_id) {
+            console.log('🏢 Locations tab activated: Loading locations for tenant:', profile.tenant_id);
+            await fetchLocations(profile.tenant_id);
+          }
+        }
+      };
+      
+      loadLocationsForTab();
+    }
+  }, [activeTab]);
+
   const handleAddLocation = () => {
     setEditingLocation(null);
     setLocationFormData({
