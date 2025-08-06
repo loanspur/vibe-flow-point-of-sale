@@ -38,6 +38,7 @@ import {
   Store,
   CreditCard,
   Users,
+  User,
   Calendar,
   Package,
   ShoppingCart,
@@ -248,6 +249,25 @@ export function BusinessSettingsEnhanced() {
   const [timezoneSearch, setTimezoneSearch] = useState("");
   
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  
+  // Location management state
+  const [locations, setLocations] = useState<StoreLocation[]>([]);
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<StoreLocation | null>(null);
+  const [locationFormData, setLocationFormData] = useState<Partial<StoreLocation>>({
+    name: "",
+    address_line_1: "",
+    address_line_2: "",
+    city: "",
+    state_province: "",
+    postal_code: "",
+    country: "",
+    phone: "",
+    email: "",
+    manager_name: "",
+    is_primary: false,
+    is_active: true
+  });
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewType, setPreviewType] = useState<"invoice" | "receipt" | "quote">("invoice");
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
@@ -486,6 +506,162 @@ export function BusinessSettingsEnhanced() {
       toast({
         title: "Upload failed",
         description: "Failed to upload logo. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Location management functions
+  const fetchLocations = async (tenantId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('store_locations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (error) {
+      console.error('❌ Error fetching locations:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load locations",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddLocation = () => {
+    setEditingLocation(null);
+    setLocationFormData({
+      name: "",
+      address_line_1: "",
+      address_line_2: "",
+      city: "",
+      state_province: "",
+      postal_code: "",
+      country: "",
+      phone: "",
+      email: "",
+      manager_name: "",
+      is_primary: locations.length === 0, // First location is primary by default
+      is_active: true
+    });
+    setIsLocationDialogOpen(true);
+  };
+
+  const handleEditLocation = (location: StoreLocation) => {
+    setEditingLocation(location);
+    setLocationFormData(location);
+    setIsLocationDialogOpen(true);
+  };
+
+  const handleSaveLocation = async () => {
+    try {
+      const { data: authUser } = await supabase.auth.getUser();
+      if (!authUser?.user?.id) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', authUser.user.id)
+        .single();
+
+      if (!profile?.tenant_id) throw new Error('No tenant found');
+
+      const locationData = {
+        name: locationFormData.name || '',
+        address_line_1: locationFormData.address_line_1,
+        address_line_2: locationFormData.address_line_2,
+        city: locationFormData.city,
+        state_province: locationFormData.state_province,
+        postal_code: locationFormData.postal_code,
+        country: locationFormData.country,
+        phone: locationFormData.phone,
+        email: locationFormData.email,
+        manager_name: locationFormData.manager_name,
+        is_primary: locationFormData.is_primary || false,
+        is_active: locationFormData.is_active !== false
+      };
+
+      if (editingLocation) {
+        // Update existing location
+        const { error } = await supabase
+          .from('store_locations')
+          .update(locationData)
+          .eq('id', editingLocation.id);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Location updated successfully",
+        });
+      } else {
+        // Create new location
+        const { error } = await supabase
+          .from('store_locations')
+          .insert({
+            ...locationData,
+            tenant_id: profile.tenant_id
+          });
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Location created successfully",
+        });
+      }
+
+      setIsLocationDialogOpen(false);
+      await fetchLocations(profile.tenant_id);
+    } catch (error) {
+      console.error('❌ Error saving location:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save location",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteLocation = async (locationId: string) => {
+    if (!confirm('Are you sure you want to delete this location?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('store_locations')
+        .delete()
+        .eq('id', locationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Location deleted successfully",
+      });
+
+      // Refresh locations
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser?.user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', authUser.user.id)
+          .single();
+
+        if (profile?.tenant_id) {
+          await fetchLocations(profile.tenant_id);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error deleting location:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete location",
         variant: "destructive",
       });
     }
@@ -1571,19 +1747,310 @@ export function BusinessSettingsEnhanced() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-12">
-                      <Store className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Store Locations</h3>
-                      <p className="text-muted-foreground mb-6">
-                        Set up and manage multiple business locations to organize your operations.
-                      </p>
-                      <Button className="bg-gradient-to-r from-primary to-primary/80">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Your First Location
-                      </Button>
-                    </div>
+                    {locations.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Store className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Store Locations</h3>
+                        <p className="text-muted-foreground mb-6">
+                          Set up and manage multiple business locations to organize your operations.
+                        </p>
+                        <Button 
+                          onClick={handleAddLocation}
+                          className="bg-gradient-to-r from-primary to-primary/80"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Your First Location
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="text-lg font-medium">Your Locations</h3>
+                            <p className="text-muted-foreground">
+                              Manage your business locations and branch offices
+                            </p>
+                          </div>
+                          <Button 
+                            onClick={handleAddLocation}
+                            className="bg-gradient-to-r from-primary to-primary/80"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Location
+                          </Button>
+                        </div>
+
+                        <div className="grid gap-4">
+                          {locations.map((location) => (
+                            <Card key={location.id} className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h4 className="font-medium">{location.name}</h4>
+                                    {location.is_primary && (
+                                      <Badge variant="default" className="text-xs">
+                                        Primary
+                                      </Badge>
+                                    )}
+                                    {!location.is_active && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Inactive
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground space-y-1">
+                                    {location.address_line_1 && (
+                                      <div>{location.address_line_1}</div>
+                                    )}
+                                    {location.address_line_2 && (
+                                      <div>{location.address_line_2}</div>
+                                    )}
+                                    {(location.city || location.state_province || location.postal_code) && (
+                                      <div>
+                                        {[location.city, location.state_province, location.postal_code]
+                                          .filter(Boolean)
+                                          .join(', ')}
+                                      </div>
+                                    )}
+                                    {location.country && (
+                                      <div>{location.country}</div>
+                                    )}
+                                    {location.phone && (
+                                      <div className="flex items-center gap-1">
+                                        <Phone className="h-3 w-3" />
+                                        {location.phone}
+                                      </div>
+                                    )}
+                                    {location.email && (
+                                      <div className="flex items-center gap-1">
+                                        <Mail className="h-3 w-3" />
+                                        {location.email}
+                                      </div>
+                                    )}
+                                    {location.manager_name && (
+                                      <div className="flex items-center gap-1">
+                                        <User className="h-3 w-3" />
+                                        Manager: {location.manager_name}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditLocation(location)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteLocation(location.id)}
+                                    disabled={location.is_primary && locations.length === 1}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
+
+                {/* Location Dialog */}
+                <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {editingLocation ? 'Edit Location' : 'Add New Location'}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {editingLocation 
+                          ? 'Update the location details below.' 
+                          : 'Enter the details for your new business location.'
+                        }
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location-name">Location Name *</Label>
+                          <Input
+                            id="location-name"
+                            value={locationFormData.name || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              name: e.target.value
+                            }))}
+                            placeholder="Main Store, Branch Office, etc."
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-phone">Phone</Label>
+                          <Input
+                            id="location-phone"
+                            value={locationFormData.phone || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              phone: e.target.value
+                            }))}
+                            placeholder="+1 (555) 123-4567"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="location-address1">Address Line 1</Label>
+                        <Input
+                          id="location-address1"
+                          value={locationFormData.address_line_1 || ''}
+                          onChange={(e) => setLocationFormData(prev => ({
+                            ...prev,
+                            address_line_1: e.target.value
+                          }))}
+                          placeholder="Street address"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="location-address2">Address Line 2</Label>
+                        <Input
+                          id="location-address2"
+                          value={locationFormData.address_line_2 || ''}
+                          onChange={(e) => setLocationFormData(prev => ({
+                            ...prev,
+                            address_line_2: e.target.value
+                          }))}
+                          placeholder="Apartment, suite, etc. (optional)"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location-city">City</Label>
+                          <Input
+                            id="location-city"
+                            value={locationFormData.city || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              city: e.target.value
+                            }))}
+                            placeholder="City"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-state">State/Province</Label>
+                          <Input
+                            id="location-state"
+                            value={locationFormData.state_province || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              state_province: e.target.value
+                            }))}
+                            placeholder="State or Province"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location-postal">Postal Code</Label>
+                          <Input
+                            id="location-postal"
+                            value={locationFormData.postal_code || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              postal_code: e.target.value
+                            }))}
+                            placeholder="12345"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-country">Country</Label>
+                          <Input
+                            id="location-country"
+                            value={locationFormData.country || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              country: e.target.value
+                            }))}
+                            placeholder="Country"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location-email">Email</Label>
+                          <Input
+                            id="location-email"
+                            type="email"
+                            value={locationFormData.email || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              email: e.target.value
+                            }))}
+                            placeholder="store@company.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-manager">Manager Name</Label>
+                          <Input
+                            id="location-manager"
+                            value={locationFormData.manager_name || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              manager_name: e.target.value
+                            }))}
+                            placeholder="John Doe"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="location-primary"
+                            checked={locationFormData.is_primary || false}
+                            onCheckedChange={(checked) => setLocationFormData(prev => ({
+                              ...prev,
+                              is_primary: checked
+                            }))}
+                          />
+                          <Label htmlFor="location-primary">Primary Location</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="location-active"
+                            checked={locationFormData.is_active !== false}
+                            onCheckedChange={(checked) => setLocationFormData(prev => ({
+                              ...prev,
+                              is_active: checked
+                            }))}
+                          />
+                          <Label htmlFor="location-active">Active</Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleSaveLocation}
+                        disabled={!locationFormData.name}
+                      >
+                        {editingLocation ? 'Update Location' : 'Create Location'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </TabsContent>
 
               {/* Data Migration Tab */}
