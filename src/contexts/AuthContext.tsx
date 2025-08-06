@@ -3,7 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
 
-type UserRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
+// User roles are now dynamically managed via user_roles table
+type UserRole = string; // Dynamic role from database
 
 interface AuthContextType {
   user: User | null;

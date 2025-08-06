@@ -200,7 +200,7 @@ const DomainRouter = () => {
           <Route 
             path="/" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -214,7 +214,7 @@ const DomainRouter = () => {
           <Route 
             path="/dashboard" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -228,7 +228,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -240,7 +240,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/products" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Products />
@@ -252,7 +252,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/stock" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <FeatureGuard featureName="advanced_inventory">
                     <TenantAdminLayout>
@@ -266,7 +266,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/customers" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Customers />
@@ -278,7 +278,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/sales" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Sales />
@@ -290,7 +290,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/purchases" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Purchases />
@@ -302,7 +302,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/accounting" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Accounting />
@@ -314,7 +314,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/reports" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Reports />
@@ -326,7 +326,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/team" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Team />
@@ -338,7 +338,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/settings" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantSettings />
@@ -350,7 +350,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/communications" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantCommunications />
@@ -364,7 +364,7 @@ const DomainRouter = () => {
           <Route 
             path="/profile" 
             element={
-              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Profile />
@@ -532,7 +532,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <TenantAdminDashboard />
@@ -544,7 +544,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/products" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Products />
@@ -556,7 +556,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/stock" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <FeatureGuard featureName="advanced_inventory">
                   <TenantAdminLayout>
@@ -570,7 +570,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/reports" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Reports />
@@ -582,7 +582,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/team" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Team />
@@ -594,7 +594,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/customers" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Customers />
@@ -606,7 +606,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/settings" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <TenantSettings />
@@ -618,7 +618,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/communications" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <TenantCommunications />
@@ -630,7 +630,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/sales" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Sales />
@@ -642,7 +642,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/purchases" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Purchases />
@@ -654,7 +654,7 @@ const DomainRouter = () => {
         <Route 
           path="/admin/accounting" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Accounting />
@@ -669,7 +669,7 @@ const DomainRouter = () => {
         <Route 
           path="/profile" 
           element={
-            <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Profile />
