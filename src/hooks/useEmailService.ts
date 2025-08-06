@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { domainRouter } from '@/lib/domain-router';
+import { domainManager } from '@/lib/domain-manager';
 
 export interface EmailOptions {
   templateId?: string;
@@ -98,7 +98,7 @@ export const useEmailService = () => {
   const sendWelcomeEmail = async (userEmail: string, userName: string, companyName: string) => {
     try {
       // Get tenant's domain configuration for proper redirect URL
-      const domainConfig = await domainRouter.getCurrentDomainConfig();
+      const domainConfig = await domainManager.getCurrentDomainConfig();
       let tenantLoginUrl = `${window.location.origin}/auth`;
       
       if (tenantId && domainConfig?.tenantId === tenantId) {
@@ -155,7 +155,7 @@ export const useEmailService = () => {
   const sendPasswordResetEmail = async (userEmail: string, userName: string, resetUrl: string) => {
     try {
       // Ensure reset URL points to the correct tenant domain
-      const domainConfig = await domainRouter.getCurrentDomainConfig();
+      const domainConfig = await domainManager.getCurrentDomainConfig();
       let tenantResetUrl = resetUrl;
       
       if (tenantId && domainConfig?.tenantId === tenantId) {

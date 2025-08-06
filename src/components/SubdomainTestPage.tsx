@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, ExternalLink, Globe, Shield, AlertCircle, Clock } from 'lucide-react';
-import { useDomainContext } from '@/lib/domain-router';
+import { useDomainContext } from '@/lib/domain-manager';
 import { supabase } from '@/integrations/supabase/client';
 
 const SubdomainTestPage = () => {

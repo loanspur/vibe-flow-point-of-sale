@@ -1,35 +1,72 @@
 import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export interface DomainRouterConfig {
+export interface DomainConfig {
   tenantId: string | null;
   domain: string;
   isCustomDomain: boolean;
   isSubdomain: boolean;
 }
 
-class DomainRouter {
+class DomainManager {
   private cache = new Map<string, { tenantId: string; timestamp: number }>();
-  private cacheTimeout = 5 * 60 * 1000; // 5 minutes
+  private readonly CACHE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+  private initialized = false;
 
   constructor() {
-    this.initializeRouting();
+    this.initializeIfNeeded();
   }
 
-  private initializeRouting() {
-    // Initialize routing based on current domain
-    const currentDomain = window.location.hostname;
-    this.setCurrentDomain(currentDomain);
+  private initializeIfNeeded() {
+    if (typeof window === 'undefined' || this.initialized) return;
+    
+    this.initialized = true;
+    // Auto-initialize when ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.initialize());
+    } else {
+      this.initialize();
+    }
   }
 
-  private setCurrentDomain(domain: string) {
-    // Store current domain info in sessionStorage for quick access
-    const domainInfo = this.parseDomain(domain);
-    sessionStorage.setItem('current-domain-info', JSON.stringify(domainInfo));
+  private async initialize(): Promise<void> {
+    try {
+      const domainConfig = await this.getCurrentDomainConfig();
+      
+      // If on subdomain with tenant, set up context
+      if (domainConfig?.isSubdomain && domainConfig.tenantId) {
+        await this.setupTenantContext(domainConfig.tenantId);
+      }
+    } catch (error) {
+      console.warn('Domain initialization failed:', error);
+    }
   }
 
-  private parseDomain(domain: string): DomainRouterConfig {
-    // Check if it's a development domain
+  private async setupTenantContext(tenantId: string): Promise<void> {
+    try {
+      // Verify tenant exists and is active
+      const { data: tenant, error } = await supabase
+        .from('tenants')
+        .select('id, name, is_active')
+        .eq('id', tenantId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error || !tenant) {
+        console.warn(`Tenant ${tenantId} not found or inactive`);
+        return;
+      }
+
+      // Store tenant context
+      sessionStorage.setItem('domain-tenant-id', tenantId);
+      sessionStorage.setItem('domain-tenant-name', tenant.name);
+    } catch (error) {
+      console.error('Error setting up tenant context:', error);
+    }
+  }
+
+  private parseDomain(domain: string): DomainConfig {
+    // Development domains
     if (domain === 'localhost' || domain.endsWith('.lovableproject.com')) {
       return {
         tenantId: null,
@@ -39,7 +76,7 @@ class DomainRouter {
       };
     }
 
-    // Check if it's the main vibenet.shop domain (landing page)
+    // Main vibenet.shop domain
     if (domain === 'vibenet.shop' || domain === 'www.vibenet.shop') {
       return {
         tenantId: null,
@@ -49,32 +86,31 @@ class DomainRouter {
       };
     }
 
-    // Check if it's a subdomain of your main app
+    // Subdomain
     if (domain.endsWith('.vibenet.shop')) {
-      const subdomain = domain.split('.')[0];
       return {
-        tenantId: null, // Will be resolved later
+        tenantId: null, // Resolved later
         domain,
         isCustomDomain: false,
         isSubdomain: true
       };
     }
 
-    // It's a custom domain
+    // Custom domain
     return {
-      tenantId: null, // Will be resolved later
+      tenantId: null, // Resolved later
       domain,
       isCustomDomain: true,
       isSubdomain: false
     };
   }
 
-  async getCurrentDomainConfig(): Promise<DomainRouterConfig> {
+  async getCurrentDomainConfig(): Promise<DomainConfig> {
     const currentDomain = window.location.hostname;
     
-    // Try to get from cache first
+    // Check cache first
     const cached = this.cache.get(currentDomain);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TIMEOUT) {
       return {
         tenantId: cached.tenantId,
         domain: currentDomain,
@@ -83,10 +119,9 @@ class DomainRouter {
       };
     }
 
-    // Get domain info from parsed data
     const domainInfo = this.parseDomain(currentDomain);
 
-    // If it's a development domain or main landing page, return as is
+    // For development/main domains, return as-is
     if (currentDomain === 'localhost' || 
         currentDomain.endsWith('.lovableproject.com') ||
         currentDomain === 'vibenet.shop' || 
@@ -95,7 +130,7 @@ class DomainRouter {
     }
 
     try {
-      // Try to resolve tenant ID from database
+      // Resolve tenant ID from database
       const { data: tenantId, error } = await supabase
         .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
 
@@ -104,7 +139,7 @@ class DomainRouter {
         return domainInfo;
       }
 
-      const resolvedConfig: DomainRouterConfig = {
+      const resolvedConfig: DomainConfig = {
         ...domainInfo,
         tenantId: tenantId || null
       };
@@ -129,7 +164,7 @@ class DomainRouter {
     
     // Check cache first
     const cached = this.cache.get(targetDomain);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TIMEOUT) {
       return cached.tenantId;
     }
 
@@ -157,29 +192,31 @@ class DomainRouter {
     }
   }
 
-  generateTenantUrl(tenantId: string, subdomain?: string, customDomain?: string): string {
-    if (customDomain) {
-      return `https://${customDomain}`;
-    }
-    
-    if (subdomain) {
-      return `https://${subdomain}.vibenet.shop`;
-    }
-
-    // Fallback to tenant ID based subdomain
-    return `https://tenant-${tenantId}.vibenet.shop`;
+  // Get tenant ID from context
+  getDomainTenantId(): string | null {
+    return sessionStorage.getItem('domain-tenant-id');
   }
 
-  generateSubdomainFromTenantName(tenantName: string): string {
-    // Convert tenant name to valid subdomain
-    return tenantName
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 63); // DNS subdomain limit
+  // Get tenant name from context  
+  getDomainTenantName(): string | null {
+    return sessionStorage.getItem('domain-tenant-name');
   }
 
+  // Clear cache and context
+  clearCache(domain?: string): void {
+    if (domain) {
+      this.cache.delete(domain);
+    } else {
+      this.cache.clear();
+    }
+  }
+
+  clearTenantContext(): void {
+    sessionStorage.removeItem('domain-tenant-id');
+    sessionStorage.removeItem('domain-tenant-name');
+  }
+
+  // Utility functions
   validateSubdomain(subdomain: string): boolean {
     const subdomainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
     return subdomainRegex.test(subdomain) && subdomain.length >= 3 && subdomain.length <= 63;
@@ -190,37 +227,32 @@ class DomainRouter {
     return domainRegex.test(domain);
   }
 
-  clearCache(domain?: string) {
-    if (domain) {
-      this.cache.delete(domain);
-    } else {
-      this.cache.clear();
+  generateTenantUrl(tenantId: string, subdomain?: string, customDomain?: string): string {
+    if (customDomain) {
+      return `https://${customDomain}`;
     }
-  }
-
-  // Handle domain-specific redirects
-  async handleDomainBasedNavigation(path: string = '/'): Promise<string> {
-    const config = await this.getCurrentDomainConfig();
     
-    // If we have a tenant-specific domain, ensure we're using the right tenant context
-    if (config.tenantId && (config.isCustomDomain || config.isSubdomain)) {
-      // Store tenant context for the application
-      sessionStorage.setItem('domain-tenant-id', config.tenantId);
+    if (subdomain) {
+      return `https://${subdomain}.vibenet.shop`;
     }
 
-    return path;
+    return `https://tenant-${tenantId}.vibenet.shop`;
   }
 
-  // Get tenant ID from domain context (used by auth provider)
-  getDomainTenantId(): string | null {
-    return sessionStorage.getItem('domain-tenant-id');
+  generateSubdomainFromTenantName(tenantName: string): string {
+    return tenantName
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 63);
   }
 }
 
 // Export singleton instance
-export const domainRouter = new DomainRouter();
+export const domainManager = new DomainManager();
 
-// Helper functions for domain-based routing
+// Helper functions
 export const getCurrentDomain = () => window.location.hostname;
 
 export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
@@ -246,11 +278,11 @@ export const getSubdomainName = (domain: string = getCurrentDomain()) => {
 
 // React hook for domain management
 export const useDomainContext = () => {
-  const [domainConfig, setDomainConfig] = React.useState<DomainRouterConfig | null>(null);
+  const [domainConfig, setDomainConfig] = React.useState<DomainConfig | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    domainRouter.getCurrentDomainConfig().then((config) => {
+    domainManager.getCurrentDomainConfig().then((config) => {
       setDomainConfig(config);
       setLoading(false);
     });
@@ -261,11 +293,11 @@ export const useDomainContext = () => {
     loading,
     refreshConfig: async () => {
       setLoading(true);
-      const config = await domainRouter.getCurrentDomainConfig();
+      const config = await domainManager.getCurrentDomainConfig();
       setDomainConfig(config);
       setLoading(false);
     }
   };
 };
 
-export default domainRouter;
+export default domainManager;

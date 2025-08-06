@@ -6,8 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
-import { useDomainContext, isDevelopmentDomain } from "@/lib/domain-router";
-import "@/lib/subdomain-initializer"; // Auto-initialize subdomain routing
+import { useDomainContext, isDevelopmentDomain } from "@/lib/domain-manager";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { FeatureGuard } from "./components/FeatureGuard";

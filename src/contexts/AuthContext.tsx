@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { domainRouter } from '@/lib/domain-router';
+import { domainManager } from '@/lib/domain-manager';
 
 type UserRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
 
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserInfo = async (userId: string) => {
     try {
       // First check if we're on a subdomain and get the domain tenant
-      const domainConfig = await domainRouter.getCurrentDomainConfig();
+      const domainConfig = await domainManager.getCurrentDomainConfig();
       
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
@@ -53,7 +53,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn('Error fetching user profile:', error);
         setUserRole('user');
         // Use domain tenant if available, otherwise null
-        setTenantId(domainConfig?.tenantId || null);
+        const domainTenantId = domainManager.getDomainTenantId();
+        setTenantId(domainConfig?.tenantId || domainTenantId || null);
         setRequirePasswordChange(false);
         return;
       }

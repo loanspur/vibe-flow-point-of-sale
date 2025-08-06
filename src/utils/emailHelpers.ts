@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { domainRouter } from '@/lib/domain-router';
+import { domainManager } from '@/lib/domain-manager';
 
 /**
  * Generates tenant-specific URLs for emails
