@@ -29,7 +29,7 @@ import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+// Removed unused recharts import that was causing module loading issues
 
 const getTimeBasedGreeting = () => {
   const hour = new Date().getHours();
