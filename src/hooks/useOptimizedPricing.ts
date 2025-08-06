@@ -15,10 +15,10 @@ interface BillingPlan {
   pricing?: any;
 }
 
-// In-memory cache for billing plans
+// In-memory cache for billing plans - cleared to show updated features
 let cachedPlans: BillingPlan[] | null = null;
 let cacheTimestamp: number | null = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 1 * 60 * 1000; // 1 minute for faster updates
 
 export const useOptimizedPricing = () => {
   const [plans, setPlans] = useState<BillingPlan[]>([]);
