@@ -188,9 +188,23 @@ const DomainRouter = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           
-          {/* Main dashboard route */}
+          {/* Root route - redirect unauthenticated users to login */}
           <Route 
             path="/" 
+            element={
+              <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <TenantAdminDashboard />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Dashboard route - same as root for subdomains */}
+          <Route 
+            path="/dashboard" 
             element={
               <ProtectedRoute allowedRoles={['superadmin', 'admin', 'manager', 'cashier', 'user']}>
                 <SubscriptionGuard>
@@ -354,6 +368,23 @@ const DomainRouter = () => {
           
           {/* Fallback routes */}
           <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
+  // If on subdomain but no tenant found, show auth only
+  if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* Auth routes */}
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          
+          {/* Redirect all other routes to auth for invalid subdomains */}
+          <Route path="*" element={<Navigate to="/auth" replace />} />
         </Routes>
       </Suspense>
     );

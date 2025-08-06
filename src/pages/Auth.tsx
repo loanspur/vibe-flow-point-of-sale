@@ -31,7 +31,10 @@ const Auth = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      // For subdomains, redirect to root, for main domain redirect to dashboard
+      const isSubdomain = window.location.hostname.endsWith('.vibenet.shop') && 
+                         window.location.hostname !== 'vibenet.shop';
+      navigate(isSubdomain ? '/' : '/dashboard');
     }
   }, [user, navigate]);
 
@@ -97,7 +100,11 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in."
       });
-      navigate('/dashboard');
+      
+      // For subdomains, redirect to root, for main domain redirect to dashboard  
+      const isSubdomain = window.location.hostname.endsWith('.vibenet.shop') && 
+                         window.location.hostname !== 'vibenet.shop';
+      navigate(isSubdomain ? '/' : '/dashboard');
     }
 
     setLoading(false);
