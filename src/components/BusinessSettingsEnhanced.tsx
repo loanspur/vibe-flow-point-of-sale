@@ -810,12 +810,31 @@ export function BusinessSettingsEnhanced() {
       });
     } finally {
       setIsSaving(false);
-    console.log('🔄 Rendering BusinessSettingsEnhanced component');
-    console.log('🔄 isLoading:', isLoading);
-    console.log('🔄 settings:', settings);
-    console.log('🔄 activeTab:', activeTab);
-    console.log('🔄 locations:', locations);
-  }
+    }
+  };
+
+  // Debug logging for component render
+  console.log('🔄 Rendering BusinessSettingsEnhanced component');
+  console.log('🔄 isLoading:', isLoading);
+  console.log('🔄 settings:', settings);
+  console.log('🔄 activeTab:', activeTab);
+  console.log('🔄 locations:', locations);
+
+  const filteredCurrencies = currencySearch
+    ? currencies.filter(currency => 
+        currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
+        currency.name.toLowerCase().includes(currencySearch.toLowerCase())
+      )
+    : currencies;
+
+  const filteredTimezones = timezoneSearch
+    ? timezones.filter(timezone => 
+        timezone.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
+        timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
+      )
+    : timezones;
+
+  const countryOptions = COUNTRY_LIST;
 
   if (isLoading) {
     console.log('⏳ BusinessSettingsEnhanced is still loading...');
