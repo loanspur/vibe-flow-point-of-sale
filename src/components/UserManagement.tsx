@@ -246,7 +246,7 @@ const UserManagement = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole as 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user' })
+        .update({ role: newRole as any })
         .eq('user_id', userId);
 
       if (error) throw error;
@@ -494,14 +494,23 @@ const UserManagement = () => {
   };
 
   const getRoleDisplayInfo = (role: string) => {
-    const roleMap: { [key: string]: { color: string; icon: React.ReactNode } } = {
-      'admin': { color: 'bg-red-100 text-red-800', icon: <Shield className="w-3 h-3" /> },
-      'manager': { color: 'bg-blue-100 text-blue-800', icon: <Settings className="w-3 h-3" /> },
-      'user': { color: 'bg-gray-100 text-gray-800', icon: <Users className="w-3 h-3" /> },
-      'cashier': { color: 'bg-green-100 text-green-800', icon: <Users className="w-3 h-3" /> }
-    };
-
-    return roleMap[role] || { color: 'bg-gray-100 text-gray-800', icon: <Users className="w-3 h-3" /> };
+    // Find the role in our dynamic roles list to get color and icon
+    const dynamicRole = roles.find(r => r.name === role);
+    
+    if (dynamicRole) {
+      // Use dynamic role color or default colors based on role level/type
+      const defaultColors = ['bg-red-100 text-red-800', 'bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-purple-100 text-purple-800', 'bg-orange-100 text-orange-800'];
+      const colorIndex = Math.abs(role.length) % defaultColors.length;
+      const color = defaultColors[colorIndex];
+      
+      return { 
+        color, 
+        icon: <Shield className="w-3 h-3" /> 
+      };
+    }
+    
+    // Fallback for any roles not in our dynamic list
+    return { color: 'bg-gray-100 text-gray-800', icon: <Users className="w-3 h-3" /> };
   };
 
   const togglePermission = (permissionId: string) => {
@@ -750,10 +759,11 @@ const UserManagement = () => {
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="admin">Admin</SelectItem>
-                                        <SelectItem value="manager">Manager</SelectItem>
-                                        <SelectItem value="user">User</SelectItem>
-                                        <SelectItem value="cashier">Cashier</SelectItem>
+                                        {roles.map((role) => (
+                                          <SelectItem key={role.id} value={role.name}>
+                                            {role.name}
+                                          </SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                     <Button
