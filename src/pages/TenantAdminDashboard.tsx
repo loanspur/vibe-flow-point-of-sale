@@ -2,18 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 import { format } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
 import { 
   BarChart3, 
   Users, 
@@ -26,7 +18,6 @@ import {
   AlertTriangle,
   Crown,
   Settings,
-  CalendarIcon,
   TrendingDown,
   Boxes,
   PiggyBank,
@@ -38,7 +29,7 @@ import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart, Tooltip, Legend } from "recharts";
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 
 const getTimeBasedGreeting = () => {
   const hour = new Date().getHours();
@@ -53,11 +44,8 @@ function TenantAdminDashboard() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const { formatPrice } = useCurrencyUpdate();
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(),
-    endDate: new Date()
-  });
-  const [openDialog, setOpenDialog] = useState<string | null>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [cashDrawerRefreshKey, setCashDrawerRefreshKey] = useState(0);
 
   // Get effective pricing for the current subscription
@@ -71,6 +59,7 @@ function TenantAdminDashboard() {
     if (tenantId) {
       console.log('Fetching subscription for tenant:', tenantId);
       fetchCurrentSubscription();
+      fetchDashboardData();
     }
     if (user?.id) {
       fetchUserProfile();
@@ -131,1475 +120,341 @@ function TenantAdminDashboard() {
     }
   };
 
-  // Fetch enhanced dashboard data with date filtering
-  const { data: dashboardData, loading } = useOptimizedQuery(
-    async () => {
-      if (!tenantId) return { data: null, error: null };
+  // Fast dashboard data fetch with minimal queries
+  const fetchDashboardData = async () => {
+    if (!tenantId) return;
+    
+    setLoading(true);
+    const today = new Date();
+    const startDate = `${format(today, 'yyyy-MM-dd')}T00:00:00.000Z`;
+    const endDate = `${format(today, 'yyyy-MM-dd')}T23:59:59.999Z`;
+    
+    try {
+      console.log('🚀 Fast dashboard fetch for tenant:', tenantId);
       
-      const startDate = `${format(dateRange.startDate, 'yyyy-MM-dd')}T00:00:00.000Z`;
-      const endDate = `${format(dateRange.endDate, 'yyyy-MM-dd')}T23:59:59.999Z`;
+      // Only 3 essential queries for speed
+      const [
+        salesResponse, 
+        productsResponse, 
+        customersResponse
+      ] = await Promise.all([
+        // Today's sales only
+        supabase
+          .from('sales')
+          .select('total_amount, created_at, status')
+          .eq('tenant_id', tenantId)
+          .gte('created_at', startDate)
+          .lte('created_at', endDate)
+          .limit(100),
+        
+        // Basic product count and stock
+        supabase
+          .from('products')
+          .select('id, stock_quantity, min_stock_level, is_active')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .limit(100),
+        
+        // Customer count
+        supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+      ]);
+
+      console.log('📊 Dashboard data loaded:', {
+        sales: salesResponse.data?.length,
+        products: productsResponse.data?.length,
+        customers: customersResponse.count
+      });
+
+      // Check for errors
+      if (salesResponse.error) throw salesResponse.error;
+      if (productsResponse.error) throw productsResponse.error;
+      if (customersResponse.error) throw customersResponse.error;
+
+      // Fast calculations
+      const sales = salesResponse.data || [];
+      const products = productsResponse.data || [];
+
+      const completedSales = sales.filter(sale => sale.status !== 'cancelled' && sale.status !== 'refunded');
+      const revenue = completedSales.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
+      const salesCount = completedSales.length;
+      const totalCustomers = customersResponse.count || 0;
       
-      try {
-        console.log('Fetching dashboard data for tenant:', tenantId, 'Date range:', dateRange);
-        
-        // Fetch all data in parallel for better performance
-        const [
-          salesResponse, 
-          productsResponse, 
-          customersResponse, 
-          purchasesResponse,
-          saleItemsResponse,
-          allSalesResponse,
-          inventoryMovementsResponse,
-          purchaseItemsResponse,
-          expiryProductsResponse
-        ] = await Promise.all([
-          // Sales data for the date range including customer_id
-          supabase
-            .from('sales')
-            .select('total_amount, created_at, customer_id, status, payment_method, discount_amount, tax_amount')
-            .eq('tenant_id', tenantId)
-            .gte('created_at', startDate)
-            .lte('created_at', endDate),
-          
-          // Products with complete stock and pricing info including variants
-          supabase
-            .from('products')
-            .select(`
-              id, 
-              name,
-              sku,
-              stock_quantity, 
-              min_stock_level, 
-              price, 
-              cost_price, 
-              is_active,
-              created_at,
-              product_variants(id, stock_quantity)
-            `)
-            .eq('tenant_id', tenantId)
-            .eq('is_active', true),
-          
-          // Total unique customers count
-          supabase
-            .from('customers')
-            .select('id, created_at', { count: 'exact', head: true })
-            .eq('tenant_id', tenantId),
-          
-          // Purchases data for the date range with complete info
-          supabase
-            .from('purchases')
-            .select('total_amount, created_at, status, supplier_id')
-            .eq('tenant_id', tenantId)
-            .gte('created_at', startDate)
-            .lte('created_at', endDate),
-          
-          // Sale items with detailed product info for accurate COGS calculation
-          supabase
-            .from('sale_items')
-            .select(`
-              quantity,
-              unit_price,
-              total_price,
-              product_id,
-              variant_id,
-              products!inner(cost_price, price, name),
-              sales!inner(created_at, tenant_id, total_amount)
-            `)
-            .eq('sales.tenant_id', tenantId)
-            .gte('sales.created_at', startDate)
-            .lte('sales.created_at', endDate),
-          
-          // All sales for customer activity analysis
-          supabase
-            .from('sales')
-            .select('customer_id, created_at')
-            .eq('tenant_id', tenantId)
-            .not('customer_id', 'is', null),
-          
-          // Recent inventory movements for stock accuracy - using correct table structure
-          supabase
-            .from('purchases')
-            .select(`
-              total_amount,
-              created_at,
-              status
-            `)
-            .eq('tenant_id', tenantId)
-            .eq('status', 'completed')
-            .order('created_at', { ascending: false })
-            .limit(100),
-            
-          // Purchase items for FIFO costing - include both completed and received purchases
-          supabase
-            .from('purchase_items')
-            .select(`
-              product_id,
-              quantity_ordered,
-              quantity_received,
-              unit_cost,
-              total_cost,
-              purchases!inner(created_at, status, tenant_id)
-            `)
-             .eq('purchases.tenant_id', tenantId)
-             .in('purchases.status', ['completed', 'received']),
-             
-           // Products with expiry tracking and upcoming/past expiry dates
-           supabase
-             .from('purchase_items')
-             .select(`
-               id,
-               product_id,
-               expiry_date,
-               quantity_received,
-               products!inner(name, has_expiry_date, tenant_id)
-             `)
-             .eq('products.tenant_id', tenantId)
-             .eq('products.has_expiry_date', true)
-             .not('expiry_date', 'is', null)
-             .gte('expiry_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // From 30 days ago
-             .lte('expiry_date', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // To 30 days from now
-        ]);
+      const lowStockProducts = products.filter(product => {
+        const stock = product.stock_quantity || 0;
+        const minLevel = product.min_stock_level || 0;
+        return stock <= minLevel && stock > 0;
+      });
+      
+      const outOfStockProducts = products.filter(product => (product.stock_quantity || 0) === 0);
 
-        console.log('=== DASHBOARD DATA FETCH RESULTS ===');
-        console.log('Sales response:', { status: salesResponse.status, count: salesResponse.data?.length });
-        console.log('Products response:', { status: productsResponse.status, count: productsResponse.data?.length });
-        console.log('Customers response:', { status: customersResponse.status, count: customersResponse.count });
-        console.log('Purchases response:', { status: purchasesResponse.status, count: purchasesResponse.data?.length });
-        console.log('Purchase Items response:', { 
-          status: purchaseItemsResponse.status, 
-          count: purchaseItemsResponse.data?.length,
-          items: purchaseItemsResponse.data?.map(item => ({
-            product_id: item.product_id,
-            qty_received: item.quantity_received,
-            unit_cost: item.unit_cost,
-            purchase_date: item.purchases?.created_at,
-            purchase_status: item.purchases?.status
-          }))
-        });
-        console.log('Sale items response:', saleItemsResponse);
-        console.log('All sales response:', allSalesResponse);
+      const result = {
+        revenue,
+        salesCount,
+        totalCustomers,
+        lowStockCount: lowStockProducts.length,
+        outOfStockCount: outOfStockProducts.length,
+        totalProducts: products.length
+      };
 
-        // Check for errors
-        if (salesResponse.error) throw salesResponse.error;
-        if (productsResponse.error) throw productsResponse.error;
-        if (customersResponse.error) throw customersResponse.error;
-        if (purchasesResponse.error) throw purchasesResponse.error;
-        if (saleItemsResponse.error) throw saleItemsResponse.error;
-        if (allSalesResponse.error) throw allSalesResponse.error;
-        if (inventoryMovementsResponse.error) throw inventoryMovementsResponse.error;
-        if (purchaseItemsResponse.error) throw purchaseItemsResponse.error;
-        if (expiryProductsResponse.error) throw expiryProductsResponse.error;
-
-        // Enhanced metric calculations with better accuracy
-        const sales = salesResponse.data || [];
-        const products = productsResponse.data || [];
-        const purchases = purchasesResponse.data || [];
-        const saleItems = saleItemsResponse.data || [];
-        const allSales = allSalesResponse.data || [];
-        const inventoryMovements = inventoryMovementsResponse.data || [];
-        const purchaseItems = purchaseItemsResponse.data || [];
-        const expiryProducts = expiryProductsResponse.data || [];
-        
-        console.log('Purchase Items Data:', {
-          count: purchaseItems.length,
-          items: purchaseItems.map(item => ({
-            product_id: item.product_id,
-            qty_ordered: item.quantity_ordered,
-            qty_received: item.quantity_received,
-            unit_cost: item.unit_cost,
-            date: item.purchases?.created_at
-          }))
-        });
-
-        // Calculate accurate revenue (only completed sales)
-        const completedSales = sales.filter(sale => sale.status !== 'cancelled' && sale.status !== 'refunded');
-        const revenue = completedSales.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
-        const salesCount = completedSales.length;
-        
-        // Calculate total customers and active customers more accurately
-        const totalCustomers = customersResponse.count || 0;
-        const uniqueActiveCustomerIds = [...new Set(
-          allSales
-            .filter(sale => sale.customer_id)
-            .map(sale => sale.customer_id)
-        )];
-        const activeCustomers = uniqueActiveCustomerIds.length;
-        
-        // Calculate accurate purchase totals (only completed purchases)
-        const completedPurchases = purchases.filter(purchase => purchase.status !== 'cancelled');
-        const totalPurchases = completedPurchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
-        
-        // FIFO (First In, First Out) cost calculation with proper prorata distribution
-        const calculateFIFOCost = (productId: string, requiredQty: number) => {
-          const productPurchases = purchaseItems
-            .filter(item => item.product_id === productId)
-            .sort((a, b) => new Date(a.purchases.created_at).getTime() - new Date(b.purchases.created_at).getTime());
-          
-          console.log(`FIFO calculation for product ${productId}:`, {
-            requiredQty,
-            availablePurchases: productPurchases.length,
-            purchaseDetails: productPurchases.map(p => ({
-              qty_received: p.quantity_received,
-              unitCost: p.unit_cost,
-              date: p.purchases.created_at
-            }))
-          });
-
-          if (productPurchases.length === 0) {
-            console.log(`No purchase history found for product ${productId}`);
-            return 0;
-          }
-          
-          let totalCost = 0;
-          let remainingQty = requiredQty;
-          
-          // Process purchases in FIFO order (oldest first)
-          for (const purchase of productPurchases) {
-            if (remainingQty <= 0) break;
-            
-            const availableQty = purchase.quantity_received || 0;
-            const unitCost = purchase.unit_cost || 0;
-            
-            if (availableQty > 0 && unitCost > 0) {
-              // Take the minimum of what we need and what's available from this purchase
-              const qtyToTake = Math.min(availableQty, remainingQty);
-              const costForThisBatch = qtyToTake * unitCost;
-              
-              totalCost += costForThisBatch;
-              remainingQty -= qtyToTake;
-              
-              console.log(`FIFO batch: ${qtyToTake} units @ ${unitCost} = ${costForThisBatch}`);
-            }
-          }
-          
-          // If we couldn't fulfill the entire requirement from purchase history,
-          // use the most recent unit cost for the remaining quantity
-          if (remainingQty > 0 && productPurchases.length > 0) {
-            const lastPurchase = productPurchases[productPurchases.length - 1];
-            const fallbackCost = lastPurchase.unit_cost || 0;
-            const remainingCost = remainingQty * fallbackCost;
-            totalCost += remainingCost;
-            
-            console.log(`Remaining ${remainingQty} units valued at last purchase cost: ${fallbackCost} = ${remainingCost}`);
-          }
-          
-          console.log(`Final FIFO cost for ${productId}: ${totalCost} (${requiredQty} units)`);
-          return totalCost;
-        };
-
-        // Enhanced stock value calculations using FIFO costing
-        const productsWithVariants = products.map(product => {
-          // Calculate total stock from main product and variants
-          const mainStock = product.stock_quantity || 0;
-          const variantStock = (product.product_variants || []).reduce((sum, variant) => sum + (variant.stock_quantity || 0), 0);
-          const totalStock = mainStock + variantStock;
-          
-          // Use FIFO cost calculation for accurate cost values with proper fallbacks
-          let fifoCostValue = 0;
-          
-          if (totalStock > 0) {
-            // Try FIFO calculation first
-            fifoCostValue = calculateFIFOCost(product.id, totalStock);
-            
-            console.log(`FIFO calculation result for ${product.name}: ${fifoCostValue} for ${totalStock} units`);
-            
-            // If FIFO returns 0, use fallback calculations
-            if (fifoCostValue === 0) {
-              // Fallback 1: Use product cost price if available and > 0
-              if (product.cost_price && product.cost_price > 0) {
-                fifoCostValue = totalStock * product.cost_price;
-                console.log(`Using product cost price fallback for ${product.name}: ${totalStock} * ${product.cost_price} = ${fifoCostValue}`);
-              } 
-              // Fallback 2: Estimate from purchase amounts - but use a more conservative approach
-              else if (purchases.length > 0) {
-                // Use a simple estimation: if we have recent purchases, estimate cost at 70% of sale price
-                const estimatedUnitCost = product.price * 0.7; // 70% of sale price
-                fifoCostValue = totalStock * estimatedUnitCost;
-                console.log(`Using conservative estimate for ${product.name}: ${totalStock} * ${estimatedUnitCost} = ${fifoCostValue}`);
-              }
-              // Fallback 3: Use 60% of sale price as minimum cost estimate
-              else {
-                fifoCostValue = totalStock * (product.price * 0.6);
-                console.log(`Using minimum estimate for ${product.name}: ${totalStock} * ${product.price * 0.6} = ${fifoCostValue}`);
-              }
-            }
-          }
-          
-          const averageUnitCost = totalStock > 0 ? fifoCostValue / totalStock : 0;
-          
-          // Calculate sale values
-          const productSalePrice = product.price || 0;
-          const totalSaleValue = totalStock * productSalePrice;
-          
-          // Enhanced debugging for cost calculations
-          console.log(`Final calculation for ${product.name}:`, {
-            totalStock,
-            fifoCostValue,
-            averageUnitCost,
-            productCostPrice: product.cost_price,
-            productSalePrice,
-            totalSaleValue,
-            mainStock: product.stock_quantity,
-            variantStock: (product.product_variants || []).reduce((sum, v) => sum + (v.stock_quantity || 0), 0),
-            variants: (product.product_variants || []).map(v => ({ id: v.id, stock: v.stock_quantity }))
-          });
-          
-          return {
-            ...product,
-            totalStock,
-            totalCostValue: fifoCostValue,
-            totalSaleValue,
-            averageUnitCost
-          };
-        });
-        
-        const productsWithStock = productsWithVariants.filter(product => product.totalStock > 0);
-        const productsWithoutStock = productsWithVariants.filter(product => product.totalStock === 0);
-        
-        // Calculate actual inventory values using FIFO costing
-        const totalInventoryAtCost = productsWithVariants.reduce((sum, product) => sum + product.totalCostValue, 0);
-        const totalInventoryAtSale = productsWithVariants.reduce((sum, product) => sum + product.totalSaleValue, 0);
-        
-        console.log('Stock Value Calculations:', {
-          totalProducts: productsWithVariants.length,
-          productsWithStock: productsWithStock.length,
-          totalInventoryAtCost,
-          totalInventoryAtSale,
-          productsWithCostDetails: productsWithVariants.map(p => ({
-            name: p.name,
-            stock: p.totalStock,
-            costValue: p.totalCostValue,
-            saleValue: p.totalSaleValue
-          }))
-        });
-        
-        // Calculate weighted average cost from recent purchases (simplified)
-        const totalRecentPurchases = inventoryMovements.reduce((sum, purchase) => sum + (purchase.total_amount || 0), 0);
-        const avgPurchaseCost = inventoryMovements.length > 0 ? totalRecentPurchases / inventoryMovements.length : 0;
-        
-        // Calculate accurate COGS using multiple methods for validation
-        const cogsByActualCost = saleItems.reduce((sum, item) => {
-          const costPrice = item.products?.cost_price || 0;
-          const quantity = item.quantity || 0;
-          return sum + (quantity * costPrice);
-        }, 0);
-        
-        const cogsByWeightedAvg = saleItems.reduce((sum, item) => {
-          const quantity = item.quantity || 0;
-          const itemCost = item.products?.cost_price || avgPurchaseCost || (item.unit_price * 0.7);
-          return sum + (quantity * itemCost);
-        }, 0);
-        
-        // Use the more accurate COGS calculation
-        const cogs = cogsByActualCost > 0 ? cogsByActualCost : cogsByWeightedAvg;
-        const grossProfit = revenue - cogs;
-        const profitMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-        
-        // Enhanced product analysis
-        const profitableProducts = products.filter(product => {
-          const price = product.price || 0;
-          const cost = product.cost_price || 0;
-          return price > cost && cost > 0;
-        }).length;
-        
-        const lowStockProducts = productsWithVariants.filter(product => {
-          const currentStock = product.totalStock || 0;
-          const minStock = product.min_stock_level || 0;
-          return currentStock <= minStock && minStock > 0;
-        });
-        
-        const outOfStockProducts = products.filter(product => (product.stock_quantity || 0) === 0);
-        
-        // Calculate potential stock value (what we could have if fully stocked)
-        const potentialStockValue = products.reduce((sum, product) => {
-          const minStock = Math.max(product.min_stock_level || 0, 10); // Assume minimum 10 units
-          const price = product.price || 0;
-          return sum + (minStock * price);
-        }, 0);
-
-        // Calculate expiry alerts
-        const today = new Date();
-        const sevenDaysFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-        
-        const expiredProducts = expiryProducts.filter(item => {
-          const expiryDate = new Date(item.expiry_date);
-          return expiryDate < today;
-        });
-        
-        const nearExpiryProducts = expiryProducts.filter(item => {
-          const expiryDate = new Date(item.expiry_date);
-          return expiryDate >= today && expiryDate <= sevenDaysFromNow;
-        });
-        
-        const soonExpiryProducts = expiryProducts.filter(item => {
-          const expiryDate = new Date(item.expiry_date);
-          return expiryDate > sevenDaysFromNow && expiryDate <= thirtyDaysFromNow;
-        });
-
-        const result = {
-          revenue,
-          salesCount,
-          totalCustomers,
-          activeCustomers,
-          totalPurchases,
-          stockByPurchasePrice: totalInventoryAtCost,
-          stockBySalePrice: totalInventoryAtSale,
-          potentialStockValue,
-          profit: grossProfit,
-          profitMargin,
-          cogs,
-          avgPurchaseCost,
-          lowStockCount: lowStockProducts.length,
-          outOfStockCount: outOfStockProducts.length,
-          totalProducts: products.length,
-          productsWithStock: productsWithStock.length,
-          profitableProducts,
-          // Additional metrics for drill-down accuracy
-          completedSalesCount: salesCount,
-          completedPurchasesCount: completedPurchases.length,
-          uniqueCustomerIds: uniqueActiveCustomerIds,
-          totalSaleItems: saleItems.length,
-          avgSaleValue: salesCount > 0 ? revenue / salesCount : 0,
-          inventoryTurnover: totalInventoryAtCost > 0 ? cogs / totalInventoryAtCost : 0,
-          // Enhanced data for low stock products  
-          lowStockProducts: lowStockProducts.map(p => ({
-            id: p.id,
-            name: p.name,
-            sku: p.sku,
-            totalStock: p.totalStock,
-            min_stock_level: p.min_stock_level,
-            price: p.price
-          })),
-          // Expiry tracking
-          expiredProducts,
-          nearExpiryProducts,
-          soonExpiryProducts,
-          expiredCount: expiredProducts.length,
-          nearExpiryCount: nearExpiryProducts.length,
-          soonExpiryCount: soonExpiryProducts.length
-        };
-
-        console.log('=== FINAL CARD VALUES ===');
-        console.log('📊 Stock Value (Purchase):', totalInventoryAtCost);
-        console.log('📊 Stock Value (Sale):', totalInventoryAtSale);
-        console.log('📊 Total Revenue:', revenue);
-        console.log('📊 Total Customers:', totalCustomers);
-        console.log('📊 Products with detailed calculation:', productsWithVariants.map(p => ({
-          name: p.name,
-          stock: p.totalStock,
-          costValue: p.totalCostValue,
-          saleValue: p.totalSaleValue,
-          avgUnitCost: p.averageUnitCost
-        })));
-        console.log('🎯 Final dashboard data being returned:', result);
-
-        return {
-          data: result,
-          error: null
-        };
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        return {
-          data: {
-            revenue: 0,
-            salesCount: 0,
-            totalCustomers: 0,
-            activeCustomers: 0,
-            totalPurchases: 0,
-            stockByPurchasePrice: 0,
-            stockBySalePrice: 0,
-            potentialStockValue: 0,
-            profit: 0,
-            profitMargin: 0,
-            cogs: 0,
-            avgPurchaseCost: 0,
-            lowStockCount: 0,
-            outOfStockCount: 0,
-            totalProducts: 0,
-            productsWithStock: 0,
-            profitableProducts: 0,
-            completedSalesCount: 0,
-            completedPurchasesCount: 0,
-            uniqueCustomerIds: [],
-            totalSaleItems: 0,
-            avgSaleValue: 0,
-            inventoryTurnover: 0,
-            lowStockProducts: [],
-            expiredProducts: [],
-            nearExpiryProducts: [],
-            soonExpiryProducts: [],
-            expiredCount: 0,
-            nearExpiryCount: 0,
-            soonExpiryCount: 0
-          },
-          error: error
-        };
-      }
-    },
-    [tenantId, dateRange.startDate, dateRange.endDate],
-    {
-      enabled: !!tenantId,
-      staleTime: 30 * 1000, // 30 seconds cache for more real-time accuracy
-      cacheKey: `enhanced-dashboard-v2-${tenantId}-${dateRange.startDate}-${dateRange.endDate}`
+      console.log('🚀 Fast dashboard loaded:', result);
+      setDashboardData(result);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setDashboardData({
+        revenue: 0,
+        salesCount: 0,
+        totalCustomers: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+        totalProducts: 0
+      });
+    } finally {
+      setLoading(false);
     }
-  );
+  };
 
   console.log('🎯 CURRENT DASHBOARD DATA:', {
     loading,
     dashboardData,
-    tenantId,
-    dateRange,
-    dataKeys: dashboardData ? Object.keys(dashboardData) : 'no data'
+    tenantId
   });
 
   const businessStats = [
     {
-      title: "Revenue",
-      value: formatCurrency(dashboardData?.revenue || 0),
-      change: dashboardData?.revenue ? `${dashboardData.salesCount} sales` : "No sales",
-      changeType: dashboardData?.revenue ? "positive" : "neutral",
+      title: "Today's Revenue",
+      value: dashboardData?.revenue || 0,
       icon: DollarSign,
-      description: "selected period",
-      trend: [0, 0, 0, dashboardData?.revenue || 0]
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      change: "+0%",
+      trend: "up"
     },
     {
-      title: "Total Purchases",
-      value: formatCurrency(dashboardData?.totalPurchases || 0),
-      change: dashboardData?.totalPurchases ? "purchases made" : "No purchases",
-      changeType: dashboardData?.totalPurchases ? "neutral" : "neutral", 
-      icon: ShoppingCart,
-      description: "selected period",
-      trend: [0, 0, 0, dashboardData?.totalPurchases || 0]
-    },
-    {
-      title: "Stock Value (Purchase)",
-      value: formatCurrency(dashboardData?.stockByPurchasePrice || 0),
-      change: dashboardData?.outOfStockCount > 0 
-        ? `${dashboardData.outOfStockCount} out of stock` 
-        : dashboardData?.lowStockCount > 0 
-        ? `${dashboardData.lowStockCount} low stock` 
-        : `${dashboardData?.productsWithStock || 0} in stock`,
-      changeType: dashboardData?.outOfStockCount > 0 
-        ? "warning" 
-        : dashboardData?.lowStockCount > 0 
-        ? "warning" 
-        : "positive",
-      icon: Boxes,
-      description: "at cost price",
-      trend: [0, 0, 0, dashboardData?.stockByPurchasePrice || 0]
-    },
-    {
-      title: "Stock Value (Sale)",
-      value: formatCurrency(dashboardData?.stockBySalePrice || 0),
-      change: dashboardData?.stockBySalePrice > 0 
-        ? "potential revenue" 
-        : "no stock value",
-      changeType: dashboardData?.stockBySalePrice > 0 ? "positive" : "warning",
-      icon: TrendingUp,
-      description: "at selling price",
-      trend: [0, 0, 0, dashboardData?.stockBySalePrice || 0]
-    },
-    {
-      title: "Profit",
-      value: formatCurrency(dashboardData?.profit || 0),
-      change: dashboardData?.profitMargin 
-        ? `${dashboardData.profitMargin.toFixed(1)}% margin` 
-        : dashboardData?.profit && dashboardData.profit > 0 
-        ? "profitable" 
-        : dashboardData?.profit && dashboardData.profit < 0 
-        ? "loss" 
-        : "break even",
-      changeType: dashboardData?.profit && dashboardData.profit > 0 ? "positive" : dashboardData?.profit && dashboardData.profit < 0 ? "warning" : "neutral",
-      icon: dashboardData?.profit && dashboardData.profit < 0 ? TrendingDown : PiggyBank,
-      description: "gross profit",
-      trend: [0, 0, 0, Math.abs(dashboardData?.profit || 0)]
-    },
-    {
-      title: "Active Customers",
-      value: (dashboardData?.activeCustomers || 0).toString(),
-      change: dashboardData?.totalCustomers 
-        ? `${Math.round((dashboardData.activeCustomers / dashboardData.totalCustomers) * 100)}% of total` 
-        : "no customers",
-      changeType: dashboardData?.activeCustomers ? "positive" : "neutral",
+      title: "Total Customers",
+      value: dashboardData?.totalCustomers || 0,
       icon: Users,
-      description: "unique buyers",
-      trend: [0, 0, 0, dashboardData?.activeCustomers || 0]
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      change: "+0%",
+      trend: "up"
     },
     {
-      title: "Profitable Products",
-      value: (dashboardData?.profitableProducts || 0).toString(),
-      change: dashboardData?.profitableProducts ? "with positive margin" : "no profitable items",
-      changeType: dashboardData?.profitableProducts ? "positive" : "warning",
-      icon: TrendingUp,
-      description: "in catalog",
-      trend: [0, 0, 0, dashboardData?.profitableProducts || 0]
+      title: "Today's Sales",
+      value: dashboardData?.salesCount || 0,
+      icon: ShoppingCart,
+      color: "text-purple-600", 
+      bgColor: "bg-purple-50",
+      change: "+0%",
+      trend: "up"
+    },
+    {
+      title: "Low Stock Items",
+      value: dashboardData?.lowStockCount || 0,
+      icon: AlertTriangle,
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+      change: "+0%",
+      trend: "up"
     }
   ];
 
-  const quickActions = [
+  const productStats = [
     {
-      title: "New Sale",
-      description: "Process a transaction",
-      icon: ShoppingCart,
-      href: "/admin/sales",
-      color: "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200",
-      iconColor: "text-green-600",
-      primary: true
-    },
-    {
-      title: "Add Product", 
-      description: "Expand your inventory",
+      title: "Total Products",
+      value: dashboardData?.totalProducts || 0,
       icon: Package,
-      href: "/admin/products",
-      color: "bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200",
-      iconColor: "text-blue-600"
+      color: "text-green-600",
+      bgColor: "bg-green-50"
     },
     {
-      title: "View Reports",
-      description: "Business analytics",
-      icon: BarChart3,
-      href: "/admin/reports",
-      color: "bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200",
-      iconColor: "text-purple-600"
+      title: "Low Stock Items",
+      value: dashboardData?.lowStockCount || 0,
+      icon: AlertTriangle,
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-50"
     },
     {
-      title: "Manage Team",
-      description: "Staff & permissions",
-      icon: Users,
-      href: "/admin/team",
-      color: "bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200",
-      iconColor: "text-orange-600"
+      title: "Out of Stock",
+      value: dashboardData?.outOfStockCount || 0,
+      icon: XCircle,
+      color: "text-red-600",
+      bgColor: "bg-red-50"
     }
   ];
 
-  // Generate real activity based on actual data
-  const recentActivity = [];
-  
-  if (dashboardData?.revenue && dashboardData.revenue > 0) {
-    recentActivity.push({
-      id: "#PERIOD",
-      type: "sales_summary",
-      customer: "Period Sales",
-      amount: formatCurrency(dashboardData.revenue),
-      time: "Selected Period",
-      status: "completed",
-      description: `${dashboardData.salesCount} sale(s) completed`
-    });
-  } else {
-    recentActivity.push({
-      id: "#NONE",
-      type: "info",
-      customer: "No Sales",
-      amount: formatCurrency(0),
-      time: "Selected Period",
-      status: "info",
-      description: "No transactions recorded for selected period"
-    });
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
-
-  const alerts = [];
-  
-  if (dashboardData?.lowStockCount && dashboardData.lowStockCount > 0) {
-    alerts.push({
-      type: "warning",
-      message: `${dashboardData.lowStockCount} products are running low on stock`,
-      action: "View inventory",
-      time: "Now",
-      dialogType: "low-stock"
-    });
-  }
-
-  if (!dashboardData?.revenue || dashboardData.revenue === 0) {
-    alerts.push({
-      type: "info", 
-      message: "No sales recorded for selected period - consider promoting your products",
-      action: "View promotions",
-      time: "Now",
-      dialogType: null
-    });
-  }
-
-  // Expiry alerts
-  if (dashboardData?.expiredCount && dashboardData.expiredCount > 0) {
-    alerts.push({
-      type: "error",
-      message: `${dashboardData.expiredCount} product batch${dashboardData.expiredCount > 1 ? 'es have' : ' has'} expired and should be removed`,
-      action: "View expired items",
-      time: "Now",
-      dialogType: "expired"
-    });
-  }
-  
-  if (dashboardData?.nearExpiryCount && dashboardData.nearExpiryCount > 0) {
-    alerts.push({
-      type: "warning",
-      message: `${dashboardData.nearExpiryCount} product batch${dashboardData.nearExpiryCount > 1 ? 'es expire' : ' expires'} within 7 days`,
-      action: "View expiring soon",
-      time: "Now",
-      dialogType: "near-expiry"
-    });
-  }
-  
-  if (dashboardData?.soonExpiryCount && dashboardData.soonExpiryCount > 0) {
-    alerts.push({
-      type: "info",
-      message: `${dashboardData.soonExpiryCount} product batch${dashboardData.soonExpiryCount > 1 ? 'es expire' : ' expires'} within 30 days`,
-      action: "View upcoming expiry",
-      time: "Now",
-      dialogType: "soon-expiry"
-    });
-  }
-
-  // Chart colors
-  const chartColors = {
-    primary: "hsl(var(--primary))",
-    secondary: "hsl(var(--secondary))",
-    muted: "hsl(var(--muted-foreground))",
-    success: "#10b981",
-    warning: "#f59e0b",
-    danger: "#ef4444",
-    info: "#3b82f6"
-  };
-
-  // Prepare chart data
-  const revenueChartData = [
-    { name: 'Previous Period', revenue: 0, sales: 0 },
-    { name: 'Current Period', revenue: dashboardData?.revenue || 0, sales: dashboardData?.salesCount || 0 }
-  ];
-
-  const stockChartData = [
-    { name: 'Cost Value', value: dashboardData?.stockByPurchasePrice || 0, fill: chartColors.info },
-    { name: 'Sale Value', value: dashboardData?.stockBySalePrice || 0, fill: chartColors.success },
-    { name: 'Potential Value', value: dashboardData?.potentialStockValue || 0, fill: chartColors.warning }
-  ];
-
-  const performanceChartData = [
-    { metric: 'Revenue', value: dashboardData?.revenue || 0, target: (dashboardData?.potentialStockValue || 0) * 0.3 },
-    { metric: 'Profit', value: dashboardData?.profit || 0, target: (dashboardData?.revenue || 0) * 0.2 },
-    { metric: 'Stock Value', value: dashboardData?.stockBySalePrice || 0, target: dashboardData?.potentialStockValue || 0 },
-    { metric: 'Customers', value: dashboardData?.activeCustomers || 0, target: Math.max((dashboardData?.totalCustomers || 0) * 0.5, 10) }
-  ];
-
-  const profitabilityData = [
-    { name: 'Profitable', value: dashboardData?.profitableProducts || 0, fill: chartColors.success },
-    { name: 'Break Even', value: Math.max(0, (dashboardData?.totalProducts || 0) - (dashboardData?.profitableProducts || 0) - (dashboardData?.outOfStockCount || 0)), fill: chartColors.warning },
-    { name: 'Out of Stock', value: dashboardData?.outOfStockCount || 0, fill: chartColors.danger }
-  ];
-
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Welcome Section */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">
-          {getTimeBasedGreeting()}, {userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0]}!
-        </h1>
-        <p className="text-muted-foreground">
-          Here's what's happening with your business.
-        </p>
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {getTimeBasedGreeting()}, {userProfile?.full_name || user?.email?.split('@')[0] || 'User'}!
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Here's what's happening with your business today.
+          </p>
+        </div>
+        <Button 
+          onClick={fetchDashboardData}
+          variant="outline" 
+          size="sm"
+          disabled={loading}
+        >
+          {loading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+          ) : (
+            <ArrowUpRight className="h-4 w-4 mr-2" />
+          )}
+          Refresh
+        </Button>
       </div>
 
-      {/* Date Filter Section */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4 overflow-x-auto">
-            <div className="flex items-center gap-2">
-              <Label>Start Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[140px] justify-start text-left font-normal",
-                      !dateRange.startDate && "text-muted-foreground"
+      {/* Subscription Status */}
+      {currentSubscription && (
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Crown className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium">{currentSubscription.billing_plans?.name || 'Current Plan'}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {effectivePricing ? (
+                      <>
+                        {formatPrice(effectivePricing.effective_amount)}/{currentSubscription.billing_plans?.period}
+                        {effectivePricing.is_custom && (
+                          <Badge variant="secondary" className="ml-2">Custom Pricing</Badge>
+                        )}
+                      </>
+                    ) : (
+                      `${formatPrice(currentSubscription.billing_plans?.price || 0)}/${currentSubscription.billing_plans?.period}`
                     )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange.startDate ? format(dateRange.startDate, "MMM dd") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateRange.startDate}
-                    onSelect={(date) => date && setDateRange(prev => ({ ...prev, startDate: date }))}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label>End Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[140px] justify-start text-left font-normal",
-                      !dateRange.endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange.endDate ? format(dateRange.endDate, "MMM dd") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateRange.endDate}
-                    onSelect={(date) => date && setDateRange(prev => ({ ...prev, endDate: date }))}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                variant="default"
-                size="sm"
-                onClick={() => {
-                  const today = new Date();
-                  setDateRange({
-                    startDate: today,
-                    endDate: today
-                  });
-                }}
+                  </p>
+                </div>
+              </div>
+              <Badge 
+                variant={currentSubscription.status === 'active' ? 'default' : 'secondary'}
+                className="capitalize"
               >
-                Today
-              </Button>
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const today = new Date();
-                  const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                  setDateRange({
-                    startDate: lastWeek,
-                    endDate: today
-                  });
-                }}
-              >
-                Last 7 Days
-              </Button>
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const today = new Date();
-                  const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                  setDateRange({
-                    startDate: lastMonth,
-                    endDate: today
-                  });
-                }}
-              >
-                Last 30 Days
-              </Button>
+                {currentSubscription.status}
+              </Badge>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Business Overview Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {businessStats.map((stat, index) => (
+          <Card key={index} className="relative overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-muted-foreground truncate">
+                    {stat.title}
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {stat.title.includes('Revenue') 
+                      ? formatCurrency(stat.value) 
+                      : stat.value.toLocaleString()
+                    }
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Product Stats */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {productStats.map((stat, index) => (
+          <Card key={index}>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </p>
+                  <p className="text-xl font-bold">
+                    {stat.value.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Cash Drawer */}
+      <CashDrawerCard 
+        key={cashDrawerRefreshKey} 
+        dateRange={{
+          startDate: format(new Date(), 'yyyy-MM-dd'),
+          endDate: format(new Date(), 'yyyy-MM-dd')
+        }}
+      />
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5" />
+            <span>Quick Actions</span>
+          </CardTitle>
+          <CardDescription>
+            Common business operations to get you started
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
+              <Link to="/admin/sales">
+                <ShoppingCart className="h-5 w-5" />
+                <span className="text-sm">New Sale</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
+              <Link to="/admin/products">
+                <Package className="h-5 w-5" />
+                <span className="text-sm">Manage Products</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
+              <Link to="/admin/customers">
+                <Users className="h-5 w-5" />
+                <span className="text-sm">Customers</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto p-4 flex-col space-y-2">
+              <Link to="/admin/reports">
+                <BarChart3 className="h-5 w-5" />
+                <span className="text-sm">View Reports</span>
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-        {/* Alerts Bar */}
-        {alerts.length > 0 && (
-          <div className="mb-6 flex gap-3 overflow-x-auto">
-            {alerts.map((alert, index) => (
-              <div key={index} className={`flex items-center justify-between rounded-lg p-3 min-h-[56px] flex-shrink-0 min-w-[300px] ${
-                alert.type === 'error' 
-                  ? 'bg-red-50 border border-red-200' 
-                  : alert.type === 'warning' 
-                  ? 'bg-orange-50 border border-orange-200' 
-                  : 'bg-blue-50 border border-blue-200'
-              }`}>
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <AlertTriangle className={`h-4 w-4 flex-shrink-0 ${
-                    alert.type === 'error' 
-                      ? 'text-red-600' 
-                      : alert.type === 'warning' 
-                      ? 'text-orange-600' 
-                      : 'text-blue-600'
-                  }`} />
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className={`text-sm font-medium truncate ${
-                      alert.type === 'error' 
-                        ? 'text-red-900' 
-                        : alert.type === 'warning' 
-                        ? 'text-orange-900' 
-                        : 'text-blue-900'
-                    }`}>{alert.message}</span>
-                    <span className={`text-xs whitespace-nowrap flex-shrink-0 ${
-                      alert.type === 'error' 
-                        ? 'text-red-600' 
-                        : alert.type === 'warning' 
-                        ? 'text-orange-600' 
-                        : 'text-blue-600'
-                    }`}>• {alert.time}</span>
-                  </div>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={`${
-                    alert.type === 'error' 
-                      ? 'text-red-700 hover:text-red-900' 
-                      : alert.type === 'warning' 
-                      ? 'text-orange-700 hover:text-orange-900' 
-                      : 'text-blue-700 hover:text-blue-900'
-                  }`}
-                  onClick={() => alert.dialogType && setOpenDialog(alert.dialogType)}
-                  disabled={!alert.dialogType}
-                >
-                  {alert.action}
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Dashboard Tabs */}
-        <Tabs defaultValue="metrics" className="mb-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="metrics">Business Metrics</TabsTrigger>
-            <TabsTrigger value="trends">Chart Trends</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="metrics" className="mt-6">
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardHeader className="space-y-0 pb-2">
-                      <div className="h-4 bg-muted rounded w-3/4"></div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-8 bg-muted rounded w-1/2 mb-2"></div>
-                      <div className="h-3 bg-muted rounded w-full"></div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {/* Cash Drawer Card */}
-              <CashDrawerCard dateRange={{
-                startDate: format(dateRange.startDate, 'yyyy-MM-dd'),
-                endDate: format(dateRange.endDate, 'yyyy-MM-dd')
-              }} refreshKey={cashDrawerRefreshKey} />
-              {businessStats.map((stat, index) => {
-                const Icon = stat.icon;
-                const isPositive = stat.changeType === 'positive';
-                const isWarning = stat.changeType === 'warning';
-                const isNeutral = stat.changeType === 'neutral';
-                
-                 const getNavigationPath = (title: string) => {
-                   const params = new URLSearchParams({
-                     startDate: format(dateRange.startDate, 'yyyy-MM-dd'),
-                     endDate: format(dateRange.endDate, 'yyyy-MM-dd'),
-                     tenantId: tenantId || ''
-                   });
-                  
-                  switch (title) {
-                    case 'Revenue':
-                    case 'Profit':
-                      return `/admin/reports?${params}&tab=financial`;
-                    case 'Active Customers':
-                      return `/admin/customers?${params}&filter=active`;
-                    case 'Stock Value (Purchase)':
-                    case 'Stock Value (Sale)':
-                      return `/admin/products?${params}&tab=inventory`;
-                    case 'Total Purchases':
-                      return `/admin/purchases?${params}&status=completed`;
-                    case 'Profitable Products':
-                      return `/admin/products?${params}&filter=profitable`;
-                    default:
-                      return '/admin';
-                  }
-                };
-                
-                return (
-                  <Link key={index} to={getNavigationPath(stat.title)}>
-                    <Card className="relative overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1 cursor-pointer">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          {stat.title}
-                        </CardTitle>
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          isWarning ? 'bg-orange-100' : isPositive ? 'bg-green-100' : 'bg-gray-100'
-                        }`}>
-                          <Icon className={`h-4 w-4 ${
-                            isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-gray-600'
-                          }`} />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold mb-1">{stat.value}</div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            {isPositive && <ArrowUpRight className="h-3 w-3 text-green-600" />}
-                            {isWarning && <AlertTriangle className="h-3 w-3 text-orange-600" />}
-                            <span className={`text-xs font-medium ${
-                              isWarning ? 'text-orange-600' : isPositive ? 'text-green-600' : 'text-muted-foreground'
-                            }`}>
-                              {stat.change}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{stat.description}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="trends" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Revenue & Sales Performance Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue & Sales Performance</CardTitle>
-                  <CardDescription>Revenue vs target performance</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={performanceChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartColors.muted} />
-                        <XAxis dataKey="metric" fontSize={12} />
-                        <YAxis fontSize={12} />
-                        <Tooltip 
-                          formatter={(value, name) => [formatCurrency(Number(value)), name === 'value' ? 'Actual' : 'Target']}
-                          labelStyle={{ color: 'hsl(var(--foreground))' }}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px'
-                          }}
-                        />
-                        <Legend />
-                        <Bar dataKey="value" fill={chartColors.primary} name="Actual" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="target" fill={chartColors.muted} name="Target" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Stock Value Breakdown */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Stock Value Breakdown</CardTitle>
-                  <CardDescription>Cost vs Sale vs Potential values</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={stockChartData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {stockChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value) => [formatCurrency(Number(value)), 'Value']}
-                          labelStyle={{ color: 'hsl(var(--foreground))' }}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px'
-                          }}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Product Profitability Analysis */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Product Profitability</CardTitle>
-                  <CardDescription>Distribution of profitable vs out-of-stock products</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={profitabilityData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {profitabilityData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value) => [value, 'Products']}
-                          labelStyle={{ color: 'hsl(var(--foreground))' }}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px'
-                          }}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Business Metrics Trend */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Business Overview</CardTitle>
-                  <CardDescription>Key performance indicators</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={revenueChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartColors.muted} />
-                        <XAxis dataKey="name" fontSize={12} />
-                        <YAxis fontSize={12} />
-                        <Tooltip 
-                          formatter={(value, name) => [
-                            name === 'revenue' ? formatCurrency(Number(value)) : value,
-                            name === 'revenue' ? 'Revenue' : 'Sales Count'
-                          ]}
-                          labelStyle={{ color: 'hsl(var(--foreground))' }}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '6px'
-                          }}
-                        />
-                        <Legend />
-                        <Area
-                          type="monotone"
-                          dataKey="revenue"
-                          stackId="1"
-                          stroke={chartColors.success}
-                          fill={chartColors.success}
-                          fillOpacity={0.6}
-                          name="Revenue"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Quick Actions Grid */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Quick Actions</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon;
-              return (
-                <Link key={index} to={action.href}>
-                  <Card className={`${action.color} hover:shadow-lg transition-all duration-200 hover:-translate-y-1 cursor-pointer group ${action.primary ? 'ring-2 ring-green-200' : ''}`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className={`w-10 h-10 rounded-lg ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                          <Icon className={`h-5 w-5 ${action.iconColor}`} />
-                        </div>
-                        {action.primary && (
-                          <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
-                            Primary
-                          </Badge>
-                        )}
-                      </div>
-                      <CardTitle className="text-base font-semibold">{action.title}</CardTitle>
-                      <CardDescription className="text-sm">{action.description}</CardDescription>
-                    </CardHeader>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Activity and Performance */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Recent Activity */}
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest business transactions</CardDescription>
-                </div>
-                <Button variant="ghost" size="sm">
-                  <Eye className="h-4 w-4 mr-2" />
-                  View All
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="p-4 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-2 h-2 rounded-full ${
-                          activity.status === 'completed' ? 'bg-green-500' : 
-                          activity.status === 'refunded' ? 'bg-red-500' : 'bg-blue-500'
-                        }`} />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm">{activity.id}</p>
-                            <Badge variant="outline" className="text-xs">
-                              {activity.type}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{activity.customer}</p>
-                          <p className="text-xs text-muted-foreground">{activity.description}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`font-medium ${activity.amount.startsWith('-') ? 'text-red-600' : 'text-green-600'}`}>
-                          {activity.amount}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{activity.time}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Performance Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Period Performance</CardTitle>
-              <CardDescription>Sales summary and key metrics for selected period</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                  <div>
-                    <p className="text-sm text-green-700 font-medium">Total Revenue</p>
-                    <p className="text-2xl font-bold text-green-900">{formatCurrency(dashboardData?.revenue || 0)}</p>
-                  </div>
-                  <div className="text-right">
-                    <TrendingUp className="h-6 w-6 text-green-600 mb-1" />
-                    <Badge className="bg-green-100 text-green-700">Period</Badge>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Sales Count</span>
-                    <span className="font-semibold">{dashboardData?.salesCount || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Average Sale Value</span>
-                    <span className="font-semibold">{formatCurrency(dashboardData?.revenue && dashboardData?.salesCount ? dashboardData.revenue / dashboardData.salesCount : 0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Profit</span>
-                    <span className={`font-semibold ${dashboardData?.profit && dashboardData.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatCurrency(dashboardData?.profit || 0)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Products in Catalog</span>
-                    <span className="font-semibold">{dashboardData?.totalProducts || 0}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Footer with system version */}
-        <footer className="mt-8 border-t border-border bg-muted/30 px-6 py-4">
-          <div className="flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">
-              VibePOS System Version 1.0.0
-            </p>
-          </div>
-        </footer>
-
-      {/* Floating AI Assistant */}
+      {/* AI Assistant */}
       <FloatingAIAssistant />
-
-      {/* Alert Detail Modals */}
-      <Dialog open={openDialog === 'low-stock'} onOpenChange={() => setOpenDialog(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              Low Stock Products
-            </DialogTitle>
-            <DialogDescription>
-              These products are running low on stock and need restocking.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <div className="space-y-3">
-              {dashboardData?.lowStockProducts?.map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-medium">{product.name}</h4>
-                    <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm">
-                        <span className="font-medium text-orange-600">{product.totalStock}</span>
-                        <span className="text-muted-foreground"> / {product.min_stock_level} min</span>
-                      </div>
-                      <Badge variant="outline" className="text-orange-600 border-orange-200">
-                        Low Stock
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Price: {formatCurrency(product.price)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openDialog === 'expired'} onOpenChange={() => setOpenDialog(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-600" />
-              Expired Products
-            </DialogTitle>
-            <DialogDescription>
-              These product batches have expired and should be removed from inventory.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <div className="space-y-3">
-              {dashboardData?.expiredProducts?.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg bg-red-50 border-red-200">
-                  <div className="flex-1">
-                    <h4 className="font-medium">{item.products.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Expired: {new Date(item.expiry_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-red-600">{item.quantity_received} units</span>
-                      <Badge variant="destructive">Expired</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Days overdue: {Math.floor((new Date().getTime() - new Date(item.expiry_date).getTime()) / (1000 * 60 * 60 * 24))}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openDialog === 'near-expiry'} onOpenChange={() => setOpenDialog(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-orange-600" />
-              Products Expiring Soon
-            </DialogTitle>
-            <DialogDescription>
-              These product batches expire within 7 days and should be prioritized for sale.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <div className="space-y-3">
-              {dashboardData?.nearExpiryProducts?.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg bg-orange-50 border-orange-200">
-                  <div className="flex-1">
-                    <h4 className="font-medium">{item.products.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Expires: {new Date(item.expiry_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-orange-600">{item.quantity_received} units</span>
-                      <Badge variant="outline" className="text-orange-600 border-orange-200">
-                        {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openDialog === 'soon-expiry'} onOpenChange={() => setOpenDialog(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              Upcoming Expiry Products
-            </DialogTitle>
-            <DialogDescription>
-              These product batches expire within 30 days. Monitor closely for planning.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <div className="space-y-3">
-              {dashboardData?.soonExpiryProducts?.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-medium">{item.products.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Expires: {new Date(item.expiry_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{item.quantity_received} units</span>
-                      <Badge variant="outline" className="text-blue-600 border-blue-200">
-                        {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days left
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
