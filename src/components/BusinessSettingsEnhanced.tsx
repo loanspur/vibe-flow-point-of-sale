@@ -822,17 +822,17 @@ export function BusinessSettingsEnhanced() {
 
   const filteredCurrencies = currencySearch
     ? currencies.filter(currency => 
-        currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
-        currency.name.toLowerCase().includes(currencySearch.toLowerCase())
-      )
-    : currencies;
+        currency.code && currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
+        currency.name && currency.name.toLowerCase().includes(currencySearch.toLowerCase())
+      ).filter(currency => currency.code && currency.code.trim() !== '')
+    : currencies.filter(currency => currency.code && currency.code.trim() !== '');
 
   const filteredTimezones = timezoneSearch
     ? timezones.filter(timezone => 
-        timezone.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
-        timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
-      )
-    : timezones;
+        timezone.label && timezone.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
+        timezone.value && timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
+      ).filter(timezone => timezone.value && timezone.value.trim() !== '')
+    : timezones.filter(timezone => timezone.value && timezone.value.trim() !== '');
 
   const countryOptions = COUNTRY_LIST;
 
