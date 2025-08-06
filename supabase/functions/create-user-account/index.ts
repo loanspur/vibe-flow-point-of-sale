@@ -62,87 +62,186 @@ const handler = async (req: Request): Promise<Response> => {
     let isNewUser = true;
     let userStatus = 'created';
 
-    console.log('Creating user in auth system...');
+    // First check if user already exists
+    console.log('Checking if user already exists...');
+    const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+    
+    if (existingUser && !getUserError) {
+      console.log('User already exists in auth system:', existingUser.id);
+      userId = existingUser.id;
+      isNewUser = false;
+      userStatus = 'existing';
+      
+      // Check if user already has a profile
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+        
+      if (existingProfile) {
+        console.log('User already has a profile, updating role and tenant...');
+        // Update existing profile
+        const { data: profileData, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            role: role as 'admin' | 'manager' | 'user' | 'cashier',
+            tenant_id: tenantId,
+            require_password_change: true,
+            email_verified: true
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
+          
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+          throw new Error(`Failed to update user profile: ${profileError.message}`);
+        }
+        
+        console.log('Profile updated successfully:', profileData);
+      } else {
+        console.log('Creating profile for existing user...');
+        // Create new profile for existing user
+        const { data: profileData, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .insert({
+            user_id: userId,
+            full_name: fullName,
+            role: role as 'admin' | 'manager' | 'user' | 'cashier',
+            tenant_id: tenantId,
+            require_password_change: true,
+            email_verified: true
+          })
+          .select()
+          .single();
 
-    // Create user with admin API
-    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: {
-        full_name: fullName,
-        tenant_id: tenantId,
-        role: role
-      },
-      email_confirm: true
-    });
-
-    if (createError) {
-      console.error('Error creating user in auth:', createError);
-      throw new Error(`Failed to create user: ${createError.message}`);
-    }
-
-    if (!authData?.user) {
-      throw new Error('User creation failed - no user data returned');
-    }
-
-    userId = authData.user.id;
-    console.log('User created successfully in auth:', userId);
-
-    // Create profile record
-    console.log('Creating profile record...');
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        user_id: userId,
-        full_name: fullName,
-        role: role as 'admin' | 'manager' | 'user' | 'cashier',
-        tenant_id: tenantId,
-        require_password_change: true,
-        email_verified: true
-      })
-      .select()
-      .single();
-
-    if (profileError) {
-      console.error('Error creating profile:', profileError);
-      // Clean up auth user if profile creation fails
-      try {
-        await supabaseAdmin.auth.admin.deleteUser(userId);
-      } catch (cleanupError) {
-        console.error('Failed to cleanup auth user:', cleanupError);
+        if (profileError) {
+          console.error('Error creating profile for existing user:', profileError);
+          throw new Error(`Failed to create user profile: ${profileError.message}`);
+        }
+        
+        console.log('Profile created for existing user:', profileData);
       }
-      throw new Error(`Failed to create user profile: ${profileError.message}`);
+    } else {
+      console.log('Creating new user in auth system...');
+      // Create user with admin API
+      const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        user_metadata: {
+          full_name: fullName,
+          tenant_id: tenantId,
+          role: role
+        },
+        email_confirm: true
+      });
+
+      if (createError) {
+        console.error('Error creating user in auth:', createError);
+        throw new Error(`Failed to create user: ${createError.message}`);
+      }
+
+      if (!authData?.user) {
+        throw new Error('User creation failed - no user data returned');
+      }
+
+      userId = authData.user.id;
+      console.log('User created successfully in auth:', userId);
+
+      // Create profile record
+      console.log('Creating profile record...');
+      const { data: profileData, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          full_name: fullName,
+          role: role as 'admin' | 'manager' | 'user' | 'cashier',
+          tenant_id: tenantId,
+          require_password_change: true,
+          email_verified: true
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+        // Clean up auth user if profile creation fails
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(userId);
+        } catch (cleanupError) {
+          console.error('Failed to cleanup auth user:', cleanupError);
+        }
+        throw new Error(`Failed to create user profile: ${profileError.message}`);
+      }
+
+      console.log('Profile created successfully:', profileData);
     }
 
     console.log('Profile created successfully:', profileData);
 
-    // Create tenant_users record
-    console.log('Creating tenant_users record...');
+    // Create or update tenant_users record
+    console.log('Creating/updating tenant_users record...');
     const tenantRole = role === 'admin' ? 'admin' : 
                       role === 'manager' ? 'manager' : 
                       role === 'cashier' ? 'user' : 'user';
 
-    const { data: tenantUserData, error: tenantUserError } = await supabaseAdmin
+    // Check if tenant user relationship already exists
+    const { data: existingTenantUser } = await supabaseAdmin
       .from('tenant_users')
-      .insert({
-        tenant_id: tenantId,
-        user_id: userId,
-        role: tenantRole,
-        is_active: true
-      })
-      .select()
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', userId)
       .single();
 
-    if (tenantUserError) {
-      console.error('Error creating tenant user:', tenantUserError);
-      // Clean up on failure
-      try {
-        await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
-        await supabaseAdmin.auth.admin.deleteUser(userId);
-      } catch (cleanupError) {
-        console.error('Failed to cleanup on tenant user creation failure:', cleanupError);
+    let tenantUserData;
+    if (existingTenantUser) {
+      console.log('Updating existing tenant user relationship...');
+      const { data, error: tenantUserError } = await supabaseAdmin
+        .from('tenant_users')
+        .update({
+          role: tenantRole,
+          is_active: true
+        })
+        .eq('tenant_id', tenantId)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (tenantUserError) {
+        console.error('Error updating tenant user:', tenantUserError);
+        throw new Error(`Failed to update tenant user: ${tenantUserError.message}`);
       }
-      throw new Error(`Failed to create tenant user: ${tenantUserError.message}`);
+      tenantUserData = data;
+      userStatus = 'reactivated';
+    } else {
+      console.log('Creating new tenant user relationship...');
+      const { data, error: tenantUserError } = await supabaseAdmin
+        .from('tenant_users')
+        .insert({
+          tenant_id: tenantId,
+          user_id: userId,
+          role: tenantRole,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (tenantUserError) {
+        console.error('Error creating tenant user:', tenantUserError);
+        // Only cleanup if this was a new user
+        if (isNewUser) {
+          try {
+            await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
+            await supabaseAdmin.auth.admin.deleteUser(userId);
+          } catch (cleanupError) {
+            console.error('Failed to cleanup on tenant user creation failure:', cleanupError);
+          }
+        }
+        throw new Error(`Failed to create tenant user: ${tenantUserError.message}`);
+      }
+      tenantUserData = data;
     }
 
     console.log('Tenant user created successfully:', tenantUserData);
