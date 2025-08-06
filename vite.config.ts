@@ -8,6 +8,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    hmr: {
+      overlay: false,
+      port: 24678
+    },
+    force: true
   },
   plugins: [
     react(),
@@ -39,9 +44,16 @@ export default defineConfig(({ mode }) => ({
     cssMinify: true,
     reportCompressedSize: false,
     chunkSizeWarningLimit: 1000,
-    sourcemap: false, // Disable sourcemaps in production for smaller bundle
+    sourcemap: false,
+    // Enhanced build optimizations
+    assetsInlineLimit: 8192,
+    emptyOutDir: true,
     optimizeDeps: {
-      include: ['react', 'react-dom', '@supabase/supabase-js']
-    }
+      include: ['react', 'react-dom', '@supabase/supabase-js'],
+      force: false
+    },
+    // Faster builds
+    write: true,
+    copyPublicDir: true
   }
 }));
