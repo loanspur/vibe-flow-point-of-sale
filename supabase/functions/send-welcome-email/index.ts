@@ -47,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResponse = await resend.emails.send({
-      from: "VibePOS Team <noreply@vibepos.com>",
+      from: "VibePOS Team <noreply@vibenet.shop>",
       to: [contactEmail],
       subject: `Welcome to VibePOS, ${tenantName}!`,
       html: `

@@ -295,7 +295,7 @@ serve(async (req) => {
 
         // Send email
         const { error: emailError } = await resend.emails.send({
-          from: 'VibePOS <billing@vibepos.com>',
+          from: 'VibePOS <billing@vibenet.shop>',
           to: [notification.contact_email],
           subject,
           html: emailHtml,

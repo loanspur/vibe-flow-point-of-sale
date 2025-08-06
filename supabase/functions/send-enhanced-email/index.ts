@@ -106,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email via Resend
     const emailResponse = await resend.emails.send({
-      from: `${emailData.variables?.company_name || 'VibePOS'} <onboarding@resend.dev>`,
+      from: `${emailData.variables?.company_name || 'VibePOS'} <noreply@vibenet.shop>`,
       to: [emailData.to],
       subject: processedSubject,
       html: processedHtml,

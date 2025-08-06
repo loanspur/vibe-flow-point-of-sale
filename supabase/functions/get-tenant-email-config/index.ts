@@ -64,7 +64,7 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({
       success: true,
       config: {
-        fromEmail: "noreply@vibepos.com", // System-wide sender
+        fromEmail: "noreply@vibenet.shop", // System-wide sender
         fromName: "VibePOS Team", // System-wide name
         isCustomConfig: false,
         isSystemConfig: true
@@ -81,7 +81,7 @@ const handler = async (req: Request): Promise<Response> => {
         success: false, 
         error: error.message,
         config: {
-          fromEmail: "noreply@vibepos.com",
+          fromEmail: "noreply@vibenet.shop",
           fromName: "VibePOS Team",
           isCustomConfig: false,
           isSystemConfig: true
