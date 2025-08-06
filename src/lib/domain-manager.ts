@@ -21,12 +21,8 @@ class DomainManager {
     if (typeof window === 'undefined' || this.initialized) return;
     
     this.initialized = true;
-    // Auto-initialize when ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.initialize());
-    } else {
-      this.initialize();
-    }
+    // Don't auto-initialize - let the React hook handle it
+    // This prevents circular dependency issues
   }
 
   private async initialize(): Promise<void> {
@@ -42,7 +38,7 @@ class DomainManager {
     }
   }
 
-  private async setupTenantContext(tenantId: string): Promise<void> {
+  async setupTenantContext(tenantId: string): Promise<void> {
     try {
       // Verify tenant exists and is active
       const { data: tenant, error } = await supabase
@@ -282,10 +278,34 @@ export const useDomainContext = () => {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    domainManager.getCurrentDomainConfig().then((config) => {
-      setDomainConfig(config);
-      setLoading(false);
-    });
+    let mounted = true;
+    
+    const initializeDomain = async () => {
+      try {
+        const config = await domainManager.getCurrentDomainConfig();
+        
+        if (mounted) {
+          setDomainConfig(config);
+          setLoading(false);
+          
+          // Set up tenant context if needed
+          if (config?.isSubdomain && config.tenantId) {
+            await domainManager.setupTenantContext(config.tenantId);
+          }
+        }
+      } catch (error) {
+        console.error('Domain config error:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    initializeDomain();
+    
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return {
