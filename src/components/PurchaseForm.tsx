@@ -87,18 +87,34 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
 
   const fetchProducts = async () => {
     try {
+      console.log('🔍 Fetching products for tenant:', tenantId);
+      
+      if (!tenantId) {
+        console.warn('❌ No tenant ID available for products fetch');
+        setProducts([]);
+        return;
+      }
+
+      // Use explicit tenant_id filter instead of relying on RLS context
       const { data, error } = await supabase
         .from('products')
         .select('id, name, sku, cost_price')
         .eq('tenant_id', tenantId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('name');
       
       if (error) {
         console.error('❌ Database error fetching products:', error);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          hint: error.hint
+        });
         throw error;
       }
       
       console.log('🔍 Raw products data:', data);
+      console.log('🔢 Products count:', data?.length || 0);
       
       // Filter out any invalid products before setting state
       const validProducts = (data || []).filter(product => {
@@ -117,10 +133,20 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       
       console.log('✅ Valid products after filtering:', validProducts);
       console.log('🔢 Number of valid products:', validProducts.length);
+      
+      if (validProducts.length === 0) {
+        console.warn('⚠️ No valid products found for tenant', tenantId);
+      }
+      
       setProducts(validProducts);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('💥 Error fetching products:', error);
       setProducts([]); // Set empty array on error
+      toast({
+        title: "Error Loading Products",
+        description: "Failed to load products. Please try refreshing the page.",
+        variant: "destructive",
+      });
     }
   };
 
