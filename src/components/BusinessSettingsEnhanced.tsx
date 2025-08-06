@@ -514,6 +514,10 @@ export function BusinessSettingsEnhanced() {
   // Location management functions
   const fetchLocations = async (tenantId: string) => {
     try {
+      console.log('🔍 DEBUG: Fetching locations for tenant:', tenantId);
+      console.log('🔍 DEBUG: Current auth user ID:', supabase.auth.getUser());
+      console.log('🔍 DEBUG: Tenant context:', tenantId);
+      
       const { data, error } = await supabase
         .from('store_locations')
         .select('*')
@@ -521,8 +525,12 @@ export function BusinessSettingsEnhanced() {
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true });
 
+      console.log('🔍 DEBUG: Query result - data:', data);
+      console.log('🔍 DEBUG: Query result - error:', error);
+
       if (error) throw error;
       setLocations(data || []);
+      console.log('🔍 DEBUG: Locations state set to:', data || []);
     } catch (error) {
       console.error('❌ Error fetching locations:', error);
       toast({
