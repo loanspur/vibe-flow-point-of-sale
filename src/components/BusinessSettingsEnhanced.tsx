@@ -586,6 +586,10 @@ export function BusinessSettingsEnhanced() {
   }, [activeTab]);
 
   const handleAddLocation = () => {
+    console.log('🏪 handleAddLocation called!');
+    console.log('🏪 Current locations:', locations);
+    console.log('🏪 Current activeTab:', activeTab);
+    
     setEditingLocation(null);
     setLocationFormData({
       name: "",
@@ -602,6 +606,8 @@ export function BusinessSettingsEnhanced() {
       is_active: true
     });
     setIsLocationDialogOpen(true);
+    
+    console.log('🏪 Location dialog should be opening...');
   };
 
   const handleEditLocation = (location: StoreLocation) => {
@@ -804,38 +810,20 @@ export function BusinessSettingsEnhanced() {
       });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-
-  const filteredCurrencies = currencySearch
-    ? currencies.filter(currency => 
-        currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
-        currency.name.toLowerCase().includes(currencySearch.toLowerCase())
-      )
-    : currencies;
-
-  const filteredTimezones = timezoneSearch
-    ? timezones.filter(timezone => 
-        timezone.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
-        timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
-      )
-    : timezones;
-
-
-  const countryOptions = COUNTRY_LIST;
+    console.log('🔄 Rendering BusinessSettingsEnhanced component');
+    console.log('🔄 isLoading:', isLoading);
+    console.log('🔄 settings:', settings);
+    console.log('🔄 activeTab:', activeTab);
+    console.log('🔄 locations:', locations);
+  }
 
   if (isLoading) {
+    console.log('⏳ BusinessSettingsEnhanced is still loading...');
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
-        <div className="container mx-auto px-4 py-8 max-w-7xl animate-pulse">
-          <div className="h-32 bg-muted rounded-2xl mb-8" />
-          <div className="h-16 bg-muted rounded-xl mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-48 bg-muted rounded-xl" />
-            ))}
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading Business Settings...</p>
         </div>
       </div>
     );
