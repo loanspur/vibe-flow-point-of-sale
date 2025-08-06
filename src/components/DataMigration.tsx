@@ -93,6 +93,46 @@ export const DataMigration: React.FC = () => {
     return validateHeaders(headers, requiredFields, optionalFields);
   };
 
+  // Generate unique SKU function for imports (matching the ProductForm logic)
+  const generateUniqueSKU = async (productName: string, tenantId: string): Promise<string> => {
+    if (!productName || !tenantId) return '';
+    
+    // Generate SKU from product name: Take first 3 letters + timestamp + random
+    const namePrefix = productName
+      .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
+      .substring(0, 3)
+      .toUpperCase();
+    
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+      const timestamp = Date.now().toString().slice(-4); // Last 4 digits of timestamp
+      const randomSuffix = Math.floor(100 + Math.random() * 900); // 3-digit random number
+      const potentialSKU = `${namePrefix}${timestamp}${randomSuffix}`;
+      
+      // Check if SKU exists in database
+      const { data: existingProduct } = await supabase
+        .from('products')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('sku', potentialSKU)
+        .maybeSingle();
+      
+      if (!existingProduct) {
+        return potentialSKU;
+      }
+      
+      attempts++;
+      // Add small delay to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
+    
+    // Fallback: use UUID-like suffix if all attempts failed
+    const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `${namePrefix}${fallbackSuffix}`;
+  };
+
   const validateCategoriesData = (headers: string[]) => {
     const requiredFields = ['name'];
     const optionalFields = ['description', 'color'];
@@ -140,7 +180,9 @@ export const DataMigration: React.FC = () => {
           success++;
         } catch (error) {
           failed++;
-          errors.push(`Row ${i}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          errors.push(`Row ${i} (${rowData.name || 'unnamed'}): ${errorMessage}`);
+          console.error(`Import error for row ${i}:`, error);
         }
 
         setProgress((i / (lines.length - 1)) * 100);
@@ -148,9 +190,14 @@ export const DataMigration: React.FC = () => {
 
       setResult({ success, failed, errors });
       
+      const resultMessage = failed === 0 
+        ? `Successfully imported all ${success} records!`
+        : `Import completed: ${success} successful, ${failed} failed. Check details below.`;
+      
       toast({
         title: "Import Complete",
-        description: `Successfully imported ${success} records. ${failed} failed.`,
+        description: resultMessage,
+        variant: failed > 0 ? "destructive" : "default",
       });
 
     } catch (error) {
@@ -200,16 +247,36 @@ export const DataMigration: React.FC = () => {
         break;
 
       case 'categories':
-        // Check for duplicate category names
-        const { data: existingCategory } = await supabase
+        // Check for duplicate or similar category names
+        const { data: existingCategories } = await supabase
           .from('product_categories')
-          .select('id')
-          .eq('name', data.name)
-          .eq('tenant_id', profile.tenant_id)
-          .maybeSingle();
+          .select('name')
+          .eq('tenant_id', profile.tenant_id);
 
-        if (existingCategory) {
+        const categoryNames = (existingCategories || []).map(c => c.name.toLowerCase().trim());
+        const newCategoryName = data.name.toLowerCase().trim();
+        
+        // Check for exact match
+        if (categoryNames.includes(newCategoryName)) {
           throw new Error(`Category "${data.name}" already exists`);
+        }
+        
+        // Check for similar names (fuzzy match)
+        const similarCategory = categoryNames.find(existingName => {
+          // Remove common words and check similarity
+          const normalizeString = (str: string) => str.replace(/[^a-z0-9]/g, '');
+          const normalized1 = normalizeString(existingName);
+          const normalized2 = normalizeString(newCategoryName);
+          
+          // Check if one contains the other or they're very similar
+          return normalized1.includes(normalized2) || normalized2.includes(normalized1) ||
+                 (normalized1.length > 3 && normalized2.length > 3 && 
+                  (normalized1.substring(0, 4) === normalized2.substring(0, 4)));
+        });
+        
+        if (similarCategory) {
+          const originalSimilar = existingCategories?.find(c => c.name.toLowerCase().trim() === similarCategory)?.name;
+          throw new Error(`Category "${data.name}" is too similar to existing category "${originalSimilar}"`);
         }
 
         return await supabase.from('product_categories').insert({
@@ -233,17 +300,22 @@ export const DataMigration: React.FC = () => {
           throw new Error(`Product "${data.name}" already exists`);
         }
 
-        // Check for duplicate SKU if provided
-        if (data.sku) {
+        // Auto-generate SKU if not provided
+        let finalSKU = data.sku;
+        if (!finalSKU || finalSKU.trim() === '') {
+          finalSKU = await generateUniqueSKU(data.name, profile.tenant_id);
+        } else {
+          // Check for duplicate SKU if provided
           const { data: existingSKU } = await supabase
             .from('products')
             .select('id')
-            .eq('sku', data.sku)
+            .eq('sku', finalSKU)
             .eq('tenant_id', profile.tenant_id)
             .maybeSingle();
 
           if (existingSKU) {
-            throw new Error(`Product SKU "${data.sku}" already exists`);
+            // Generate new unique SKU instead of throwing error
+            finalSKU = await generateUniqueSKU(data.name, profile.tenant_id);
           }
         }
 
@@ -262,41 +334,35 @@ export const DataMigration: React.FC = () => {
           }
         }
 
-        console.log('Inserting product:', data.name, 'with tenant_id:', profile.tenant_id);
-        
         const result = await supabase.from('products').insert({
           tenant_id: profile.tenant_id,
           name: data.name,
           description: data.description || null,
           price: parseFloat(data.price) || 0,
           cost_price: data.cost_price ? parseFloat(data.cost_price) : null,
-          sku: data.sku || null,
+          sku: finalSKU,
           barcode: data.barcode || null,
           stock_quantity: data.stock_quantity ? parseInt(data.stock_quantity) : 0,
           category_id: categoryId,
           is_active: true,
-        });
-        
-        console.log('Product insert result:', result);
-        console.log('Full error object:', JSON.stringify(result.error, null, 2));
+        }).select('id');
         
         if (result.error) {
-          console.error('Product insertion failed:');
-          console.error('Error message:', result.error.message);
-          console.error('Error details:', result.error.details);
-          console.error('Error hint:', result.error.hint);
-          console.error('Error code:', result.error.code);
-          throw new Error(`Failed to insert product: ${result.error.message} - ${result.error.details || result.error.hint || 'No additional details'}`);
+          console.error('Product insertion failed:', {
+            error: result.error,
+            productName: data.name,
+            tenantId: profile.tenant_id
+          });
+          throw new Error(`Failed to insert product "${data.name}": ${result.error.message}`);
         }
 
-        // Get the inserted product ID  
-        if (!result.data || !Array.isArray(result.data) || (result.data as any[]).length === 0) {
-          throw new Error('Product inserted but no data returned');
+        if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
+          throw new Error(`Product "${data.name}" was inserted but no data was returned`);
         }
         
-        const insertedProduct = (result.data as any[])[0];
+        const insertedProduct = result.data[0];
         if (!insertedProduct?.id) {
-          throw new Error('Product inserted but no ID returned');
+          throw new Error(`Product "${data.name}" was inserted but no ID was returned`);
         }
 
         // Create inventory transaction if stock quantity is provided
@@ -707,8 +773,8 @@ export const DataMigration: React.FC = () => {
                       <strong>Required fields for {importType}:</strong>
                       <br />
                       {importType === 'contacts' && 'name, type (customer/supplier)'}
-                      {importType === 'products' && 'name, price'}
-                      {importType === 'categories' && 'name'}
+                       {importType === 'products' && 'name, price (SKU auto-generated if not provided)'}
+                       {importType === 'categories' && 'name (must be unique - similar names are prevented)'}
                       
                     </AlertDescription>
                   </Alert>
