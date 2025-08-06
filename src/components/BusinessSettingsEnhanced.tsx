@@ -541,6 +541,27 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
+  // Load locations when component mounts or tenantId changes
+  useEffect(() => {
+    const loadLocations = async () => {
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser?.user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', authUser.user.id)
+          .single();
+
+        if (profile?.tenant_id) {
+          console.log('🔄 useEffect: Loading locations for tenant:', profile.tenant_id);
+          fetchLocations(profile.tenant_id);
+        }
+      }
+    };
+    
+    loadLocations();
+  }, []);
+
   const handleAddLocation = () => {
     setEditingLocation(null);
     setLocationFormData({
