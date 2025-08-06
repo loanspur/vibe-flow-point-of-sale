@@ -20,20 +20,26 @@ export default function ProtectedRoute({
     userRole, 
     loading,
     allowedRoles,
-    currentPath: window.location.pathname 
+    currentPath: window.location.pathname,
+    hostname: window.location.hostname
   });
 
   // Show loading while auth is initializing
   if (loading) {
+    console.log('⏳ Auth loading, showing spinner...');
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
       </div>
     );
   }
 
   // Redirect to auth if not logged in
   if (!user) {
+    console.log('🚫 No user found, redirecting to auth...');
     return <Navigate to="/auth" replace />;
   }
 

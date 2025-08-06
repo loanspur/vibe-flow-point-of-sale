@@ -104,13 +104,16 @@ class DomainManager {
   async getCurrentDomainConfig(): Promise<DomainConfig> {
     const currentDomain = window.location.hostname;
     
+    console.log('🔍 Getting domain config for:', currentDomain);
+    
     // Check cache first
     const cached = this.cache.get(currentDomain);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TIMEOUT) {
+      console.log('📦 Using cached config for:', currentDomain);
       return {
         tenantId: cached.tenantId,
         domain: currentDomain,
-        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop',
+        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
         isSubdomain: currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop'
       };
     }
@@ -120,20 +123,25 @@ class DomainManager {
     // For development/main domains, return as-is
     if (currentDomain === 'localhost' || 
         currentDomain.endsWith('.lovableproject.com') ||
+        currentDomain.endsWith('.lovable.app') ||
         currentDomain === 'vibenet.shop' || 
         currentDomain === 'www.vibenet.shop') {
+      console.log('🏠 Development/main domain detected:', currentDomain);
       return domainInfo;
     }
 
     try {
+      console.log('🔎 Resolving tenant for domain:', currentDomain);
       // Resolve tenant ID from database
       const { data: tenantId, error } = await supabase
         .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
 
       if (error) {
-        console.error('Error resolving tenant by domain:', error);
+        console.error('❌ Error resolving tenant by domain:', error);
         return domainInfo;
       }
+
+      console.log('✅ Tenant resolved:', tenantId);
 
       const resolvedConfig: DomainConfig = {
         ...domainInfo,
@@ -146,11 +154,12 @@ class DomainManager {
           tenantId,
           timestamp: Date.now()
         });
+        console.log('💾 Cached domain config for:', currentDomain);
       }
 
       return resolvedConfig;
     } catch (error) {
-      console.error('Error in getCurrentDomainConfig:', error);
+      console.error('❌ Error in getCurrentDomainConfig:', error);
       return domainInfo;
     }
   }
@@ -282,20 +291,32 @@ export const useDomainContext = () => {
     
     const initializeDomain = async () => {
       try {
+        console.log('🌐 Initializing domain context for:', window.location.hostname);
         const config = await domainManager.getCurrentDomainConfig();
+        
+        console.log('🔍 Domain config resolved:', config);
         
         if (mounted) {
           setDomainConfig(config);
-          setLoading(false);
           
           // Set up tenant context if needed
           if (config?.isSubdomain && config.tenantId) {
+            console.log('🏢 Setting up tenant context for:', config.tenantId);
             await domainManager.setupTenantContext(config.tenantId);
           }
+          
+          setLoading(false);
         }
       } catch (error) {
-        console.error('Domain config error:', error);
+        console.error('❌ Domain config error:', error);
         if (mounted) {
+          // Set fallback config to prevent infinite loading
+          setDomainConfig({
+            tenantId: null,
+            domain: window.location.hostname,
+            isCustomDomain: false,
+            isSubdomain: false
+          });
           setLoading(false);
         }
       }

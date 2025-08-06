@@ -31,9 +31,11 @@ const Auth = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
+      console.log('👤 User authenticated, redirecting...');
       // For subdomains, redirect to root, for main domain redirect to dashboard
       const isSubdomain = window.location.hostname.endsWith('.vibenet.shop') && 
                          window.location.hostname !== 'vibenet.shop';
+      console.log('🌐 Is subdomain:', isSubdomain, 'Hostname:', window.location.hostname);
       navigate(isSubdomain ? '/' : '/dashboard');
     }
   }, [user, navigate]);
@@ -80,9 +82,11 @@ const Auth = () => {
 
     setLoading(true);
 
+    console.log('🔐 Attempting sign in for:', signInData.email);
     const { error } = await signIn(signInData.email, signInData.password);
 
     if (error) {
+      console.error('❌ Sign in error:', error);
       // Handle specific auth errors
       if (error.message.includes('Invalid login credentials')) {
         setSignInError('Invalid email or password. Please check your credentials and try again.');
@@ -96,6 +100,7 @@ const Auth = () => {
         setSignInError(error.message || 'Sign in failed. Please try again.');
       }
     } else {
+      console.log('✅ Sign in successful');
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in."
@@ -104,6 +109,7 @@ const Auth = () => {
       // For subdomains, redirect to root, for main domain redirect to dashboard  
       const isSubdomain = window.location.hostname.endsWith('.vibenet.shop') && 
                          window.location.hostname !== 'vibenet.shop';
+      console.log('🔄 Redirecting...', { isSubdomain, hostname: window.location.hostname });
       navigate(isSubdomain ? '/' : '/dashboard');
     }
 

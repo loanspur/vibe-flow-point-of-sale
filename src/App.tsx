@@ -157,10 +157,18 @@ const queryClient = new QueryClient({
 const DomainRouter = () => {
   const { domainConfig, loading } = useDomainContext();
   
+  console.log('🌐 DomainRouter state:', { 
+    domainConfig, 
+    loading, 
+    pathname: window.location.pathname,
+    hostname: window.location.hostname 
+  });
+  
   // CRITICAL: Always render auth routes first, regardless of domain loading state
   // This prevents auth page blocking due to tenant dashboard loading issues
   const currentPath = window.location.pathname;
   if (currentPath === '/auth' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
+    console.log('🔐 Rendering auth routes');
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -174,6 +182,7 @@ const DomainRouter = () => {
   }
   
   if (loading) {
+    console.log('⏳ Domain loading, showing page loader...');
     return <PageLoader />;
   }
 
