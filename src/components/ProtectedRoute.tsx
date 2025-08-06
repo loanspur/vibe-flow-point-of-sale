@@ -20,8 +20,20 @@ const ProtectedRoute = ({
   const { user, loading } = useAuth();
   const { userRole, canAccess, loading: rolesLoading } = useUserRoles();
 
+  console.log('🛡️ ProtectedRoute debug:', {
+    user: !!user,
+    userEmail: user?.email,
+    loading,
+    rolesLoading,
+    userRole: userRole?.name,
+    allowedRoles,
+    requireAuth,
+    pathname: window.location.pathname
+  });
+
   // Show loading while auth or roles are being determined
   if (loading || rolesLoading) {
+    console.log('🛡️ ProtectedRoute loading...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

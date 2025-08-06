@@ -39,6 +39,9 @@ const getTimeBasedGreeting = () => {
 };
 
 function TenantAdminDashboard() {
+  console.log('🏠 TenantAdminDashboard COMPONENT LOADING');
+  console.log('🏠 Current URL:', window.location.href);
+  
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -47,6 +50,8 @@ function TenantAdminDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cashDrawerRefreshKey, setCashDrawerRefreshKey] = useState(0);
+  
+  console.log('🏠 Dashboard auth state:', { user: !!user, tenantId, userEmail: user?.email });
 
   // Get effective pricing for the current subscription
   const { effectivePricing } = useEffectivePricing(
@@ -286,12 +291,15 @@ function TenantAdminDashboard() {
   ];
 
   if (loading) {
+    console.log('🏠 Dashboard still loading...', { tenantId, user: !!user });
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
+  
+  console.log('🏠 Dashboard RENDERING with data:', { dashboardData, loading });
 
   return (
     <div className="space-y-6 p-6">

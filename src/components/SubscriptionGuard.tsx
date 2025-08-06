@@ -38,9 +38,14 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   });
 
   useEffect(() => {
-    if (!user || !tenantId || authLoading) return;
+    console.log('🎫 SubscriptionGuard useEffect triggered:', { user: !!user, tenantId, authLoading });
+    if (!user || !tenantId || authLoading) {
+      console.log('🎫 SubscriptionGuard early return - missing requirements');
+      return;
+    }
 
     const checkSubscription = async () => {
+      console.log('🎫 SubscriptionGuard checking subscription for tenant:', tenantId);
       try {
         const { data, error } = await supabase
           .from('tenant_subscription_details')

@@ -32,11 +32,24 @@ const Auth = () => {
   useEffect(() => {
     if (user) {
       console.log('👤 User authenticated, redirecting...');
+      console.log('🔍 Auth redirect debug:', {
+        user: !!user,
+        userEmail: user?.email,
+        pathname: window.location.pathname,
+        hostname: window.location.hostname,
+        href: window.location.href
+      });
+      
       // For subdomains, redirect to root, for main domain redirect to dashboard
       const isSubdomain = window.location.hostname.endsWith('.vibenet.shop') && 
                          window.location.hostname !== 'vibenet.shop';
       console.log('🌐 Is subdomain:', isSubdomain, 'Hostname:', window.location.hostname);
-      navigate(isSubdomain ? '/' : '/dashboard');
+      
+      const targetRoute = isSubdomain ? '/' : '/dashboard';
+      console.log('🎯 Redirecting to:', targetRoute);
+      
+      // Use replace to prevent back button issues
+      navigate(targetRoute, { replace: true });
     }
   }, [user, navigate]);
 
