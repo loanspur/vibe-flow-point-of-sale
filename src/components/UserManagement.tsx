@@ -206,17 +206,35 @@ const UserManagement = () => {
 
   const fetchActivityLogs = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch activity logs
+      const { data: logs, error: logsError } = await supabase
         .from('user_activity_logs')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
-      setActivityLogs((data || []).map(log => ({
+      if (logsError) throw logsError;
+
+      // Then fetch user profiles to map user_id to names
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('tenant_id', tenantId);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user_id to full_name
+      const userNameMap = profiles.reduce((acc, profile) => {
+        acc[profile.user_id] = profile.full_name;
+        return acc;
+      }, {} as Record<string, string>);
+
+      // Map logs with user names
+      setActivityLogs((logs || []).map(log => ({
         ...log,
-        ip_address: log.ip_address as string
+        ip_address: log.ip_address as string,
+        user_name: userNameMap[log.user_id] || 'Unknown User'
       })));
     } catch (error) {
       console.error('Error fetching activity logs:', error);
@@ -225,17 +243,35 @@ const UserManagement = () => {
 
   const fetchUserSessions = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch user sessions
+      const { data: sessions, error: sessionsError } = await supabase
         .from('user_sessions')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('last_activity', { ascending: false });
 
-      if (error) throw error;
-      setUserSessions((data || []).map(session => ({
+      if (sessionsError) throw sessionsError;
+
+      // Then fetch user profiles to map user_id to names
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('tenant_id', tenantId);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user_id to full_name
+      const userNameMap = profiles.reduce((acc, profile) => {
+        acc[profile.user_id] = profile.full_name;
+        return acc;
+      }, {} as Record<string, string>);
+
+      // Map sessions with user names
+      setUserSessions((sessions || []).map(session => ({
         ...session,
-        ip_address: session.ip_address as string
+        ip_address: session.ip_address as string,
+        user_name: userNameMap[session.user_id] || 'Unknown User'
       })));
     } catch (error) {
       console.error('Error fetching user sessions:', error);
