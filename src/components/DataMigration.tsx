@@ -18,7 +18,8 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
-  FileDown
+  FileDown,
+  RotateCcw
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -705,6 +706,60 @@ export const DataMigration: React.FC = () => {
 
   const validation = getValidationStatus();
 
+  const resetMigration = async () => {
+    try {
+      // Reset the UI state
+      setResult(null);
+      setProgress(0);
+      setPreview(null);
+      setSelectedFile(null);
+      
+      // Reset file input
+      const fileInput = document.getElementById('csv-file') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      
+      toast({
+        title: "Migration Reset",
+        description: "Migration has been reset. You can start a new import.",
+      });
+    } catch (error) {
+      toast({
+        title: "Reset Error",
+        description: error instanceof Error ? error.message : 'Failed to reset migration',
+        variant: "destructive",
+      });
+    }
+  };
+
+  const completeMigration = async () => {
+    try {
+      // Clear the migration results and reset state
+      setResult(null);
+      setProgress(0);
+      setPreview(null);
+      setSelectedFile(null);
+      
+      // Reset file input
+      const fileInput = document.getElementById('csv-file') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      
+      toast({
+        title: "Migration Completed",
+        description: "Migration has been marked as complete. All data has been successfully imported.",
+      });
+    } catch (error) {
+      toast({
+        title: "Complete Error",
+        description: error instanceof Error ? error.message : 'Failed to complete migration',
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50">
       <CardHeader className="pb-4">
@@ -880,41 +935,64 @@ export const DataMigration: React.FC = () => {
 
                     {/* Results */}
                     {result && (
-                      <Alert className={result.failed > 0 ? "border-yellow-500 bg-yellow-50" : "border-green-500 bg-green-50"}>
-                        {result.failed > 0 ? (
-                          <AlertCircle className="h-4 w-4 text-yellow-600" />
-                        ) : (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        )}
-                        <AlertDescription>
-                          <div className="space-y-2">
-                            <div className="font-medium">
-                              Import Summary: 
-                              <span className="text-green-600 ml-2">{result.success} successful</span>
-                              {result.failed > 0 && (
-                                <span className="text-yellow-600 ml-2">{result.failed} failed</span>
+                      <div className="space-y-4">
+                        <Alert className={result.failed > 0 ? "border-yellow-500 bg-yellow-50" : "border-green-500 bg-green-50"}>
+                          {result.failed > 0 ? (
+                            <AlertCircle className="h-4 w-4 text-yellow-600" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          )}
+                          <AlertDescription>
+                            <div className="space-y-2">
+                              <div className="font-medium">
+                                Import Summary: 
+                                <span className="text-green-600 ml-2">{result.success} successful</span>
+                                {result.failed > 0 && (
+                                  <span className="text-yellow-600 ml-2">{result.failed} failed</span>
+                                )}
+                              </div>
+                              {result.errors.length > 0 && (
+                                <details className="mt-2">
+                                  <summary className="cursor-pointer text-sm font-medium">
+                                    View Errors ({result.errors.length})
+                                  </summary>
+                                  <div className="mt-2 space-y-1 text-xs">
+                                    {result.errors.slice(0, 10).map((error, index) => (
+                                      <div key={index} className="text-destructive">{error}</div>
+                                    ))}
+                                    {result.errors.length > 10 && (
+                                      <div className="text-muted-foreground">
+                                        ... and {result.errors.length - 10} more errors
+                                      </div>
+                                    )}
+                                  </div>
+                                </details>
                               )}
                             </div>
-                            {result.errors.length > 0 && (
-                              <details className="mt-2">
-                                <summary className="cursor-pointer text-sm font-medium">
-                                  View Errors ({result.errors.length})
-                                </summary>
-                                <div className="mt-2 space-y-1 text-xs">
-                                  {result.errors.slice(0, 10).map((error, index) => (
-                                    <div key={index} className="text-destructive">{error}</div>
-                                  ))}
-                                  {result.errors.length > 10 && (
-                                    <div className="text-muted-foreground">
-                                      ... and {result.errors.length - 10} more errors
-                                    </div>
-                                  )}
-                                </div>
-                              </details>
-                            )}
-                          </div>
-                        </AlertDescription>
-                      </Alert>
+                          </AlertDescription>
+                        </Alert>
+
+                        {/* Migration Action Buttons */}
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={resetMigration}
+                            variant="outline"
+                            disabled={isProcessing}
+                            className="flex-1"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Reset Migration
+                          </Button>
+                          <Button 
+                            onClick={completeMigration}
+                            disabled={isProcessing}
+                            className="flex-1"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Complete Migration
+                          </Button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
