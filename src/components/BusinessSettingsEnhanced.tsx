@@ -237,27 +237,6 @@ export function BusinessSettingsEnhanced() {
     return tabParam || "company";
   };
   const [activeTab, setActiveTab] = useState(getInitialTab);
-  const [locations, setLocations] = useState<StoreLocation[]>([]);
-  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<StoreLocation | null>(null);
-  const [locationForm, setLocationForm] = useState({
-    name: '',
-    address_line_1: '',
-    address_line_2: '',
-    city: '',
-    state_province: '',
-    postal_code: '',
-    country: 'United States',
-    phone: '',
-    email: '',
-    manager_name: '',
-    is_primary: false,
-    is_active: true
-  });
-  const [isEditingLocation, setIsEditingLocation] = useState(false);
-  const [locationToEdit, setLocationToEdit] = useState<StoreLocation | null>(null);
-  const [isViewingLocation, setIsViewingLocation] = useState(false);
-  const [locationToView, setLocationToView] = useState<StoreLocation | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [themeColors, setThemeColors] = useState({
@@ -267,7 +246,7 @@ export function BusinessSettingsEnhanced() {
   });
   const [currencySearch, setCurrencySearch] = useState("");
   const [timezoneSearch, setTimezoneSearch] = useState("");
-  const [locationSearch, setLocationSearch] = useState("");
+  
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewType, setPreviewType] = useState<"invoice" | "receipt" | "quote">("invoice");
@@ -418,7 +397,6 @@ export function BusinessSettingsEnhanced() {
         if (authData?.user) {
           console.log('✅ User authenticated, fetching data...');
           await fetchSettings();
-          await fetchLocations();
           return true;
         } else if (authAttempts < maxAttempts) {
           console.log('⏳ No user yet, retrying in 1 second...');
@@ -445,10 +423,8 @@ export function BusinessSettingsEnhanced() {
       if (event === 'SIGNED_IN' && session?.user) {
         console.log('✅ User signed in, fetching data...');
         await fetchSettings();
-        await fetchLocations(); 
       } else if (event === 'SIGNED_OUT') {
         console.log('👋 User signed out, clearing data...');
-        setLocations([]);
         setSettings(null);
       }
     });
@@ -480,78 +456,6 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
-  const fetchLocations = async () => {
-    try {
-      console.log('🏪 fetchLocations: Starting...');
-      console.log('🏪 Current URL:', window.location.href);
-      
-      // Check authentication state with detailed logging
-      const { data: authResponse, error: authError } = await supabase.auth.getUser();
-      console.log('🏪 Auth check result:', { 
-        hasUser: !!authResponse?.user,
-        userId: authResponse?.user?.id || 'None',
-        email: authResponse?.user?.email || 'None',
-        authError: authError?.message || 'None'
-      });
-      
-      if (!authResponse?.user) {
-        console.log('❌ fetchLocations: No authenticated user, skipping');
-        return;
-      }
-
-      // Get user's tenant_id
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', authResponse.user.id)
-        .single();
-
-      if (profileError || !profile?.tenant_id) {
-        console.error('❌ fetchLocations: Profile error:', profileError);
-        return;
-      }
-
-      console.log('🏪 Making database query for tenant:', profile.tenant_id);
-      const { data, error } = await supabase
-        .from('store_locations')
-        .select('*')
-        .eq('tenant_id', profile.tenant_id)
-        .order('is_primary', { ascending: false });
-      
-      console.log('🏪 Database response:', { 
-        data: data || 'null',
-        dataLength: data?.length || 0,
-        error: error?.message || 'None',
-        errorCode: error?.code || 'None',
-        errorDetails: error?.details || 'None'
-      });
-      
-      if (error) {
-        console.error('❌ fetchLocations: Database error:', error);
-        toast({
-          title: "Error loading locations",
-          description: error.message,
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (data) {
-        console.log('✅ fetchLocations: Setting locations:', data.length);
-        setLocations(data);
-      } else {
-        console.log('⚠️ fetchLocations: No data returned');
-        setLocations([]);
-      }
-    } catch (error: any) {
-      console.error('❌ fetchLocations: Exception:', error);
-      toast({
-        title: "Error loading locations", 
-        description: error.message || "Failed to load store locations",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -675,123 +579,6 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
-  const resetLocationForm = () => {
-    setLocationForm({
-      name: '',
-      address_line_1: '',
-      address_line_2: '',
-      city: '',
-      state_province: '',
-      postal_code: '',
-      country: 'United States',
-      phone: '',
-      email: '',
-      manager_name: '',
-      is_primary: false,
-      is_active: true
-    });
-  };
-
-  const handleLocationSubmit = async () => {
-    try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user?.id) throw new Error('User not authenticated');
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user.user.id)
-        .single();
-
-      if (!profile?.tenant_id) throw new Error('No tenant associated with user');
-
-      const locationData = {
-        ...locationForm,
-        tenant_id: profile.tenant_id
-      };
-
-      let result;
-      if (isEditingLocation && locationToEdit) {
-        result = await supabase
-          .from('store_locations')
-          .update(locationData)
-          .eq('id', locationToEdit.id)
-          .select();
-      } else {
-        result = await supabase
-          .from('store_locations')
-          .insert([locationData])
-          .select();
-      }
-
-      if (result.error) throw result.error;
-
-      await fetchLocations();
-      setIsLocationDialogOpen(false);
-      setIsEditingLocation(false);
-      setLocationToEdit(null);
-      resetLocationForm();
-
-      toast({
-        title: isEditingLocation ? "Location updated" : "Location added",
-        description: `Store location has been ${isEditingLocation ? 'updated' : 'added'} successfully.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save location",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEditLocation = (location: StoreLocation) => {
-    setLocationForm({
-      name: location.name,
-      address_line_1: location.address_line_1,
-      address_line_2: location.address_line_2 || '',
-      city: location.city,
-      state_province: location.state_province,
-      postal_code: location.postal_code,
-      country: location.country,
-      phone: location.phone,
-      email: location.email || '',
-      manager_name: location.manager_name || '',
-      is_primary: location.is_primary,
-      is_active: location.is_active
-    });
-    setLocationToEdit(location);
-    setIsEditingLocation(true);
-    setIsLocationDialogOpen(true);
-  };
-
-  const handleDeleteLocation = async (locationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('store_locations')
-        .delete()
-        .eq('id', locationId);
-
-      if (error) throw error;
-
-      await fetchLocations();
-      toast({
-        title: "Location deleted",
-        description: "Store location has been deleted successfully.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete location",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleViewLocation = (location: StoreLocation) => {
-    setLocationToView(location);
-    setIsViewingLocation(true);
-  };
 
   const filteredCurrencies = currencySearch
     ? currencies.filter(currency => 
@@ -807,14 +594,6 @@ export function BusinessSettingsEnhanced() {
       )
     : timezones;
 
-  const filteredLocations = locationSearch
-    ? locations.filter(location => 
-        location.name.toLowerCase().includes(locationSearch.toLowerCase()) ||
-        location.city?.toLowerCase().includes(locationSearch.toLowerCase()) ||
-        location.state_province?.toLowerCase().includes(locationSearch.toLowerCase()) ||
-        location.manager_name?.toLowerCase().includes(locationSearch.toLowerCase())
-      )
-    : locations;
 
   const countryOptions = COUNTRY_LIST;
 
@@ -1779,339 +1558,32 @@ export function BusinessSettingsEnhanced() {
 
               {/* Locations Tab */}
               <TabsContent value="locations" className="space-y-8 mt-0">
-                
-                <div className="space-y-8">
-                  {/* Store Locations Management Card */}
-                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <MapPin className="h-6 w-6 text-primary" />
-                        </div>
-                        Store Locations
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Manage your business locations and branch offices
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
-                        {/* Add Location Button and Search */}
-                        <div className="flex justify-between items-center gap-4">
-                          <div className="flex-1 max-w-md">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                placeholder="Search locations..."
-                                value={locationSearch}
-                                onChange={(e) => setLocationSearch(e.target.value)}
-                                className="pl-10 border-2 focus:border-primary/50"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-muted-foreground text-sm">
-                              {isLoading 
-                                ? "Loading locations..."
-                                : filteredLocations.length === 0 && locationSearch
-                                  ? "No locations match your search"
-                                  : locations.length === 0 
-                                    ? "No locations added yet. Add your first business location."
-                                    : `${filteredLocations.length} of ${locations.length} location${locations.length > 1 ? 's' : ''}`
-                              }
-                            </p>
-                            <Button
-                              onClick={() => {
-                                resetLocationForm();
-                                setIsLocationDialogOpen(true);
-                              }}
-                              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Location
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Locations List */}
-                        {isLoading ? (
-                          <div className="grid gap-4">
-                            {[1, 2, 3].map((i) => (
-                              <Card key={i} className="p-4 border border-border/50 animate-pulse">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
-                                    <div className="h-3 bg-muted rounded w-2/3"></div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <div className="h-8 w-8 bg-muted rounded"></div>
-                                    <div className="h-8 w-8 bg-muted rounded"></div>
-                                    <div className="h-8 w-8 bg-muted rounded"></div>
-                                  </div>
-                                </div>
-                              </Card>
-                            ))}
-                          </div>
-                        ) : filteredLocations.length > 0 ? (
-                          <div className="grid gap-4">
-                            {filteredLocations.map((location) => (
-                              <Card key={location.id} className="p-4 border border-border/50 hover:shadow-lg transition-all duration-300">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <h3 className="font-medium text-lg">{location.name}</h3>
-                                      {location.is_primary && (
-                                        <Badge variant="default" className="text-xs">Primary</Badge>
-                                      )}
-                                      {!location.is_active && (
-                                        <Badge variant="secondary" className="text-xs">Inactive</Badge>
-                                      )}
-                                    </div>
-                                    <p className="text-muted-foreground text-sm">
-                                      {location.address_line_1}, {location.city}, {location.state_province}
-                                    </p>
-                                    {location.manager_name && (
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        Manager: {location.manager_name}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleViewLocation(location)}
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEditLocation(location)}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleDeleteLocation(location.id)}
-                                      className="text-destructive hover:text-destructive"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </Card>
-                            ))}
-                          </div>
-                        ) : !isLoading && (
-                          <div className="text-center py-8">
-                            <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <p className="text-muted-foreground">
-                              {locationSearch ? "No locations match your search" : "No locations found"}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {locationSearch ? "Try adjusting your search terms" : "Get started by adding your first business location"}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Location Form Dialog */}
-                        <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-                          <DialogContent className="max-w-2xl bg-background/95 backdrop-blur-sm border border-border/50">
-                            <DialogHeader>
-                              <DialogTitle className="text-xl">
-                                {isEditingLocation ? 'Edit Location' : 'Add New Location'}
-                              </DialogTitle>
-                              <DialogDescription>
-                                {isEditingLocation 
-                                  ? 'Update the details of this business location.'
-                                  : 'Add a new business location or branch office.'
-                                }
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-6">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <Label htmlFor="location-name">Location Name *</Label>
-                                  <Input
-                                    id="location-name"
-                                    value={locationForm.name}
-                                    onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
-                                    placeholder="Main Store, Branch Office, etc."
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="manager-name">Manager Name</Label>
-                                  <Input
-                                    id="manager-name"
-                                    value={locationForm.manager_name}
-                                    onChange={(e) => setLocationForm({ ...locationForm, manager_name: e.target.value })}
-                                    placeholder="John Doe"
-                                    className="mt-1"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="address-1">Address Line 1 *</Label>
-                                <Input
-                                  id="address-1"
-                                  value={locationForm.address_line_1}
-                                  onChange={(e) => setLocationForm({ ...locationForm, address_line_1: e.target.value })}
-                                  placeholder="123 Main Street"
-                                  className="mt-1"
-                                />
-                              </div>
-
-                              <div>
-                                <Label htmlFor="address-2">Address Line 2</Label>
-                                <Input
-                                  id="address-2"
-                                  value={locationForm.address_line_2}
-                                  onChange={(e) => setLocationForm({ ...locationForm, address_line_2: e.target.value })}
-                                  placeholder="Suite 100, Floor 2"
-                                  className="mt-1"
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                  <Label htmlFor="city">City *</Label>
-                                  <Input
-                                    id="city"
-                                    value={locationForm.city}
-                                    onChange={(e) => setLocationForm({ ...locationForm, city: e.target.value })}
-                                    placeholder="Nairobi"
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="state">State/Province *</Label>
-                                  <Input
-                                    id="state"
-                                    value={locationForm.state_province}
-                                    onChange={(e) => setLocationForm({ ...locationForm, state_province: e.target.value })}
-                                    placeholder="Nairobi County"
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="postal">Postal Code</Label>
-                                  <Input
-                                    id="postal"
-                                    value={locationForm.postal_code}
-                                    onChange={(e) => setLocationForm({ ...locationForm, postal_code: e.target.value })}
-                                    placeholder="00100"
-                                    className="mt-1"
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <Label htmlFor="country">Country *</Label>
-                                  <Input
-                                    id="country"
-                                    value={locationForm.country}
-                                    onChange={(e) => setLocationForm({ ...locationForm, country: e.target.value })}
-                                    placeholder="Kenya"
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="phone">Phone Number</Label>
-                                  <Input
-                                    id="phone"
-                                    value={locationForm.phone}
-                                    onChange={(e) => setLocationForm({ ...locationForm, phone: e.target.value })}
-                                    placeholder="+254 700 000 000"
-                                    className="mt-1"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="email">Email Address</Label>
-                                <Input
-                                  id="email"
-                                  type="email"
-                                  value={locationForm.email}
-                                  onChange={(e) => setLocationForm({ ...locationForm, email: e.target.value })}
-                                  placeholder="location@company.com"
-                                  className="mt-1"
-                                />
-                              </div>
-
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="is-primary"
-                                    checked={locationForm.is_primary}
-                                    onCheckedChange={(checked) => 
-                                      setLocationForm({ ...locationForm, is_primary: checked as boolean })
-                                    }
-                                  />
-                                  <Label htmlFor="is-primary">Primary Location</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="is-active"
-                                    checked={locationForm.is_active}
-                                    onCheckedChange={(checked) => 
-                                      setLocationForm({ ...locationForm, is_active: checked as boolean })
-                                    }
-                                  />
-                                  <Label htmlFor="is-active">Active</Label>
-                                </div>
-                              </div>
-                            </div>
-                            <DialogFooter>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setIsLocationDialogOpen(false);
-                                  setIsEditingLocation(false);
-                                  setLocationToEdit(null);
-                                  resetLocationForm();
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                onClick={handleLocationSubmit}
-                                disabled={!locationForm.name || !locationForm.address_line_1 || !locationForm.city || !locationForm.state_province || !locationForm.country}
-                                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                              >
-                                {isEditingLocation ? 'Update Location' : 'Add Location'}
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <MapPin className="h-6 w-6 text-primary" />
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Locations Tab Actions */}
-                <div className="flex justify-end gap-3 pt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => form.reset()}
-                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                  >
-                    Reset Changes
-                  </Button>
-                  <Button 
-                    onClick={() => onSubmit(form.getValues())} 
-                    disabled={isSaving}
-                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save Changes"}
-                  </Button>
-                </div>
+                      Store Locations
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Manage your business locations and branch offices
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-12">
+                      <Store className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Store Locations</h3>
+                      <p className="text-muted-foreground mb-6">
+                        Set up and manage multiple business locations to organize your operations.
+                      </p>
+                      <Button className="bg-gradient-to-r from-primary to-primary/80">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Your First Location
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {/* Data Migration Tab */}
@@ -2156,70 +1628,6 @@ export function BusinessSettingsEnhanced() {
           </form>
         </Form>
 
-        {/* Location View Dialog */}
-        <Dialog open={isViewingLocation} onOpenChange={setIsViewingLocation}>
-          <DialogContent className="max-w-2xl bg-background/95 backdrop-blur-sm border border-border/50">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Location Details</DialogTitle>
-            </DialogHeader>
-            {locationToView && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-medium text-sm text-muted-foreground mb-2">Location Name</h3>
-                    <p className="text-base">{locationToView.name}</p>
-                  </div>
-                  {locationToView.manager_name && (
-                    <div>
-                      <h3 className="font-medium text-sm text-muted-foreground mb-2">Manager</h3>
-                      <p className="text-base">{locationToView.manager_name}</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="font-medium text-sm text-muted-foreground mb-2">Address</h3>
-                  <div className="space-y-1">
-                    <p className="text-base">{locationToView.address_line_1}</p>
-                    {locationToView.address_line_2 && <p className="text-base">{locationToView.address_line_2}</p>}
-                    <p className="text-base">{locationToView.city}, {locationToView.state_province} {locationToView.postal_code}</p>
-                    <p className="text-base">{locationToView.country}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {locationToView.phone && (
-                    <div>
-                      <h3 className="font-medium text-sm text-muted-foreground mb-2">Phone</h3>
-                      <p className="text-base">{locationToView.phone}</p>
-                    </div>
-                  )}
-                  {locationToView.email && (
-                    <div>
-                      <h3 className="font-medium text-sm text-muted-foreground mb-2">Email</h3>
-                      <p className="text-base">{locationToView.email}</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Primary:</span>
-                    <Badge variant={locationToView.is_primary ? "default" : "secondary"}>
-                      {locationToView.is_primary ? "Yes" : "No"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Status:</span>
-                    <Badge variant={locationToView.is_active ? "default" : "secondary"}>
-                      {locationToView.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
