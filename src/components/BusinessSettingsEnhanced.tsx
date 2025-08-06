@@ -1779,30 +1779,6 @@ export function BusinessSettingsEnhanced() {
 
               {/* Locations Tab */}
               <TabsContent value="locations" className="space-y-8 mt-0">
-                {/* Debug Panel - Temporary */}
-                <Card className="border-yellow-200 bg-yellow-50">
-                  <CardHeader>
-                    <CardTitle className="text-yellow-800">🐛 Debug Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm">
-                    <div className="space-y-2">
-                      <p><strong>Loading State:</strong> {isLoading ? 'true' : 'false'}</p>
-                      <p><strong>Locations Count:</strong> {locations.length}</p>
-                      <p><strong>Auth State:</strong> Check console for detailed logs</p>
-                      <p><strong>Current URL:</strong> {window.location.href}</p>
-                      <Button 
-                        onClick={() => {
-                          console.log('🔄 Manual refresh triggered');
-                          fetchLocations();
-                        }}
-                        size="sm"
-                        variant="outline"
-                      >
-                        Refresh Locations
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
                 
                 <div className="space-y-8">
                   {/* Store Locations Management Card */}
