@@ -381,25 +381,24 @@ const DomainRouter = () => {
     );
   }
 
-  // If on subdomain but no tenant found, show error message only (no auth)
+  // If on subdomain but no tenant found, force redirect to main domain immediately
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    console.log('🚫 Subdomain with no tenant detected, showing error page');
+    console.log('🚫 Unresolved subdomain detected, forcing redirect to main domain');
+    
+    // Force immediate redirect to prevent any React routing issues
+    if (window.location.hostname.endsWith('.vibenet.shop')) {
+      window.location.replace('https://vibenet.shop/dashboard');
+    } else {
+      // For staging environment, redirect to relative path
+      window.location.replace('/dashboard');
+    }
+    
+    // Show loading message while redirecting
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-destructive">Subdomain Not Found</h1>
-          <p className="text-muted-foreground">
-            The subdomain "{window.location.hostname}" is not configured.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Please visit <a 
-              href="https://vibenet.shop" 
-              className="text-primary hover:underline"
-              onClick={() => window.location.href = 'https://vibenet.shop'}
-            >
-              vibenet.shop
-            </a> to access the main site.
-          </p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Redirecting to main site...</p>
         </div>
       </div>
     );
