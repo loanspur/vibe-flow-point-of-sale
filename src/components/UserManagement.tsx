@@ -118,6 +118,7 @@ const UserManagement = () => {
   // Dialog states
   const [isViewingUser, setIsViewingUser] = useState(false);
   const [isEditingRole, setIsEditingRole] = useState(false);
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
@@ -125,6 +126,9 @@ const UserManagement = () => {
   // Role creation/editing states
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
+  const [newRolePermissions, setNewRolePermissions] = useState('{}');
+  const [newRoleColor, setNewRoleColor] = useState('#2563eb');
+  const [customRolePermissions, setCustomRolePermissions] = useState<any>({});
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
   // User creation states
@@ -337,46 +341,45 @@ const UserManagement = () => {
   };
 
   const createRole = async () => {
+    if (!newRoleName.trim()) {
+      toast.error('Please enter a role name');
+      return;
+    }
+
+    setCreating(true);
     try {
       const { data, error } = await supabase
         .from('user_roles')
-        .insert([{
-          tenant_id: tenantId,
-          name: newRoleName,
-          description: newRoleDescription,
-          is_system_role: false,
-          is_active: true
-        }])
-        .select()
-        .single();
+        .insert([
+          {
+            name: newRoleName,
+            description: newRoleDescription,
+            permissions: customRolePermissions,
+            color: newRoleColor,
+            tenant_id: tenantId,
+            is_system_role: false,
+            is_editable: true,
+            is_active: true,
+            created_by: user?.id
+          }
+        ])
+        .select();
 
       if (error) throw error;
 
-      // Add permissions to role
-      if (selectedPermissions.length > 0) {
-        const permissionInserts = selectedPermissions.map(permissionId => ({
-          role_id: data.id,
-          permission_id: permissionId,
-          granted: true
-        }));
-
-        const { error: permissionError } = await supabase
-          .from('role_permissions')
-          .insert(permissionInserts);
-
-        if (permissionError) throw permissionError;
-      }
-
       toast.success('Role created successfully');
+      setIsCreatingRole(false);
       setNewRoleName('');
       setNewRoleDescription('');
-      setSelectedPermissions([]);
-      setIsEditingRole(false);
+      setNewRolePermissions('{}');
+      setNewRoleColor('#2563eb');
+      setCustomRolePermissions({});
       fetchRoles();
-      fetchRolePermissions();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating role:', error);
-      toast.error('Failed to create role');
+      toast.error('Failed to create role: ' + error.message);
+    } finally {
+      setCreating(false);
     }
   };
 
