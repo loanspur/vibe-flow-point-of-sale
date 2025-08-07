@@ -170,12 +170,9 @@ const DomainRouter = () => {
     console.log('🚫 Unresolved subdomain detected, blocking auth routes and redirecting');
     
     // Force immediate redirect to prevent any React routing issues
-    useEffect(() => {
-      const targetUrl = 'https://vibenet.shop/dashboard';
-      
-      console.log('🔄 Executing redirect to:', targetUrl);
-      window.location.replace(targetUrl);
-    }, []);
+    const targetUrl = 'https://vibenet.shop/dashboard';
+    console.log('🔄 Executing redirect to:', targetUrl);
+    window.location.replace(targetUrl);
     
     // Show loading message while redirecting - NEVER render Auth component
     return (
