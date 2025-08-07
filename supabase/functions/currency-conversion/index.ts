@@ -90,7 +90,10 @@ serve(async (req) => {
   }
 
   try {
-    const { action, amount, fromCurrency, toCurrency, tenantId, country } = await req.json();
+    const requestBody = await req.json();
+    const { action, amount, fromCurrency, toCurrency, tenantId, country, amounts, targetCurrency } = requestBody;
+
+    console.log('Currency conversion request:', { action, requestBody });
 
     if (action === 'convert') {
       const rate = await getExchangeRate(fromCurrency || 'KES', toCurrency);
@@ -118,21 +121,21 @@ serve(async (req) => {
 
       console.log('Tenant currency lookup:', { tenantId, settings, error });
 
-      let targetCurrency = 'USD'; // Default fallback
+      let targetCurrencyResult = 'USD'; // Default fallback
       
       if (settings?.currency_code) {
-        targetCurrency = settings.currency_code;
+        targetCurrencyResult = settings.currency_code;
       } else if (settings?.country) {
-        targetCurrency = getCurrencyByCountry(settings.country);
+        targetCurrencyResult = getCurrencyByCountry(settings.country);
       } else if (country) {
-        targetCurrency = getCurrencyByCountry(country);
+        targetCurrencyResult = getCurrencyByCountry(country);
       }
 
-      const rate = await getExchangeRate('KES', targetCurrency);
+      const rate = await getExchangeRate('KES', targetCurrencyResult);
 
       return new Response(
         JSON.stringify({
-          currency: targetCurrency,
+          currency: targetCurrencyResult,
           rate,
           country: settings?.country || country,
         }),
@@ -141,13 +144,15 @@ serve(async (req) => {
     }
 
     if (action === 'bulk-convert') {
-      const { amounts, targetCurrency } = await req.json();
+      console.log('Bulk convert request:', { amounts, targetCurrency });
       const rate = await getExchangeRate('KES', targetCurrency);
       
       const convertedAmounts = amounts.map((amount: number) => ({
         original: amount,
         converted: parseFloat((amount * rate).toFixed(2)),
       }));
+
+      console.log('Bulk convert result:', { rate, convertedAmounts });
 
       return new Response(
         JSON.stringify({
