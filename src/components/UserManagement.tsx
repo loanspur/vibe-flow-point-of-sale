@@ -340,6 +340,16 @@ const UserManagement = () => {
     }
   };
 
+  const togglePermission = (permissionId: string) => {
+    setSelectedPermissions(prev => {
+      if (prev.includes(permissionId)) {
+        return prev.filter(id => id !== permissionId);
+      } else {
+        return [...prev, permissionId];
+      }
+    });
+  };
+
   const createRole = async () => {
     if (!newRoleName.trim()) {
       toast.error('Please enter a role name');
@@ -374,6 +384,7 @@ const UserManagement = () => {
       setNewRolePermissions('{}');
       setNewRoleColor('#2563eb');
       setCustomRolePermissions({});
+      setSelectedPermissions([]);
       fetchRoles();
     } catch (error: any) {
       console.error('Error creating role:', error);
@@ -554,13 +565,6 @@ const UserManagement = () => {
     return { color: 'bg-gray-100 text-gray-800', icon: <Users className="w-3 h-3" /> };
   };
 
-  const togglePermission = (permissionId: string) => {
-    setSelectedPermissions(prev => 
-      prev.includes(permissionId) 
-        ? prev.filter(id => id !== permissionId)
-        : [...prev, permissionId]
-    );
-  };
 
   const openEditRole = (role: UserRole) => {
     setSelectedRole(role);
