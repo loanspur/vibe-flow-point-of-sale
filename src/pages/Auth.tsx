@@ -32,36 +32,25 @@ const Auth = () => {
   useEffect(() => {
     if (user) {
       console.log('👤 User authenticated, redirecting...');
-      console.log('🔍 Auth redirect debug:', {
-        user: !!user,
-        userEmail: user?.email,
-        pathname: window.location.pathname,
-        hostname: window.location.hostname,
-        href: window.location.href
-      });
       
-      // FIXED: Use more robust subdomain detection that works in all environments
+      // Check if this is a subdomain
       const hostname = window.location.hostname;
       const isProductionSubdomain = hostname.endsWith('.vibenet.shop') && hostname !== 'vibenet.shop';
       const isStagingSubdomain = hostname.includes('-') && hostname.endsWith('.lovable.app');
       const isSubdomain = isProductionSubdomain || isStagingSubdomain;
       
-      console.log('🌐 Domain analysis:', { 
-        hostname, 
-        isProductionSubdomain,
-        isStagingSubdomain,
-        isSubdomain 
-      });
+      if (isSubdomain) {
+        // For subdomains, redirect to main domain to prevent infinite loops on unresolved subdomains
+        console.log('🌐 Subdomain detected, redirecting to main domain');
+        window.location.href = isProductionSubdomain 
+          ? 'https://vibenet.shop/dashboard' 
+          : '/dashboard';
+        return;
+      }
       
-      // If this is a subdomain environment, always redirect to root
-      // If this is main domain, redirect to dashboard
-      const targetRoute = isSubdomain ? '/' : '/dashboard';
-      console.log('🎯 Redirecting to:', targetRoute);
-      
-      // Add delay to prevent rapid-fire redirects that cause browser throttling
-      setTimeout(() => {
-        navigate(targetRoute, { replace: true });
-      }, 100);
+      // For main domain, redirect to dashboard
+      console.log('🎯 Main domain, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
 
@@ -131,18 +120,24 @@ const Auth = () => {
         description: "You have successfully signed in."
       });
       
-      // FIXED: Use same robust subdomain detection as above
+      // Check if this is a subdomain
       const hostname = window.location.hostname;
       const isProductionSubdomain = hostname.endsWith('.vibenet.shop') && hostname !== 'vibenet.shop';
       const isStagingSubdomain = hostname.includes('-') && hostname.endsWith('.lovable.app');
       const isSubdomain = isProductionSubdomain || isStagingSubdomain;
       
-      console.log('🔄 Post-login redirect...', { isSubdomain, hostname });
+      if (isSubdomain) {
+        // For subdomains, redirect to main domain 
+        console.log('🌐 Subdomain login, redirecting to main domain');
+        window.location.href = isProductionSubdomain 
+          ? 'https://vibenet.shop/dashboard' 
+          : '/dashboard';
+        return;
+      }
       
-      // Add delay to prevent rapid redirects
-      setTimeout(() => {
-        navigate(isSubdomain ? '/' : '/dashboard', { replace: true });
-      }, 100);
+      // For main domain, redirect to dashboard
+      console.log('🎯 Main domain login, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
     }
 
     setLoading(false);

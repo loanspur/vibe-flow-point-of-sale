@@ -392,8 +392,20 @@ const DomainRouter = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           
-          {/* Root path should redirect to auth for unresolved subdomains */}
-          <Route path="/" element={<Navigate to="/auth" replace />} />
+          {/* Redirect all routes to error page for unresolved subdomains */}
+          <Route path="/" element={
+            <div className="min-h-screen flex items-center justify-center p-4">
+              <div className="text-center space-y-4">
+                <h1 className="text-2xl font-bold text-destructive">Subdomain Not Found</h1>
+                <p className="text-muted-foreground">
+                  The subdomain "{window.location.hostname}" is not configured.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Please visit <a href="https://vibenet.shop" className="text-primary hover:underline">vibenet.shop</a> to access the main site.
+                </p>
+              </div>
+            </div>
+          } />
           
           {/* All other paths show error message */}
           <Route path="*" element={
