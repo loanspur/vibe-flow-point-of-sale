@@ -28,29 +28,16 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect if already authenticated - with infinite loop prevention
+  // Redirect if already authenticated - only for main domain
   useEffect(() => {
     if (user) {
-      console.log('👤 User authenticated, redirecting...');
-      
-      // Check if this is a subdomain
+      console.log('👤 User authenticated, redirecting to dashboard');
+      // Only redirect on main domain - subdomain redirects are handled in App.tsx
       const hostname = window.location.hostname;
-      const isProductionSubdomain = hostname.endsWith('.vibenet.shop') && hostname !== 'vibenet.shop';
-      const isStagingSubdomain = hostname.includes('-') && hostname.endsWith('.lovable.app');
-      const isSubdomain = isProductionSubdomain || isStagingSubdomain;
-      
-      if (isSubdomain) {
-        // For subdomains, redirect to main domain to prevent infinite loops on unresolved subdomains
-        console.log('🌐 Subdomain detected, redirecting to main domain');
-        window.location.href = isProductionSubdomain 
-          ? 'https://vibenet.shop/dashboard' 
-          : '/dashboard';
-        return;
+      if (hostname === 'vibenet.shop' || hostname === 'localhost' || (!hostname.includes('.vibenet.shop') && !hostname.includes('.lovable.app'))) {
+        navigate('/dashboard', { replace: true });
       }
-      
-      // For main domain, redirect to dashboard
-      console.log('🎯 Main domain, redirecting to dashboard');
-      navigate('/dashboard', { replace: true });
+      // For subdomains, do nothing - App.tsx handles the redirect
     }
   }, [user, navigate]);
 
@@ -120,24 +107,8 @@ const Auth = () => {
         description: "You have successfully signed in."
       });
       
-      // Check if this is a subdomain
-      const hostname = window.location.hostname;
-      const isProductionSubdomain = hostname.endsWith('.vibenet.shop') && hostname !== 'vibenet.shop';
-      const isStagingSubdomain = hostname.includes('-') && hostname.endsWith('.lovable.app');
-      const isSubdomain = isProductionSubdomain || isStagingSubdomain;
-      
-      if (isSubdomain) {
-        // For subdomains, redirect to main domain 
-        console.log('🌐 Subdomain login, redirecting to main domain');
-        window.location.href = isProductionSubdomain 
-          ? 'https://vibenet.shop/dashboard' 
-          : '/dashboard';
-        return;
-      }
-      
-      // For main domain, redirect to dashboard
-      console.log('🎯 Main domain login, redirecting to dashboard');
-      navigate('/dashboard', { replace: true });
+      // Let App.tsx handle all redirects - no subdomain logic here
+      console.log('🎯 Sign in successful, navigation will be handled by App.tsx');
     }
 
     setLoading(false);
