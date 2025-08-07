@@ -12,6 +12,7 @@ class DomainManager {
   private cache = new Map<string, { tenantId: string; timestamp: number }>();
   private readonly CACHE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
   private initialized = false;
+  private resolving = new Set<string>(); // Track domains being resolved
 
   constructor() {
     this.initializeIfNeeded();
@@ -129,6 +130,32 @@ class DomainManager {
       return domainInfo;
     }
 
+    // Prevent concurrent resolutions for the same domain
+    if (this.resolving.has(currentDomain)) {
+      console.log('⏳ Domain already being resolved, waiting...', currentDomain);
+      // Wait for ongoing resolution to complete
+      let attempts = 0;
+      while (this.resolving.has(currentDomain) && attempts < 50) { // 5 second timeout
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      // Check cache again after waiting
+      const cachedAfterWait = this.cache.get(currentDomain);
+      if (cachedAfterWait && Date.now() - cachedAfterWait.timestamp < this.CACHE_TIMEOUT) {
+        console.log('📦 Using cached config after wait:', currentDomain);
+        return {
+          tenantId: cachedAfterWait.tenantId,
+          domain: currentDomain,
+          isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
+          isSubdomain: currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop'
+        };
+      }
+    }
+
+    // Mark this domain as being resolved
+    this.resolving.add(currentDomain);
+    
     try {
       console.log('🔎 Resolving tenant for domain:', currentDomain);
       // Resolve tenant ID from database
@@ -137,6 +164,7 @@ class DomainManager {
 
       if (error) {
         console.error('❌ Error resolving tenant by domain:', error);
+        this.resolving.delete(currentDomain); // Clean up
         return domainInfo;
       }
 
@@ -156,9 +184,11 @@ class DomainManager {
         console.log('💾 Cached domain config for:', currentDomain);
       }
 
+      this.resolving.delete(currentDomain); // Clean up
       return resolvedConfig;
     } catch (error) {
       console.error('❌ Error in getCurrentDomainConfig:', error);
+      this.resolving.delete(currentDomain); // Clean up
       return domainInfo;
     }
   }
