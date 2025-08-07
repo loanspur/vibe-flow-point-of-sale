@@ -123,7 +123,6 @@ class DomainManager {
     // For development/main domains, return as-is
     if (currentDomain === 'localhost' || 
         currentDomain.endsWith('.lovableproject.com') ||
-        currentDomain.endsWith('.lovable.app') ||
         currentDomain === 'vibenet.shop' || 
         currentDomain === 'www.vibenet.shop') {
       console.log('🏠 Development/main domain detected:', currentDomain);

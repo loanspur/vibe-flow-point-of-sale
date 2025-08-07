@@ -171,9 +171,7 @@ const DomainRouter = () => {
     
     // Force immediate redirect to prevent any React routing issues
     useEffect(() => {
-      const targetUrl = window.location.hostname.endsWith('.vibenet.shop') 
-        ? 'https://vibenet.shop/dashboard' 
-        : '/dashboard';
+      const targetUrl = 'https://vibenet.shop/dashboard';
       
       console.log('🔄 Executing redirect to:', targetUrl);
       window.location.replace(targetUrl);

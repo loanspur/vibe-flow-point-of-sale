@@ -34,7 +34,7 @@ const Auth = () => {
       console.log('👤 User authenticated, redirecting to dashboard');
       // Only redirect on main domain - subdomain redirects are handled in App.tsx
       const hostname = window.location.hostname;
-      if (hostname === 'vibenet.shop' || hostname === 'localhost' || (!hostname.includes('.vibenet.shop') && !hostname.includes('.lovable.app'))) {
+      if (hostname === 'vibenet.shop' || hostname === 'localhost' || !hostname.includes('.vibenet.shop')) {
         navigate('/dashboard', { replace: true });
       }
       // For subdomains, do nothing - App.tsx handles the redirect
