@@ -164,11 +164,36 @@ const DomainRouter = () => {
     hostname: window.location.hostname 
   });
   
-  // CRITICAL: Always render auth routes first, regardless of domain loading state
-  // This prevents auth page blocking due to tenant dashboard loading issues
+  // CRITICAL: Check for unresolved subdomain FIRST before rendering any auth routes
+  // This prevents infinite redirect loops on problematic subdomains like santalama.vibenet.shop
+  if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
+    console.log('🚫 Unresolved subdomain detected, blocking auth routes and redirecting');
+    
+    // Force immediate redirect to prevent any React routing issues
+    useEffect(() => {
+      const targetUrl = window.location.hostname.endsWith('.vibenet.shop') 
+        ? 'https://vibenet.shop/dashboard' 
+        : '/dashboard';
+      
+      console.log('🔄 Executing redirect to:', targetUrl);
+      window.location.replace(targetUrl);
+    }, []);
+    
+    // Show loading message while redirecting - NEVER render Auth component
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Redirecting to main site...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render auth routes for valid domains only
   const currentPath = window.location.pathname;
   if (currentPath === '/auth' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
-    console.log('🔐 Rendering auth routes');
+    console.log('🔐 Rendering auth routes for valid domain');
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -381,28 +406,7 @@ const DomainRouter = () => {
     );
   }
 
-  // If on subdomain but no tenant found, force redirect to main domain immediately
-  if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    console.log('🚫 Unresolved subdomain detected, forcing redirect to main domain');
-    
-    // Force immediate redirect to prevent any React routing issues
-    if (window.location.hostname.endsWith('.vibenet.shop')) {
-      window.location.replace('https://vibenet.shop/dashboard');
-    } else {
-      // For staging environment, redirect to relative path
-      window.location.replace('/dashboard');
-    }
-    
-    // Show loading message while redirecting
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Redirecting to main site...</p>
-        </div>
-      </div>
-    );
-  }
+  // This check is now handled above to prevent Auth component loading
 
   // Main domain routes (all existing routes)
   return (
