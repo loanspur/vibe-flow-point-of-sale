@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface BillingPlan {
   id: string;
@@ -24,12 +25,40 @@ export const useOptimizedPricing = () => {
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAnnual, setIsAnnual] = useState(false);
+  const [convertedPrices, setConvertedPrices] = useState<Map<string, number>>(new Map());
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Convert KES prices to USD for public visitors
+  const convertPricesToUSD = async (plans: BillingPlan[]) => {
+    if (user) return; // Skip conversion for authenticated users
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('currency-conversion', {
+        body: {
+          action: 'bulk-convert',
+          amounts: plans.map(p => p.price),
+          targetCurrency: 'USD'
+        }
+      });
+
+      if (!error && data?.conversions) {
+        const priceMap = new Map<string, number>();
+        plans.forEach((plan, index) => {
+          priceMap.set(plan.id, data.conversions[index]?.converted || plan.price);
+        });
+        setConvertedPrices(priceMap);
+      }
+    } catch (error) {
+      console.error('Currency conversion failed:', error);
+    }
+  };
 
   const fetchPlans = async () => {
     // Check cache first
     if (cachedPlans && cacheTimestamp && Date.now() - cacheTimestamp < CACHE_DURATION) {
       setPlans(cachedPlans);
+      await convertPricesToUSD(cachedPlans);
       setLoading(false);
       return;
     }
@@ -48,6 +77,7 @@ export const useOptimizedPricing = () => {
         cachedPlans = billingPlans;
         cacheTimestamp = Date.now();
         setPlans(billingPlans);
+        await convertPricesToUSD(billingPlans);
       }
     } catch (error: any) {
       console.error('Error fetching plans:', error);
@@ -63,23 +93,25 @@ export const useOptimizedPricing = () => {
 
   useEffect(() => {
     fetchPlans();
-  }, []);
+  }, [user]); // Re-fetch when user auth state changes
 
   // Calculate pricing for all plans at component level
   const planPricingMap = useMemo(() => {
     const map = new Map();
     plans.forEach(plan => {
+      // Use converted price for public visitors, original price for authenticated users
+      const basePrice = user ? plan.price : (convertedPrices.get(plan.id) || plan.price);
       const pricing = {
-        monthlyPrice: plan.price,
+        monthlyPrice: basePrice,
         annualDiscountMonths: (plan as any).annual_discount_months || 2,
         annualDiscountPercentage: (plan as any).annual_discount_percentage,
-        // Default to USD for public pricing page, KES only for authenticated tenant users
-        currency: (plan as any).currency || 'USD'
+        // Show USD for public visitors, original currency for authenticated users
+        currency: user ? ((plan as any).currency || 'KES') : 'USD'
       };
       map.set(plan.id, pricing);
     });
     return map;
-  }, [plans]);
+  }, [plans, convertedPrices, user]);
 
   const getDisplayPrice = (plan: BillingPlan) => {
     const pricingConfig = planPricingMap.get(plan.id);
@@ -90,12 +122,12 @@ export const useOptimizedPricing = () => {
       const discountMonths = pricingConfig.annualDiscountMonths || 2;
       const discountAmount = pricingConfig.monthlyPrice * discountMonths;
       const finalPrice = annualPrice - discountAmount;
-      const symbol = pricingConfig.currency === 'USD' ? '$' : pricingConfig.currency;
-      return `${symbol}${finalPrice.toLocaleString()}`;
+      const symbol = pricingConfig.currency === 'USD' ? '$' : `${pricingConfig.currency} `;
+      return `${symbol}${Math.round(finalPrice).toLocaleString()}`;
     }
     
-    const symbol = pricingConfig.currency === 'USD' ? '$' : pricingConfig.currency;
-    return `${symbol}${pricingConfig.monthlyPrice.toLocaleString()}`;
+    const symbol = pricingConfig.currency === 'USD' ? '$' : `${pricingConfig.currency} `;
+    return `${symbol}${Math.round(pricingConfig.monthlyPrice).toLocaleString()}`;
   };
 
   const getDisplayPeriod = () => {
@@ -108,8 +140,7 @@ export const useOptimizedPricing = () => {
     
     const discountMonths = pricingConfig.annualDiscountMonths || 2;
     const savingsAmount = pricingConfig.monthlyPrice * discountMonths;
-    const symbol = pricingConfig.currency === 'USD' ? '$' : pricingConfig.currency;
-    return `${savingsAmount.toLocaleString()}`;
+    return `${Math.round(savingsAmount).toLocaleString()}`;
   };
 
   const formatFeatures = (features: any) => {
