@@ -3302,6 +3302,9 @@ export type Database = {
           email_verified_at: string | null
           full_name: string | null
           id: string
+          invitation_accepted_at: string | null
+          invitation_status: string | null
+          invited_at: string | null
           require_password_change: boolean | null
           role: Database["public"]["Enums"]["user_role"] | null
           tenant_id: string | null
@@ -3315,6 +3318,9 @@ export type Database = {
           email_verified_at?: string | null
           full_name?: string | null
           id?: string
+          invitation_accepted_at?: string | null
+          invitation_status?: string | null
+          invited_at?: string | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           tenant_id?: string | null
@@ -3328,6 +3334,9 @@ export type Database = {
           email_verified_at?: string | null
           full_name?: string | null
           id?: string
+          invitation_accepted_at?: string | null
+          invitation_status?: string | null
+          invited_at?: string | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           tenant_id?: string | null
@@ -5588,6 +5597,9 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          invitation_accepted_at: string | null
+          invitation_status: string | null
+          invited_at: string | null
           is_active: boolean
           role: string
           tenant_id: string
@@ -5596,6 +5608,9 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          invitation_accepted_at?: string | null
+          invitation_status?: string | null
+          invited_at?: string | null
           is_active?: boolean
           role?: string
           tenant_id: string
@@ -5604,6 +5619,9 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          invitation_accepted_at?: string | null
+          invitation_status?: string | null
+          invited_at?: string | null
           is_active?: boolean
           role?: string
           tenant_id?: string

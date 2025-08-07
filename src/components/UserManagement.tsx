@@ -26,6 +26,9 @@ interface User {
   avatar_url?: string;
   is_active?: boolean;
   last_login?: string;
+  invitation_status?: string;
+  invited_at?: string;
+  invitation_accepted_at?: string;
 }
 
 interface UserRole {
@@ -141,7 +144,7 @@ const UserManagement = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, role, tenant_id, created_at, avatar_url')
+        .select('id, user_id, full_name, role, tenant_id, created_at, avatar_url, invitation_status, invited_at, invitation_accepted_at')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
@@ -720,6 +723,7 @@ const UserManagement = () => {
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Invitation Status</TableHead>
                       <TableHead>Joined</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -728,7 +732,7 @@ const UserManagement = () => {
                   <TableBody>
                     {filteredUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8">
+                        <TableCell colSpan={6} className="text-center py-8">
                           No users found
                         </TableCell>
                       </TableRow>
@@ -754,6 +758,23 @@ const UserManagement = () => {
                                   {user.role}
                                 </div>
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {user.invitation_status && (
+                                <Badge 
+                                  variant={
+                                    user.invitation_status === 'accepted' ? 'default' :
+                                    user.invitation_status === 'pending' ? 'secondary' :
+                                    user.invitation_status === 'expired' ? 'destructive' : 
+                                    'outline'
+                                  }
+                                >
+                                  {user.invitation_status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
+                                  {user.invitation_status === 'accepted' && <CheckCircle className="h-3 w-3 mr-1" />}
+                                  {user.invitation_status === 'expired' && <XCircle className="h-3 w-3 mr-1" />}
+                                  {user.invitation_status}
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell>
                               {new Date(user.created_at).toLocaleDateString()}
@@ -1104,6 +1125,22 @@ const UserManagement = () => {
                 <div>
                   <Label>Role</Label>
                   <p className="text-sm text-muted-foreground">{selectedUser.role}</p>
+                </div>
+                <div>
+                  <Label>Invitation Status</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedUser.invitation_status || 'N/A'}
+                    {selectedUser.invited_at && (
+                      <span className="block text-xs">
+                        Invited: {new Date(selectedUser.invited_at).toLocaleString()}
+                      </span>
+                    )}
+                    {selectedUser.invitation_accepted_at && (
+                      <span className="block text-xs">
+                        Accepted: {new Date(selectedUser.invitation_accepted_at).toLocaleString()}
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <div>
                   <Label>Joined Date</Label>
