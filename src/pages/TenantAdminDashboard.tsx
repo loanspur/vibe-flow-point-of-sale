@@ -41,6 +41,7 @@ const getTimeBasedGreeting = () => {
 function TenantAdminDashboard() {
   console.log('🏠 TenantAdminDashboard COMPONENT LOADING');
   console.log('🏠 Current URL:', window.location.href);
+  console.log('🏠 Component mounted at:', new Date().toISOString());
   
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
@@ -301,6 +302,9 @@ function TenantAdminDashboard() {
   
   console.log('🏠 Dashboard RENDERING with data:', { dashboardData, loading });
 
+  console.log('🏠 Dashboard RENDERING with data:', { dashboardData, loading, tenantId, user: !!user });
+  console.log('🏠 About to render dashboard JSX');
+  
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
