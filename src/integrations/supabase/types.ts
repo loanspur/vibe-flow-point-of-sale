@@ -6599,6 +6599,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_initial_admin_role: {
+        Args: { tenant_id_param: string; admin_user_id: string }
+        Returns: string
+      }
       create_otp_verification: {
         Args: {
           user_id_param: string

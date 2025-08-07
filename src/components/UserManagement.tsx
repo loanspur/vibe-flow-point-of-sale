@@ -38,9 +38,12 @@ interface UserRole {
   permissions: any;
   is_system_role: boolean;
   is_active: boolean;
+  is_editable: boolean;
   tenant_id: string;
   created_at: string;
   updated_at: string;
+  color?: string;
+  level?: number;
 }
 
 interface SystemPermission {
@@ -670,11 +673,23 @@ const UserManagement = () => {
                               <SelectValue placeholder="Select role" />
                             </SelectTrigger>
                             <SelectContent>
-                              {roles.map((role) => (
-                                <SelectItem key={role.id} value={role.name}>
-                                  {role.name}
+                              {roles.length === 0 ? (
+                                <SelectItem value="" disabled>
+                                  No roles available - Create a role first
                                 </SelectItem>
-                              ))}
+                              ) : (
+                                roles.map((role) => (
+                                  <SelectItem key={role.id} value={role.name}>
+                                    <div className="flex items-center gap-2">
+                                      <div 
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: role.color || '#6b7280' }}
+                                      />
+                                      {role.name}
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
