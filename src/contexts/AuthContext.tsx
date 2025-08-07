@@ -159,9 +159,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to prevent deadlock
+          // Use setTimeout to prevent deadlock and only fetch if we don't have profile data
           setTimeout(() => {
-            if (mounted) {
+            if (mounted && (!userRole || !tenantId)) {
+              console.log('📋 Fetching user info for:', session.user.id);
               fetchUserInfo(session.user.id);
               
               // Log login activity

@@ -17,24 +17,40 @@ const ProtectedRoute = ({
   allowedRoles = [], 
   requireAuth = true 
 }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
-  const { userRole, canAccess, loading: rolesLoading } = useUserRoles();
+  const { user, loading, userRole: authUserRole } = useAuth();
 
-  console.log('🛡️ ProtectedRoute debug:', {
+  // Simple role mapping for basic functionality
+  const mapRole = (role: string): string => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+      case 'superadmin':
+        return 'Business Owner';
+      case 'manager':
+        return 'Store Manager';
+      case 'user':
+      case 'cashier':
+        return 'Sales Staff';
+      default:
+        return role || 'Sales Staff';
+    }
+  };
+
+  const mappedRole = authUserRole ? mapRole(authUserRole) : null;
+
+  console.log('🛡️ ProtectedRoute SIMPLIFIED debug:', {
     user: !!user,
     userEmail: user?.email,
     loading,
-    rolesLoading,
-    userRole: userRole?.name,
+    originalRole: authUserRole,
+    mappedRole,
     allowedRoles,
-    requireAuth,
-    pathname: window.location.pathname,
-    canAccessResult: allowedRoles.length > 0 ? canAccess(allowedRoles) : 'not applicable'
+    hasAccess: allowedRoles.length === 0 || (mappedRole && allowedRoles.includes(mappedRole)),
+    pathname: window.location.pathname
   });
 
-  // Show loading while auth or roles are being determined
-  if (loading || rolesLoading) {
-    console.log('🛡️ ProtectedRoute loading...');
+  // Show loading while auth is being determined
+  if (loading) {
+    console.log('🛡️ ProtectedRoute loading auth...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -44,26 +60,26 @@ const ProtectedRoute = ({
 
   // If authentication is required and user is not logged in
   if (requireAuth && !user) {
+    console.log('🚫 Redirecting to auth - no user');
     return <Navigate to="/auth" replace />;
   }
 
   // If specific roles are required
   if (allowedRoles.length > 0) {
-    // If user is not authenticated
-    if (!user || !userRole) {
+    // If user is not authenticated or has no role
+    if (!user || !authUserRole) {
+      console.log('🚫 Redirecting to auth - no role');
       return <Navigate to="/auth" replace />;
     }
 
     // Check if user has required role access
-    if (!canAccess(allowedRoles)) {
-      // Redirect based on user role level
-      const redirectPath = userRole?.level === 1 ? '/dashboard' : 
-                          userRole?.level === 2 ? '/sales' : 
-                          '/dashboard';
-      return <Navigate to={redirectPath} replace />;
+    if (!mappedRole || !allowedRoles.includes(mappedRole)) {
+      console.log('🚫 Access denied - role mismatch');
+      return <Navigate to="/dashboard" replace />;
     }
   }
 
+  console.log('✅ ProtectedRoute allowing access');
   return <>{children}</>;
 };
 

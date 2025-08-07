@@ -18,7 +18,13 @@ export const useUserRoles = () => {
   const { user, tenantId } = useAuth();
 
   const fetchRoles = async () => {
-    if (!tenantId) return;
+    console.log('🔄 useUserRoles: fetchRoles called', { tenantId, userId: user?.id });
+    
+    if (!tenantId) {
+      console.log('❌ useUserRoles: No tenantId, skipping role fetch');
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data: rolesData, error } = await supabase
@@ -33,13 +39,16 @@ export const useUserRoles = () => {
 
       // Get current user's role by checking tenant_users table
       if (user) {
-        const { data: tenantUserData } = await supabase
+        console.log('🔍 useUserRoles: Fetching user role from tenant_users');
+        const { data: tenantUserData, error: tenantUserError } = await supabase
           .from('tenant_users')
           .select('role')
           .eq('tenant_id', tenantId)
           .eq('user_id', user.id)
           .eq('is_active', true)
           .single();
+
+        console.log('🔍 useUserRoles: tenant_users result:', { tenantUserData, tenantUserError });
 
         if (tenantUserData?.role) {
           // Find the role details from our roles data
