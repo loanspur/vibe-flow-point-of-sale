@@ -123,7 +123,6 @@ const UserManagement = () => {
 
   // User creation states
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -464,7 +463,6 @@ const UserManagement = () => {
       toast.success(successMessage);
       
       setNewUserEmail('');
-      setNewUserPassword('');
       setNewUserRole('');
       setNewUserFullName('');
       setIsCreatingUser(false);
@@ -623,7 +621,6 @@ const UserManagement = () => {
                     <DialogTrigger asChild>
                       <Button onClick={() => {
                         setNewUserEmail('');
-                        setNewUserPassword('');
                         setNewUserRole('');
                         setNewUserFullName('');
                       }}>
@@ -635,7 +632,7 @@ const UserManagement = () => {
                       <DialogHeader>
                         <DialogTitle>Create New User</DialogTitle>
                         <DialogDescription>
-                          Create a new user account and send them login credentials
+                          Create a new user account and send them an email invitation
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
@@ -658,15 +655,10 @@ const UserManagement = () => {
                             placeholder="Enter email address"
                           />
                         </div>
-                        <div>
-                          <Label htmlFor="user-password">Password</Label>
-                          <Input
-                            id="user-password"
-                            type="password"
-                            value={newUserPassword}
-                            onChange={(e) => setNewUserPassword(e.target.value)}
-                            placeholder="Enter password"
-                          />
+                        <div className="bg-muted/50 p-3 rounded-md">
+                          <p className="text-sm text-muted-foreground">
+                            <strong>Note:</strong> The user will receive an email invitation with a secure link to set their password and verify their account.
+                          </p>
                         </div>
                         <div>
                           <Label htmlFor="user-role">Role</Label>
