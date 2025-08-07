@@ -28,18 +28,7 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect if already authenticated - only for main domain
-  useEffect(() => {
-    if (user) {
-      console.log('👤 User authenticated, redirecting to dashboard');
-      // Only redirect on main domain - subdomain redirects are handled in App.tsx
-      const hostname = window.location.hostname;
-      if (hostname === 'vibenet.shop' || hostname === 'localhost' || !hostname.includes('.vibenet.shop')) {
-        navigate('/dashboard', { replace: true });
-      }
-      // For subdomains, do nothing - App.tsx handles the redirect
-    }
-  }, [user, navigate]);
+  // No redirect logic in Auth component - all routing handled by App.tsx
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -107,8 +96,8 @@ const Auth = () => {
         description: "You have successfully signed in."
       });
       
-      // Let App.tsx handle all redirects - no subdomain logic here
-      console.log('🎯 Sign in successful, navigation will be handled by App.tsx');
+      // Auth completed - let App.tsx handle all navigation
+      console.log('🎯 Sign in successful');
     }
 
     setLoading(false);
