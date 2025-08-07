@@ -28,7 +28,7 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - with infinite loop prevention
   useEffect(() => {
     if (user) {
       console.log('👤 User authenticated, redirecting...');
@@ -40,16 +40,28 @@ const Auth = () => {
         href: window.location.href
       });
       
-      // For subdomains, redirect to root, for main domain redirect to dashboard
-      const isSubdomain = window.location.hostname.endsWith('.vibenet.shop') && 
-                         window.location.hostname !== 'vibenet.shop';
-      console.log('🌐 Is subdomain:', isSubdomain, 'Hostname:', window.location.hostname);
+      // FIXED: Use more robust subdomain detection that works in all environments
+      const hostname = window.location.hostname;
+      const isProductionSubdomain = hostname.endsWith('.vibenet.shop') && hostname !== 'vibenet.shop';
+      const isStagingSubdomain = hostname.includes('-') && hostname.endsWith('.lovable.app');
+      const isSubdomain = isProductionSubdomain || isStagingSubdomain;
       
+      console.log('🌐 Domain analysis:', { 
+        hostname, 
+        isProductionSubdomain,
+        isStagingSubdomain,
+        isSubdomain 
+      });
+      
+      // If this is a subdomain environment, always redirect to root
+      // If this is main domain, redirect to dashboard
       const targetRoute = isSubdomain ? '/' : '/dashboard';
       console.log('🎯 Redirecting to:', targetRoute);
       
-      // Use replace to prevent back button issues
-      navigate(targetRoute, { replace: true });
+      // Add delay to prevent rapid-fire redirects that cause browser throttling
+      setTimeout(() => {
+        navigate(targetRoute, { replace: true });
+      }, 100);
     }
   }, [user, navigate]);
 
@@ -119,11 +131,18 @@ const Auth = () => {
         description: "You have successfully signed in."
       });
       
-      // For subdomains, redirect to root, for main domain redirect to dashboard  
-      const isSubdomain = window.location.hostname.endsWith('.vibenet.shop') && 
-                         window.location.hostname !== 'vibenet.shop';
-      console.log('🔄 Redirecting...', { isSubdomain, hostname: window.location.hostname });
-      navigate(isSubdomain ? '/' : '/dashboard');
+      // FIXED: Use same robust subdomain detection as above
+      const hostname = window.location.hostname;
+      const isProductionSubdomain = hostname.endsWith('.vibenet.shop') && hostname !== 'vibenet.shop';
+      const isStagingSubdomain = hostname.includes('-') && hostname.endsWith('.lovable.app');
+      const isSubdomain = isProductionSubdomain || isStagingSubdomain;
+      
+      console.log('🔄 Post-login redirect...', { isSubdomain, hostname });
+      
+      // Add delay to prevent rapid redirects
+      setTimeout(() => {
+        navigate(isSubdomain ? '/' : '/dashboard', { replace: true });
+      }, 100);
     }
 
     setLoading(false);
