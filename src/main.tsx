@@ -7,7 +7,8 @@ const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 
 createRoot(rootElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
+  // Remove StrictMode to prevent double effects in development
+  // StrictMode intentionally double-invokes effects to help detect side effects
+  // but this causes issues with our domain and auth initialization
+  <App />
 );

@@ -44,17 +44,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
     // Prevent concurrent calls
     if (fetchInProgress) {
-      console.log(`🛑🛑🛑 FETCH BLOCKED (IN PROGRESS) - SOURCE: ${source} - USER: ${userId} 🛑🛑🛑`);
+      // Fetch already in progress
       return;
     }
     
     // Check if already fetched for this user
     if (profileFetched === userId) {
-      console.log(`🛑🛑🛑 FETCH BLOCKED (ALREADY FETCHED) - SOURCE: ${source} - USER: ${userId} 🛑🛑🛑`);
+      // Already fetched for this user
       return;
     }
-    
-    console.log(`🚀🚀🚀 FETCH USER INFO STARTING - SOURCE: ${source} - USER: ${userId} 🚀🚀🚀`);
     setFetchInProgress(true);
     try {
       // Get user role from profiles with optimized query
@@ -75,13 +73,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
-        console.log(`🔥🔥🔥 PROFILE LOADED FROM: ${source} 🔥🔥🔥`, profile);
-        console.log(`📊 State Check - Current Role: ${userRole}, New Role: ${profile.role}`);
-        console.log(`📊 State Check - Current Tenant: ${tenantId}, New Tenant: ${profile.tenant_id}`);
-        
         // Check if we're setting the same data repeatedly
         if (userRole === profile.role && tenantId === profile.tenant_id) {
-          console.log('⚠️⚠️⚠️ DUPLICATE PROFILE DATA - SKIPPING STATE UPDATES ⚠️⚠️⚠️');
           return;
         }
         
@@ -89,7 +82,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setTenantId(profile.tenant_id);
         setRequirePasswordChange(profile.require_password_change || false);
       } else {
-        console.log('No profile found, setting default role');
         // Fallback if no profile found
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
@@ -201,14 +193,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        console.log(`📊 Auth state updated - User: ${session?.user?.id || 'none'}, Previous fetch: ${profileFetched}, Fetch in progress: ${fetchInProgress}`);
+        // User state updated
         
         if (session?.user) {
           // Check all conditions to prevent duplicate calls
           const needsProfileFetch = profileFetched !== session.user.id && !fetchInProgress;
           
           if (needsProfileFetch) {
-            console.log(`📋 Will fetch user info from auth state change for: ${session.user.id}`);
+            // Fetching user profile
             setProfileFetched(session.user.id);
             setLoading(true);
             
@@ -227,7 +219,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }, 0);
           } else {
-            console.log(`✅ Skipping fetch - User: ${session.user.id}, Fetched: ${profileFetched}, InProgress: ${fetchInProgress}`);
+            // Profile already fetched
             setLoading(false);
           }
         } else {
