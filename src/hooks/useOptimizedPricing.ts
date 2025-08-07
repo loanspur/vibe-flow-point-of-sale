@@ -31,7 +31,12 @@ export const useOptimizedPricing = () => {
 
   // Convert KES prices to USD for public visitors
   const convertPricesToUSD = async (plans: BillingPlan[]) => {
-    if (user) return; // Skip conversion for authenticated users
+    if (user) {
+      console.log('Skipping conversion for authenticated user');
+      return; // Skip conversion for authenticated users
+    }
+    
+    console.log('Converting KES prices to USD for plans:', plans.map(p => ({ id: p.id, price: p.price })));
     
     try {
       const { data, error } = await supabase.functions.invoke('currency-conversion', {
@@ -42,12 +47,19 @@ export const useOptimizedPricing = () => {
         }
       });
 
+      console.log('Currency conversion response:', { data, error });
+
       if (!error && data?.conversions) {
         const priceMap = new Map<string, number>();
         plans.forEach((plan, index) => {
-          priceMap.set(plan.id, data.conversions[index]?.converted || plan.price);
+          const convertedPrice = data.conversions[index]?.converted || plan.price;
+          priceMap.set(plan.id, convertedPrice);
+          console.log(`Plan ${plan.id}: ${plan.price} KES -> ${convertedPrice} USD`);
         });
         setConvertedPrices(priceMap);
+        console.log('Final converted prices map:', Array.from(priceMap.entries()));
+      } else {
+        console.error('Currency conversion failed:', error);
       }
     } catch (error) {
       console.error('Currency conversion failed:', error);
