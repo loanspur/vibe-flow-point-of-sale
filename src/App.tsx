@@ -381,48 +381,27 @@ const DomainRouter = () => {
     );
   }
 
-  // If on subdomain but no tenant found, show auth only
+  // If on subdomain but no tenant found, show error message only (no auth)
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    console.log('🚫 Subdomain with no tenant detected, showing auth-only routes');
+    console.log('🚫 Subdomain with no tenant detected, showing error page');
     return (
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          {/* Auth routes */}
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          
-          {/* Redirect all routes to error page for unresolved subdomains */}
-          <Route path="/" element={
-            <div className="min-h-screen flex items-center justify-center p-4">
-              <div className="text-center space-y-4">
-                <h1 className="text-2xl font-bold text-destructive">Subdomain Not Found</h1>
-                <p className="text-muted-foreground">
-                  The subdomain "{window.location.hostname}" is not configured.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Please visit <a href="https://vibenet.shop" className="text-primary hover:underline">vibenet.shop</a> to access the main site.
-                </p>
-              </div>
-            </div>
-          } />
-          
-          {/* All other paths show error message */}
-          <Route path="*" element={
-            <div className="min-h-screen flex items-center justify-center p-4">
-              <div className="text-center space-y-4">
-                <h1 className="text-2xl font-bold text-destructive">Subdomain Not Found</h1>
-                <p className="text-muted-foreground">
-                  The subdomain "{window.location.hostname}" is not configured.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Please contact support or <a href="/auth" className="text-primary hover:underline">sign in</a> to continue.
-                </p>
-              </div>
-            </div>
-          } />
-        </Routes>
-      </Suspense>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold text-destructive">Subdomain Not Found</h1>
+          <p className="text-muted-foreground">
+            The subdomain "{window.location.hostname}" is not configured.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Please visit <a 
+              href="https://vibenet.shop" 
+              className="text-primary hover:underline"
+              onClick={() => window.location.href = 'https://vibenet.shop'}
+            >
+              vibenet.shop
+            </a> to access the main site.
+          </p>
+        </div>
+      </div>
     );
   }
 
