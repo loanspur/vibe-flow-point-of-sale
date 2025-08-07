@@ -36,11 +36,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
-  const [profileFetched, setProfileFetched] = useState<string | null>(null); // Track which user's profile we've fetched
+  const [profileFetched, setProfileFetched] = useState<string | null>(null);
+  const [fetchInProgress, setFetchInProgress] = useState<boolean>(false); // Prevent concurrent calls
 
   // Fetch user role and tenant info with domain context support
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
-    console.log(`🔍 fetchUserInfo called from: ${source} for user: ${userId}`);
+    // Prevent concurrent calls
+    if (fetchInProgress) {
+      console.log(`🚫 fetchUserInfo blocked (already in progress) - Source: ${source}, User: ${userId}`);
+      return;
+    }
+    
+    // Check if already fetched for this user
+    if (profileFetched === userId) {
+      console.log(`🚫 fetchUserInfo blocked (already fetched) - Source: ${source}, User: ${userId}`);
+      return;
+    }
+    
+    console.log(`🔍 fetchUserInfo starting from: ${source} for user: ${userId}`);
+    setFetchInProgress(true);
     try {
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
@@ -60,7 +74,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
-        console.log('User profile loaded:', profile);
+        console.log(`✅ User profile loaded from ${source}:`, profile);
+        
+        // Check if we're setting the same data repeatedly
+        if (userRole === profile.role && tenantId === profile.tenant_id) {
+          console.log('⚠️  Duplicate profile data - skipping state updates');
+          return;
+        }
+        
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
         setRequirePasswordChange(profile.require_password_change || false);
@@ -78,6 +99,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole('user');
       setTenantId(null);
       setRequirePasswordChange(false);
+    } finally {
+      setFetchInProgress(false);
     }
   };
 
@@ -163,19 +186,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log(`🔄 Auth state change: ${event}`, { 
+          sessionExists: !!session, 
+          userExists: !!session?.user,
+          mounted,
+          currentProfileFetched: profileFetched
+        });
+        
         if (!mounted) return;
         
         setSession(session);
         setUser(session?.user ?? null);
         
+        console.log(`📊 Auth state updated - User: ${session?.user?.id || 'none'}, Previous fetch: ${profileFetched}, Fetch in progress: ${fetchInProgress}`);
+        
         if (session?.user) {
-          // Only fetch profile if we haven't already fetched it for this user
-          const needsProfileFetch = profileFetched !== session.user.id;
+          // Check all conditions to prevent duplicate calls
+          const needsProfileFetch = profileFetched !== session.user.id && !fetchInProgress;
           
           if (needsProfileFetch) {
-            console.log(`📋 Fetching user info from auth state change for: ${session.user.id}`);
+            console.log(`📋 Will fetch user info from auth state change for: ${session.user.id}`);
             setProfileFetched(session.user.id);
-            setLoading(true); // Keep loading until profile is fetched
+            setLoading(true);
             
             // Use setTimeout to prevent deadlock
             setTimeout(() => {
@@ -192,7 +224,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }, 0);
           } else {
-            console.log(`✅ Profile already fetched for user (auth-state-change): ${session.user.id}`);
+            console.log(`✅ Skipping fetch - User: ${session.user.id}, Fetched: ${profileFetched}, InProgress: ${fetchInProgress}`);
             setLoading(false);
           }
         } else {
@@ -203,7 +235,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           setUserRole(null);
           setTenantId(null);
-          setProfileFetched(null); // Reset profile fetch tracking
+          setProfileFetched(null);
+          setFetchInProgress(false); // Reset fetch state
           setLoading(false);
         }
       }
@@ -225,12 +258,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user && profileFetched !== session.user.id) {
+        if (session?.user && profileFetched !== session.user.id && !fetchInProgress) {
           console.log(`🚀 Initial user info fetch for: ${session.user.id}`);
           setProfileFetched(session.user.id);
           await fetchUserInfo(session.user.id, 'initial-auth-check');
         } else if (session?.user) {
-          console.log(`✅ Profile already fetched for user (initial): ${session.user.id}`);
+          console.log(`✅ Skipping initial fetch - User: ${session.user.id}, Fetched: ${profileFetched}, InProgress: ${fetchInProgress}`);
         }
         
         // Always set loading to false after initial check
@@ -269,7 +302,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole(null);
       setTenantId(null);
       setRequirePasswordChange(false);
-      setProfileFetched(null); // Reset profile fetch tracking
+      setProfileFetched(null);
+      setFetchInProgress(false);
       
       await supabase.auth.signOut();
     } catch (error) {
