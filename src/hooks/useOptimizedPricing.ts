@@ -110,15 +110,21 @@ export const useOptimizedPricing = () => {
   // Calculate pricing for all plans at component level
   const planPricingMap = useMemo(() => {
     const map = new Map();
+    console.log('🔄 Building pricing map. User:', !!user, 'Converted prices:', Array.from(convertedPrices.entries()));
+    
     plans.forEach(plan => {
       // Use converted price for public visitors, original price for authenticated users
       const basePrice = user ? plan.price : (convertedPrices.get(plan.id) || plan.price);
+      const currency = user ? ((plan as any).currency || 'KES') : 'USD';
+      
+      console.log(`📊 Plan ${plan.id}: Original=${plan.price} KES, Base=${basePrice}, Currency=${currency}, User=${!!user}`);
+      
       const pricing = {
         monthlyPrice: basePrice,
         annualDiscountMonths: (plan as any).annual_discount_months || 2,
         annualDiscountPercentage: (plan as any).annual_discount_percentage,
         // Show USD for public visitors, original currency for authenticated users
-        currency: user ? ((plan as any).currency || 'KES') : 'USD'
+        currency
       };
       map.set(plan.id, pricing);
     });
