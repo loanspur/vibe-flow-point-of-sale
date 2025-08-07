@@ -284,9 +284,16 @@ export const getSubdomainName = (domain: string = getCurrentDomain()) => {
 export const useDomainContext = () => {
   const [domainConfig, setDomainConfig] = React.useState<DomainConfig | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [initialized, setInitialized] = React.useState(false);
 
   React.useEffect(() => {
     let mounted = true;
+    
+    // Prevent multiple initializations
+    if (initialized) {
+      console.log('🔄 Domain context already initialized, skipping');
+      return;
+    }
     
     const initializeDomain = async () => {
       try {
@@ -297,11 +304,16 @@ export const useDomainContext = () => {
         
         if (mounted) {
           setDomainConfig(config);
+          setInitialized(true);
           
           // Set up tenant context if needed
           if (config?.isSubdomain && config.tenantId) {
             console.log('🏢 Setting up tenant context for:', config.tenantId);
-            await domainManager.setupTenantContext(config.tenantId);
+            try {
+              await domainManager.setupTenantContext(config.tenantId);
+            } catch (error) {
+              console.warn('⚠️ Tenant context setup failed:', error);
+            }
           }
           
           setLoading(false);
@@ -316,6 +328,7 @@ export const useDomainContext = () => {
             isCustomDomain: false,
             isSubdomain: false
           });
+          setInitialized(true);
           setLoading(false);
         }
       }
@@ -326,7 +339,7 @@ export const useDomainContext = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [initialized]);
 
   return {
     domainConfig,
