@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDomainContext, isDevelopmentDomain } from "@/lib/domain-manager";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
@@ -60,6 +61,21 @@ const Purchases = lazy(() => import("./pages/Purchases"));
 const Accounting = lazy(() => import("./pages/Accounting"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+
+// Auth page wrapper to redirect authenticated users on subdomains
+const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    // If user is authenticated and on subdomain, redirect to dashboard
+    if (user && window.location.hostname.includes('.vibenet.shop') && window.location.hostname !== 'vibenet.shop') {
+      console.log('👤 User authenticated, redirecting from auth page to dashboard');
+      window.location.replace('/dashboard');
+    }
+  }, [user]);
+  
+  return <>{children}</>;
+};
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
@@ -211,8 +227,15 @@ const DomainRouter = () => {
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Auth routes */}
-          <Route path="/auth" element={<Auth />} />
+          {/* Auth routes - redirect to dashboard if already authenticated on subdomain */}
+          <Route 
+            path="/auth" 
+            element={
+              <AuthPageWrapper>
+                <Auth />
+              </AuthPageWrapper>
+            } 
+          />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           
