@@ -289,28 +289,32 @@ export const useDomainContext = () => {
   React.useEffect(() => {
     let mounted = true;
     
-    // Prevent multiple initializations
-    if (initialized) {
-      console.log('🔄 Domain context already initialized, skipping');
+    // Prevent multiple initializations - CRITICAL FIX
+    if (initialized && domainConfig) {
+      console.log('🔄 Domain context already initialized, skipping re-init');
       return;
     }
     
     const initializeDomain = async () => {
       try {
-        console.log('🌐 Initializing domain context for:', window.location.hostname);
+        if (!mounted) return; // Early exit check
+        
+        console.log('🌐 STARTING domain context initialization for:', window.location.hostname);
         const config = await domainManager.getCurrentDomainConfig();
         
-        console.log('🔍 Domain config resolved:', config);
+        console.log('🔍 Domain config RESOLVED:', config);
         
+        if (!mounted) return; // Check again before state updates
         if (mounted) {
           setDomainConfig(config);
-          setInitialized(true);
+          setInitialized(true); // Set BEFORE tenant setup
           
           // Set up tenant context if needed
           if (config?.isSubdomain && config.tenantId) {
             console.log('🏢 Setting up tenant context for:', config.tenantId);
             try {
               await domainManager.setupTenantContext(config.tenantId);
+              console.log('✅ Tenant context setup complete');
             } catch (error) {
               console.warn('⚠️ Tenant context setup failed:', error);
             }
