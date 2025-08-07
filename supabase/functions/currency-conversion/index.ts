@@ -51,7 +51,22 @@ async function getExchangeRate(fromCurrency: string, toCurrency: string): Promis
       'GBP_KES': 164.0,   // 1 GBP = 164 KES
     };
     
-    return fallbackRates[cacheKey] || fallbackRates[`${toCurrency}_${fromCurrency}`] ? (1 / fallbackRates[`${toCurrency}_${fromCurrency}`]) : 1;
+    console.log(`Fallback rate lookup for ${cacheKey}:`, fallbackRates[cacheKey]);
+    
+    const fallbackRate = fallbackRates[cacheKey];
+    if (fallbackRate) {
+      return fallbackRate;
+    }
+    
+    // Try reverse rate
+    const reverseKey = `${toCurrency}_${fromCurrency}`;
+    const reverseRate = fallbackRates[reverseKey];
+    if (reverseRate) {
+      return 1 / reverseRate;
+    }
+    
+    console.warn(`No exchange rate found for ${fromCurrency} to ${toCurrency}, using 1:1`);
+    return 1;
   } catch (error) {
     console.error('Currency conversion error:', error);
     return 1; // Fallback to 1:1 rate
