@@ -441,28 +441,26 @@ const UserManagement = () => {
   };
 
   const createUser = async () => {
-    if (!newUserEmail || !newUserPassword || !newUserRole || !newUserFullName) {
-      toast.error('Please fill in all fields');
+    if (!newUserEmail || !newUserRole || !newUserFullName) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
     setCreating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-user-account', {
+      const { data, error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email: newUserEmail,
-          password: newUserPassword,
           fullName: newUserFullName,
           role: newUserRole,
-          tenantId,
-          loginUrl: `${window.location.origin}/auth`
+          tenantId
         }
       });
 
       if (error) throw error;
 
       // Show success message based on the response
-      const successMessage = data?.message || 'User processed successfully and welcome email sent';
+      const successMessage = data?.message || 'User invitation sent successfully';
       toast.success(successMessage);
       
       setNewUserEmail('');
