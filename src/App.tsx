@@ -21,6 +21,7 @@ import { PasswordChangeModal } from "./components/PasswordChangeModal";
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
 const Auth = lazy(() => import("./pages/Auth"));
+const CurrencyDebug = lazy(() => import("./pages/CurrencyDebug"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
@@ -442,6 +443,7 @@ const DomainRouter = () => {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/company-info" element={<CompanyInfo />} />
+        <Route path="/currency-debug" element={<CurrencyDebug />} />
         <Route path="/careers" element={<Careers />} />
         
         {/* Super Admin Routes */}
