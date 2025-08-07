@@ -43,17 +43,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
     // Prevent concurrent calls
     if (fetchInProgress) {
-      console.log(`🚫 fetchUserInfo blocked (already in progress) - Source: ${source}, User: ${userId}`);
+      console.log(`🛑🛑🛑 FETCH BLOCKED (IN PROGRESS) - SOURCE: ${source} - USER: ${userId} 🛑🛑🛑`);
       return;
     }
     
     // Check if already fetched for this user
     if (profileFetched === userId) {
-      console.log(`🚫 fetchUserInfo blocked (already fetched) - Source: ${source}, User: ${userId}`);
+      console.log(`🛑🛑🛑 FETCH BLOCKED (ALREADY FETCHED) - SOURCE: ${source} - USER: ${userId} 🛑🛑🛑`);
       return;
     }
     
-    console.log(`🔍 fetchUserInfo starting from: ${source} for user: ${userId}`);
+    console.log(`🚀🚀🚀 FETCH USER INFO STARTING - SOURCE: ${source} - USER: ${userId} 🚀🚀🚀`);
     setFetchInProgress(true);
     try {
       // Get user role from profiles with optimized query
@@ -74,11 +74,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
-        console.log(`✅ User profile loaded from ${source}:`, profile);
+        console.log(`🔥🔥🔥 PROFILE LOADED FROM: ${source} 🔥🔥🔥`, profile);
+        console.log(`📊 State Check - Current Role: ${userRole}, New Role: ${profile.role}`);
+        console.log(`📊 State Check - Current Tenant: ${tenantId}, New Tenant: ${profile.tenant_id}`);
         
         // Check if we're setting the same data repeatedly
         if (userRole === profile.role && tenantId === profile.tenant_id) {
-          console.log('⚠️  Duplicate profile data - skipping state updates');
+          console.log('⚠️⚠️⚠️ DUPLICATE PROFILE DATA - SKIPPING STATE UPDATES ⚠️⚠️⚠️');
           return;
         }
         
