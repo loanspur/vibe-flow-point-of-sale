@@ -39,7 +39,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profileFetched, setProfileFetched] = useState<string | null>(null); // Track which user's profile we've fetched
 
   // Fetch user role and tenant info with domain context support
-  const fetchUserInfo = async (userId: string) => {
+  const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
+    console.log(`🔍 fetchUserInfo called from: ${source} for user: ${userId}`);
     try {
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
@@ -96,7 +97,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session.user);
         // Always refresh on manual call, but update tracking
         setProfileFetched(session.user.id);
-        await fetchUserInfo(session.user.id);
+        await fetchUserInfo(session.user.id, 'manual-refresh');
       }
     } catch (error) {
       console.warn('Failed to refresh user info:', error);
@@ -110,9 +111,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Only refresh if we haven't fetched profile in the last 5 minutes
         const shouldRefresh = !profileFetched || profileFetched !== user.id;
         if (shouldRefresh) {
-          console.log('👁️ Refreshing user info on focus');
+          console.log(`👁️ Refreshing user info on focus for: ${user.id}`);
           setProfileFetched(user.id);
-          fetchUserInfo(user.id);
+          fetchUserInfo(user.id, 'focus-refresh');
         }
       }
     };
@@ -172,13 +173,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const needsProfileFetch = profileFetched !== session.user.id;
           
           if (needsProfileFetch) {
-            console.log('📋 Fetching user info for:', session.user.id);
+            console.log(`📋 Fetching user info from auth state change for: ${session.user.id}`);
             setProfileFetched(session.user.id);
+            setLoading(true); // Keep loading until profile is fetched
             
             // Use setTimeout to prevent deadlock
             setTimeout(() => {
               if (mounted) {
-                fetchUserInfo(session.user.id);
+                fetchUserInfo(session.user.id, 'auth-state-change')
+                  .finally(() => {
+                    if (mounted) setLoading(false);
+                  });
                 
                 // Log login activity
                 if (event === 'SIGNED_IN') {
@@ -187,7 +192,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }, 0);
           } else {
-            console.log('✅ Profile already fetched for user:', session.user.id);
+            console.log(`✅ Profile already fetched for user (auth-state-change): ${session.user.id}`);
+            setLoading(false);
           }
         } else {
           // User signed out - reset everything including profile fetch tracking
@@ -198,9 +204,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUserRole(null);
           setTenantId(null);
           setProfileFetched(null); // Reset profile fetch tracking
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
@@ -221,11 +226,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user && profileFetched !== session.user.id) {
-          console.log('🚀 Initial user info fetch for:', session.user.id);
+          console.log(`🚀 Initial user info fetch for: ${session.user.id}`);
           setProfileFetched(session.user.id);
-          await fetchUserInfo(session.user.id);
+          await fetchUserInfo(session.user.id, 'initial-auth-check');
+        } else if (session?.user) {
+          console.log(`✅ Profile already fetched for user (initial): ${session.user.id}`);
         }
         
+        // Always set loading to false after initial check
         setLoading(false);
       } catch (error) {
         if (mounted) {
