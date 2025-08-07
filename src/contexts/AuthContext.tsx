@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+  const [profileFetched, setProfileFetched] = useState<string | null>(null); // Track which user's profile we've fetched
 
   // Fetch user role and tenant info with domain context support
   const fetchUserInfo = async (userId: string) => {
@@ -93,6 +94,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         setSession(session);
         setUser(session.user);
+        // Always refresh on manual call, but update tracking
+        setProfileFetched(session.user.id);
         await fetchUserInfo(session.user.id);
       }
     } catch (error) {
@@ -104,13 +107,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const handleFocus = () => {
       if (user && document.visibilityState === 'visible') {
-        fetchUserInfo(user.id);
+        // Only refresh if we haven't fetched profile in the last 5 minutes
+        const shouldRefresh = !profileFetched || profileFetched !== user.id;
+        if (shouldRefresh) {
+          console.log('👁️ Refreshing user info on focus');
+          setProfileFetched(user.id);
+          fetchUserInfo(user.id);
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleFocus);
     return () => document.removeEventListener('visibilitychange', handleFocus);
-  }, [user]);
+  }, [user, profileFetched]);
 
   // Optimized activity logging function
   const logUserActivity = async (actionType: string, userId: string) => {
@@ -159,26 +168,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to prevent deadlock and only fetch if we don't have profile data
-          setTimeout(() => {
-            if (mounted && (!userRole || !tenantId)) {
-              console.log('📋 Fetching user info for:', session.user.id);
-              fetchUserInfo(session.user.id);
-              
-              // Log login activity
-              if (event === 'SIGNED_IN') {
-                logUserActivity('login', session.user.id);
+          // Only fetch profile if we haven't already fetched it for this user
+          const needsProfileFetch = profileFetched !== session.user.id;
+          
+          if (needsProfileFetch) {
+            console.log('📋 Fetching user info for:', session.user.id);
+            setProfileFetched(session.user.id);
+            
+            // Use setTimeout to prevent deadlock
+            setTimeout(() => {
+              if (mounted) {
+                fetchUserInfo(session.user.id);
+                
+                // Log login activity
+                if (event === 'SIGNED_IN') {
+                  logUserActivity('login', session.user.id);
+                }
               }
-            }
-          }, 0);
+            }, 0);
+          } else {
+            console.log('✅ Profile already fetched for user:', session.user.id);
+          }
         } else {
-          // Log logout activity for previous user if we had one
+          // User signed out - reset everything including profile fetch tracking
           if (event === 'SIGNED_OUT' && user) {
             logUserActivity('logout', user.id);
           }
           
           setUserRole(null);
           setTenantId(null);
+          setProfileFetched(null); // Reset profile fetch tracking
         }
         
         setLoading(false);
@@ -201,7 +220,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
+        if (session?.user && profileFetched !== session.user.id) {
+          console.log('🚀 Initial user info fetch for:', session.user.id);
+          setProfileFetched(session.user.id);
           await fetchUserInfo(session.user.id);
         }
         
@@ -240,6 +261,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole(null);
       setTenantId(null);
       setRequirePasswordChange(false);
+      setProfileFetched(null); // Reset profile fetch tracking
       
       await supabase.auth.signOut();
     } catch (error) {
