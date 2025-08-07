@@ -28,7 +28,8 @@ const ProtectedRoute = ({
     userRole: userRole?.name,
     allowedRoles,
     requireAuth,
-    pathname: window.location.pathname
+    pathname: window.location.pathname,
+    canAccessResult: allowedRoles.length > 0 ? canAccess(allowedRoles) : 'not applicable'
   });
 
   // Show loading while auth or roles are being determined
