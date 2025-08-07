@@ -73,7 +73,8 @@ export const useOptimizedPricing = () => {
         monthlyPrice: plan.price,
         annualDiscountMonths: (plan as any).annual_discount_months || 2,
         annualDiscountPercentage: (plan as any).annual_discount_percentage,
-        currency: (plan as any).currency || 'KES'
+        // Default to USD for public pricing page, KES only for authenticated tenant users
+        currency: (plan as any).currency || 'USD'
       };
       map.set(plan.id, pricing);
     });
@@ -82,17 +83,19 @@ export const useOptimizedPricing = () => {
 
   const getDisplayPrice = (plan: BillingPlan) => {
     const pricingConfig = planPricingMap.get(plan.id);
-    if (!pricingConfig) return `KES ${plan.price.toLocaleString()}`;
+    if (!pricingConfig) return `$${plan.price.toLocaleString()}`;
     
     if (isAnnual) {
       const annualPrice = pricingConfig.monthlyPrice * 12;
       const discountMonths = pricingConfig.annualDiscountMonths || 2;
       const discountAmount = pricingConfig.monthlyPrice * discountMonths;
       const finalPrice = annualPrice - discountAmount;
-      return `${pricingConfig.currency} ${finalPrice.toLocaleString()}`;
+      const symbol = pricingConfig.currency === 'USD' ? '$' : pricingConfig.currency;
+      return `${symbol}${finalPrice.toLocaleString()}`;
     }
     
-    return `${pricingConfig.currency} ${pricingConfig.monthlyPrice.toLocaleString()}`;
+    const symbol = pricingConfig.currency === 'USD' ? '$' : pricingConfig.currency;
+    return `${symbol}${pricingConfig.monthlyPrice.toLocaleString()}`;
   };
 
   const getDisplayPeriod = () => {
@@ -105,7 +108,8 @@ export const useOptimizedPricing = () => {
     
     const discountMonths = pricingConfig.annualDiscountMonths || 2;
     const savingsAmount = pricingConfig.monthlyPrice * discountMonths;
-    return `Save ${pricingConfig.currency} ${savingsAmount.toLocaleString()} annually`;
+    const symbol = pricingConfig.currency === 'USD' ? '$' : pricingConfig.currency;
+    return `${savingsAmount.toLocaleString()}`;
   };
 
   const formatFeatures = (features: any) => {

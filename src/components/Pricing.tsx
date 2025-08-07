@@ -105,7 +105,7 @@ export const Pricing: React.FC<PricingProps> = ({ onStartTrial }) => {
                       </span>
                     </div>
                     
-                    {isAnnual && savings && parseFloat(savings) > 0 && (
+                    {isAnnual && savings && parseFloat(savings.replace(/[^0-9]/g, '')) > 0 && (
                       <div className="mt-2">
                         <Badge variant="outline" className="text-green-600 border-green-600">
                           Save ${savings}/year
