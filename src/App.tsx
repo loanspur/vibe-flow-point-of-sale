@@ -392,7 +392,10 @@ const DomainRouter = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           
-          {/* For staging/development subdomains, redirect to main domain */}
+          {/* Root path should redirect to auth for unresolved subdomains */}
+          <Route path="/" element={<Navigate to="/auth" replace />} />
+          
+          {/* All other paths show error message */}
           <Route path="*" element={
             <div className="min-h-screen flex items-center justify-center p-4">
               <div className="text-center space-y-4">
