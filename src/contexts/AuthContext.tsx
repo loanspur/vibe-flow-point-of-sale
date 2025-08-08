@@ -353,8 +353,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updatePassword
   };
 
+  // Debug the loading state issue
+  console.log('🔐 AuthContext render:', { 
+    loading, 
+    user: !!user, 
+    userRole, 
+    tenantId, 
+    fetchInProgress,
+    profileFetched,
+    session: !!session 
+  });
+
   // Don't render children until we've checked for an existing session
   if (loading) {
+    console.log('🔐 AuthContext BLOCKING render - loading is true');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -362,6 +374,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
+  console.log('🔐 AuthContext ALLOWING render - proceeding to children');
   return (
     <AuthContext.Provider value={value}>
       {children}
