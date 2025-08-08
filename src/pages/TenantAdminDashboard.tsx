@@ -380,7 +380,7 @@ function TenantAdminDashboard() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {getTimeBasedGreeting()}, {userProfile?.full_name || user?.email?.split('@')[0] || 'User'}!
@@ -389,19 +389,70 @@ function TenantAdminDashboard() {
             Here's what's happening with your business today.
           </p>
         </div>
-        <Button 
-          onClick={fetchDashboardData}
-          variant="outline" 
-          size="sm"
-          disabled={loading}
-        >
-          {loading ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
-          ) : (
-            <ArrowUpRight className="h-4 w-4 mr-2" />
-          )}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1">
+            <Button
+              variant={dateFilter === 'today' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('today')}
+            >
+              Today
+            </Button>
+            <Button
+              variant={dateFilter === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('week')}
+            >
+              Week
+            </Button>
+            <Button
+              variant={dateFilter === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('month')}
+            >
+              Month
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={dateFilter === 'custom' ? 'default' : 'outline'}
+                  size="sm"
+                  className="justify-start"
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  {dateFilter === 'custom' && dateRange.start && dateRange.end
+                    ? `${format(dateRange.start, 'LLL d, y')} - ${format(dateRange.end, 'LLL d, y')}`
+                    : 'Custom'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={{ from: dateRange.start || undefined, to: dateRange.end || undefined } as any}
+                  onSelect={(range: any) => {
+                    setDateRange({ start: range?.from || null, end: range?.to || null });
+                    if (range?.from && range?.to) setDateFilter('custom');
+                  }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Button 
+            onClick={fetchDashboardData}
+            variant="outline" 
+            size="sm"
+            disabled={loading}
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+            ) : (
+              <ArrowUpRight className="h-4 w-4 mr-2" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Subscription Status */}
@@ -485,6 +536,84 @@ function TenantAdminDashboard() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Inventory Value */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Stock Value (Purchase)</p>
+              <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockPurchaseValue || 0)}</p>
+            </div>
+            <Boxes className="h-6 w-6 text-muted-foreground" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Stock Value (Sale)</p>
+              <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockSaleValue || 0)}</p>
+            </div>
+            <PiggyBank className="h-6 w-6 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Financial Overview */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-muted/50">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Invoices Due</p>
+                <p className="text-xl font-bold">{formatCurrency(dashboardData?.arDue || 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-muted/50">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Purchases Due</p>
+                <p className="text-xl font-bold">{formatCurrency(dashboardData?.apDue || 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-muted/50">
+                <TrendingDown className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Expenses</p>
+                <p className="text-xl font-bold">{formatCurrency(dashboardData?.expenses || 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-muted/50">
+                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Profit</p>
+                <p className="text-xl font-bold">{formatCurrency(dashboardData?.profit || 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Cash Drawer */}
