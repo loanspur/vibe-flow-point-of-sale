@@ -1126,6 +1126,134 @@ export default function TenantManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Manual Payment Dialog */}
+      <Dialog open={manualPaymentDialogOpen} onOpenChange={setManualPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Record Manual Payment - {selectedTenant?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Capture a manual payment for this tenant. A unique reference is required.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="amount">Amount</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={manualPayment.amount}
+                  onChange={(e) => setManualPayment((p) => ({ ...p, amount: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="currency">Currency</Label>
+                <Select value={manualPayment.currency} onValueChange={(v) => setManualPayment((p) => ({ ...p, currency: v }))}>
+                  <SelectTrigger id="currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="KES">KES (Kenyan Shilling)</SelectItem>
+                    <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="date">Payment Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={manualPayment.paymentDate}
+                  onChange={(e) => setManualPayment((p) => ({ ...p, paymentDate: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="method">Method</Label>
+                <Select value={manualPayment.method} onValueChange={(v) => setManualPayment((p) => ({ ...p, method: v }))}>
+                  <SelectTrigger id="method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="cheque">Cheque</SelectItem>
+                    <SelectItem value="mpesa">M-Pesa</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="reference">Payment Reference</Label>
+                <Input
+                  id="reference"
+                  placeholder="Enter unique reference"
+                  value={manualPayment.reference}
+                  onChange={(e) => setManualPayment((p) => ({ ...p, reference: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="plan">Billing Plan (optional)</Label>
+                <Select value={manualPayment.planId} onValueChange={(v) => setManualPayment((p) => ({ ...p, planId: v }))}>
+                  <SelectTrigger id="plan">
+                    <SelectValue placeholder="Select plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {billingPlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email">Send Receipt To</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder={selectedTenant?.contact_email || 'client@example.com'}
+                  value={manualPayment.email}
+                  onChange={(e) => setManualPayment((p) => ({ ...p, email: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Optional notes"
+                  value={manualPayment.notes}
+                  onChange={(e) => setManualPayment((p) => ({ ...p, notes: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setManualPaymentDialogOpen(false)} disabled={savingManualPayment}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveManualPayment} disabled={savingManualPayment}>
+                {savingManualPayment && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
+                Save Payment
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Custom Pricing Dialog */}
       <Dialog open={customPricingDialogOpen} onOpenChange={setCustomPricingDialogOpen}>
         <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
