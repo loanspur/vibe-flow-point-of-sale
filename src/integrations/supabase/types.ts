@@ -3646,6 +3646,7 @@ export type Database = {
           quote_id: string | null
           total_price: number
           unit_price: number
+          updated_at: string
           variant_id: string | null
         }
         Insert: {
@@ -3656,6 +3657,7 @@ export type Database = {
           quote_id?: string | null
           total_price: number
           unit_price: number
+          updated_at?: string
           variant_id?: string | null
         }
         Update: {
@@ -3666,6 +3668,7 @@ export type Database = {
           quote_id?: string | null
           total_price?: number
           unit_price?: number
+          updated_at?: string
           variant_id?: string | null
         }
         Relationships: [
