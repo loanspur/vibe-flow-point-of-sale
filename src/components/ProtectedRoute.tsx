@@ -80,6 +80,7 @@ const ProtectedRoute = ({
   }
 
   console.log('✅ ProtectedRoute allowing access');
+  console.log('🎯 About to render ProtectedRoute children');
   return <>{children}</>;
 };
 

@@ -199,5 +199,6 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
     );
   }
 
+  console.log('✅ SubscriptionGuard allowing access - rendering children');
   return <>{children}</>;
 }

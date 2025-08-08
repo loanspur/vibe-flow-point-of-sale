@@ -28,6 +28,7 @@ interface TenantAdminLayoutProps {
 export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  console.log('🏢 TenantAdminLayout rendering with user:', !!user);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
