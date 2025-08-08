@@ -39,45 +39,64 @@ export default function SuperAdminDashboard() {
       try {
         setLoading(true);
 
-        // Fetch total tenants
-        const { data: tenants, error: tenantsError } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('is_active', true);
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          .toISOString();
 
-        // Fetch total users across all tenants
-        const { data: users, error: usersError } = await supabase
-          .from('profiles')
-          .select('id');
+        const [
+          tenantsCountResponse,
+          activeUsersCountResponse,
+          paymentsResponse,
+          activityResponse,
+          versionResponse
+        ] = await Promise.all([
+          // Total active/trial tenants (count only)
+          supabase
+            .from('tenants')
+            .select('id', { count: 'exact', head: true })
+            .in('status', ['active', 'trial']),
 
-        // Fetch revenue data from billing plans
-        const { data: billingPlans, error: plansError } = await supabase
-          .from('billing_plans')
-          .select('mrr, customers');
+          // Active users across all tenants (count only)
+          supabase
+            .from('tenant_users')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('is_active', true),
 
-        // Calculate total monthly revenue
-        const totalMRR = billingPlans?.reduce((sum, plan) => sum + (plan.mrr || 0), 0) || 0;
+          // Completed payments this month
+          supabase
+            .from('payment_history')
+            .select('amount, paid_at')
+            .eq('payment_status', 'completed')
+            .gte('paid_at', monthStart),
 
-        // Fetch recent user activity logs
-        const { data: activityLogs, error: activityError } = await supabase
-          .from('user_activity_logs')
-          .select('action_type, details, created_at, tenant_id')
-          .order('created_at', { ascending: false })
-          .limit(10);
+          // Recent activity logs
+          supabase
+            .from('user_activity_logs')
+            .select('action_type, details, created_at, tenant_id')
+            .order('created_at', { ascending: false })
+            .limit(10),
 
-        if (!tenantsError && !usersError && !plansError) {
-          setDashboardData({
-            totalTenants: tenants?.length || 0,
-            activeUsers: users?.length || 0,
-            monthlyRevenue: totalMRR,
-            systemHealth: 99.9
-          });
+          // Current application version to infer system health
+          supabase.rpc('get_current_application_version')
+        ]);
+
+        const monthlyRevenue = paymentsResponse.error
+          ? 0
+          : (paymentsResponse.data || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+
+        const isStable = Array.isArray(versionResponse.data)
+          ? versionResponse.data[0]?.is_stable !== false
+          : true;
+
+        setDashboardData({
+          totalTenants: tenantsCountResponse.count || 0,
+          activeUsers: activeUsersCountResponse.count || 0,
+          monthlyRevenue,
+          systemHealth: isStable ? 99.9 : 99.0
+        });
+
+        if (!activityResponse.error && activityResponse.data) {
+          setRecentActivity(activityResponse.data as any);
         }
-
-        if (!activityError && activityLogs) {
-          setRecentActivity(activityLogs);
-        }
-
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -86,7 +105,7 @@ export default function SuperAdminDashboard() {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [userRole]);
 
   const adminStats = [
     {
