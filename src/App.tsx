@@ -272,6 +272,7 @@ const DomainRouter = () => {
   }
 
   console.log('🚨 CRITICAL: Domain loading completed, continuing execution...');
+  console.log('🚨 CRITICAL: NOW checking authLoading:', authLoading);
   console.log('🚨 CRITICAL: About to check authLoading state...');
   console.log('🚨 CRITICAL: authLoading:', authLoading);
   console.log('🚨 CRITICAL: user exists:', !!user);
