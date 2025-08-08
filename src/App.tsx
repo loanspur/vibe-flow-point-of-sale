@@ -174,6 +174,7 @@ const queryClient = new QueryClient({
 });
 
 const DomainRouter = () => {
+  console.log('🎯 DomainRouter component START');
   const { domainConfig, loading } = useDomainContext();
   const { user, loading: authLoading, userRole } = useAuth();
   
@@ -776,23 +777,27 @@ const DomainRouter = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <AppProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <PerformanceMonitor />
-          <CookieConsent />
-          <PasswordChangeModal />
-          <BrowserRouter>
-            <DomainRouter />
-          </BrowserRouter>
-        </TooltipProvider>
-      </AppProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  console.log('🚀 APP COMPONENT RENDER START');
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AppProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <PerformanceMonitor />
+            <CookieConsent />
+            <PasswordChangeModal />
+            <BrowserRouter>
+              <DomainRouter />
+            </BrowserRouter>
+          </TooltipProvider>
+        </AppProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
