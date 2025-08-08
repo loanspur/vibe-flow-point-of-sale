@@ -50,6 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmailService } from "@/hooks/useEmailService";
+import { SaleForm } from "./SaleForm";
 
 interface Quote {
   id: string;
