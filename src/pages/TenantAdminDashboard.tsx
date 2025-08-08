@@ -32,6 +32,8 @@ import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 // Removed unused recharts import that was causing module loading issues
 
 const getTimeBasedGreeting = () => {
@@ -95,6 +97,16 @@ function TenantAdminDashboard() {
       fetchDashboardData();
     }
   }, [tenantId, dateFilter, dateRange.start, dateRange.end]);
+
+  // Periodic auto-refresh when tab is visible
+  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true });
+
+  // Realtime updates for key business tables
+  useRealtimeRefresh({
+    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+    tenantId,
+    onChange: () => fetchDashboardData(),
+  });
 
   const fetchCurrentSubscription = async () => {
     try {
