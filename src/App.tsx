@@ -312,7 +312,7 @@ const DomainRouter = () => {
           <Route 
             path="/" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -326,7 +326,7 @@ const DomainRouter = () => {
           <Route 
             path="/dashboard" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
