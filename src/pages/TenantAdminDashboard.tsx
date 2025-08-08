@@ -513,7 +513,7 @@ function TenantAdminDashboard() {
                 <AlertTriangle className="h-6 w-6 text-orange-500" />
               </div>
             </Link>
-            <Link to="/admin/purchases?filter=expiring" className="block">
+            <Link to="/admin/products?filter=expiring" className="block">
               <div className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/40 transition-colors">
                 <div>
                   <p className="text-sm text-muted-foreground">Expiring Soon (30 days)</p>

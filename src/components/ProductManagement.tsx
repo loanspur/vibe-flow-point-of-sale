@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
+import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
@@ -76,6 +77,33 @@ export default function ProductManagement() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [activeTab, setActiveTab] = useState('products');
   const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
+  const location = useLocation();
+  const [activeFilter, setActiveFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'expiring'>('all');
+  const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const f = params.get('filter') as 'low-stock' | 'out-of-stock' | 'expiring' | null;
+    setActiveFilter(f || 'all');
+  }, [location.search]);
+
+  useEffect(() => {
+    if (activeFilter !== 'expiring' || !tenantId) return;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const next30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    supabase
+      .from('purchase_items')
+      .select('product_id')
+      .gte('expiry_date', todayStr)
+      .lte('expiry_date', next30)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching expiring items', error);
+        } else {
+          setExpiringIds(new Set((data || []).map((d: any) => d.product_id)));
+        }
+      });
+  }, [activeFilter, tenantId]);
 
   // Optimized product fetching with minimal fields and caching
   const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
@@ -99,14 +127,29 @@ export default function ProductManagement() {
     }
   );
 
-  // Memoized filtered products for better performance
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
     
-    let filtered = products;
+    const getTotalStock = (product: any) => {
+      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+        const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+          return total + (variant.stock_quantity || 0);
+        }, 0);
+        return (product.stock_quantity || 0) + totalVariantStock;
+      }
+      return product.stock_quantity || 0;
+    };
     
-    // Filter by product type (all products are 'product' type now)
-    // No filtering needed since we only have products
+    let filtered = products as any[];
+    
+    // Apply active filter from URL
+    if (activeFilter === 'low-stock') {
+      filtered = filtered.filter((product: any) => getTotalStock(product) <= (product.min_stock_level || 0));
+    } else if (activeFilter === 'out-of-stock') {
+      filtered = filtered.filter((product: any) => getTotalStock(product) === 0);
+    } else if (activeFilter === 'expiring') {
+      filtered = filtered.filter((product: any) => expiringIds.has(product.id));
+    }
     
     // Filter by search term
     if (debouncedSearchTerm) {
@@ -117,7 +160,7 @@ export default function ProductManagement() {
     }
     
     return filtered;
-  }, [products, debouncedSearchTerm, productTypeFilter]);
+  }, [products, debouncedSearchTerm, activeFilter, expiringIds]);
 
   // Memoized low stock calculation
   const lowStockProducts = useMemo(() => {
