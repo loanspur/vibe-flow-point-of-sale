@@ -6638,6 +6638,16 @@ export type Database = {
         }
         Returns: string
       }
+      debug_user_auth: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          auth_uid_result: string
+          user_tenant_id_result: string
+          current_role_result: Database["public"]["Enums"]["user_role"]
+          profile_exists: boolean
+          tenant_user_exists: boolean
+        }[]
+      }
       ensure_tenant_subdomain: {
         Args: { tenant_id_param: string }
         Returns: string

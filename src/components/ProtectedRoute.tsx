@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRoles } from '@/hooks/useUserRoles';
 
@@ -18,6 +18,7 @@ const ProtectedRoute = ({
   requireAuth = true 
 }: ProtectedRouteProps) => {
   const { user, loading, userRole: authUserRole } = useAuth();
+  const location = useLocation();
 
   // Simple role mapping for basic functionality
   const mapRole = (role: string): string => {
@@ -58,10 +59,9 @@ const ProtectedRoute = ({
     );
   }
 
-  // If authentication is required and user is not logged in
   if (requireAuth && !user) {
     console.log('🚫 Redirecting to auth - no user');
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   // If specific roles are required
@@ -69,7 +69,7 @@ const ProtectedRoute = ({
     // If user is not authenticated or has no role
     if (!user || !authUserRole) {
       console.log('🚫 Redirecting to auth - no role');
-      return <Navigate to="/auth" replace />;
+      return <Navigate to="/auth" state={{ from: location }} replace />;
     }
 
     // Check if user has required role access
@@ -80,6 +80,7 @@ const ProtectedRoute = ({
   }
 
   console.log('✅ ProtectedRoute allowing access');
+  console.log('🎯 About to render ProtectedRoute children');
   return <>{children}</>;
 };
 

@@ -29,24 +29,14 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always call hooks in the same order - handle auth context safely
+  // Always call hooks in the same order
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
   const { formatLocalCurrency, convertFromKES, tenantCurrency } = useCurrencyConversion();
   
-  // Handle case when AuthContext might not be ready
-  let authContext;
-  let isAuthReady = false;
-  try {
-    authContext = useAuth();
-    isAuthReady = true;
-  } catch (error) {
-    // AuthContext not ready, but don't return early
-    isAuthReady = false;
-  }
-  
-  const { tenantId } = authContext || {};
+  // Use AuthContext directly - it should always be available since we're wrapped by AuthProvider
+  const { tenantId } = useAuth();
 
   const fetchBusinessSettings = useCallback(async () => {
     if (!tenantId) {
@@ -178,16 +168,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId, refreshBusinessSettings]);
+   }, [tenantId, refreshBusinessSettings]);
 
-  // If AuthContext is not ready, render loading state after all hooks are called
-  if (!isAuthReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // Remove the problematic auth readiness check - AuthContext should always be available
 
   return (
     <AppContext.Provider value={{

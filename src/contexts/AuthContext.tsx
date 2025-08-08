@@ -42,25 +42,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Fetch user role and tenant info with domain context support
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
+    console.log(`🔐 fetchUserInfo called for ${userId} from ${source}, fetchInProgress: ${fetchInProgress}, profileFetched: ${profileFetched}`);
+    
     // Prevent concurrent calls
     if (fetchInProgress) {
-      // Fetch already in progress
+      console.log(`🔐 fetchUserInfo already in progress, skipping`);
       return;
     }
     
     // Check if already fetched for this user
     if (profileFetched === userId) {
-      // Already fetched for this user
+      console.log(`🔐 Profile already fetched for ${userId}, skipping`);
       return;
     }
+    
     setFetchInProgress(true);
+    console.log(`🔐 Starting profile fetch for user ${userId}`);
+    
     try {
+      console.log(`🔐 FETCHING: About to query profiles table for user ${userId}`);
+      
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
         .maybeSingle(); // Use maybeSingle instead of single to avoid errors
+
+      console.log(`🔐 FETCHING: Query completed. Profile:`, profile, 'Error:', error);
 
       if (error && error.code !== 'PGRST116') {
         console.warn('Error fetching user profile:', error);
@@ -69,24 +78,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
+        console.log(`🔐 FETCHING: Set fallback values due to error`);
         return;
       }
 
       if (profile) {
-        // Check if we're setting the same data repeatedly
-        if (userRole === profile.role && tenantId === profile.tenant_id) {
-          return;
+        // Check if we're setting the same data repeatedly BEFORE logging
+        if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
+          return; // Skip update and logging if data hasn't changed
         }
         
+        console.log(`User profile loaded:`, profile);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
         setRequirePasswordChange(profile.require_password_change || false);
       } else {
+        console.log(`🔐 No profile found, using defaults`);
         // Fallback if no profile found
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
+        console.log(`🔐 FETCHING: Set default values - no profile found`);
       }
     } catch (error) {
       console.warn('Failed to fetch user info:', error);
@@ -94,7 +107,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole('user');
       setTenantId(null);
       setRequirePasswordChange(false);
+      console.log(`🔐 FETCHING: Set default values due to exception:`, error);
     } finally {
+      console.log(`🔐 fetchUserInfo completed for ${userId}, setting fetchInProgress to false`);
       setFetchInProgress(false);
     }
   };

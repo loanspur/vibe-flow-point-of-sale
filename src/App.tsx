@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,8 @@ import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
 import { PasswordChangeModal } from "./components/PasswordChangeModal";
+import { AuthSessionFix } from "./components/AuthSessionFix";
+import { supabase } from "@/integrations/supabase/client";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -129,6 +131,8 @@ window.addEventListener('unhandledrejection', (event) => {
 // Block Firebase network requests and feature warnings at the console level
 const originalLog = console.error;
 const originalWarn = console.warn;
+const originalConsoleLog = console.log;
+const originalInfo = console.info;
 
 console.error = function(...args) {
   const message = args.join(' ').toLowerCase();
@@ -140,7 +144,8 @@ console.error = function(...args) {
       message.includes('iframe') ||
       message.includes('message channel closed') ||
       message.includes('listener indicated an asynchronous response') ||
-      message.includes('sandbox')) {
+      message.includes('sandbox') ||
+      message.includes('feature_collector')) {
     return; // Suppress these error logs
   }
   originalLog.apply(console, args);
@@ -154,10 +159,25 @@ console.warn = function(...args) {
       message.includes('unrecognized feature') ||
       message.includes('iframe') ||
       message.includes('multiple gotrueclient') ||
-      message.includes('sandbox')) {
+      message.includes('sandbox') ||
+      message.includes('feature_collector') ||
+      message.includes('deprecated parameters')) {
     return; // Suppress these warnings
   }
   originalWarn.apply(console, args);
+};
+
+// Suppress noisy debug logs (auth/route guards)
+console.log = function(...args) {
+  const msg = args.map(a => (typeof a === 'string' ? a : '')).join(' ');
+  const lower = msg.toLowerCase();
+  if (/[🔐🛡️✅🚫👁️🚀🎯]/u.test(msg) ||
+      lower.includes('protectedroute') ||
+      lower.includes('auth state change') ||
+      lower.includes('user profile loaded')) {
+    return;
+  }
+  originalConsoleLog.apply(console, args);
 };
 
 const queryClient = new QueryClient({
@@ -173,25 +193,40 @@ const queryClient = new QueryClient({
 
 const DomainRouter = () => {
   const { domainConfig, loading } = useDomainContext();
+  const { user, loading: authLoading, userRole } = useAuth();
   
-  console.log('🌐 DomainRouter state:', { 
-    domainConfig, 
-    loading, 
-    pathname: window.location.pathname,
-    hostname: window.location.hostname 
-  });
+  // Check for authentication session issues
+  const [showAuthFix, setShowAuthFix] = useState(false);
   
-  // CRITICAL: Check for unresolved subdomain FIRST before rendering any auth routes
-  // This prevents infinite redirect loops on problematic subdomains like santalama.vibenet.shop
+  useEffect(() => {
+    const checkAuthSession = async () => {
+      if (!loading && user && domainConfig?.tenantId) {
+        try {
+          const { data: authData, error } = await supabase.rpc('debug_user_auth');
+          
+          if (error) {
+            console.error('Error checking auth session:', error);
+            return;
+          }
+          
+          if (authData && authData.length > 0 && !authData[0].auth_uid_result) {
+            setShowAuthFix(true);
+          } else {
+            setShowAuthFix(false);
+          }
+        } catch (error) {
+          console.error('Failed to check auth session:', error);
+        }
+      }
+    };
+
+    checkAuthSession();
+  }, [loading, domainConfig, user]);
+  
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    console.log('🚫 Unresolved subdomain detected, blocking auth routes and redirecting');
-    
-    // Force immediate redirect to prevent any React routing issues
     const targetUrl = 'https://vibenet.shop/dashboard';
-    console.log('🔄 Executing redirect to:', targetUrl);
     window.location.replace(targetUrl);
     
-    // Show loading message while redirecting - NEVER render Auth component
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
@@ -202,14 +237,19 @@ const DomainRouter = () => {
     );
   }
 
-  // Render auth routes for valid domains only
   const currentPath = window.location.pathname;
   if (currentPath === '/auth' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
-    console.log('🔐 Rendering auth routes for valid domain');
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/auth" element={<Auth />} />
+          <Route 
+            path="/auth" 
+            element={
+              domainConfig?.isSubdomain 
+                ? (<AuthPageWrapper><Auth /></AuthPageWrapper>) 
+                : (<Auth />)
+            } 
+          />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="*" element={<Navigate to="/auth" replace />} />
@@ -219,8 +259,16 @@ const DomainRouter = () => {
   }
   
   if (loading) {
-    console.log('⏳ Domain loading, showing page loader...');
     return <PageLoader />;
+  }
+
+  if (authLoading) {
+    return <PageLoader />;
+  }
+  
+  // Show auth session fix if needed
+  if (showAuthFix) {
+    return <AuthSessionFix />;
   }
 
   // If on subdomain, show tenant-specific routes only
@@ -244,7 +292,7 @@ const DomainRouter = () => {
           <Route 
             path="/" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -258,7 +306,7 @@ const DomainRouter = () => {
           <Route 
             path="/dashboard" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -718,23 +766,27 @@ const DomainRouter = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <AppProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <PerformanceMonitor />
-          <CookieConsent />
-          <PasswordChangeModal />
-          <BrowserRouter>
-            <DomainRouter />
-          </BrowserRouter>
-        </TooltipProvider>
-      </AppProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AppProvider>
+          <TooltipProvider>
+            <>
+              <Toaster />
+              <Sonner />
+              <PerformanceMonitor />
+              <CookieConsent />
+              <PasswordChangeModal />
+              <BrowserRouter>
+                <DomainRouter />
+              </BrowserRouter>
+            </>
+          </TooltipProvider>
+        </AppProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
