@@ -47,18 +47,7 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
                 {/* Clickable tenant logo linking to dashboard */}
-                <Link to="/admin" aria-label="Go to Dashboard" className="flex items-center">
-                  <div className="h-8">
-                    {/* using LazyImage for perf, with fallback to provided logo */}
-                    <LazyImage
-                      src={tenantLogo || fallbackLogo}
-                      alt="Tenant logo"
-                      fallback={fallbackLogo}
-                      className="h-8 w-auto"
-                      skeletonClassName="h-8 w-8 rounded"
-                    />
-                  </div>
-                </Link>
+                  {/* logo removed to avoid duplication; only sidebar shows it */}
               </div>
               
               <div className="flex items-center gap-3">
