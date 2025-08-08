@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -173,13 +173,17 @@ function TenantAdminDashboard() {
     try {
       console.log('🚀 Dashboard fetch for tenant with filters:', { tenantId, dateFilter, startDate, endDate });
 
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const next30Str = format(addDays(new Date(), 30), 'yyyy-MM-dd');
+
       const [
         salesResponse,
         productsResponse,
         customersResponse,
         arResponse,
         apResponse,
-        profitLossResponse
+        profitLossResponse,
+        expiringItemsResponse
       ] = await Promise.all([
         // Sales in range
         supabase
@@ -221,7 +225,14 @@ function TenantAdminDashboard() {
           tenant_id_param: tenantId,
           start_date_param: format(rangeStart, 'yyyy-MM-dd'),
           end_date_param: format(rangeEnd, 'yyyy-MM-dd')
-        })
+        }),
+
+        // Expiring items in next 30 days (filtered later by tenant products)
+        supabase
+          .from('purchase_items')
+          .select('id, product_id, expiry_date')
+          .gte('expiry_date', todayStr)
+          .lte('expiry_date', next30Str)
       ]);
 
       // Error checks
@@ -231,6 +242,7 @@ function TenantAdminDashboard() {
       if (arResponse.error) throw arResponse.error;
       if (apResponse.error) throw apResponse.error;
       if (profitLossResponse.error) throw profitLossResponse.error;
+      if (expiringItemsResponse.error) throw expiringItemsResponse.error;
 
       // Calculations
       const sales = salesResponse.data || [];
@@ -246,6 +258,11 @@ function TenantAdminDashboard() {
 
       const stockPurchaseValue = products.reduce((sum: number, p: any) => sum + (Number(p.stock_quantity || 0) * Number(p.cost_price || 0)), 0);
       const stockSaleValue = products.reduce((sum: number, p: any) => sum + (Number(p.stock_quantity || 0) * Number(p.price || 0)), 0);
+
+      // Expiry alerts - filter expiring lots to tenant products
+      const productIdsSet = new Set(products.map((p: any) => p.id));
+      const expiringSoonItems = (expiringItemsResponse.data || []).filter((i: any) => productIdsSet.has(i.product_id));
+      const expiringSoonCount = expiringSoonItems.length;
 
       const arDue = (arResponse.data || []).reduce((sum: number, r: any) => sum + Number(r.outstanding_amount || 0), 0);
       const apDue = (apResponse.data || []).reduce((sum: number, r: any) => sum + Number(r.outstanding_amount || 0), 0);
@@ -267,6 +284,7 @@ function TenantAdminDashboard() {
         apDue,
         expenses,
         profit,
+        expiringSoonCount,
         startDate,
         endDate
       };
@@ -287,7 +305,8 @@ function TenantAdminDashboard() {
         arDue: 0,
         apDue: 0,
         expenses: 0,
-        profit: 0
+        profit: 0,
+        expiringSoonCount: 0
       });
     } finally {
       setLoading(false);
@@ -308,7 +327,8 @@ function TenantAdminDashboard() {
       color: "text-green-600",
       bgColor: "bg-green-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/reports?view=sales"
     },
     {
       title: "Total Customers",
@@ -317,7 +337,8 @@ function TenantAdminDashboard() {
       color: "text-blue-600",
       bgColor: "bg-blue-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/customers"
     },
     {
       title: dateFilter === 'today' ? "Today's Sales" : 'Sales',
@@ -326,7 +347,8 @@ function TenantAdminDashboard() {
       color: "text-purple-600", 
       bgColor: "bg-purple-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/sales"
     },
     {
       title: "Low Stock Items",
@@ -335,7 +357,8 @@ function TenantAdminDashboard() {
       color: "text-orange-600",
       bgColor: "bg-orange-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/products?filter=low-stock"
     }
   ];
 
@@ -345,21 +368,24 @@ function TenantAdminDashboard() {
       value: dashboardData?.totalProducts || 0,
       icon: Package,
       color: "text-green-600",
-      bgColor: "bg-green-50"
+      bgColor: "bg-green-50",
+      to: "/admin/products"
     },
     {
       title: "Low Stock Items",
       value: dashboardData?.lowStockCount || 0,
       icon: AlertTriangle,
       color: "text-yellow-600",
-      bgColor: "bg-yellow-50"
+      bgColor: "bg-yellow-50",
+      to: "/admin/products?filter=low-stock"
     },
     {
       title: "Out of Stock",
       value: dashboardData?.outOfStockCount || 0,
       icon: XCircle,
       color: "text-red-600",
-      bgColor: "bg-red-50"
+      bgColor: "bg-red-50",
+      to: "/admin/products?filter=out-of-stock"
     }
   ];
 
@@ -455,6 +481,39 @@ function TenantAdminDashboard() {
         </div>
       </div>
 
+      {/* Stock Alerts */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <span>Stock Alerts</span>
+          </CardTitle>
+          <CardDescription>Expiry and quantity alerts</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Link to="/admin/products?filter=low-stock" className="block">
+              <div className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/40 transition-colors">
+                <div>
+                  <p className="text-sm text-muted-foreground">Low Stock Items</p>
+                  <p className="text-xl font-bold">{dashboardData?.lowStockCount || 0}</p>
+                </div>
+                <AlertTriangle className="h-6 w-6 text-orange-500" />
+              </div>
+            </Link>
+            <Link to="/admin/purchases?filter=expiring" className="block">
+              <div className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/40 transition-colors">
+                <div>
+                  <p className="text-sm text-muted-foreground">Expiring Soon (30 days)</p>
+                  <p className="text-xl font-bold">{dashboardData?.expiringSoonCount || 0}</p>
+                </div>
+                <Clock className="h-6 w-6 text-yellow-500" />
+              </div>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Subscription Status */}
       {currentSubscription && (
         <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
@@ -492,128 +551,144 @@ function TenantAdminDashboard() {
       {/* Business Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {businessStats.map((stat, index) => (
-          <Card key={index} className="relative overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+          <Link key={index} to={stat.to} className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+            <Card className="relative overflow-hidden hover:bg-muted/40 transition-colors">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-muted-foreground truncate">
+                      {stat.title}
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {stat.title.includes('Revenue') 
+                        ? formatCurrency(stat.value) 
+                        : stat.value.toLocaleString()
+                      }
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-muted-foreground truncate">
-                    {stat.title}
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {stat.title.includes('Revenue') 
-                      ? formatCurrency(stat.value) 
-                      : stat.value.toLocaleString()
-                    }
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
       {/* Product Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         {productStats.map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+          <Link key={index} to={stat.to} className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {stat.title}
+                    </p>
+                    <p className="text-xl font-bold">
+                      {stat.value.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </p>
-                  <p className="text-xl font-bold">
-                    {stat.value.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
       {/* Inventory Value */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Stock Value (Purchase)</p>
-              <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockPurchaseValue || 0)}</p>
-            </div>
-            <Boxes className="h-6 w-6 text-muted-foreground" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Stock Value (Sale)</p>
-              <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockSaleValue || 0)}</p>
-            </div>
-            <PiggyBank className="h-6 w-6 text-muted-foreground" />
-          </CardContent>
-        </Card>
+        <Link to="/admin/products" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Stock Value (Purchase)</p>
+                <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockPurchaseValue || 0)}</p>
+              </div>
+              <Boxes className="h-6 w-6 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/admin/products" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Stock Value (Sale)</p>
+                <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockSaleValue || 0)}</p>
+              </div>
+              <PiggyBank className="h-6 w-6 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Financial Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-muted/50">
-                <Clock className="h-5 w-5 text-muted-foreground" />
+        <Link to="/admin/reports?view=receivables" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Invoices Due</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.arDue || 0)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Invoices Due</p>
-                <p className="text-xl font-bold">{formatCurrency(dashboardData?.arDue || 0)}</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/admin/reports?view=payables" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Purchases Due</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.apDue || 0)}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-muted/50">
-                <Clock className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/admin/reports?view=expenses" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <TrendingDown className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Expenses</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.expenses || 0)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Purchases Due</p>
-                <p className="text-xl font-bold">{formatCurrency(dashboardData?.apDue || 0)}</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/admin/reports?view=profit-loss" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Profit</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.profit || 0)}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-muted/50">
-                <TrendingDown className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Expenses</p>
-                <p className="text-xl font-bold">{formatCurrency(dashboardData?.expenses || 0)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-muted/50">
-                <TrendingUp className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Profit</p>
-                <p className="text-xl font-bold">{formatCurrency(dashboardData?.profit || 0)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Cash Drawer */}
