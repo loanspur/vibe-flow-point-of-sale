@@ -83,14 +83,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
-        console.log(`🔐 Profile loaded:`, profile);
-        // Check if we're setting the same data repeatedly
-        if (userRole === profile.role && tenantId === profile.tenant_id) {
-          console.log(`🔐 Profile data unchanged, skipping update`);
-          return;
+        // Check if we're setting the same data repeatedly BEFORE logging
+        if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
+          return; // Skip update and logging if data hasn't changed
         }
         
-        console.log(`🔐 FETCHING: Setting profile data - role: ${profile.role}, tenant_id: ${profile.tenant_id}`);
+        console.log(`User profile loaded:`, profile);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
         setRequirePasswordChange(profile.require_password_change || false);
@@ -361,27 +359,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updatePassword
   };
 
-  // Debug the loading state issue
-  console.log('🔐 AuthContext render:', { 
-    loading, 
-    user: !!user, 
-    userRole, 
-    tenantId, 
-    fetchInProgress,
-    profileFetched,
-    session: !!session 
-  });
-
   // Don't render children until we've checked for an existing session
   if (loading) {
-    console.log('🔐 AuthContext BLOCKING render - loading is true');
-    console.log('🔐 AuthContext BLOCKING details:', {
-      loading,
-      fetchInProgress,
-      profileFetched,
-      user: !!user,
-      session: !!session
-    });
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -389,7 +368,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  console.log('🔐 AuthContext ALLOWING render - proceeding to children');
   return (
     <AuthContext.Provider value={value}>
       {children}
