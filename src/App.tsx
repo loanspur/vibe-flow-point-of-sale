@@ -271,7 +271,8 @@ const DomainRouter = () => {
     return <PageLoader />;
   }
 
-  console.log('🚨 CRITICAL: Loading is false, continuing execution...');
+  console.log('🚨 CRITICAL: Domain loading completed, continuing execution...');
+  console.log('🚨 CRITICAL: About to check authLoading state...');
   console.log('🚨 CRITICAL: authLoading:', authLoading);
   console.log('🚨 CRITICAL: user exists:', !!user);
   console.log('🚨 CRITICAL: userRole:', userRole);
