@@ -755,8 +755,13 @@ export function BusinessSettingsEnhanced() {
       }
 
       // Prepare the data for update/insert
-      const settingsData = {
+      const normalizedValues = {
         ...values,
+        // If a specific receipt logo isn't set, fall back to the company logo
+        receipt_logo_url: values.receipt_logo_url || values.company_logo_url || values.receipt_logo_url,
+      };
+      const settingsData = {
+        ...normalizedValues,
         tenant_id: profile.tenant_id
       };
 

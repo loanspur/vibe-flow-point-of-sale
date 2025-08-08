@@ -129,6 +129,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           receipt_header,
           receipt_footer,
           receipt_logo_url,
+          company_logo_url,
           receipt_template
         `)
         .eq('tenant_id', tenantId)
@@ -368,9 +369,9 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           )}
 
           {/* Logo */}
-          {businessSettings.receipt_logo_url && (
+          {(businessSettings.receipt_logo_url || businessSettings.company_logo_url) && (
             <div className="company-info center">
-              <img src={businessSettings.receipt_logo_url} alt="Logo" style={{ height: '40px', margin: '0 auto' }} />
+              <img src={businessSettings.receipt_logo_url || businessSettings.company_logo_url} alt={`${businessSettings.company_name || 'Company'} logo`} style={{ height: '40px', margin: '0 auto' }} />
             </div>
           )}
 
