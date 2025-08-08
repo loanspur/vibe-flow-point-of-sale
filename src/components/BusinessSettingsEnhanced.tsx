@@ -457,10 +457,31 @@ export function BusinessSettingsEnhanced() {
 
   const fetchSettings = async () => {
     try {
+      // Resolve tenant id first to avoid RLS race conditions
+      const { data: authUser } = await supabase.auth.getUser();
+      const userId = authUser?.user?.id;
+      if (!userId) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (!profile?.tenant_id) {
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('business_settings')
         .select('*')
-        .single();
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+      
+      if (error) {
+        // ignore, may be no row yet
+      }
       
       if (data) {
         setSettings(data);
