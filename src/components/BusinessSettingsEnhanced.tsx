@@ -483,17 +483,28 @@ export function BusinessSettingsEnhanced() {
     
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `logo-${Date.now()}.${fileExt}`;
       
-      const { data, error } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file);
+      // Resolve tenant id to scope upload path
+      const { data: authUser } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', authUser?.user?.id as string)
+        .single();
+      const tenantId = profile?.tenant_id as string | undefined;
+      if (!tenantId) throw new Error('No tenant found');
+
+      const filePath = `${tenantId}/logo-${Date.now()}.${fileExt}`;
+      
+      const { error } = await supabase.storage
+        .from('branding')
+        .upload(filePath, file, { upsert: true });
 
       if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(fileName);
+        .from('branding')
+        .getPublicUrl(filePath);
 
       setLogoPreview(publicUrl);
       form.setValue('company_logo_url', publicUrl);
