@@ -189,17 +189,28 @@ const DomainRouter = () => {
   
   useEffect(() => {
     const checkAuthSession = async () => {
+      console.log('🔍 Checking auth session...', { loading, user: !!user, tenantId: domainConfig?.tenantId });
+      
       if (!loading && user && domainConfig?.tenantId) {
         try {
-          const { data: authData } = await supabase.rpc('debug_user_auth');
-          console.log('🔐 Auth session check:', authData);
+          console.log('🔐 Running debug_user_auth...');
+          const { data: authData, error } = await supabase.rpc('debug_user_auth');
+          console.log('🔐 Auth session check result:', { authData, error });
+          
+          if (error) {
+            console.error('❌ Error checking auth session:', error);
+            return;
+          }
           
           if (authData && authData.length > 0 && !authData[0].auth_uid_result) {
-            console.warn('🚨 Auth session broken - auth.uid() is null');
+            console.warn('🚨 Auth session broken - auth.uid() is null, showing fix dialog');
             setShowAuthFix(true);
+          } else {
+            console.log('✅ Auth session appears healthy');
+            setShowAuthFix(false);
           }
         } catch (error) {
-          console.warn('Auth session check failed:', error);
+          console.error('❌ Failed to check auth session:', error);
         }
       }
     };
@@ -251,11 +262,15 @@ const DomainRouter = () => {
 
   // Show auth session fix if needed
   if (showAuthFix) {
+    console.log('🔧 Displaying AuthSessionFix component');
     return <AuthSessionFix />;
   }
+  
+  console.log('🎯 Proceeding to normal routing, showAuthFix:', showAuthFix);
 
   // If on subdomain, show tenant-specific routes only
   if (domainConfig?.isSubdomain && domainConfig.tenantId) {
+    console.log('🏢 Rendering tenant-specific routes for subdomain');
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
