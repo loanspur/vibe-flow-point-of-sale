@@ -51,11 +51,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .from('business_settings')
         .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle();
 
-      if (settingsResponse.error) {
+      if (settingsResponse.error && settingsResponse.error.code !== 'PGRST116') {
         console.error('Error fetching business settings:', settingsResponse.error);
         // Use default fallback settings
+        setBusinessSettings({
+          currency_code: 'USD',
+          currency_symbol: '$',
+          company_name: 'Your Business',
+          timezone: 'UTC',
+          tax_inclusive: false,
+          default_tax_rate: 0
+        });
+      } else if (!settingsResponse.data) {
+        // No settings found for tenant, use sensible defaults
         setBusinessSettings({
           currency_code: 'USD',
           currency_symbol: '$',
