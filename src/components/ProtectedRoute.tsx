@@ -45,7 +45,10 @@ const ProtectedRoute = ({
     originalRole: authUserRole,
     mappedRole,
     allowedRoles,
-    hasAccess: allowedRoles.length === 0 || (mappedRole && allowedRoles.includes(mappedRole)),
+    hasAccess:
+      allowedRoles.length === 0 ||
+      (mappedRole && allowedRoles.includes(mappedRole)) ||
+      (authUserRole && allowedRoles.includes(authUserRole)),
     pathname: window.location.pathname
   });
 
@@ -72,8 +75,9 @@ const ProtectedRoute = ({
       return <Navigate to="/auth" state={{ from: location }} replace />;
     }
 
-    // Check if user has required role access
-    if (!mappedRole || !allowedRoles.includes(mappedRole)) {
+    // Check if user has required role access (support both raw and mapped roles)
+    const roleMatch = (mappedRole && allowedRoles.includes(mappedRole)) || (authUserRole && allowedRoles.includes(authUserRole));
+    if (!roleMatch) {
       console.log('🚫 Access denied - role mismatch');
       return <Navigate to="/dashboard" replace />;
     }
