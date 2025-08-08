@@ -29,12 +29,6 @@ const TenantCommunications = () => {
 
         <TabsContent value="templates">
           <Card>
-            <CardHeader>
-              <CardTitle>Email Templates</CardTitle>
-              <CardDescription>
-                Create and manage email templates for your business communications
-              </CardDescription>
-            </CardHeader>
             <CardContent>
               <EmailTemplateManager />
             </CardContent>
