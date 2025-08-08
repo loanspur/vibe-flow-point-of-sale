@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
@@ -194,6 +194,7 @@ const queryClient = new QueryClient({
 const DomainRouter = () => {
   const { domainConfig, loading } = useDomainContext();
   const { user, loading: authLoading, userRole } = useAuth();
+  const location = useLocation();
   
   // Check for authentication session issues
   const [showAuthFix, setShowAuthFix] = useState(false);
@@ -238,7 +239,7 @@ const DomainRouter = () => {
     );
   }
 
-  const currentPath = window.location.pathname;
+  const currentPath = location.pathname;
   if (currentPath === '/auth' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
     return (
       <Suspense fallback={<PageLoader />}>
