@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -174,7 +174,10 @@ const queryClient = new QueryClient({
 });
 
 const DomainRouter = () => {
-  console.log('🎯 DomainRouter component START');
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  console.log(`🔄 DomainRouter RENDER #${renderCount.current}`);
+  
   const { domainConfig, loading } = useDomainContext();
   const { user, loading: authLoading, userRole } = useAuth();
   
