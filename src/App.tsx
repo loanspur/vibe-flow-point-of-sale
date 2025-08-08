@@ -177,19 +177,6 @@ const DomainRouter = () => {
   const { domainConfig, loading } = useDomainContext();
   const { user } = useAuth();
   
-  // TEMPORARY DEBUG: Force render to test if it's a connectivity issue
-  const [debugMode, setDebugMode] = useState(false);
-  
-  useEffect(() => {
-    // If stuck loading for more than 5 seconds, show debug UI
-    const timer = setTimeout(() => {
-      console.log('🚨 STUCK LOADING - Enabling debug mode');
-      setDebugMode(true);
-    }, 5000);
-    
-    return () => clearTimeout(timer);
-  }, []);
-  
   console.log('🌐 DomainRouter state:', { 
     domainConfig, 
     loading, 
@@ -268,65 +255,6 @@ const DomainRouter = () => {
     );
   }
   
-  
-  // TEMPORARY DEBUG: Show diagnostic info if stuck
-  if (debugMode) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-background to-muted/20">
-        <div className="max-w-2xl w-full space-y-6">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-2xl">🔧</span>
-            </div>
-            <h1 className="text-2xl font-bold">Debug Mode - Connectivity Issues Detected</h1>
-            <p className="text-muted-foreground">WebSocket connections are failing. This usually indicates:</p>
-          </div>
-          
-          <div className="grid gap-4">
-            <div className="p-4 border rounded-lg">
-              <h3 className="font-semibold mb-2">Current State:</h3>
-              <ul className="space-y-1 text-sm">
-                <li>Loading: {loading ? 'Yes' : 'No'}</li>
-                <li>User: {user ? 'Authenticated' : 'Not authenticated'}</li>
-                <li>Domain: {domainConfig?.domain || 'Not resolved'}</li>
-                <li>Tenant ID: {domainConfig?.tenantId || 'Not found'}</li>
-              </ul>
-            </div>
-            
-            <div className="p-4 border rounded-lg">
-              <h3 className="font-semibold mb-2">Potential Solutions:</h3>
-              <ul className="space-y-2 text-sm">
-                <li>• Network connectivity issues with development server</li>
-                <li>• Browser cache conflicts</li>
-                <li>• Development server restart needed</li>
-                <li>• Authentication session corrupted</li>
-              </ul>
-            </div>
-            
-            <div className="space-y-2">
-              <button 
-                onClick={() => window.location.reload()} 
-                className="w-full p-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-              >
-                Force Reload
-              </button>
-              <button 
-                onClick={() => {
-                  localStorage.clear();
-                  sessionStorage.clear();
-                  window.location.href = '/auth';
-                }} 
-                className="w-full p-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90"
-              >
-                Clear Storage & Re-authenticate
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     console.log('⏳ Domain loading, showing page loader...');
     return <PageLoader />;
