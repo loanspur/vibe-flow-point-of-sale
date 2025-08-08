@@ -20,6 +20,8 @@ import {
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
 import UserProfileSettings from './UserProfileSettings';
+import { LazyImage } from '@/components/ui/image-lazy';
+import { useTenantLogo } from '@/hooks/useTenantLogo';
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
@@ -30,6 +32,8 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const navigate = useNavigate();
   console.log('🏢 TenantAdminLayout rendering with user:', !!user);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const tenantLogo = useTenantLogo();
+  const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -42,6 +46,19 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
             <div className="flex items-center justify-between px-6 py-3">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
+                {/* Clickable tenant logo linking to dashboard */}
+                <Link to="/admin" aria-label="Go to Dashboard" className="flex items-center">
+                  <div className="h-8">
+                    {/* using LazyImage for perf, with fallback to provided logo */}
+                    <LazyImage
+                      src={tenantLogo || fallbackLogo}
+                      alt="Tenant logo"
+                      fallback={fallbackLogo}
+                      className="h-8 w-auto"
+                      skeletonClassName="h-8 w-8 rounded"
+                    />
+                  </div>
+                </Link>
               </div>
               
               <div className="flex items-center gap-3">
