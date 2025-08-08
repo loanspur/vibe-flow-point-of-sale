@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import BillingManagement from "./BillingManagement";
 import { DocumentTemplateEditor } from "./DocumentTemplateEditor";
 import { DataMigration } from "./DataMigration";
@@ -240,6 +240,7 @@ export function BusinessSettingsEnhanced() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [themeColors, setThemeColors] = useState({
     primary: "#3b82f6",
     secondary: "#64748b",
@@ -1135,24 +1136,28 @@ export function BusinessSettingsEnhanced() {
                             <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                           </div>
                         )}
-                        <div className="space-y-4 text-center">
-                          <Label htmlFor="logo-upload">
-                            <Button type="button" variant="outline" className="cursor-pointer hover:bg-primary/10 transition-colors">
+                          <div className="space-y-4 text-center">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="cursor-pointer hover:bg-primary/10 transition-colors"
+                            >
                               <Upload className="h-4 w-4 mr-2" />
                               {logoPreview ? "Change Logo" : "Upload Logo"}
                             </Button>
-                          </Label>
-                          <Input
-                            id="logo-upload"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleLogoUpload}
-                          />
-                          <p className="text-sm text-muted-foreground">
-                            Recommended: 200x200px, PNG or JPG format
-                          </p>
-                        </div>
+                            <Input
+                              id="logo-upload"
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleLogoUpload}
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              Recommended: 200x200px, PNG or JPG format
+                            </p>
+                          </div>
                       </div>
                     </CardContent>
                   </Card>
