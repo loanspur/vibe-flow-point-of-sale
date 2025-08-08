@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-
+import { getCurrentDomain } from '@/lib/domain-manager';
 const Auth = () => {
   const navigate = useNavigate();
   const AUTH_DEBUG = false;
@@ -31,12 +31,16 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect to dashboard when already authenticated
+  // Redirect authenticated users only on tenant subdomains or production domain
   useEffect(() => {
     if (user) {
-      navigate(fromPath, { replace: true });
+      const domain = window.location.hostname;
+      const isMainDev = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+      if (!isMainDev) {
+        navigate(fromPath, { replace: true });
+      }
     }
-  }, [user, navigate]);
+  }, [user, navigate, fromPath]);
 
   const [signInData, setSignInData] = useState({
     email: '',
