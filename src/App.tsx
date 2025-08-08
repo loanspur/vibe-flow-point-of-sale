@@ -791,20 +791,45 @@ const App = () => {
   
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <PerformanceMonitor />
-            <CookieConsent />
-            <PasswordChangeModal />
-            <BrowserRouter>
-              <DomainRouter />
-            </BrowserRouter>
-          </TooltipProvider>
-        </AppProvider>
-      </AuthProvider>
+      {(() => {
+        console.log('🔄 QueryClientProvider rendered');
+        return (
+          <AuthProvider>
+            {(() => {
+              console.log('🔐 AuthProvider rendered');
+              return (
+                <AppProvider>
+                  {(() => {
+                    console.log('📱 AppProvider rendered');
+                    return (
+                      <TooltipProvider>
+                        {(() => {
+                          console.log('💡 TooltipProvider rendered');
+                          return (
+                            <>
+                              <Toaster />
+                              <Sonner />
+                              <PerformanceMonitor />
+                              <CookieConsent />
+                              <PasswordChangeModal />
+                              <BrowserRouter>
+                                {(() => {
+                                  console.log('🌐 BrowserRouter rendered - about to render DomainRouter');
+                                  return <DomainRouter />;
+                                })()}
+                              </BrowserRouter>
+                            </>
+                          );
+                        })()}
+                      </TooltipProvider>
+                    );
+                  })()}
+                </AppProvider>
+              );
+            })()}
+          </AuthProvider>
+        );
+      })()}
     </QueryClientProvider>
   );
 };
