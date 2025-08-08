@@ -22,13 +22,16 @@ import {
   Boxes,
   PiggyBank,
   Clock,
-  XCircle
+  XCircle,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 // Removed unused recharts import that was causing module loading issues
 
 const getTimeBasedGreeting = () => {
@@ -51,7 +54,11 @@ function TenantAdminDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cashDrawerRefreshKey, setCashDrawerRefreshKey] = useState(0);
+  // Date filters
+  const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'custom'>('today');
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null}>({ start: new Date(), end: new Date() });
   
+
   console.log('🏠 Dashboard auth state:', { user: !!user, tenantId, userEmail: user?.email });
 
   // Get effective pricing for the current subscription
@@ -81,6 +88,13 @@ function TenantAdminDashboard() {
     window.addEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
     return () => window.removeEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
   }, []);
+
+  // Refetch when date filters change
+  useEffect(() => {
+    if (tenantId) {
+      fetchDashboardData();
+    }
+  }, [tenantId, dateFilter, dateRange.start, dateRange.end]);
 
   const fetchCurrentSubscription = async () => {
     try {
@@ -126,60 +140,99 @@ function TenantAdminDashboard() {
     }
   };
 
-  // Fast dashboard data fetch with minimal queries
+  // Fast dashboard data fetch with minimal queries, honoring date filters
   const fetchDashboardData = async () => {
     if (!tenantId) return;
-    
     setLoading(true);
-    const today = new Date();
-    const startDate = `${format(today, 'yyyy-MM-dd')}T00:00:00.000Z`;
-    const endDate = `${format(today, 'yyyy-MM-dd')}T23:59:59.999Z`;
-    
+
+    // Determine date window
+    const now = new Date();
+    let rangeStart: Date;
+    let rangeEnd: Date;
+
+    if (dateFilter === 'today') {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (dateFilter === 'week') {
+      const startOfWeek = new Date(now);
+      const day = startOfWeek.getDay(); // 0=Sun
+      startOfWeek.setDate(startOfWeek.getDate() - day);
+      rangeStart = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate());
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (dateFilter === 'month') {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else {
+      rangeStart = dateRange.start || new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      rangeEnd = dateRange.end || new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    }
+
+    const startDate = `${format(rangeStart, 'yyyy-MM-dd')}T00:00:00.000Z`;
+    const endDate = `${format(rangeEnd, 'yyyy-MM-dd')}T23:59:59.999Z`;
+
     try {
-      console.log('🚀 Fast dashboard fetch for tenant:', tenantId);
-      
-      // Only 3 essential queries for speed
+      console.log('🚀 Dashboard fetch for tenant with filters:', { tenantId, dateFilter, startDate, endDate });
+
       const [
-        salesResponse, 
-        productsResponse, 
-        customersResponse
+        salesResponse,
+        productsResponse,
+        customersResponse,
+        arResponse,
+        apResponse,
+        profitLossResponse
       ] = await Promise.all([
-        // Today's sales only
+        // Sales in range
         supabase
           .from('sales')
           .select('total_amount, created_at, status')
           .eq('tenant_id', tenantId)
           .gte('created_at', startDate)
-          .lte('created_at', endDate)
-          .limit(100),
-        
-        // Basic product count and stock
+          .lte('created_at', endDate),
+
+        // Products for stock stats
         supabase
           .from('products')
-          .select('id, stock_quantity, min_stock_level, is_active')
+          .select('id, stock_quantity, min_stock_level, is_active, cost_price, price')
           .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .limit(100),
-        
+          .eq('is_active', true),
+
         // Customer count
         supabase
           .from('customers')
           .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId),
+
+        // Accounts receivable due
+        supabase
+          .from('accounts_receivable')
+          .select('outstanding_amount, status')
           .eq('tenant_id', tenantId)
+          .in('status', ['outstanding', 'partial', 'overdue']),
+
+        // Accounts payable due
+        supabase
+          .from('accounts_payable')
+          .select('outstanding_amount, status')
+          .eq('tenant_id', tenantId)
+          .in('status', ['outstanding', 'partial', 'overdue']),
+
+        // Profit/Loss for period
+        supabase.rpc('calculate_profit_loss', {
+          tenant_id_param: tenantId,
+          start_date_param: format(rangeStart, 'yyyy-MM-dd'),
+          end_date_param: format(rangeEnd, 'yyyy-MM-dd')
+        })
       ]);
 
-      console.log('📊 Dashboard data loaded:', {
-        sales: salesResponse.data?.length,
-        products: productsResponse.data?.length,
-        customers: customersResponse.count
-      });
-
-      // Check for errors
+      // Error checks
       if (salesResponse.error) throw salesResponse.error;
       if (productsResponse.error) throw productsResponse.error;
       if (customersResponse.error) throw customersResponse.error;
+      if (arResponse.error) throw arResponse.error;
+      if (apResponse.error) throw apResponse.error;
+      if (profitLossResponse.error) throw profitLossResponse.error;
 
-      // Fast calculations
+      // Calculations
       const sales = salesResponse.data || [];
       const products = productsResponse.data || [];
 
@@ -187,14 +240,19 @@ function TenantAdminDashboard() {
       const revenue = completedSales.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
       const salesCount = completedSales.length;
       const totalCustomers = customersResponse.count || 0;
-      
-      const lowStockProducts = products.filter(product => {
-        const stock = product.stock_quantity || 0;
-        const minLevel = product.min_stock_level || 0;
-        return stock <= minLevel && stock > 0;
-      });
-      
-      const outOfStockProducts = products.filter(product => (product.stock_quantity || 0) === 0);
+
+      const lowStockProducts = products.filter((p: any) => (p.stock_quantity || 0) <= (p.min_stock_level || 0) && (p.stock_quantity || 0) > 0);
+      const outOfStockProducts = products.filter((p: any) => (p.stock_quantity || 0) === 0);
+
+      const stockPurchaseValue = products.reduce((sum: number, p: any) => sum + (Number(p.stock_quantity || 0) * Number(p.cost_price || 0)), 0);
+      const stockSaleValue = products.reduce((sum: number, p: any) => sum + (Number(p.stock_quantity || 0) * Number(p.price || 0)), 0);
+
+      const arDue = (arResponse.data || []).reduce((sum: number, r: any) => sum + Number(r.outstanding_amount || 0), 0);
+      const apDue = (apResponse.data || []).reduce((sum: number, r: any) => sum + Number(r.outstanding_amount || 0), 0);
+
+      const plRow = Array.isArray(profitLossResponse.data) ? profitLossResponse.data[0] : null;
+      const expenses = Number(plRow?.expenses || 0);
+      const profit = Number(plRow?.profit_loss || 0);
 
       const result = {
         revenue,
@@ -202,10 +260,18 @@ function TenantAdminDashboard() {
         totalCustomers,
         lowStockCount: lowStockProducts.length,
         outOfStockCount: outOfStockProducts.length,
-        totalProducts: products.length
+        totalProducts: products.length,
+        stockPurchaseValue,
+        stockSaleValue,
+        arDue,
+        apDue,
+        expenses,
+        profit,
+        startDate,
+        endDate
       };
 
-      console.log('🚀 Fast dashboard loaded:', result);
+      console.log('📈 Dashboard metrics:', result);
       setDashboardData(result);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -215,7 +281,13 @@ function TenantAdminDashboard() {
         totalCustomers: 0,
         lowStockCount: 0,
         outOfStockCount: 0,
-        totalProducts: 0
+        totalProducts: 0,
+        stockPurchaseValue: 0,
+        stockSaleValue: 0,
+        arDue: 0,
+        apDue: 0,
+        expenses: 0,
+        profit: 0
       });
     } finally {
       setLoading(false);
@@ -230,7 +302,7 @@ function TenantAdminDashboard() {
 
   const businessStats = [
     {
-      title: "Today's Revenue",
+      title: dateFilter === 'today' ? "Today's Revenue" : 'Revenue',
       value: dashboardData?.revenue || 0,
       icon: DollarSign,
       color: "text-green-600",
@@ -248,7 +320,7 @@ function TenantAdminDashboard() {
       trend: "up"
     },
     {
-      title: "Today's Sales",
+      title: dateFilter === 'today' ? "Today's Sales" : 'Sales',
       value: dashboardData?.salesCount || 0,
       icon: ShoppingCart,
       color: "text-purple-600", 
