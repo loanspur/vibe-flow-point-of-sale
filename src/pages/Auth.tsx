@@ -10,11 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-
+import { getCurrentDomain } from '@/lib/domain-manager';
 const Auth = () => {
   const navigate = useNavigate();
   const AUTH_DEBUG = false;
-  const { signIn, user } = useAuth();
+  const { signIn, user, userRole } = useAuth();
   const location = useLocation();
   const fromPath = (location.state as any)?.from?.pathname || '/dashboard';
   const { toast } = useToast();
@@ -31,12 +31,26 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect to dashboard when already authenticated
+  // Redirect authenticated users only on tenant subdomains
   useEffect(() => {
     if (user) {
-      navigate(fromPath, { replace: true });
+      const domain = window.location.hostname;
+      const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+      if (!isMainDomain) {
+        navigate(fromPath, { replace: true });
+      }
     }
-  }, [user, navigate]);
+  }, [user, navigate, fromPath]);
+
+  // On main domain, auto-redirect superadmins to /superadmin after login
+  useEffect(() => {
+    if (!user) return;
+    const domain = window.location.hostname;
+    const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+    if (isMainDomain && (userRole?.toLowerCase() === 'superadmin')) {
+      navigate('/superadmin', { replace: true });
+    }
+  }, [user, userRole, navigate]);
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -104,8 +118,13 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in."
       });
-      // Navigate immediately after successful login
-      navigate(fromPath, { replace: true });
+      // Navigate after successful login: subdomains -> fromPath; main domain -> wait for role effect
+      const domain = window.location.hostname;
+      const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+      if (!isMainDomain) {
+        navigate(fromPath, { replace: true });
+      }
+
     }
 
     setLoading(false);

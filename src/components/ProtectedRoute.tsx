@@ -45,7 +45,10 @@ const ProtectedRoute = ({
     originalRole: authUserRole,
     mappedRole,
     allowedRoles,
-    hasAccess: allowedRoles.length === 0 || (mappedRole && allowedRoles.includes(mappedRole)),
+    hasAccess:
+      allowedRoles.length === 0 ||
+      (mappedRole && allowedRoles.includes(mappedRole)) ||
+      (authUserRole && allowedRoles.includes(authUserRole)),
     pathname: window.location.pathname
   });
 
@@ -64,16 +67,30 @@ const ProtectedRoute = ({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // If specific roles are required
   if (allowedRoles.length > 0) {
-    // If user is not authenticated or has no role
-    if (!user || !authUserRole) {
-      console.log('🚫 Redirecting to auth - no role');
+    // If user is not authenticated
+    if (!user) {
+      console.log('🚫 Redirecting to auth - no user');
       return <Navigate to="/auth" state={{ from: location }} replace />;
     }
 
-    // Check if user has required role access
-    if (!mappedRole || !allowedRoles.includes(mappedRole)) {
+    // If user exists but role hasn't loaded yet, show a loading state instead of redirecting
+    if (user && !authUserRole) {
+      console.log('⏳ Waiting for role to load...');
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
+
+    // Normalize role comparisons (case-insensitive)
+    const allowedNormalized = allowedRoles.map(r => r.toLowerCase());
+    const authLower = authUserRole?.toLowerCase();
+    const mappedLower = mappedRole?.toLowerCase();
+
+    const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || (authLower && allowedNormalized.includes(authLower));
+    if (!roleMatch) {
       console.log('🚫 Access denied - role mismatch');
       return <Navigate to="/dashboard" replace />;
     }

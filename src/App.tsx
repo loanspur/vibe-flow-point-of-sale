@@ -7,7 +7,7 @@ import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDomainContext, isDevelopmentDomain } from "@/lib/domain-manager";
+import { useDomainContext, isDevelopmentDomain, isSubdomain, getBaseDomain } from "@/lib/domain-manager";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { FeatureGuard } from "./components/FeatureGuard";
@@ -71,7 +71,7 @@ const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
   
   useEffect(() => {
     // If user is authenticated and on subdomain, redirect to dashboard
-    if (user && window.location.hostname.includes('.vibenet.shop') && window.location.hostname !== 'vibenet.shop') {
+    if (user && isSubdomain()) {
       console.log('👤 User authenticated, redirecting from auth page to dashboard');
       window.location.replace('/dashboard');
     }
@@ -224,7 +224,8 @@ const DomainRouter = () => {
   }, [loading, domainConfig, user]);
   
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    const targetUrl = 'https://vibenet.shop/dashboard';
+    const base = getBaseDomain();
+    const targetUrl = `https://${base}/dashboard`;
     window.location.replace(targetUrl);
     
     return (

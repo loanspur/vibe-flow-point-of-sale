@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
+import { getBaseDomain } from '@/lib/domain-manager';
 
 /**
  * Generates tenant-specific URLs for emails
@@ -32,8 +33,8 @@ export const generateTenantEmailUrls = async (tenantId: string) => {
       };
     }
 
-    // Fallback to default subdomain
-    const fallbackDomain = `tenant-${tenantId}.vibenet.shop`;
+    const base = getBaseDomain();
+    const fallbackDomain = `tenant-${tenantId}.${base}`;
     const fallbackUrl = `https://${fallbackDomain}`;
     
     return {
@@ -48,8 +49,8 @@ export const generateTenantEmailUrls = async (tenantId: string) => {
   } catch (error) {
     console.error('Error generating tenant URLs:', error);
     
-    // Ultra fallback
-    const fallbackDomain = `tenant-${tenantId}.vibenet.shop`;
+    const base = getBaseDomain();
+    const fallbackDomain = `tenant-${tenantId}.${base}`;
     const fallbackUrl = `https://${fallbackDomain}`;
     
     return {

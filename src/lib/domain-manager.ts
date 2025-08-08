@@ -78,41 +78,24 @@ class DomainManager {
   private parseDomain(domain: string): DomainConfig {
     // Development domains
     if (domain === 'localhost' || domain.endsWith('.lovableproject.com')) {
-      return {
-        tenantId: null,
-        domain,
-        isCustomDomain: false,
-        isSubdomain: false
-      };
+      return { tenantId: null, domain, isCustomDomain: false, isSubdomain: false };
     }
 
-    // Main vibenet.shop domain
-    if (domain === 'vibenet.shop' || domain === 'www.vibenet.shop') {
-      return {
-        tenantId: null,
-        domain,
-        isCustomDomain: false,
-        isSubdomain: false
-      };
+    // Main domains
+    if (
+      domain === 'vibenet.shop' || domain === 'www.vibenet.shop' ||
+      domain === 'vibenet.online' || domain === 'www.vibenet.online'
+    ) {
+      return { tenantId: null, domain, isCustomDomain: false, isSubdomain: false };
     }
 
-    // Subdomain
-    if (domain.endsWith('.vibenet.shop')) {
-      return {
-        tenantId: null, // Resolved later
-        domain,
-        isCustomDomain: false,
-        isSubdomain: true
-      };
+    // Subdomains (*.vibenet.shop | *.vibenet.online)
+    if (domain.endsWith('.vibenet.shop') || domain.endsWith('.vibenet.online')) {
+      return { tenantId: null, domain, isCustomDomain: false, isSubdomain: true };
     }
 
     // Custom domain
-    return {
-      tenantId: null, // Resolved later
-      domain,
-      isCustomDomain: true,
-      isSubdomain: false
-    };
+    return { tenantId: null, domain, isCustomDomain: true, isSubdomain: false };
   }
 
   async getCurrentDomainConfig(): Promise<DomainConfig> {
@@ -127,8 +110,8 @@ class DomainManager {
       return {
         tenantId: cached.tenantId,
         domain: currentDomain,
-        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-        isSubdomain: currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop'
+        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
+        isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
       };
     }
 
@@ -138,7 +121,9 @@ class DomainManager {
     if (currentDomain === 'localhost' || 
         currentDomain.endsWith('.lovableproject.com') ||
         currentDomain === 'vibenet.shop' || 
-        currentDomain === 'www.vibenet.shop') {
+        currentDomain === 'www.vibenet.shop' ||
+        currentDomain === 'vibenet.online' ||
+        currentDomain === 'www.vibenet.online') {
       console.log('🏠 Development/main domain detected:', currentDomain);
       return domainInfo;
     }
@@ -157,12 +142,12 @@ class DomainManager {
       const cachedAfterWait = this.cache.get(currentDomain);
       if (cachedAfterWait && Date.now() - cachedAfterWait.timestamp < this.CACHE_TIMEOUT) {
         console.log('📦 Using cached config after wait:', currentDomain);
-        return {
-          tenantId: cachedAfterWait.tenantId,
-          domain: currentDomain,
-          isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-          isSubdomain: currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop'
-        };
+          return {
+            tenantId: cachedAfterWait.tenantId,
+            domain: currentDomain,
+            isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
+            isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
+          };
       }
     }
 
@@ -280,11 +265,12 @@ class DomainManager {
       return `https://${customDomain}`;
     }
     
+    const base = getBaseDomain();
     if (subdomain) {
-      return `https://${subdomain}.vibenet.shop`;
+      return `https://${subdomain}.${base}`;
     }
 
-    return `https://tenant-${tenantId}.vibenet.shop`;
+    return `https://tenant-${tenantId}.${base}`;
   }
 
   generateSubdomainFromTenantName(tenantName: string): string {
@@ -307,14 +293,27 @@ export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
   return domain === 'localhost' || domain.endsWith('.lovableproject.com');
 };
 
+export const getBaseDomain = (domain: string = getCurrentDomain()) => {
+  if (
+    domain === 'localhost' ||
+    domain.endsWith('.lovableproject.com') ||
+    domain === 'vibenet.online' || domain === 'www.vibenet.online' ||
+    domain.endsWith('.vibenet.online')
+  ) {
+    return 'vibenet.online';
+  }
+  return 'vibenet.shop';
+};
+
 export const isCustomDomain = (domain: string = getCurrentDomain()) => {
-  return !domain.endsWith('.vibenet.shop') && 
-         domain !== 'vibenet.shop' &&
-         !isDevelopmentDomain(domain);
+  const isMain = domain === 'vibenet.shop' || domain === 'vibenet.online';
+  const isSub = domain.endsWith('.vibenet.shop') || domain.endsWith('.vibenet.online');
+  return !isSub && !isMain && !isDevelopmentDomain(domain);
 };
 
 export const isSubdomain = (domain: string = getCurrentDomain()) => {
-  return domain.endsWith('.vibenet.shop') && domain !== 'vibenet.shop';
+  return (domain.endsWith('.vibenet.shop') && domain !== 'vibenet.shop') ||
+         (domain.endsWith('.vibenet.online') && domain !== 'vibenet.online');
 };
 
 export const getSubdomainName = (domain: string = getCurrentDomain()) => {

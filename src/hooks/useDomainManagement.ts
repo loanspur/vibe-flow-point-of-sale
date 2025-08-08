@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-
+import { getBaseDomain } from '@/lib/domain-manager';
 export interface TenantDomain {
   id: string;
   domain_name: string;
@@ -67,7 +67,8 @@ export const useDomainManagement = () => {
       return `https://${targetDomain.domain_name}`;
     }
     // Fallback to tenant ID based subdomain or default
-    return `https://tenant-${tenantId}.vibenet.shop`;
+    const base = getBaseDomain();
+    return `https://tenant-${tenantId}.${base}`;
   };
 
   const isDomainAvailable = async (domainName: string): Promise<boolean> => {
@@ -108,7 +109,7 @@ export const useDomainManagement = () => {
           verification_token: verificationToken,
           verification_method: verificationMethod || 'dns_txt',
           verification_value: domainType === 'subdomain' 
-            ? `${verificationToken}.vibenet.shop` 
+            ? `${verificationToken}.${getBaseDomain()}` 
             : verificationToken,
           created_by: user.user.id,
           status: domainType === 'subdomain' ? 'verified' : 'pending'

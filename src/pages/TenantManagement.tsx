@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import TenantCustomPricing from '@/components/TenantCustomPricing';
+import { getBaseDomain } from '@/lib/domain-manager';
 
 type Tenant = Tables<'tenants'>;
 type TenantUser = Tables<'tenant_users'>;
@@ -695,7 +696,7 @@ export default function TenantManagement() {
                         return subdomain ? (
                           <span className="text-sm text-muted-foreground">{subdomain}</span>
                         ) : tenant.subdomain ? (
-                          <span className="text-sm text-muted-foreground">{tenant.subdomain}.vibenet.shop</span>
+                          <span className="text-sm text-muted-foreground">{tenant.subdomain}.{getBaseDomain()}</span>
                         ) : (
                           <span className="text-sm text-muted-foreground">-</span>
                         );
