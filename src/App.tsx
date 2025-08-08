@@ -224,7 +224,14 @@ const DomainRouter = () => {
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/auth" element={<Auth />} />
+          <Route 
+            path="/auth" 
+            element={
+              domainConfig?.isSubdomain 
+                ? (<AuthPageWrapper><Auth /></AuthPageWrapper>) 
+                : (<Auth />)
+            } 
+          />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="*" element={<Navigate to="/auth" replace />} />
