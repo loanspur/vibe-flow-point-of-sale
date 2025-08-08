@@ -277,6 +277,12 @@ const DomainRouter = () => {
   console.log('🚨 CRITICAL: userRole:', userRole);
   console.log('🚨 CRITICAL: domainConfig:', domainConfig);
   
+  // Check if auth is still loading
+  if (authLoading) {
+    console.log('🚨 AUTH LOADING: Auth is still loading, showing page loader...');
+    return <PageLoader />;
+  }
+  
   console.log('🔍 CRITICAL DEBUG - Post domain loading check:', {
     loading,
     authLoading,
