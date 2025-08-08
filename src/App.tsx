@@ -131,6 +131,8 @@ window.addEventListener('unhandledrejection', (event) => {
 // Block Firebase network requests and feature warnings at the console level
 const originalLog = console.error;
 const originalWarn = console.warn;
+const originalConsoleLog = console.log;
+const originalInfo = console.info;
 
 console.error = function(...args) {
   const message = args.join(' ').toLowerCase();
@@ -142,7 +144,8 @@ console.error = function(...args) {
       message.includes('iframe') ||
       message.includes('message channel closed') ||
       message.includes('listener indicated an asynchronous response') ||
-      message.includes('sandbox')) {
+      message.includes('sandbox') ||
+      message.includes('feature_collector')) {
     return; // Suppress these error logs
   }
   originalLog.apply(console, args);
@@ -156,10 +159,25 @@ console.warn = function(...args) {
       message.includes('unrecognized feature') ||
       message.includes('iframe') ||
       message.includes('multiple gotrueclient') ||
-      message.includes('sandbox')) {
+      message.includes('sandbox') ||
+      message.includes('feature_collector') ||
+      message.includes('deprecated parameters')) {
     return; // Suppress these warnings
   }
   originalWarn.apply(console, args);
+};
+
+// Suppress noisy debug logs (auth/route guards)
+console.log = function(...args) {
+  const msg = args.map(a => (typeof a === 'string' ? a : '')).join(' ');
+  const lower = msg.toLowerCase();
+  if (/[🔐🛡️✅🚫👁️🚀🎯]/u.test(msg) ||
+      lower.includes('protectedroute') ||
+      lower.includes('auth state change') ||
+      lower.includes('user profile loaded')) {
+    return;
+  }
+  originalConsoleLog.apply(console, args);
 };
 
 const queryClient = new QueryClient({

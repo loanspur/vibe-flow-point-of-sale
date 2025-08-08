@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +13,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const navigate = useNavigate();
+  const AUTH_DEBUG = false;
   const { signIn, user } = useAuth();
+  const location = useLocation();
+  const fromPath = (location.state as any)?.from?.pathname || '/dashboard';
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +34,7 @@ const Auth = () => {
   // Redirect to dashboard when already authenticated
   useEffect(() => {
     if (user) {
-      navigate('/dashboard', { replace: true });
+      navigate(fromPath, { replace: true });
     }
   }, [user, navigate]);
 
@@ -78,7 +81,7 @@ const Auth = () => {
 
     setLoading(true);
 
-    console.log('🔐 Attempting sign in for:', signInData.email);
+    AUTH_DEBUG && console.log('🔐 Attempting sign in for:', signInData.email);
     const { error } = await signIn(signInData.email, signInData.password);
 
     if (error) {
@@ -96,13 +99,13 @@ const Auth = () => {
         setSignInError(error.message || 'Sign in failed. Please try again.');
       }
     } else {
-      console.log('✅ Sign in successful');
+      AUTH_DEBUG && console.log('✅ Sign in successful');
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in."
       });
       // Navigate immediately after successful login
-      navigate('/dashboard', { replace: true });
+      navigate(fromPath, { replace: true });
     }
 
     setLoading(false);
