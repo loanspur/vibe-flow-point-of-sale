@@ -32,7 +32,12 @@ class DomainManager {
       
       // If on subdomain with tenant, set up context
       if (domainConfig?.isSubdomain && domainConfig.tenantId) {
-        await this.setupTenantContext(domainConfig.tenantId);
+        console.log('🏢 Setting up tenant context for:', domainConfig.tenantId);
+        try {
+          await this.setupTenantContext(domainConfig.tenantId);
+        } catch (error) {
+          console.warn('⚠️ Tenant context setup failed:', error);
+        }
       }
     } catch (error) {
       console.warn('Domain initialization failed:', error);
@@ -41,22 +46,30 @@ class DomainManager {
 
   async setupTenantContext(tenantId: string): Promise<void> {
     try {
-      // Verify tenant exists and is active
+      // Verify tenant exists and is active (including trial status)
       const { data: tenant, error } = await supabase
         .from('tenants')
-        .select('id, name, is_active')
+        .select('id, name, status')
         .eq('id', tenantId)
-        .eq('is_active', true)
+        .in('status', ['active', 'trial']) // Accept both active and trial tenants
         .maybeSingle();
 
-      if (error || !tenant) {
+      if (error) {
+        console.warn(`Error fetching tenant ${tenantId}:`, error);
+        return;
+      }
+
+      if (!tenant) {
         console.warn(`Tenant ${tenantId} not found or inactive`);
         return;
       }
 
+      console.log(`✅ Tenant context set up for: ${tenant.name} (${tenant.status})`);
+      
       // Store tenant context
       sessionStorage.setItem('domain-tenant-id', tenantId);
       sessionStorage.setItem('domain-tenant-name', tenant.name);
+      sessionStorage.setItem('domain-tenant-status', tenant.status);
     } catch (error) {
       console.error('Error setting up tenant context:', error);
     }
@@ -248,6 +261,7 @@ class DomainManager {
   clearTenantContext(): void {
     sessionStorage.removeItem('domain-tenant-id');
     sessionStorage.removeItem('domain-tenant-name');
+    sessionStorage.removeItem('domain-tenant-status');
   }
 
   // Utility functions
