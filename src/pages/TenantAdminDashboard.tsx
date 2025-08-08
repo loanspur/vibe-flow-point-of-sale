@@ -526,39 +526,6 @@ function TenantAdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Subscription Status */}
-      {currentSubscription && (
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Crown className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">{currentSubscription.billing_plans?.name || 'Current Plan'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {effectivePricing ? (
-                      <>
-                        {formatPrice(effectivePricing.effective_amount)}/{currentSubscription.billing_plans?.period}
-                        {effectivePricing.is_custom && (
-                          <Badge variant="secondary" className="ml-2">Custom Pricing</Badge>
-                        )}
-                      </>
-                    ) : (
-                      `${formatPrice(currentSubscription.billing_plans?.price || 0)}/${currentSubscription.billing_plans?.period}`
-                    )}
-                  </p>
-                </div>
-              </div>
-              <Badge 
-                variant={currentSubscription.status === 'active' ? 'default' : 'secondary'}
-                className="capitalize"
-              >
-                {currentSubscription.status}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Business Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
