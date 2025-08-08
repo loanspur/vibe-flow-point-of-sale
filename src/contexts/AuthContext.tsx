@@ -60,12 +60,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log(`🔐 Starting profile fetch for user ${userId}`);
     
     try {
+      console.log(`🔐 FETCHING: About to query profiles table for user ${userId}`);
+      
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
         .maybeSingle(); // Use maybeSingle instead of single to avoid errors
+
+      console.log(`🔐 FETCHING: Query completed. Profile:`, profile, 'Error:', error);
 
       if (error && error.code !== 'PGRST116') {
         console.warn('Error fetching user profile:', error);
@@ -74,6 +78,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
+        console.log(`🔐 FETCHING: Set fallback values due to error`);
         return;
       }
 
@@ -85,6 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
         
+        console.log(`🔐 FETCHING: Setting profile data - role: ${profile.role}, tenant_id: ${profile.tenant_id}`);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
         setRequirePasswordChange(profile.require_password_change || false);
@@ -95,6 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
+        console.log(`🔐 FETCHING: Set default values - no profile found`);
       }
     } catch (error) {
       console.warn('Failed to fetch user info:', error);
@@ -102,6 +109,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole('user');
       setTenantId(null);
       setRequirePasswordChange(false);
+      console.log(`🔐 FETCHING: Set default values due to exception:`, error);
     } finally {
       console.log(`🔐 fetchUserInfo completed for ${userId}, setting fetchInProgress to false`);
       setFetchInProgress(false);
