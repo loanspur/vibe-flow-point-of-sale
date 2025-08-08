@@ -273,17 +273,17 @@ const DomainRouter = () => {
 
   console.log('🚨 CRITICAL: Domain loading completed, continuing execution...');
   console.log('🚨 CRITICAL: NOW checking authLoading:', authLoading);
-  console.log('🚨 CRITICAL: About to check authLoading state...');
-  console.log('🚨 CRITICAL: authLoading:', authLoading);
-  console.log('🚨 CRITICAL: user exists:', !!user);
-  console.log('🚨 CRITICAL: userRole:', userRole);
-  console.log('🚨 CRITICAL: domainConfig:', domainConfig);
+  console.log('🚨 CRITICAL: About to check auth conditions...');
   
   // Check if auth is still loading
   if (authLoading) {
     console.log('🚨 AUTH LOADING: Auth is still loading, showing page loader...');
     return <PageLoader />;
   }
+  
+  console.log('🚨 CRITICAL: Auth loading complete, proceeding...');
+  console.log('🚨 CRITICAL: user exists:', !!user);
+  console.log('🚨 CRITICAL: userRole:', userRole);
   
   console.log('🔍 CRITICAL DEBUG - Post domain loading check:', {
     loading,
