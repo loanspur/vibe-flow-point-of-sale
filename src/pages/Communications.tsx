@@ -3,7 +3,7 @@ import { Mail, MessageSquare, Bell, Users, Settings, BarChart3 } from 'lucide-re
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmailTemplateManager } from '@/components/EmailTemplateManager';
-import { NotificationCenter } from '@/components/NotificationCenter';
+
 import { CommunicationSettings } from '@/components/CommunicationSettings';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -160,11 +160,11 @@ const Communications = () => {
         <div>
           <h1 className="text-3xl font-bold">Communications</h1>
           <p className="text-muted-foreground">
-            Manage email templates, notifications, and communication settings
+            Manage email templates and communication settings
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <NotificationCenter />
+          
           <Button variant="outline">
             <Settings className="h-4 w-4 mr-2" />
             Settings
@@ -173,7 +173,7 @@ const Communications = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">
             <BarChart3 className="h-4 w-4 mr-2" />
             Overview
@@ -181,10 +181,6 @@ const Communications = () => {
           <TabsTrigger value="templates">
             <Mail className="h-4 w-4 mr-2" />
             Email Templates
-          </TabsTrigger>
-          <TabsTrigger value="notifications">
-            <Bell className="h-4 w-4 mr-2" />
-            Notifications
           </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="h-4 w-4 mr-2" />
@@ -200,18 +196,6 @@ const Communications = () => {
           <EmailTemplateManager />
         </TabsContent>
 
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Notification management interface coming soon...
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="settings">
           <CommunicationSettings />

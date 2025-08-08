@@ -164,7 +164,7 @@ export const CommunicationSettings = () => {
         <div>
           <h2 className="text-2xl font-bold">Communication Settings</h2>
           <p className="text-muted-foreground">
-            Configure email, SMS, and WhatsApp notification settings
+            Configure email, SMS, and WhatsApp settings
           </p>
         </div>
         <Button onClick={saveSettings} disabled={saving}>
