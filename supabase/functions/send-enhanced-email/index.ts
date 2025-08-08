@@ -104,9 +104,23 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Resolve From address/name (tenant-aware)
+    let fromName = emailData.variables?.company_name || 'VibePOS';
+    let fromEmail = 'noreply@vibenet.shop';
+    try {
+      const { data: emailCfg } = await supabase.functions.invoke('get-tenant-email-config', {
+        body: { tenantId: emailData.tenantId },
+      });
+      const cfg: any = emailCfg || {};
+      fromEmail = cfg.email_from_address ?? cfg.from_email ?? fromEmail;
+      fromName = cfg.email_from_name ?? cfg.from_name ?? fromName;
+    } catch (e) {
+      console.warn('Falling back to default from settings', e);
+    }
+
     // Send email via Resend
     const emailResponse = await resend.emails.send({
-      from: `${emailData.variables?.company_name || 'VibePOS'} <noreply@vibenet.shop>`,
+      from: `${fromName} <${fromEmail}>`,
       to: [emailData.to],
       subject: processedSubject,
       html: processedHtml,

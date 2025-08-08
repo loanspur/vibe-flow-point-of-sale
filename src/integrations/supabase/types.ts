@@ -6889,6 +6889,21 @@ export type Database = {
         Args: { campaign_id_param: string }
         Returns: number
       }
+      queue_email: {
+        Args: {
+          tenant_id_param: string
+          template_id_param: string
+          to_email_param: string
+          to_name_param: string
+          subject_param: string
+          html_content_param: string
+          text_content_param: string
+          variables_param: Json
+          priority_param: string
+          scheduled_for_param: string
+        }
+        Returns: string
+      }
       record_cash_transaction_with_accounting: {
         Args: {
           drawer_id_param: string
