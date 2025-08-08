@@ -42,18 +42,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Fetch user role and tenant info with domain context support
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
+    console.log(`🔐 fetchUserInfo called for ${userId} from ${source}, fetchInProgress: ${fetchInProgress}, profileFetched: ${profileFetched}`);
+    
     // Prevent concurrent calls
     if (fetchInProgress) {
-      // Fetch already in progress
+      console.log(`🔐 fetchUserInfo already in progress, skipping`);
       return;
     }
     
     // Check if already fetched for this user
     if (profileFetched === userId) {
-      // Already fetched for this user
+      console.log(`🔐 Profile already fetched for ${userId}, skipping`);
       return;
     }
+    
     setFetchInProgress(true);
+    console.log(`🔐 Starting profile fetch for user ${userId}`);
+    
     try {
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
@@ -73,8 +78,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
+        console.log(`🔐 Profile loaded:`, profile);
         // Check if we're setting the same data repeatedly
         if (userRole === profile.role && tenantId === profile.tenant_id) {
+          console.log(`🔐 Profile data unchanged, skipping update`);
           return;
         }
         
@@ -82,6 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setTenantId(profile.tenant_id);
         setRequirePasswordChange(profile.require_password_change || false);
       } else {
+        console.log(`🔐 No profile found, using defaults`);
         // Fallback if no profile found
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
@@ -95,6 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setTenantId(null);
       setRequirePasswordChange(false);
     } finally {
+      console.log(`🔐 fetchUserInfo completed for ${userId}, setting fetchInProgress to false`);
       setFetchInProgress(false);
     }
   };
