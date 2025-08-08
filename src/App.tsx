@@ -174,58 +174,30 @@ const queryClient = new QueryClient({
 });
 
 const DomainRouter = () => {
-  console.log('🚨🚨🚨 DOMAINROUTER ENTRY POINT - TIMESTAMP:', Date.now());
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-  console.log(`🔄 DomainRouter RENDER #${renderCount.current}`);
-  
   const { domainConfig, loading } = useDomainContext();
   const { user, loading: authLoading, userRole } = useAuth();
-  
-  console.log('🌐 DomainRouter DETAILED state:', { 
-    domainConfig, 
-    loading, 
-    authLoading,
-    user: !!user,
-    userRole,
-    pathname: window.location.pathname, 
-    hostname: window.location.hostname 
-  });
-  
-  console.log('🌐 DomainRouter state:', { 
-    domainConfig, 
-    loading, 
-    pathname: window.location.pathname,
-    hostname: window.location.hostname 
-  });
   
   // Check for authentication session issues
   const [showAuthFix, setShowAuthFix] = useState(false);
   
   useEffect(() => {
     const checkAuthSession = async () => {
-      console.log('🔍 Checking auth session...', { loading, user: !!user, tenantId: domainConfig?.tenantId });
-      
       if (!loading && user && domainConfig?.tenantId) {
         try {
-          console.log('🔐 Running debug_user_auth...');
           const { data: authData, error } = await supabase.rpc('debug_user_auth');
-          console.log('🔐 Auth session check result:', { authData, error });
           
           if (error) {
-            console.error('❌ Error checking auth session:', error);
+            console.error('Error checking auth session:', error);
             return;
           }
           
           if (authData && authData.length > 0 && !authData[0].auth_uid_result) {
-            console.warn('🚨 Auth session broken - auth.uid() is null, showing fix dialog');
             setShowAuthFix(true);
           } else {
-            console.log('✅ Auth session appears healthy');
             setShowAuthFix(false);
           }
         } catch (error) {
-          console.error('❌ Failed to check auth session:', error);
+          console.error('Failed to check auth session:', error);
         }
       }
     };
@@ -233,17 +205,10 @@ const DomainRouter = () => {
     checkAuthSession();
   }, [loading, domainConfig, user]);
   
-  // CRITICAL: Check for unresolved subdomain FIRST before rendering any auth routes
-  // This prevents infinite redirect loops on problematic subdomains like santalama.vibenet.shop
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    console.log('🚫 Unresolved subdomain detected, blocking auth routes and redirecting');
-    
-    // Force immediate redirect to prevent any React routing issues
     const targetUrl = 'https://vibenet.shop/dashboard';
-    console.log('🔄 Executing redirect to:', targetUrl);
     window.location.replace(targetUrl);
     
-    // Show loading message while redirecting - NEVER render Auth component
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
@@ -254,10 +219,8 @@ const DomainRouter = () => {
     );
   }
 
-  // Render auth routes for valid domains only
   const currentPath = window.location.pathname;
   if (currentPath === '/auth' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
-    console.log('🔐 Rendering auth routes for valid domain');
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -271,32 +234,12 @@ const DomainRouter = () => {
   }
   
   if (loading) {
-    console.log('⏳ Domain loading, showing page loader...');
     return <PageLoader />;
   }
 
-  console.log('🚨 CRITICAL: Domain loading completed, continuing execution...');
-  console.log('🚨 CRITICAL: NOW checking authLoading:', authLoading);
-  console.log('🚨 CRITICAL: About to check auth conditions...');
-  
-  // Check if auth is still loading
   if (authLoading) {
-    console.log('🚨 AUTH LOADING: Auth is still loading, showing page loader...');
     return <PageLoader />;
   }
-  
-  console.log('🚨 CRITICAL: Auth loading complete, proceeding...');
-  console.log('🚨 CRITICAL: user exists:', !!user);
-  console.log('🚨 CRITICAL: userRole:', userRole);
-  
-  console.log('🔍 CRITICAL DEBUG - Post domain loading check:', {
-    loading,
-    authLoading,
-    user: !!user,
-    userRole,
-    showAuthFix,
-    domainConfig
-  });
   
   console.log('🎯 About to render tenant routes. Domain config:', domainConfig);
 
