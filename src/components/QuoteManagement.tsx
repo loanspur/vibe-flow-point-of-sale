@@ -49,6 +49,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEmailService } from "@/hooks/useEmailService";
 
 interface Quote {
   id: string;
@@ -107,8 +108,12 @@ export function QuoteManagement() {
     subject: '',
     message: ''
   });
+  const [showInvoiceTerms, setShowInvoiceTerms] = useState(false);
+  const [selectedQuoteForInvoice, setSelectedQuoteForInvoice] = useState<Quote | null>(null);
+  const [selectedNetDays, setSelectedNetDays] = useState<number>(30);
   const { toast } = useToast();
   const { tenantCurrency } = useApp();
+  const { sendEmail } = useEmailService();
 
   useEffect(() => {
     fetchQuotes();
@@ -608,23 +613,34 @@ export function QuoteManagement() {
 
   const sendQuoteEmail = async () => {
     try {
-      // This would integrate with an email service
-      // For now, just update status to sent
-      if (selectedQuote) {
-        await updateQuoteStatus(selectedQuote.id, "sent");
-        toast({
-          title: "Quote Sent",
-          description: "Quote has been sent via email",
-        });
-        setEmailDialog(false);
-        setEmailContent({ to: '', subject: '', message: '' });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
+      if (!selectedQuote) return;
+      if (!emailContent.to) throw new Error('Recipient email is required');
+
+      const html = `
+        <div>
+          <h2 style="margin:0 0 8px 0;">Quote ${selectedQuote.quote_number}</h2>
+          <p>Dear ${selectedQuote.customers?.name || 'Customer'},</p>
+          <p>${emailContent.message || 'Please find your quote details below.'}</p>
+          <p><strong>Total:</strong> ${formatCurrency(selectedQuote.total_amount)}</p>
+          ${selectedQuote.valid_until ? `<p><strong>Valid Until:</strong> ${formatDate(selectedQuote.valid_until)}</p>` : ''}
+          <p>If you have any questions or would like to proceed, just reply to this email.</p>
+          <p>Best regards,<br />VibePOS Team</p>
+        </div>`;
+
+      await sendEmail({
+        to: emailContent.to,
+        subject: emailContent.subject || `Quote ${selectedQuote.quote_number}`,
+        htmlContent: html,
+        textContent: `${emailContent.message}\nTotal: ${selectedQuote.total_amount}`,
+        variables: { company_name: 'VibePOS' },
+        priority: 'medium'
       });
+
+      await updateQuoteStatus(selectedQuote.id, 'sent');
+      setEmailDialog(false);
+      setEmailContent({ to: '', subject: '', message: '' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to send email', variant: 'destructive' });
     }
   };
 
@@ -929,7 +945,7 @@ export function QuoteManagement() {
                             <Button 
                               variant="secondary" 
                               size="sm"
-                              onClick={() => convertToInvoice(quote)}
+                              onClick={() => { setSelectedQuoteForInvoice(quote); setSelectedNetDays(30); setShowInvoiceTerms(true); }}
                               title="Convert to Pending Invoice"
                               className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
@@ -980,11 +996,7 @@ export function QuoteManagement() {
               <CardTitle>Create New Quote</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Quote creation form will be integrated with the enhanced sale form.
-                <br />
-                Use the "Save as Quote" option in the sale form instead of "Complete Sale".
-              </div>
+              <SaleForm onSaleCompleted={() => { setActiveTab('list'); fetchQuotes(); }} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1258,6 +1270,33 @@ export function QuoteManagement() {
                 <Mail className="h-4 w-4 mr-2" />
                 Send Quote
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Terms Dialog */}
+      <Dialog open={showInvoiceTerms} onOpenChange={setShowInvoiceTerms}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Payment Terms</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Label>Terms</Label>
+            <Select value={String(selectedNetDays)} onValueChange={(v) => setSelectedNetDays(parseInt(v))}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select terms" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Net 7</SelectItem>
+                <SelectItem value="14">Net 14</SelectItem>
+                <SelectItem value="30">Net 30</SelectItem>
+                <SelectItem value="45">Net 45</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowInvoiceTerms(false)}>Cancel</Button>
+              <Button onClick={() => { if (selectedQuoteForInvoice) { convertToInvoice(selectedQuoteForInvoice, selectedNetDays); } setShowInvoiceTerms(false); setSelectedQuoteForInvoice(null); }}>Convert</Button>
             </div>
           </div>
         </DialogContent>

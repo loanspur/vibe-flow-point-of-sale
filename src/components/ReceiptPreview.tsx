@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrencySettings } from "@/lib/currency";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface Sale {
   id: string;
@@ -280,37 +282,21 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (receiptRef.current) {
       const documentNumber = sale?.receipt_number || quote?.quote_number;
-      const content = receiptRef.current.innerHTML;
-      const blob = new Blob([`
-        <html>
-          <head>
-            <title>${type === "receipt" ? "Receipt" : type === "quote" ? "Quote" : "Invoice"} - ${documentNumber}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .receipt { max-width: 600px; margin: 0 auto; }
-              .center { text-align: center; }
-              .right { text-align: right; }
-              .bold { font-weight: bold; }
-              .separator { border-top: 1px solid #000; margin: 15px 0; }
-            </style>
-          </head>
-          <body>
-            ${content}
-          </body>
-        </html>
-      `], { type: 'text/html' });
-      
-      const url = window.URL.createObjectURL(blob);
-      const a = window.document.createElement('a');
-      a.href = url;
-      a.download = `${type}-${documentNumber}.html`;
-      window.document.body.appendChild(a);
-      a.click();
-      window.document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const node = receiptRef.current as HTMLElement;
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 40; // margins
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 20, 20, imgWidth, Math.min(imgHeight, pageHeight - 40), undefined, 'FAST');
+      pdf.save(`${type}-${documentNumber}.pdf`);
     }
   };
 

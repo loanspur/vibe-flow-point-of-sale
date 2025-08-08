@@ -51,9 +51,10 @@ interface SaleItem {
 
 interface SaleFormProps {
   onSaleCompleted?: () => void;
+  initialMode?: "sale" | "quote";
 }
 
-export function SaleForm({ onSaleCompleted }: SaleFormProps) {
+export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProps) {
   const { tenantId } = useAuth();
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
@@ -73,7 +74,7 @@ export function SaleForm({ onSaleCompleted }: SaleFormProps) {
   const [payments, setPayments] = useState<any[]>([]);
   const [remainingBalance, setRemainingBalance] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mode, setMode] = useState<"sale" | "quote">("sale");
+  const [mode, setMode] = useState<"sale" | "quote">(initialMode);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showCashChangeModal, setShowCashChangeModal] = useState(false);
   const [showMpesaModal, setShowMpesaModal] = useState(false);
