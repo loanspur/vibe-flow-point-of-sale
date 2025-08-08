@@ -271,6 +271,15 @@ const DomainRouter = () => {
     return <PageLoader />;
   }
   
+  console.log('🔍 CRITICAL DEBUG - Post domain loading check:', {
+    loading,
+    authLoading,
+    user: !!user,
+    userRole,
+    showAuthFix,
+    domainConfig
+  });
+  
   console.log('🎯 About to render tenant routes. Domain config:', domainConfig);
 
   // Show auth session fix if needed
