@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import TenantCustomPricing from '@/components/TenantCustomPricing';
 import { getBaseDomain } from '@/lib/domain-manager';
+import { useEmailService } from '@/hooks/useEmailService';
 
 type Tenant = Tables<'tenants'>;
 type TenantUser = Tables<'tenant_users'>;
@@ -273,9 +274,23 @@ export default function TenantManagement() {
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
   const [customPricingDialogOpen, setCustomPricingDialogOpen] = useState(false);
+  const [manualPaymentDialogOpen, setManualPaymentDialogOpen] = useState(false);
+  const [savingManualPayment, setSavingManualPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { sendEmail } = useEmailService();
+
+  const [manualPayment, setManualPayment] = useState({
+    amount: '',
+    currency: 'KES',
+    paymentDate: new Date().toISOString().split('T')[0],
+    method: 'manual',
+    reference: '',
+    planId: '',
+    notes: '',
+    email: ''
+  });
 
   const [newTenant, setNewTenant] = useState({
     name: '',
@@ -601,6 +616,123 @@ export default function TenantManagement() {
     }
   };
 
+  const openManualPaymentDialog = (tenant: Tenant, planId?: string) => {
+    setSelectedTenant(tenant);
+    setManualPayment({
+      amount: '',
+      currency: 'KES',
+      paymentDate: new Date().toISOString().split('T')[0],
+      method: 'manual',
+      reference: `MAN-${(tenant.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)}-${Date.now().toString().slice(-6)}`,
+      planId: planId || '',
+      notes: '',
+      email: tenant.contact_email || ''
+    });
+    setManualPaymentDialogOpen(true);
+  };
+
+  const handleSaveManualPayment = async () => {
+    if (!selectedTenant) return;
+
+    const amountNum = Number(manualPayment.amount);
+    if (!amountNum || amountNum <= 0) {
+      toast({ title: 'Invalid amount', description: 'Please enter a valid amount', variant: 'destructive' });
+      return;
+    }
+    if (!manualPayment.reference) {
+      toast({ title: 'Reference required', description: 'Please provide a unique payment reference', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setSavingManualPayment(true);
+
+      // Ensure unique reference
+      const { count: existingCount } = await supabase
+        .from('payment_history')
+        .select('id', { count: 'exact', head: true })
+        .eq('payment_reference', manualPayment.reference);
+
+      if ((existingCount || 0) > 0) {
+        toast({ title: 'Duplicate reference', description: 'This payment reference already exists. Use a unique one.', variant: 'destructive' });
+        return;
+      }
+
+      // Insert payment record
+      const { data: inserted, error: insertError } = await supabase
+        .from('payment_history')
+        .insert({
+          tenant_id: selectedTenant.id,
+          amount: amountNum,
+          currency: manualPayment.currency,
+          billing_plan_id: manualPayment.planId || null,
+          payment_status: 'completed',
+          payment_method: manualPayment.method,
+          payment_reference: manualPayment.reference,
+          paid_at: manualPayment.paymentDate,
+          created_at: new Date().toISOString(),
+          metadata: {
+            notes: manualPayment.notes,
+            recorded_by: user?.id || null,
+            manual: true
+          }
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Update next billing date if subscription exists
+      const sub = tenantSubscriptions.find(s => s.tenant_id === selectedTenant.id);
+      if (sub) {
+        let nextBillingDate: string | null = null;
+        try {
+          const { data: nextDateData } = await supabase.rpc('calculate_next_billing_date', { input_date: manualPayment.paymentDate });
+          nextBillingDate = Array.isArray(nextDateData) ? nextDateData[0] : (nextDateData as any);
+        } catch {}
+
+        if (nextBillingDate) {
+          await supabase
+            .from('tenant_subscription_details')
+            .update({ next_billing_date: nextBillingDate })
+            .eq('tenant_id', selectedTenant.id);
+        }
+      }
+
+      // Send confirmation email
+      const planName = billingPlans.find(p => p.id === manualPayment.planId)?.name;
+      const amountDisplay = `${manualPayment.currency} ${amountNum.toLocaleString()}`;
+      const toEmail = manualPayment.email || selectedTenant.contact_email || '';
+
+      if (toEmail) {
+        await sendEmail({
+          to: toEmail,
+          toName: selectedTenant.name,
+          subject: `Payment received - ${manualPayment.reference}`,
+          htmlContent: `
+            <h2>Payment Confirmation</h2>
+            <p>Dear ${selectedTenant.name},</p>
+            <p>We have received your payment of <strong>${amountDisplay}</strong>${planName ? ` for plan <strong>${planName}</strong>` : ''} on <strong>${manualPayment.paymentDate}</strong>.</p>
+            <p>Reference: <strong>${manualPayment.reference}</strong></p>
+            <p>Method: ${manualPayment.method}</p>
+            <p>Thank you for your business.</p>
+          `,
+          textContent: `Payment received: ${amountDisplay}${planName ? ` for plan ${planName}` : ''} on ${manualPayment.paymentDate}. Reference: ${manualPayment.reference}.`,
+          priority: 'medium'
+        });
+      }
+
+      // Refresh data and close
+      await Promise.all([fetchTenantSubscriptions(), fetchTenants()]);
+      setManualPaymentDialogOpen(false);
+      toast({ title: 'Payment recorded', description: 'Manual payment recorded successfully' });
+    } catch (err: any) {
+      console.error('Manual payment error:', err);
+      toast({ title: 'Error', description: err.message || 'Failed to record payment', variant: 'destructive' });
+    } finally {
+      setSavingManualPayment(false);
+    }
+  };
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -800,6 +932,14 @@ export default function TenantManagement() {
                         >
                           <Settings className="h-4 w-4 mr-1" />
                           {tenant.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openManualPaymentDialog(tenant, subscription?.billing_plan_id)}
+                        >
+                          <CreditCard className="h-4 w-4 mr-1" />
+                          Record Payment
                         </Button>
                       </div>
                     </TableCell>
