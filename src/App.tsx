@@ -241,19 +241,13 @@ const DomainRouter = () => {
     return <PageLoader />;
   }
   
-  console.log('🎯 About to render tenant routes. Domain config:', domainConfig);
-
   // Show auth session fix if needed
   if (showAuthFix) {
-    console.log('🔧 Displaying AuthSessionFix component');
     return <AuthSessionFix />;
   }
-  
-  console.log('🎯 Proceeding to normal routing, showAuthFix:', showAuthFix);
 
   // If on subdomain, show tenant-specific routes only
   if (domainConfig?.isSubdomain && domainConfig.tenantId) {
-    console.log('🏢 Rendering tenant-specific routes for subdomain');
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -748,49 +742,24 @@ const DomainRouter = () => {
 };
 
 const App = () => {
-  console.log('🚀 APP COMPONENT RENDER START');
-  
   return (
     <QueryClientProvider client={queryClient}>
-      {(() => {
-        console.log('🔄 QueryClientProvider rendered');
-        return (
-          <AuthProvider>
-            {(() => {
-              console.log('🔐 AuthProvider rendered');
-              return (
-                <AppProvider>
-                  {(() => {
-                    console.log('📱 AppProvider rendered');
-                    return (
-                      <TooltipProvider>
-                        {(() => {
-                          console.log('💡 TooltipProvider rendered');
-                          return (
-                            <>
-                              <Toaster />
-                              <Sonner />
-                              <PerformanceMonitor />
-                              <CookieConsent />
-                              <PasswordChangeModal />
-                              <BrowserRouter>
-                                {(() => {
-                                  console.log('🌐 BrowserRouter rendered - about to render DomainRouter');
-                                  return <DomainRouter />;
-                                })()}
-                              </BrowserRouter>
-                            </>
-                          );
-                        })()}
-                      </TooltipProvider>
-                    );
-                  })()}
-                </AppProvider>
-              );
-            })()}
-          </AuthProvider>
-        );
-      })()}
+      <AuthProvider>
+        <AppProvider>
+          <TooltipProvider>
+            <>
+              <Toaster />
+              <Sonner />
+              <PerformanceMonitor />
+              <CookieConsent />
+              <PasswordChangeModal />
+              <BrowserRouter>
+                <DomainRouter />
+              </BrowserRouter>
+            </>
+          </TooltipProvider>
+        </AppProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };
