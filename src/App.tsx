@@ -270,6 +270,12 @@ const DomainRouter = () => {
     console.log('⏳ Domain loading, showing page loader...');
     return <PageLoader />;
   }
+
+  console.log('🚨 CRITICAL: Loading is false, continuing execution...');
+  console.log('🚨 CRITICAL: authLoading:', authLoading);
+  console.log('🚨 CRITICAL: user exists:', !!user);
+  console.log('🚨 CRITICAL: userRole:', userRole);
+  console.log('🚨 CRITICAL: domainConfig:', domainConfig);
   
   console.log('🔍 CRITICAL DEBUG - Post domain loading check:', {
     loading,
