@@ -14,7 +14,7 @@ import { getCurrentDomain } from '@/lib/domain-manager';
 const Auth = () => {
   const navigate = useNavigate();
   const AUTH_DEBUG = false;
-  const { signIn, user } = useAuth();
+  const { signIn, user, userRole } = useAuth();
   const location = useLocation();
   const fromPath = (location.state as any)?.from?.pathname || '/dashboard';
   const { toast } = useToast();
@@ -31,16 +31,26 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect authenticated users only on tenant subdomains or production domain
+  // Redirect authenticated users only on tenant subdomains
   useEffect(() => {
     if (user) {
       const domain = window.location.hostname;
-      const isMainDev = domain === 'vibenet.online' || domain === 'www.vibenet.online';
-      if (!isMainDev) {
+      const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+      if (!isMainDomain) {
         navigate(fromPath, { replace: true });
       }
     }
   }, [user, navigate, fromPath]);
+
+  // On main domain, auto-redirect superadmins to /superadmin after login
+  useEffect(() => {
+    if (!user) return;
+    const domain = window.location.hostname;
+    const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+    if (isMainDomain && userRole === 'superadmin') {
+      navigate('/superadmin', { replace: true });
+    }
+  }, [user, userRole, navigate]);
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -108,8 +118,13 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in."
       });
-      // Navigate immediately after successful login
-      navigate(fromPath, { replace: true });
+      // Navigate after successful login: subdomains -> fromPath; main domain -> wait for role effect
+      const domain = window.location.hostname;
+      const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+      if (!isMainDomain) {
+        navigate(fromPath, { replace: true });
+      }
+
     }
 
     setLoading(false);
