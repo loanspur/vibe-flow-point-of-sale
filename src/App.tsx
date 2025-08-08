@@ -17,6 +17,8 @@ import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
 import { PasswordChangeModal } from "./components/PasswordChangeModal";
+import { AuthSessionFix } from "./components/AuthSessionFix";
+import { supabase } from "@/integrations/supabase/client";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -173,6 +175,7 @@ const queryClient = new QueryClient({
 
 const DomainRouter = () => {
   const { domainConfig, loading } = useDomainContext();
+  const { user } = useAuth();
   
   console.log('🌐 DomainRouter state:', { 
     domainConfig, 
@@ -180,6 +183,29 @@ const DomainRouter = () => {
     pathname: window.location.pathname,
     hostname: window.location.hostname 
   });
+  
+  // Check for authentication session issues
+  const [showAuthFix, setShowAuthFix] = useState(false);
+  
+  useEffect(() => {
+    const checkAuthSession = async () => {
+      if (!loading && user && domainConfig?.tenantId) {
+        try {
+          const { data: authData } = await supabase.rpc('debug_user_auth');
+          console.log('🔐 Auth session check:', authData);
+          
+          if (authData && authData.length > 0 && !authData[0].auth_uid_result) {
+            console.warn('🚨 Auth session broken - auth.uid() is null');
+            setShowAuthFix(true);
+          }
+        } catch (error) {
+          console.warn('Auth session check failed:', error);
+        }
+      }
+    };
+
+    checkAuthSession();
+  }, [loading, domainConfig, user]);
   
   // CRITICAL: Check for unresolved subdomain FIRST before rendering any auth routes
   // This prevents infinite redirect loops on problematic subdomains like santalama.vibenet.shop
@@ -221,6 +247,11 @@ const DomainRouter = () => {
   if (loading) {
     console.log('⏳ Domain loading, showing page loader...');
     return <PageLoader />;
+  }
+
+  // Show auth session fix if needed
+  if (showAuthFix) {
+    return <AuthSessionFix />;
   }
 
   // If on subdomain, show tenant-specific routes only
