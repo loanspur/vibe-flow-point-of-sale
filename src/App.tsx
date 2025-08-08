@@ -259,6 +259,8 @@ const DomainRouter = () => {
     console.log('⏳ Domain loading, showing page loader...');
     return <PageLoader />;
   }
+  
+  console.log('🎯 About to render tenant routes. Domain config:', domainConfig);
 
   // Show auth session fix if needed
   if (showAuthFix) {
