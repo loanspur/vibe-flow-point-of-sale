@@ -585,7 +585,10 @@ const UserManagement = () => {
   });
 
   useEffect(() => {
-    setLoading(false);
+    // Only set loading to false when all critical data is loaded
+    if (users.length >= 0 && roles.length >= 0 && systemPermissions.length >= 0) {
+      setLoading(false);
+    }
   }, [users, roles, systemPermissions]);
 
   if (loading) {
@@ -633,9 +636,11 @@ const UserManagement = () => {
                   <Dialog open={isCreatingUser} onOpenChange={setIsCreatingUser}>
                     <DialogTrigger asChild>
                       <Button onClick={() => {
+                        // Reset all form states when opening dialog
                         setNewUserEmail('');
                         setNewUserRole('');
                         setNewUserFullName('');
+                        setCreating(false);
                       }}>
                         <Plus className="h-4 w-4 mr-2" />
                         Create User
@@ -700,14 +705,24 @@ const UserManagement = () => {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setIsCreatingUser(false)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={createUser} disabled={creating}>
-                            {creating ? 'Creating...' : 'Create User'}
-                          </Button>
-                        </div>
+                         <div className="flex justify-end gap-2">
+                           <Button 
+                             variant="outline" 
+                             onClick={() => {
+                               setIsCreatingUser(false);
+                               // Reset form state when canceling
+                               setNewUserEmail('');
+                               setNewUserRole('');
+                               setNewUserFullName('');
+                               setCreating(false);
+                             }}
+                           >
+                             Cancel
+                           </Button>
+                           <Button onClick={createUser} disabled={creating}>
+                             {creating ? 'Creating...' : 'Create User'}
+                           </Button>
+                         </div>
                       </div>
                     </DialogContent>
                   </Dialog>
