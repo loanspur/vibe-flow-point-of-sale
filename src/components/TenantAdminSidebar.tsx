@@ -1,17 +1,15 @@
-import { 
-  BarChart3, 
-  Users, 
-  Building2, 
-  Settings, 
+import {
+  BarChart3,
+  Users,
+  Settings,
   ShoppingCart,
   Package,
   Home,
-  CreditCard,
   TrendingUp,
   Calculator,
   Mail
 } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -28,6 +26,8 @@ import {
 
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Badge } from '@/components/ui/badge';
+import { LazyImage } from '@/components/ui/image-lazy';
+import { useTenantLogo } from '@/hooks/useTenantLogo';
 
 const mainItems = [
   { title: "Dashboard", url: "/admin", icon: Home },
@@ -57,6 +57,9 @@ export function TenantAdminSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
 
+  const tenantLogo = useTenantLogo();
+  const fallbackLogo = '/lovable-uploads/96478f6e-8bdd-4f18-930b-f1dfa142cefb.png';
+
   // Check if user is on trial
   const isOnTrial = subscription?.trial_end && new Date(subscription.trial_end) > new Date();
 
@@ -84,12 +87,19 @@ export function TenantAdminSidebar() {
     <Sidebar className={collapsed ? "w-16" : "w-64"} collapsible="icon">
       <SidebarHeader className="border-b border-border p-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-            <Building2 className="h-4 w-4 text-primary-foreground" />
-          </div>
+          <Link to="/admin" aria-label="Go to Dashboard" className="flex items-center">
+            <div className="h-8 w-8">
+              <LazyImage
+                src={tenantLogo || fallbackLogo}
+                alt="Tenant logo"
+                fallback={fallbackLogo}
+                className="h-8 w-8 rounded-md"
+                skeletonClassName="h-8 w-8 rounded-md"
+              />
+            </div>
+          </Link>
           {!collapsed && (
             <div className="flex-1">
-              <h2 className="font-semibold text-foreground">Admin Panel</h2>
               <p className="text-xs text-muted-foreground truncate">
                 {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
               </p>
