@@ -28,7 +28,12 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // No redirect logic in Auth component - all routing handled by App.tsx
+  // Redirect to dashboard when already authenticated
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -50,6 +55,7 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent duplicate submits on slow networks
     
     // Clear previous errors
     setSignInError('');
@@ -95,9 +101,8 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in."
       });
-      
-      // Auth completed - let App.tsx handle all navigation
-      console.log('🎯 Sign in successful');
+      // Navigate immediately after successful login
+      navigate('/dashboard', { replace: true });
     }
 
     setLoading(false);
