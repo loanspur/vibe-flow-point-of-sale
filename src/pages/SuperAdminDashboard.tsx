@@ -64,9 +64,9 @@ export default function SuperAdminDashboard() {
           // Completed payments this month
           supabase
             .from('payment_history')
-            .select('amount, paid_at')
+            .select('amount, paid_at, created_at')
             .eq('payment_status', 'completed')
-            .gte('paid_at', monthStart),
+            .or(`paid_at.gte.${monthStart},and(paid_at.is.null,created_at.gte.${monthStart})`),
 
           // Recent activity logs
           supabase
@@ -138,7 +138,7 @@ export default function SuperAdminDashboard() {
       change: "Uptime this month",
       icon: Activity,
       color: "text-emerald-600",
-      href: "/superadmin/system-health"
+      href: "/superadmin/system"
     }
   ];
 
@@ -197,22 +197,24 @@ export default function SuperAdminDashboard() {
           {adminStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <Card key={index} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  {stat.title === "Monthly Revenue" ? (
-                    <CurrencyIcon currency="KES" className={`h-4 w-4 ${stat.color}`} />
-                  ) : (
-                    <Icon className={`h-4 w-4 ${stat.color}`} />
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground">{stat.change}</p>
-                </CardContent>
-              </Card>
+              <Link to={stat.href || '#'} className="block">
+                <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {stat.title}
+                    </CardTitle>
+                    {stat.title === "Monthly Revenue" ? (
+                      <CurrencyIcon currency="KES" className={`h-4 w-4 ${stat.color}`} />
+                    ) : (
+                      <Icon className={`h-4 w-4 ${stat.color}`} />
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground">{stat.change}</p>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>
