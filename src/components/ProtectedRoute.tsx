@@ -84,8 +84,12 @@ const ProtectedRoute = ({
       );
     }
 
-    // Check if user has required role access (support both raw and mapped roles)
-    const roleMatch = (mappedRole && allowedRoles.includes(mappedRole)) || (authUserRole && allowedRoles.includes(authUserRole));
+    // Normalize role comparisons (case-insensitive)
+    const allowedNormalized = allowedRoles.map(r => r.toLowerCase());
+    const authLower = authUserRole?.toLowerCase();
+    const mappedLower = mappedRole?.toLowerCase();
+
+    const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || (authLower && allowedNormalized.includes(authLower));
     if (!roleMatch) {
       console.log('🚫 Access denied - role mismatch');
       return <Navigate to="/dashboard" replace />;
