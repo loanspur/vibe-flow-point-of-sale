@@ -174,6 +174,7 @@ const queryClient = new QueryClient({
 });
 
 const DomainRouter = () => {
+  console.log('🚨🚨🚨 DOMAINROUTER ENTRY POINT - TIMESTAMP:', Date.now());
   const renderCount = useRef(0);
   renderCount.current += 1;
   console.log(`🔄 DomainRouter RENDER #${renderCount.current}`);
