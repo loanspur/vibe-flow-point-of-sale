@@ -175,7 +175,17 @@ const queryClient = new QueryClient({
 
 const DomainRouter = () => {
   const { domainConfig, loading } = useDomainContext();
-  const { user } = useAuth();
+  const { user, loading: authLoading, userRole } = useAuth();
+  
+  console.log('🌐 DomainRouter DETAILED state:', { 
+    domainConfig, 
+    loading, 
+    authLoading,
+    user: !!user,
+    userRole,
+    pathname: window.location.pathname, 
+    hostname: window.location.hostname 
+  });
   
   console.log('🌐 DomainRouter state:', { 
     domainConfig, 
