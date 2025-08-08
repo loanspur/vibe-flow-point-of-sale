@@ -113,28 +113,32 @@ export default function SuperAdminDashboard() {
       value: loading ? "..." : dashboardData.totalTenants.toString(),
       change: "+3 this month",
       icon: Building2,
-      color: "text-blue-600"
+      color: "text-blue-600",
+      href: "/superadmin/tenants"
     },
     {
       title: "Active Users",
       value: loading ? "..." : dashboardData.activeUsers.toLocaleString(),
       change: "+12% this month", 
       icon: Users,
-      color: "text-green-600"
+      color: "text-green-600",
+      href: "/superadmin/users"
     },
     {
       title: "Monthly Revenue",
       value: loading ? "..." : formatBaseCurrency(dashboardData.monthlyRevenue),
       change: "+8.2% from last month",
       icon: () => <CurrencyIcon currency="KES" className="h-4 w-4" />,
-      color: "text-purple-600"
+      color: "text-purple-600",
+      href: "/superadmin/revenue"
     },
     {
       title: "System Health",
       value: `${dashboardData.systemHealth}%`,
       change: "Uptime this month",
       icon: Activity,
-      color: "text-emerald-600"
+      color: "text-emerald-600",
+      href: "/superadmin/system-health"
     }
   ];
 
