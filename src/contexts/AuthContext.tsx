@@ -345,18 +345,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // Don't render children until we've checked for an existing session
-  console.log('🔐 AuthContext render check:', { loading, user: !!user, userRole, tenantId });
-  
   if (loading) {
-    console.log('🔐 AuthContext BLOCKING - showing loading spinner');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
-  
-  console.log('🔐 AuthContext ALLOWING - rendering children');
 
   return (
     <AuthContext.Provider value={value}>
