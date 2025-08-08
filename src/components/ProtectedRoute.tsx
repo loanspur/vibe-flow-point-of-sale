@@ -67,12 +67,21 @@ const ProtectedRoute = ({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // If specific roles are required
   if (allowedRoles.length > 0) {
-    // If user is not authenticated or has no role
-    if (!user || !authUserRole) {
-      console.log('🚫 Redirecting to auth - no role');
+    // If user is not authenticated
+    if (!user) {
+      console.log('🚫 Redirecting to auth - no user');
       return <Navigate to="/auth" state={{ from: location }} replace />;
+    }
+
+    // If user exists but role hasn't loaded yet, show a loading state instead of redirecting
+    if (user && !authUserRole) {
+      console.log('⏳ Waiting for role to load...');
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      );
     }
 
     // Check if user has required role access (support both raw and mapped roles)

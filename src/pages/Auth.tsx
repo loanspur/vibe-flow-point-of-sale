@@ -47,7 +47,7 @@ const Auth = () => {
     if (!user) return;
     const domain = window.location.hostname;
     const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
-    if (isMainDomain && userRole === 'superadmin') {
+    if (isMainDomain && (userRole?.toLowerCase() === 'superadmin')) {
       navigate('/superadmin', { replace: true });
     }
   }, [user, userRole, navigate]);
