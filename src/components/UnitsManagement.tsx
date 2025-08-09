@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -59,12 +59,14 @@ function UnitForm({
   initialData,
   onSubmit,
   baseUnits,
+  existingCodes,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   initialData?: Partial<UnitFormData>;
   onSubmit: (data: UnitFormData) => void;
   baseUnits: UnitRecord[];
+  existingCodes: string[];
 }) {
 const form = useForm<UnitFormData>({
     resolver: zodResolver(unitSchema),
@@ -81,6 +83,43 @@ const form = useForm<UnitFormData>({
   });
 
   const isBase = form.watch("is_base_unit");
+
+  const codeReg = form.register("code");
+  const [manualCode, setManualCode] = useState(false);
+  const nameVal = form.watch("name");
+  const abbrVal = form.watch("abbreviation");
+  const reservedCodes = useMemo(
+    () => (existingCodes || []).filter((c) => c !== (initialData?.code || "")),
+    [existingCodes, initialData?.code]
+  );
+
+  const makeUniqueCode = useCallback(
+    (base: string) => {
+      const fromAbbr = abbrVal?.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const clean = base.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const root = (fromAbbr && fromAbbr.length >= 2)
+        ? fromAbbr
+        : clean.slice(0, 3) || "U";
+      let candidate = root;
+      let idx = 2;
+      const exists = (val: string) => reservedCodes.includes(val);
+      while (exists(candidate)) {
+        candidate = `${root}-${idx++}`;
+      }
+      return candidate;
+    },
+    [abbrVal, reservedCodes]
+  );
+
+  useEffect(() => {
+    if (manualCode) return;
+    const base = abbrVal || nameVal;
+    if (!base) return;
+    const current = form.getValues("code");
+    if (!current || current === (initialData?.code || "")) {
+      form.setValue("code", makeUniqueCode(String(base)));
+    }
+  }, [abbrVal, nameVal, manualCode, makeUniqueCode]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,7 +143,7 @@ const form = useForm<UnitFormData>({
 <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="code">Code (unique)</Label>
-              <Input id="code" {...form.register("code")} />
+              <Input id="code" {...codeReg} onChange={(e) => { setManualCode(true); codeReg.onChange(e); }} />
             </div>
           </div>
 
@@ -367,6 +406,7 @@ initialData={editing ? {
         } : undefined}
         onSubmit={handleSubmit}
         baseUnits={baseUnits}
+        existingCodes={units.map(u => u.code)}
       />
     </Card>
   );
