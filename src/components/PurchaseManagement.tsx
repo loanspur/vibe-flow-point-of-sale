@@ -205,6 +205,7 @@ const PurchaseManagement = () => {
           price, 
           stock_quantity,
           has_expiry_date,
+          unit_id,
           product_variants (
             id,
             name,
@@ -339,16 +340,20 @@ const PurchaseManagement = () => {
       if (purchaseError) throw purchaseError;
 
       // Create purchase items
-      const items = selectedItems.map(item => ({
-        purchase_id: purchase.id,
-        product_id: item.product_id,
-        variant_id: item.variant_id || null,
-        quantity_ordered: item.quantity,
-        quantity_received: 0,
-        unit_cost: item.unit_cost,
-        total_cost: item.quantity * item.unit_cost,
-        expiry_date: item.expiry_date || null
-       }));
+      const items = selectedItems.map(item => {
+        const prod = products.find(p => p.id === item.product_id) as any;
+        return {
+          purchase_id: purchase.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id || null,
+          quantity_ordered: item.quantity,
+          quantity_received: 0,
+          unit_cost: item.unit_cost,
+          total_cost: item.quantity * item.unit_cost,
+          expiry_date: item.expiry_date || null,
+          unit_id: prod?.unit_id || null,
+         };
+      });
 
       console.log('Inserting purchase items:', items);
 

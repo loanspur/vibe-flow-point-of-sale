@@ -182,6 +182,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           min_stock_level,
           image_url,
            is_active,
+          unit_id,
           product_variants (
             id,
             name,
@@ -678,14 +679,18 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       if (saleError) throw saleError;
 
       // Add sale items
-      const saleItemsData = saleItems.map(item => ({
-        sale_id: sale.id,
-        product_id: item.product_id,
-        variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-      }));
+      const saleItemsData = saleItems.map(item => {
+        const prod = products.find(p => p.id === item.product_id);
+        return {
+          sale_id: sale.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          unit_id: prod?.unit_id || null,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from("sale_items")
