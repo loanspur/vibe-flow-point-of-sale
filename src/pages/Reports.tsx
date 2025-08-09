@@ -110,11 +110,33 @@ const Reports = () => {
       const drawerMap: Record<string, string | null> = {};
       (drawersData || []).forEach((d: any) => { drawerMap[d.user_id] = d.location_name; });
 
-      const salesWithDetails = (salesData || []).map((s: any) => ({
-        ...s,
-        user_name: profileMap[s.cashier_id] || null,
-        location_name: drawerMap[s.cashier_id] || null,
-      }));
+      // Compute total purchase price per sale from sale_items x products(default_profit_margin)
+      const saleIds: string[] = (salesData || []).map((s: any) => s.id);
+      let costBySale: Record<string, number> = {};
+      if (saleIds.length > 0) {
+        const { data: itemsData } = await supabase
+          .from('sale_items')
+          .select('sale_id, quantity, products:product_id(default_profit_margin)')
+          .in('sale_id', saleIds);
+        (itemsData || []).forEach((it: any) => {
+          const unitCost = Number(it?.products?.default_profit_margin || 0);
+          const qty = Number(it?.quantity || 0);
+          const sid = it?.sale_id;
+          if (sid) costBySale[sid] = (costBySale[sid] || 0) + unitCost * qty;
+        });
+      }
+
+      const salesWithDetails = (salesData || []).map((s: any) => {
+        const total_purchase_price = Number(costBySale[s.id] || 0);
+        const total_profit = Number(s.total_amount || 0) - total_purchase_price;
+        return {
+          ...s,
+          user_name: profileMap[s.cashier_id] || null,
+          location_name: drawerMap[s.cashier_id] || null,
+          total_purchase_price,
+          total_profit,
+        };
+      });
 
       // Fetch customers data
       const { data: customersData, error: customersError } = await supabase
@@ -250,7 +272,7 @@ const Reports = () => {
       });
 
       // Set detailed data for reports
-      setDetailedSales(salesData || []);
+      setDetailedSales(salesWithDetails || []);
       setDetailedProducts(productsData || []);
       setDetailedCustomers(customersData || []);
       setCustomerTotals(Object.fromEntries(purchaseTotalsMap));
@@ -480,6 +502,8 @@ const Reports = () => {
                       <TableHead>Date/Time</TableHead>
                       <TableHead>Sale ID</TableHead>
                       <TableHead>Purchase Amount</TableHead>
+                      <TableHead>Total Purchase Price</TableHead>
+                      <TableHead>Total Profit</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>User</TableHead>
                       <TableHead>Status</TableHead>
@@ -487,41 +511,47 @@ const Reports = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSales.length > 0 ? (
-                      filteredSales.slice(0, 20).map((sale) => (
-                        <TableRow key={sale.id}>
-                          <TableCell>
-                            {new Date(sale.created_at).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            #{sale.id?.slice(-8)}
-                          </TableCell>
-                          <TableCell className="font-semibold">
-                            {formatCurrency(sale.total_amount)}
-                          </TableCell>
-                          <TableCell>
-                            {sale.location_name || sale.location || sale.location_id || 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            {sale.user_name || sale.created_by || sale.user_id || 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={sale.status === 'completed' ? 'default' : 'secondary'}>
-                              {sale.status || 'completed'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {sale.payment_method || 'Cash'}
+                      {filteredSales.length > 0 ? (
+                        filteredSales.slice(0, 20).map((sale) => (
+                          <TableRow key={sale.id}>
+                            <TableCell>
+                              {new Date(sale.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              #{sale.id?.slice(-8)}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {formatCurrency(sale.total_amount)}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {formatCurrency(sale.total_purchase_price || 0)}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {formatCurrency(sale.total_profit || 0)}
+                            </TableCell>
+                            <TableCell>
+                              {sale.location_name || sale.location || sale.location_id || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              {sale.user_name || sale.created_by || sale.user_id || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={sale.status === 'completed' ? 'default' : 'secondary'}>
+                                {sale.status || 'completed'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {sale.payment_method || 'Cash'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            {searchTerm || dateFilter !== 'all' ? 'No sales found matching your criteria' : 'No sales data available'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          {searchTerm || dateFilter !== 'all' ? 'No sales found matching your criteria' : 'No sales data available'}
-                        </TableCell>
-                      </TableRow>
-                    )}
+                      )}
                   </TableBody>
                 </Table>
                 {filteredSales.length > 20 && (
