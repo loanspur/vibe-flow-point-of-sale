@@ -35,6 +35,7 @@ interface ReportMetrics {
 type ReportView = 'overview' | 'sales' | 'products' | 'customers' | 'financial' | 'inventory' | 'custom';
 
 import { SafeWrapper } from '@/components/SafeWrapper';
+import FinancialStatements from '@/components/accounting/FinancialStatements';
 
 const Reports = () => {
   const { tenantId } = useAuth();
@@ -66,7 +67,8 @@ const Reports = () => {
   const [segmentBy, setSegmentBy] = useState<'none' | 'user' | 'location'>('none');
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day');
   const [productTop, setProductTop] = useState<{ name: string; quantity: number }[]>([]);
-
+  const [customerTotals, setCustomerTotals] = useState<Record<string, number>>({});
+  const [customerOutstanding, setCustomerOutstanding] = useState<Record<string, number>>({});
   useEffect(() => {
     if (tenantId) {
       fetchReportData();
@@ -88,7 +90,7 @@ const Reports = () => {
       // Fetch customers data
       const { data: customersData, error: customersError } = await supabase
         .from("customers")
-        .select("id, created_at")
+        .select("id, name, email, phone, address, created_at")
         .eq("tenant_id", tenantId);
 
       if (customersError) throw customersError;
@@ -96,7 +98,7 @@ const Reports = () => {
       // Fetch products data
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("id, name, price, default_profit_margin, stock_quantity, min_stock_level")
+        .select("id, name, sku, price, default_profit_margin, stock_quantity, min_stock_level, category:product_categories(name)")
         .eq("tenant_id", tenantId)
         .eq("is_active", true);
 
@@ -117,6 +119,13 @@ const Reports = () => {
         .eq("sales.tenant_id", tenantId);
 
       if (topProductsError) throw topProductsError;
+
+      // Fetch accounts receivable for outstanding balances
+      const { data: arData, error: arError } = await supabase
+        .from('accounts_receivable')
+        .select('customer_id, outstanding_amount, status')
+        .eq('tenant_id', tenantId);
+      if (arError) throw arError;
 
       // Calculate metrics
       const now = new Date();
@@ -193,10 +202,30 @@ const Reports = () => {
         totalInventoryValue,
       });
 
+      // Build customer aggregates
+      const purchaseTotalsMap = new Map<string, number>();
+      (salesData || []).forEach((sale: any) => {
+        if (sale.customer_id) {
+          purchaseTotalsMap.set(
+            sale.customer_id,
+            (purchaseTotalsMap.get(sale.customer_id) || 0) + Number(sale.total_amount || 0)
+          );
+        }
+      });
+
+      const outstandingMap: Record<string, number> = {};
+      (arData || []).forEach((rec: any) => {
+        if (rec.customer_id && ['outstanding', 'partial', 'overdue'].includes(rec.status)) {
+          outstandingMap[rec.customer_id] = (outstandingMap[rec.customer_id] || 0) + Number(rec.outstanding_amount || 0);
+        }
+      });
+
       // Set detailed data for reports
       setDetailedSales(salesData || []);
       setDetailedProducts(productsData || []);
       setDetailedCustomers(customersData || []);
+      setCustomerTotals(Object.fromEntries(purchaseTotalsMap));
+      setCustomerOutstanding(outstandingMap);
 
     } catch (error: any) {
       console.error("Error fetching report data:", error);
@@ -419,9 +448,11 @@ const Reports = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Date/Time</TableHead>
                       <TableHead>Sale ID</TableHead>
-                      <TableHead>Amount</TableHead>
+                      <TableHead>Purchase Amount</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>User</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Payment Method</TableHead>
                     </TableRow>
@@ -431,13 +462,19 @@ const Reports = () => {
                       filteredSales.slice(0, 20).map((sale) => (
                         <TableRow key={sale.id}>
                           <TableCell>
-                            {new Date(sale.created_at).toLocaleDateString()}
+                            {new Date(sale.created_at).toLocaleString()}
                           </TableCell>
                           <TableCell className="font-mono text-sm">
                             #{sale.id?.slice(-8)}
                           </TableCell>
                           <TableCell className="font-semibold">
                             {formatCurrency(sale.total_amount)}
+                          </TableCell>
+                          <TableCell>
+                            {sale.location_name || sale.location || sale.location_id || 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {sale.user_name || sale.created_by || sale.user_id || 'N/A'}
                           </TableCell>
                           <TableCell>
                             <Badge variant={sale.status === 'completed' ? 'default' : 'secondary'}>
@@ -714,6 +751,8 @@ const Reports = () => {
                       <TableHead>Phone</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Joined Date</TableHead>
+                      <TableHead>Total Purchases</TableHead>
+                      <TableHead>Outstanding Payments</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -739,11 +778,17 @@ const Reports = () => {
                           <TableCell>
                             {new Date(customer.created_at).toLocaleDateString()}
                           </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(customerTotals[customer.id] || 0)}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(customerOutstanding[customer.id] || 0)}
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           {searchTerm ? 'No customers found matching your search' : 'No customers available'}
                         </TableCell>
                       </TableRow>
@@ -833,6 +878,42 @@ const Reports = () => {
                         <Area type="monotone" dataKey="Revenue" stroke="var(--color-Revenue)" fill="var(--color-Revenue)" />
                       </AreaChart>
                     </ChartContainer>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* Financial Statements (downloadable) */}
+            <div className="mt-6">
+              <FinancialStatements />
+            </div>
+
+            {/* Ratio Analysis */}
+            {(() => {
+              const grossMargin = metrics.totalRevenue ? metrics.grossProfit / metrics.totalRevenue : 0;
+              const netMargin = metrics.totalRevenue ? metrics.netProfit / metrics.totalRevenue : 0;
+              const avgOrder = metrics.avgOrderValue || 0;
+              return (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Ratio Analysis</CardTitle>
+                    <CardDescription>Key performance ratios</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Gross Margin</div>
+                        <div className="text-2xl font-bold">{(grossMargin * 100).toFixed(1)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Net Profit Margin</div>
+                        <div className="text-2xl font-bold">{(netMargin * 100).toFixed(1)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Average Order Value</div>
+                        <div className="text-2xl font-bold">{formatCurrency(avgOrder)}</div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               );
