@@ -11,6 +11,7 @@ import { ArrowUpDown, Plus, Truck, Package, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { processStockTransfer } from '@/lib/inventory-integration';
 
 export const StockTransfers: React.FC = () => {
@@ -21,6 +22,7 @@ export const StockTransfers: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [transferItems, setTransferItems] = useState<any[]>([]);
   const { user } = useAuth();
+  useEnsureBaseUnitPcs();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -407,7 +409,7 @@ export const StockTransfers: React.FC = () => {
                                 </Select>
                               </div>
                               <div>
-                                <Label>Quantity</Label>
+                                <Label>Quantity (pcs)</Label>
                                 <Input
                                   type="number"
                                   min="1"

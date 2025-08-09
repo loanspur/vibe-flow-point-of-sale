@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { Upload, X, Package, Plus, Trash2 } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 
@@ -45,6 +46,7 @@ interface ProductFormProps {
 
 export default function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
   const { tenantId } = useAuth();
+  useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -781,7 +783,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="stock_quantity">Current Stock</Label>
+              <Label htmlFor="stock_quantity">Current Stock (pcs)</Label>
               <Input
                 id="stock_quantity"
                 type="number"
@@ -791,7 +793,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="min_stock_level">Minimum Stock Alert</Label>
+              <Label htmlFor="min_stock_level">Minimum Stock Alert (pcs)</Label>
               <Input
                 id="min_stock_level"
                 type="number"
@@ -1032,7 +1034,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Stock</Label>
+                      <Label>Stock (pcs)</Label>
                       <Input
                         type="number"
                         value={variant.stock_quantity}

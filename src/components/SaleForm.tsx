@@ -17,6 +17,7 @@ import QuickCreateCustomerDialog from './QuickCreateCustomerDialog';
 import { CashChangeModal } from './CashChangeModal';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEnsureBaseUnitPcs } from "@/hooks/useEnsureBaseUnitPcs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PaymentProcessor } from "./PaymentProcessor";
 import { MpesaPaymentModal } from "./MpesaPaymentModal";
@@ -56,6 +57,7 @@ interface SaleFormProps {
 
 export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProps) {
   const { tenantId } = useAuth();
+  useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   
@@ -948,7 +950,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
                                  <div className="flex items-center gap-4">
                                    <div className="flex-1">
-                                     <label className="text-sm font-medium">Quantity</label>
+                                     <label className="text-sm font-medium">Quantity (pcs)</label>
                                      <Input
                                        type="number"
                                        min="1"

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertTriangle, Package, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { getLowStockItems, getInventoryLevels } from '@/lib/inventory-integration';
 
 export const StockOverview: React.FC = () => {
@@ -13,6 +14,7 @@ export const StockOverview: React.FC = () => {
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  useEnsureBaseUnitPcs();
 
   useEffect(() => {
     fetchInventoryData();
@@ -108,8 +110,8 @@ export const StockOverview: React.FC = () => {
                 <TableRow>
                   <TableHead>Product</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead>Current Stock</TableHead>
-                  <TableHead>Min Level</TableHead>
+                  <TableHead>Current Stock (pcs)</TableHead>
+                  <TableHead>Min Level (pcs)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Value</TableHead>
                 </TableRow>

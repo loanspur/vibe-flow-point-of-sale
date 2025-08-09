@@ -12,6 +12,7 @@ import { RotateCw, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { processStockAdjustment } from '@/lib/inventory-integration';
 
 export const StockAdjustments: React.FC = () => {
@@ -21,6 +22,7 @@ export const StockAdjustments: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [adjustmentItems, setAdjustmentItems] = useState<any[]>([]);
   const { user } = useAuth();
+  useEnsureBaseUnitPcs();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -307,7 +309,7 @@ export const StockAdjustments: React.FC = () => {
                                 </Select>
                               </div>
                               <div>
-                                <Label>System Qty</Label>
+                                <Label>System Qty (pcs)</Label>
                                 <Input
                                   type="number"
                                   value={item.system_quantity}
@@ -316,7 +318,7 @@ export const StockAdjustments: React.FC = () => {
                                 />
                               </div>
                               <div>
-                                <Label>Physical Qty</Label>
+                                <Label>Physical Qty (pcs)</Label>
                                 <Input
                                   type="number"
                                   value={item.physical_quantity}
@@ -324,7 +326,7 @@ export const StockAdjustments: React.FC = () => {
                                 />
                               </div>
                               <div>
-                                <Label>Adjustment</Label>
+                                <Label>Adjustment (pcs)</Label>
                                 <Input
                                   type="number"
                                   value={item.adjustment_quantity}

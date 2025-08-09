@@ -10,6 +10,7 @@ import { Truck, Plus, CheckCircle, Package } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
+import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { supabase } from '@/integrations/supabase/client';
 import { PaymentForm } from './PaymentForm';
 import { createEnhancedPurchaseJournalEntry } from '@/lib/accounting-integration';
@@ -28,6 +29,7 @@ interface PurchaseItem {
 
 export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   const { tenantId } = useAuth();
+  useEnsureBaseUnitPcs();
   const { formatLocalCurrency } = useApp();
   const { toast } = useToast();
   
@@ -522,7 +524,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                  </div>
 
                 <div className="space-y-2">
-                  <Label>Quantity</Label>
+                  <Label>Quantity (pcs)</Label>
                   <Input
                     type="number"
                     min="1"
