@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import ProductManagement from '@/components/ProductManagement';
 import { StockManagement } from '@/components/StockManagement';
 import UnitsManagement from '@/components/UnitsManagement';
@@ -15,6 +15,11 @@ const Products = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  const realtimeTimerRef = useRef<NodeJS.Timeout>();
+  const handleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = setTimeout(() => setRefreshKey((k) => k + 1), 1000);
+  }, []);
   // Periodic refresh when visible
   useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true });
 
@@ -24,14 +29,9 @@ const Products = () => {
       'products',
       'product_variants',
       'stock_transactions',
-      'purchase_items',
-      'sales_items',
-      'sales',
-      'purchases',
-      'product_units',
     ],
     tenantId,
-    onChange: handleRefresh,
+    onChange: handleRealtimeRefresh,
   });
 
 return (
@@ -46,18 +46,18 @@ return (
         </TabsList>
         <TabsContent value="products">
           <SafeWrapper>
-            <ProductManagement key={`products-${refreshKey}`} />
+            <ProductManagement refreshSignal={refreshKey} />
           </SafeWrapper>
         </TabsContent>
         <TabsContent value="stock">
           <SafeWrapper>
-            <StockManagement key={`stock-${refreshKey}`} />
+            <StockManagement />
           </SafeWrapper>
         </TabsContent>
         {hasFeature('enable_product_units') && (
           <TabsContent value="units">
             <SafeWrapper>
-              <UnitsManagement key={`units-${refreshKey}`} />
+              <UnitsManagement />
             </SafeWrapper>
           </TabsContent>
         )}
