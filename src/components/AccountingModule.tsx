@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AccountingDashboard from './accounting/AccountingDashboard';
 import ChartOfAccounts from './accounting/ChartOfAccounts';
@@ -20,10 +20,17 @@ import {
   Wallet,
   
 } from 'lucide-react';
-
+import { useLocation } from 'react-router-dom';
 export default function AccountingModule() {
   const { user, tenantId } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [location.search]);
   // Setup default accounts when the accounting module is accessed
   useEffect(() => {
     const setupDefaultAccounts = async () => {
@@ -49,7 +56,7 @@ export default function AccountingModule() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <BarChart3 className="w-4 h-4" />

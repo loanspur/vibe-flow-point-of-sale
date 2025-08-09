@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import BillingManagement from "./BillingManagement";
 import { DocumentTemplateEditor } from "./DocumentTemplateEditor";
 import { DataMigration } from "./DataMigration";
@@ -240,6 +240,7 @@ export function BusinessSettingsEnhanced() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [themeColors, setThemeColors] = useState({
     primary: "#3b82f6",
     secondary: "#64748b",
@@ -457,10 +458,31 @@ export function BusinessSettingsEnhanced() {
 
   const fetchSettings = async () => {
     try {
+      // Resolve tenant id first to avoid RLS race conditions
+      const { data: authUser } = await supabase.auth.getUser();
+      const userId = authUser?.user?.id;
+      if (!userId) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (!profile?.tenant_id) {
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('business_settings')
         .select('*')
-        .single();
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+      
+      if (error) {
+        // ignore, may be no row yet
+      }
       
       if (data) {
         setSettings(data);
@@ -483,17 +505,28 @@ export function BusinessSettingsEnhanced() {
     
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `logo-${Date.now()}.${fileExt}`;
       
-      const { data, error } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file);
+      // Resolve tenant id to scope upload path
+      const { data: authUser } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', authUser?.user?.id as string)
+        .single();
+      const tenantId = profile?.tenant_id as string | undefined;
+      if (!tenantId) throw new Error('No tenant found');
+
+      const filePath = `${tenantId}/logo-${Date.now()}.${fileExt}`;
+      
+      const { error } = await supabase.storage
+        .from('branding')
+        .upload(filePath, file, { upsert: true });
 
       if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(fileName);
+        .from('branding')
+        .getPublicUrl(filePath);
 
       setLogoPreview(publicUrl);
       form.setValue('company_logo_url', publicUrl);
@@ -755,8 +788,13 @@ export function BusinessSettingsEnhanced() {
       }
 
       // Prepare the data for update/insert
-      const settingsData = {
+      const normalizedValues = {
         ...values,
+        // If a specific receipt logo isn't set, fall back to the company logo
+        receipt_logo_url: values.receipt_logo_url || values.company_logo_url || values.receipt_logo_url,
+      };
+      const settingsData = {
+        ...normalizedValues,
         tenant_id: profile.tenant_id
       };
 
@@ -1098,24 +1136,28 @@ export function BusinessSettingsEnhanced() {
                             <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                           </div>
                         )}
-                        <div className="space-y-4 text-center">
-                          <Label htmlFor="logo-upload">
-                            <Button type="button" variant="outline" className="cursor-pointer hover:bg-primary/10 transition-colors">
+                          <div className="space-y-4 text-center">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="cursor-pointer hover:bg-primary/10 transition-colors"
+                            >
                               <Upload className="h-4 w-4 mr-2" />
                               {logoPreview ? "Change Logo" : "Upload Logo"}
                             </Button>
-                          </Label>
-                          <Input
-                            id="logo-upload"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleLogoUpload}
-                          />
-                          <p className="text-sm text-muted-foreground">
-                            Recommended: 200x200px, PNG or JPG format
-                          </p>
-                        </div>
+                            <Input
+                              id="logo-upload"
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleLogoUpload}
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              Recommended: 200x200px, PNG or JPG format
+                            </p>
+                          </div>
                       </div>
                     </CardContent>
                   </Card>

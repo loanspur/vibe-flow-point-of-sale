@@ -16,6 +16,7 @@ import {
   DollarSign,
   BarChart3
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface AccountingMetrics {
   totalAssets: number;
@@ -190,63 +191,71 @@ export default function AccountingDashboard() {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-blue-500 text-white">
-                <Building className="w-5 h-5" />
+        <Link to="/admin/accounting?tab=statements" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-blue-500 text-white">
+                  <Building className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Assets</p>
+                  <p className="text-2xl font-bold">{formatCurrency(metrics?.totalAssets || 0)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Assets</p>
-                <p className="text-2xl font-bold">{formatCurrency(metrics?.totalAssets || 0)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-red-500 text-white">
-                <CreditCard className="w-5 h-5" />
+        <Link to="/admin/accounting?tab=statements" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-red-500 text-white">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Liabilities</p>
+                  <p className="text-2xl font-bold">{formatCurrency(metrics?.totalLiabilities || 0)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Liabilities</p>
-                <p className="text-2xl font-bold">{formatCurrency(metrics?.totalLiabilities || 0)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-lg bg-green-500 text-white">
-                <TrendingUp className="w-5 h-5" />
+        <Link to="/admin/accounting?tab=statements" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-green-500 text-white">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Equity</p>
+                  <p className="text-2xl font-bold">{formatCurrency(metrics?.totalEquity || 0)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Equity</p>
-                <p className="text-2xl font-bold">{formatCurrency(metrics?.totalEquity || 0)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className={`p-2 rounded-lg text-white ${(metrics?.netIncome || 0) >= 0 ? 'bg-emerald-500' : 'bg-orange-500'}`}>
-                <DollarSign className="w-5 h-5" />
+        <Link to="/admin/reports?view=profit-loss" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg text-white ${(metrics?.netIncome || 0) >= 0 ? 'bg-emerald-500' : 'bg-orange-500'}`}>
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Net Income (MTD)</p>
+                  <p className={`text-2xl font-bold ${(metrics?.netIncome || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(metrics?.netIncome || 0)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Net Income (MTD)</p>
-                <p className={`text-2xl font-bold ${(metrics?.netIncome || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(metrics?.netIncome || 0)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Monthly Performance */}
@@ -356,43 +365,49 @@ export default function AccountingDashboard() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Accounts</p>
-                <p className="text-2xl font-bold">{metrics?.totalAccounts || 0}</p>
+        <Link to="/admin/accounting?tab=accounts" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Accounts</p>
+                  <p className="text-2xl font-bold">{metrics?.totalAccounts || 0}</p>
+                </div>
+                <FileText className="w-8 h-8 text-muted-foreground" />
               </div>
-              <FileText className="w-8 h-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Unposted Transactions</p>
-                <p className="text-2xl font-bold">{metrics?.unpostedTransactions || 0}</p>
+        <Link to="/admin/accounting?tab=transactions" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Unposted Transactions</p>
+                  <p className="text-2xl font-bold">{metrics?.unpostedTransactions || 0}</p>
+                </div>
+                <AlertTriangle className={`w-8 h-8 ${(metrics?.unpostedTransactions || 0) > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
               </div>
-              <AlertTriangle className={`w-8 h-8 ${(metrics?.unpostedTransactions || 0) > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Current Ratio</p>
-                <p className="text-2xl font-bold">
-                  {(metrics?.totalLiabilities || 0) !== 0 ? ((metrics?.totalAssets || 0) / (metrics?.totalLiabilities || 1)).toFixed(2) : 'N/A'}
-                </p>
+        <Link to="/admin/accounting?tab=statements" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Current Ratio</p>
+                  <p className="text-2xl font-bold">
+                    {(metrics?.totalLiabilities || 0) !== 0 ? ((metrics?.totalAssets || 0) / (metrics?.totalLiabilities || 1)).toFixed(2) : 'N/A'}
+                  </p>
+                </div>
+                <BarChart3 className="w-8 h-8 text-muted-foreground" />
               </div>
-              <BarChart3 className="w-8 h-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </div>
   );

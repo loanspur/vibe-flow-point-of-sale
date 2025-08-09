@@ -20,6 +20,8 @@ import {
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
 import UserProfileSettings from './UserProfileSettings';
+import { LazyImage } from '@/components/ui/image-lazy';
+import { useTenantLogo } from '@/hooks/useTenantLogo';
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
@@ -30,6 +32,8 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const navigate = useNavigate();
   console.log('🏢 TenantAdminLayout rendering with user:', !!user);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const tenantLogo = useTenantLogo();
+  const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -42,6 +46,8 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
             <div className="flex items-center justify-between px-6 py-3">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
+                {/* Clickable tenant logo linking to dashboard */}
+                  {/* logo removed to avoid duplication; only sidebar shows it */}
               </div>
               
               <div className="flex items-center gap-3">

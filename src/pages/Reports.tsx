@@ -36,7 +36,7 @@ import { SafeWrapper } from '@/components/SafeWrapper';
 
 const Reports = () => {
   const { tenantId } = useAuth();
-  const { tenantCurrency } = useApp();
+  const { tenantCurrency, businessSettings } = useApp();
   const [currentView, setCurrentView] = useState<ReportView>('overview');
   const [detailedSales, setDetailedSales] = useState<any[]>([]);
   const [detailedProducts, setDetailedProducts] = useState<any[]>([]);
@@ -1001,6 +1001,13 @@ const Reports = () => {
     <SafeWrapper>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <div className="container mx-auto px-4 py-8">
+          {/* Company Header - visible on all reports */}
+          {(businessSettings as any)?.company_logo_url && (
+            <div className="flex items-center gap-3 mb-6">
+              <img src={(businessSettings as any).company_logo_url} alt={`${businessSettings?.company_name || 'Company'} logo`} className="h-10 w-auto" />
+              <div className="text-lg font-semibold">{businessSettings?.company_name}</div>
+            </div>
+          )}
           {currentView === 'overview' ? (
             <>
               {/* Header */}

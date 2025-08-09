@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,13 +22,18 @@ import {
   Boxes,
   PiggyBank,
   Clock,
-  XCircle
+  XCircle,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
 import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 // Removed unused recharts import that was causing module loading issues
 
 const getTimeBasedGreeting = () => {
@@ -51,7 +56,11 @@ function TenantAdminDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cashDrawerRefreshKey, setCashDrawerRefreshKey] = useState(0);
+  // Date filters
+  const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'custom'>('today');
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null}>({ start: new Date(), end: new Date() });
   
+
   console.log('🏠 Dashboard auth state:', { user: !!user, tenantId, userEmail: user?.email });
 
   // Get effective pricing for the current subscription
@@ -81,6 +90,23 @@ function TenantAdminDashboard() {
     window.addEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
     return () => window.removeEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
   }, []);
+
+  // Refetch when date filters change
+  useEffect(() => {
+    if (tenantId) {
+      fetchDashboardData();
+    }
+  }, [tenantId, dateFilter, dateRange.start, dateRange.end]);
+
+  // Periodic auto-refresh when tab is visible
+  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true });
+
+  // Realtime updates for key business tables
+  useRealtimeRefresh({
+    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+    tenantId,
+    onChange: () => fetchDashboardData(),
+  });
 
   const fetchCurrentSubscription = async () => {
     try {
@@ -126,60 +152,111 @@ function TenantAdminDashboard() {
     }
   };
 
-  // Fast dashboard data fetch with minimal queries
+  // Fast dashboard data fetch with minimal queries, honoring date filters
   const fetchDashboardData = async () => {
     if (!tenantId) return;
-    
     setLoading(true);
-    const today = new Date();
-    const startDate = `${format(today, 'yyyy-MM-dd')}T00:00:00.000Z`;
-    const endDate = `${format(today, 'yyyy-MM-dd')}T23:59:59.999Z`;
-    
+
+    // Determine date window
+    const now = new Date();
+    let rangeStart: Date;
+    let rangeEnd: Date;
+
+    if (dateFilter === 'today') {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (dateFilter === 'week') {
+      const startOfWeek = new Date(now);
+      const day = startOfWeek.getDay(); // 0=Sun
+      startOfWeek.setDate(startOfWeek.getDate() - day);
+      rangeStart = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate());
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (dateFilter === 'month') {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else {
+      rangeStart = dateRange.start || new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      rangeEnd = dateRange.end || new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    }
+
+    const startDate = `${format(rangeStart, 'yyyy-MM-dd')}T00:00:00.000Z`;
+    const endDate = `${format(rangeEnd, 'yyyy-MM-dd')}T23:59:59.999Z`;
+
     try {
-      console.log('🚀 Fast dashboard fetch for tenant:', tenantId);
-      
-      // Only 3 essential queries for speed
+      console.log('🚀 Dashboard fetch for tenant with filters:', { tenantId, dateFilter, startDate, endDate });
+
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const next30Str = format(addDays(new Date(), 30), 'yyyy-MM-dd');
+
       const [
-        salesResponse, 
-        productsResponse, 
-        customersResponse
+        salesResponse,
+        productsResponse,
+        customersResponse,
+        arResponse,
+        apResponse,
+        profitLossResponse,
+        expiringItemsResponse
       ] = await Promise.all([
-        // Today's sales only
+        // Sales in range
         supabase
           .from('sales')
           .select('total_amount, created_at, status')
           .eq('tenant_id', tenantId)
           .gte('created_at', startDate)
-          .lte('created_at', endDate)
-          .limit(100),
-        
-        // Basic product count and stock
+          .lte('created_at', endDate),
+
+        // Products for stock stats
         supabase
           .from('products')
-          .select('id, stock_quantity, min_stock_level, is_active')
+          .select('id, stock_quantity, min_stock_level, is_active, cost_price, price')
           .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .limit(100),
-        
+          .eq('is_active', true),
+
         // Customer count
         supabase
           .from('customers')
           .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId),
+
+        // Accounts receivable due
+        supabase
+          .from('accounts_receivable')
+          .select('outstanding_amount, status')
           .eq('tenant_id', tenantId)
+          .in('status', ['outstanding', 'partial', 'overdue']),
+
+        // Accounts payable due
+        supabase
+          .from('accounts_payable')
+          .select('outstanding_amount, status')
+          .eq('tenant_id', tenantId)
+          .in('status', ['outstanding', 'partial', 'overdue']),
+
+        // Profit/Loss for period
+        supabase.rpc('calculate_profit_loss', {
+          tenant_id_param: tenantId,
+          start_date_param: format(rangeStart, 'yyyy-MM-dd'),
+          end_date_param: format(rangeEnd, 'yyyy-MM-dd')
+        }),
+
+        // Expiring items in next 30 days (filtered later by tenant products)
+        supabase
+          .from('purchase_items')
+          .select('id, product_id, expiry_date')
+          .gte('expiry_date', todayStr)
+          .lte('expiry_date', next30Str)
       ]);
 
-      console.log('📊 Dashboard data loaded:', {
-        sales: salesResponse.data?.length,
-        products: productsResponse.data?.length,
-        customers: customersResponse.count
-      });
-
-      // Check for errors
+      // Error checks
       if (salesResponse.error) throw salesResponse.error;
       if (productsResponse.error) throw productsResponse.error;
       if (customersResponse.error) throw customersResponse.error;
+      if (arResponse.error) throw arResponse.error;
+      if (apResponse.error) throw apResponse.error;
+      if (profitLossResponse.error) throw profitLossResponse.error;
+      if (expiringItemsResponse.error) throw expiringItemsResponse.error;
 
-      // Fast calculations
+      // Calculations
       const sales = salesResponse.data || [];
       const products = productsResponse.data || [];
 
@@ -187,14 +264,24 @@ function TenantAdminDashboard() {
       const revenue = completedSales.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
       const salesCount = completedSales.length;
       const totalCustomers = customersResponse.count || 0;
-      
-      const lowStockProducts = products.filter(product => {
-        const stock = product.stock_quantity || 0;
-        const minLevel = product.min_stock_level || 0;
-        return stock <= minLevel && stock > 0;
-      });
-      
-      const outOfStockProducts = products.filter(product => (product.stock_quantity || 0) === 0);
+
+      const lowStockProducts = products.filter((p: any) => (p.stock_quantity || 0) <= (p.min_stock_level || 0) && (p.stock_quantity || 0) > 0);
+      const outOfStockProducts = products.filter((p: any) => (p.stock_quantity || 0) === 0);
+
+      const stockPurchaseValue = products.reduce((sum: number, p: any) => sum + (Number(p.stock_quantity || 0) * Number(p.cost_price || 0)), 0);
+      const stockSaleValue = products.reduce((sum: number, p: any) => sum + (Number(p.stock_quantity || 0) * Number(p.price || 0)), 0);
+
+      // Expiry alerts - filter expiring lots to tenant products
+      const productIdsSet = new Set(products.map((p: any) => p.id));
+      const expiringSoonItems = (expiringItemsResponse.data || []).filter((i: any) => productIdsSet.has(i.product_id));
+      const expiringSoonCount = expiringSoonItems.length;
+
+      const arDue = (arResponse.data || []).reduce((sum: number, r: any) => sum + Number(r.outstanding_amount || 0), 0);
+      const apDue = (apResponse.data || []).reduce((sum: number, r: any) => sum + Number(r.outstanding_amount || 0), 0);
+
+      const plRow = Array.isArray(profitLossResponse.data) ? profitLossResponse.data[0] : null;
+      const expenses = Number(plRow?.expenses || 0);
+      const profit = Number(plRow?.profit_loss || 0);
 
       const result = {
         revenue,
@@ -202,10 +289,19 @@ function TenantAdminDashboard() {
         totalCustomers,
         lowStockCount: lowStockProducts.length,
         outOfStockCount: outOfStockProducts.length,
-        totalProducts: products.length
+        totalProducts: products.length,
+        stockPurchaseValue,
+        stockSaleValue,
+        arDue,
+        apDue,
+        expenses,
+        profit,
+        expiringSoonCount,
+        startDate,
+        endDate
       };
 
-      console.log('🚀 Fast dashboard loaded:', result);
+      console.log('📈 Dashboard metrics:', result);
       setDashboardData(result);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -215,7 +311,14 @@ function TenantAdminDashboard() {
         totalCustomers: 0,
         lowStockCount: 0,
         outOfStockCount: 0,
-        totalProducts: 0
+        totalProducts: 0,
+        stockPurchaseValue: 0,
+        stockSaleValue: 0,
+        arDue: 0,
+        apDue: 0,
+        expenses: 0,
+        profit: 0,
+        expiringSoonCount: 0
       });
     } finally {
       setLoading(false);
@@ -230,13 +333,14 @@ function TenantAdminDashboard() {
 
   const businessStats = [
     {
-      title: "Today's Revenue",
+      title: dateFilter === 'today' ? "Today's Revenue" : 'Revenue',
       value: dashboardData?.revenue || 0,
       icon: DollarSign,
       color: "text-green-600",
       bgColor: "bg-green-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/reports?view=sales"
     },
     {
       title: "Total Customers",
@@ -245,16 +349,18 @@ function TenantAdminDashboard() {
       color: "text-blue-600",
       bgColor: "bg-blue-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/customers"
     },
     {
-      title: "Today's Sales",
+      title: dateFilter === 'today' ? "Today's Sales" : 'Sales',
       value: dashboardData?.salesCount || 0,
       icon: ShoppingCart,
       color: "text-purple-600", 
       bgColor: "bg-purple-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/sales"
     },
     {
       title: "Low Stock Items",
@@ -263,7 +369,8 @@ function TenantAdminDashboard() {
       color: "text-orange-600",
       bgColor: "bg-orange-50",
       change: "+0%",
-      trend: "up"
+      trend: "up",
+      to: "/admin/products?filter=low-stock"
     }
   ];
 
@@ -273,21 +380,24 @@ function TenantAdminDashboard() {
       value: dashboardData?.totalProducts || 0,
       icon: Package,
       color: "text-green-600",
-      bgColor: "bg-green-50"
+      bgColor: "bg-green-50",
+      to: "/admin/products"
     },
     {
       title: "Low Stock Items",
       value: dashboardData?.lowStockCount || 0,
       icon: AlertTriangle,
       color: "text-yellow-600",
-      bgColor: "bg-yellow-50"
+      bgColor: "bg-yellow-50",
+      to: "/admin/products?filter=low-stock"
     },
     {
       title: "Out of Stock",
       value: dashboardData?.outOfStockCount || 0,
       icon: XCircle,
       color: "text-red-600",
-      bgColor: "bg-red-50"
+      bgColor: "bg-red-50",
+      to: "/admin/products?filter=out-of-stock"
     }
   ];
 
@@ -308,7 +418,7 @@ function TenantAdminDashboard() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {getTimeBasedGreeting()}, {userProfile?.full_name || user?.email?.split('@')[0] || 'User'}!
@@ -317,102 +427,247 @@ function TenantAdminDashboard() {
             Here's what's happening with your business today.
           </p>
         </div>
-        <Button 
-          onClick={fetchDashboardData}
-          variant="outline" 
-          size="sm"
-          disabled={loading}
-        >
-          {loading ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
-          ) : (
-            <ArrowUpRight className="h-4 w-4 mr-2" />
-          )}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1">
+            <Button
+              variant={dateFilter === 'today' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('today')}
+            >
+              Today
+            </Button>
+            <Button
+              variant={dateFilter === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('week')}
+            >
+              Week
+            </Button>
+            <Button
+              variant={dateFilter === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('month')}
+            >
+              Month
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={dateFilter === 'custom' ? 'default' : 'outline'}
+                  size="sm"
+                  className="justify-start"
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  {dateFilter === 'custom' && dateRange.start && dateRange.end
+                    ? `${format(dateRange.start, 'LLL d, y')} - ${format(dateRange.end, 'LLL d, y')}`
+                    : 'Custom'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={{ from: dateRange.start || undefined, to: dateRange.end || undefined } as any}
+                  onSelect={(range: any) => {
+                    setDateRange({ start: range?.from || null, end: range?.to || null });
+                    if (range?.from && range?.to) setDateFilter('custom');
+                  }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Button 
+            onClick={fetchDashboardData}
+            variant="outline" 
+            size="sm"
+            disabled={loading}
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+            ) : (
+              <ArrowUpRight className="h-4 w-4 mr-2" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      {/* Subscription Status */}
-      {currentSubscription && (
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Crown className="h-5 w-5 text-primary" />
+      {/* Stock Alerts */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <span>Stock Alerts</span>
+          </CardTitle>
+          <CardDescription>Expiry and quantity alerts</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Link to="/admin/products?filter=low-stock" className="block">
+              <div className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/40 transition-colors">
                 <div>
-                  <p className="font-medium">{currentSubscription.billing_plans?.name || 'Current Plan'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {effectivePricing ? (
-                      <>
-                        {formatPrice(effectivePricing.effective_amount)}/{currentSubscription.billing_plans?.period}
-                        {effectivePricing.is_custom && (
-                          <Badge variant="secondary" className="ml-2">Custom Pricing</Badge>
-                        )}
-                      </>
-                    ) : (
-                      `${formatPrice(currentSubscription.billing_plans?.price || 0)}/${currentSubscription.billing_plans?.period}`
-                    )}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Low Stock Items</p>
+                  <p className="text-xl font-bold">{dashboardData?.lowStockCount || 0}</p>
                 </div>
+                <AlertTriangle className="h-6 w-6 text-orange-500" />
               </div>
-              <Badge 
-                variant={currentSubscription.status === 'active' ? 'default' : 'secondary'}
-                className="capitalize"
-              >
-                {currentSubscription.status}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </Link>
+            <Link to="/admin/products?filter=expiring" className="block">
+              <div className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/40 transition-colors">
+                <div>
+                  <p className="text-sm text-muted-foreground">Expiring Soon (30 days)</p>
+                  <p className="text-xl font-bold">{dashboardData?.expiringSoonCount || 0}</p>
+                </div>
+                <Clock className="h-6 w-6 text-yellow-500" />
+              </div>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
 
       {/* Business Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {businessStats.map((stat, index) => (
-          <Card key={index} className="relative overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+          <Link key={index} to={stat.to} className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+            <Card className="relative overflow-hidden hover:bg-muted/40 transition-colors">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-muted-foreground truncate">
+                      {stat.title}
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {stat.title.includes('Revenue') 
+                        ? formatCurrency(stat.value) 
+                        : stat.value.toLocaleString()
+                      }
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-muted-foreground truncate">
-                    {stat.title}
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {stat.title.includes('Revenue') 
-                      ? formatCurrency(stat.value) 
-                      : stat.value.toLocaleString()
-                    }
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
       {/* Product Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         {productStats.map((stat, index) => (
-          <Card key={index}>
+          <Link key={index} to={stat.to} className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {stat.title}
+                    </p>
+                    <p className="text-xl font-bold">
+                      {stat.value.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Inventory Value */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Link to="/admin/products" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Stock Value (Purchase)</p>
+                <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockPurchaseValue || 0)}</p>
+              </div>
+              <Boxes className="h-6 w-6 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/admin/products" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Stock Value (Sale)</p>
+                <p className="text-2xl font-bold">{formatCurrency(dashboardData?.stockSaleValue || 0)}</p>
+              </div>
+              <PiggyBank className="h-6 w-6 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Financial Overview */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Link to="/admin/reports?view=receivables" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </p>
-                  <p className="text-xl font-bold">
-                    {stat.value.toLocaleString()}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Invoices Due</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.arDue || 0)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-        ))}
+        </Link>
+        <Link to="/admin/reports?view=payables" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Purchases Due</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.apDue || 0)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/admin/reports?view=expenses" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <TrendingDown className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Expenses</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.expenses || 0)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/admin/reports?view=profit-loss" className="block focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Profit</p>
+                  <p className="text-xl font-bold">{formatCurrency(dashboardData?.profit || 0)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Cash Drawer */}

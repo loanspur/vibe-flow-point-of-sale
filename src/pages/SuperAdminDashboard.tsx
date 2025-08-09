@@ -39,45 +39,64 @@ export default function SuperAdminDashboard() {
       try {
         setLoading(true);
 
-        // Fetch total tenants
-        const { data: tenants, error: tenantsError } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('is_active', true);
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          .toISOString();
 
-        // Fetch total users across all tenants
-        const { data: users, error: usersError } = await supabase
-          .from('profiles')
-          .select('id');
+        const [
+          tenantsCountResponse,
+          activeUsersCountResponse,
+          paymentsResponse,
+          activityResponse,
+          versionResponse
+        ] = await Promise.all([
+          // Total active/trial tenants (count only)
+          supabase
+            .from('tenants')
+            .select('id', { count: 'exact', head: true })
+            .in('status', ['active', 'trial']),
 
-        // Fetch revenue data from billing plans
-        const { data: billingPlans, error: plansError } = await supabase
-          .from('billing_plans')
-          .select('mrr, customers');
+          // Active users across all tenants (count only)
+          supabase
+            .from('tenant_users')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('is_active', true),
 
-        // Calculate total monthly revenue
-        const totalMRR = billingPlans?.reduce((sum, plan) => sum + (plan.mrr || 0), 0) || 0;
+          // Completed payments this month
+          supabase
+            .from('payment_history')
+            .select('amount, paid_at, created_at')
+            .eq('payment_status', 'completed')
+            .or(`paid_at.gte.${monthStart},and(paid_at.is.null,created_at.gte.${monthStart})`),
 
-        // Fetch recent user activity logs
-        const { data: activityLogs, error: activityError } = await supabase
-          .from('user_activity_logs')
-          .select('action_type, details, created_at, tenant_id')
-          .order('created_at', { ascending: false })
-          .limit(10);
+          // Recent activity logs
+          supabase
+            .from('user_activity_logs')
+            .select('action_type, details, created_at, tenant_id')
+            .order('created_at', { ascending: false })
+            .limit(10),
 
-        if (!tenantsError && !usersError && !plansError) {
-          setDashboardData({
-            totalTenants: tenants?.length || 0,
-            activeUsers: users?.length || 0,
-            monthlyRevenue: totalMRR,
-            systemHealth: 99.9
-          });
+          // Current application version to infer system health
+          supabase.rpc('get_current_application_version')
+        ]);
+
+        const monthlyRevenue = paymentsResponse.error
+          ? 0
+          : (paymentsResponse.data || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+
+        const isStable = Array.isArray(versionResponse.data)
+          ? versionResponse.data[0]?.is_stable !== false
+          : true;
+
+        setDashboardData({
+          totalTenants: tenantsCountResponse.count || 0,
+          activeUsers: activeUsersCountResponse.count || 0,
+          monthlyRevenue,
+          systemHealth: isStable ? 99.9 : 99.0
+        });
+
+        if (!activityResponse.error && activityResponse.data) {
+          setRecentActivity(activityResponse.data as any);
         }
-
-        if (!activityError && activityLogs) {
-          setRecentActivity(activityLogs);
-        }
-
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -86,7 +105,7 @@ export default function SuperAdminDashboard() {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [userRole]);
 
   const adminStats = [
     {
@@ -94,28 +113,32 @@ export default function SuperAdminDashboard() {
       value: loading ? "..." : dashboardData.totalTenants.toString(),
       change: "+3 this month",
       icon: Building2,
-      color: "text-blue-600"
+      color: "text-blue-600",
+      href: "/superadmin/tenants"
     },
     {
       title: "Active Users",
       value: loading ? "..." : dashboardData.activeUsers.toLocaleString(),
       change: "+12% this month", 
       icon: Users,
-      color: "text-green-600"
+      color: "text-green-600",
+      href: "/superadmin/users"
     },
     {
       title: "Monthly Revenue",
       value: loading ? "..." : formatBaseCurrency(dashboardData.monthlyRevenue),
       change: "+8.2% from last month",
       icon: () => <CurrencyIcon currency="KES" className="h-4 w-4" />,
-      color: "text-purple-600"
+      color: "text-purple-600",
+      href: "/superadmin/revenue"
     },
     {
       title: "System Health",
       value: `${dashboardData.systemHealth}%`,
       change: "Uptime this month",
       icon: Activity,
-      color: "text-emerald-600"
+      color: "text-emerald-600",
+      href: "/superadmin/system"
     }
   ];
 
@@ -174,22 +197,24 @@ export default function SuperAdminDashboard() {
           {adminStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <Card key={index} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  {stat.title === "Monthly Revenue" ? (
-                    <CurrencyIcon currency="KES" className={`h-4 w-4 ${stat.color}`} />
-                  ) : (
-                    <Icon className={`h-4 w-4 ${stat.color}`} />
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground">{stat.change}</p>
-                </CardContent>
-              </Card>
+              <Link to={stat.href || '#'} className="block">
+                <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {stat.title}
+                    </CardTitle>
+                    {stat.title === "Monthly Revenue" ? (
+                      <CurrencyIcon currency="KES" className={`h-4 w-4 ${stat.color}`} />
+                    ) : (
+                      <Icon className={`h-4 w-4 ${stat.color}`} />
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground">{stat.change}</p>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>

@@ -3646,6 +3646,7 @@ export type Database = {
           quote_id: string | null
           total_price: number
           unit_price: number
+          updated_at: string
           variant_id: string | null
         }
         Insert: {
@@ -3656,6 +3657,7 @@ export type Database = {
           quote_id?: string | null
           total_price: number
           unit_price: number
+          updated_at?: string
           variant_id?: string | null
         }
         Update: {
@@ -3666,6 +3668,7 @@ export type Database = {
           quote_id?: string | null
           total_price?: number
           unit_price?: number
+          updated_at?: string
           variant_id?: string | null
         }
         Relationships: [
@@ -6885,6 +6888,21 @@ export type Database = {
       queue_campaign_emails: {
         Args: { campaign_id_param: string }
         Returns: number
+      }
+      queue_email: {
+        Args: {
+          tenant_id_param: string
+          template_id_param: string
+          to_email_param: string
+          to_name_param: string
+          subject_param: string
+          html_content_param: string
+          text_content_param: string
+          variables_param: Json
+          priority_param: string
+          scheduled_for_param: string
+        }
+        Returns: string
       }
       record_cash_transaction_with_accounting: {
         Args: {

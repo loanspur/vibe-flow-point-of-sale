@@ -89,6 +89,9 @@ export default function SuperAdminRevenue() {
     billingPlans: []
   });
   const [loading, setLoading] = useState(true);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [tenantsMap, setTenantsMap] = useState<Record<string, string>>({});
+  const [plansMap, setPlansMap] = useState<Record<string, string>>({});
 
   // Revenue overview metrics (function to generate with dynamic currency)
   const getRevenueMetrics = (formatPrice: (amount: number) => string) => [
@@ -134,6 +137,39 @@ export default function SuperAdminRevenue() {
     fetchRevenueData();
   }, []);
 
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const { data: paymentsData } = await supabase
+          .from('payment_history')
+          .select('id, tenant_id, amount, currency, billing_plan_id, payment_status, payment_method, payment_reference, created_at, paid_at')
+          .order('created_at', { ascending: false })
+          .limit(200);
+        
+        setPayments(paymentsData || []);
+        
+        const tenantIds = Array.from(new Set((paymentsData || []).map(p => p.tenant_id).filter(Boolean)));
+        const planIds = Array.from(new Set((paymentsData || []).map(p => p.billing_plan_id).filter(Boolean)));
+        
+        const [tenantsRes, plansRes] = await Promise.all([
+          tenantIds.length ? supabase.from('tenants').select('id, name').in('id', tenantIds) : Promise.resolve({ data: [], error: null }),
+          planIds.length ? supabase.from('billing_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [], error: null }),
+        ]);
+        
+        const tMap: Record<string, string> = {};
+        ((tenantsRes.data as any[]) || []).forEach(t => { tMap[t.id] = t.name; });
+        setTenantsMap(tMap);
+        
+        const pMap: Record<string, string> = {};
+        ((plansRes.data as any[]) || []).forEach(p => { pMap[p.id] = p.name; });
+        setPlansMap(pMap);
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+      }
+    };
+    fetchTransactions();
+  }, []);
+
   const handleExportRevenue = () => {
     toast({
       title: "Export Started",
@@ -154,10 +190,20 @@ export default function SuperAdminRevenue() {
     }
   };
 
-  const filteredTransactions = recentTransactions.filter(transaction => {
-    const matchesSearch = transaction.tenant.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = transactionFilter === "all" || transaction.status === transactionFilter;
+  const enriched = payments.map((p: any) => ({
+    id: p.payment_reference || p.id,
+    tenant: tenantsMap[p.tenant_id] || p.tenant_id,
+    amount: Number(p.amount || 0),
+    plan: plansMap[p.billing_plan_id] || p.billing_plan_id || 'N/A',
+    method: p.payment_method || '—',
+    date: new Date(p.paid_at || p.created_at).toLocaleString(),
+    status: p.payment_status === 'completed' ? 'success' : p.payment_status
+  }));
+
+  const filteredTransactions = enriched.filter((t: any) => {
+    const matchesSearch = (t.tenant || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (t.id || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = transactionFilter === "all" || t.status === transactionFilter;
     return matchesSearch && matchesFilter;
   });
 

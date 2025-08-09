@@ -42,11 +42,15 @@ import {
   MoreHorizontal,
   Printer,
   Star,
-  Tags
+  Tags,
+  Bell
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEmailService } from "@/hooks/useEmailService";
+import { SaleForm } from "./SaleForm";
 
 interface Quote {
   id: string;
@@ -105,8 +109,12 @@ export function QuoteManagement() {
     subject: '',
     message: ''
   });
+  const [showInvoiceTerms, setShowInvoiceTerms] = useState(false);
+  const [selectedQuoteForInvoice, setSelectedQuoteForInvoice] = useState<Quote | null>(null);
+  const [selectedNetDays, setSelectedNetDays] = useState<number>(30);
   const { toast } = useToast();
   const { tenantCurrency } = useApp();
+  const { sendEmail } = useEmailService();
 
   useEffect(() => {
     fetchQuotes();
@@ -155,6 +163,52 @@ export function QuoteManagement() {
         variant: "destructive",
       });
     }
+  };
+
+  // Helpers for auto-numbering based on business settings
+  const pad4 = (n: number) => String(n).padStart(4, '0');
+  const getBusinessSettings = async (tenantId: string) => {
+    const { data } = await supabase
+      .from('business_settings')
+      .select('invoice_number_prefix, quote_number_prefix, invoice_auto_number, quote_auto_number, company_name')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    return {
+      invoicePrefix: data?.invoice_number_prefix || 'INV-',
+      quotePrefix: data?.quote_number_prefix || 'QT-',
+      autoInvoice: data?.invoice_auto_number ?? true,
+      autoQuote: data?.quote_auto_number ?? true,
+      companyName: data?.company_name || 'VibePOS'
+    };
+  };
+  const generateQuoteNumber = async (tenantId: string) => {
+    const bs = await getBusinessSettings(tenantId);
+    const today = new Date();
+    const yyyyMMdd = today.toISOString().slice(0,10).replace(/-/g,'');
+    const start = new Date(today); start.setHours(0,0,0,0);
+    const end = new Date(today); end.setHours(23,59,59,999);
+    const { count } = await supabase
+      .from('quotes')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+    return `${bs.quotePrefix}${yyyyMMdd}-${pad4((count || 0) + 1)}`;
+  };
+  const generateInvoiceNumber = async (tenantId: string) => {
+    const bs = await getBusinessSettings(tenantId);
+    const today = new Date();
+    const yyyyMMdd = today.toISOString().slice(0,10).replace(/-/g,'');
+    const start = new Date(today); start.setHours(0,0,0,0);
+    const end = new Date(today); end.setHours(23,59,59,999);
+    const { count } = await supabase
+      .from('sales')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('payment_method', 'credit')
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+    return `${bs.invoicePrefix}${yyyyMMdd}-${pad4((count || 0) + 1)}`;
   };
 
   const filteredQuotes = quotes.filter(quote => {
@@ -399,9 +453,8 @@ export function QuoteManagement() {
     }
   };
 
-  const convertToInvoice = async (quote: Quote) => {
+  const convertToInvoice = async (quote: Quote, netDays: number = 30) => {
     try {
-      // Get quote items
       const { data: quoteItems, error: itemsError } = await supabase
         .from("quote_items")
         .select("*")
@@ -409,15 +462,14 @@ export function QuoteManagement() {
 
       if (itemsError) throw itemsError;
 
-      // Get current user and tenant
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
       const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
       if (!tenantData) throw new Error("User not assigned to a tenant");
 
-      // Generate invoice number
-      const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      // Generate invoice number using business settings and daily sequence
+      const invoiceNumber = await generateInvoiceNumber(tenantData);
 
       // Create sale record as invoice (credit sale awaiting payment)
       const { data: sale, error: saleError } = await supabase
@@ -425,12 +477,12 @@ export function QuoteManagement() {
         .insert({
           cashier_id: user.id,
           customer_id: quote.customer_id,
-          payment_method: "credit", // This marks it as an invoice
+          payment_method: "credit",
           receipt_number: invoiceNumber,
           total_amount: quote.total_amount,
           discount_amount: quote.discount_amount || 0,
           tax_amount: quote.tax_amount || 0,
-          status: "pending", // Pending payment
+          status: "pending",
           tenant_id: tenantData,
         })
         .select()
@@ -438,7 +490,6 @@ export function QuoteManagement() {
 
       if (saleError) throw saleError;
 
-      // Create sale items
       const saleItemsData = quoteItems?.map(item => ({
         sale_id: sale.id,
         product_id: item.product_id,
@@ -454,28 +505,30 @@ export function QuoteManagement() {
 
       if (itemsInsertError) throw itemsInsertError;
 
-      // Create accounts receivable record for the invoice
+      // Create accounts receivable record for the invoice with due date based on terms
       if (quote.customer_id) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + netDays);
+        const dueDateStr = dueDate.toISOString().split('T')[0];
+
         const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
           tenant_id_param: tenantData,
           sale_id_param: sale.id,
           customer_id_param: quote.customer_id,
           total_amount_param: quote.total_amount,
-          due_date_param: null // Will use default 30 days
+          due_date_param: dueDateStr
         });
 
         if (arError) {
           console.error('Error creating AR record:', arError);
-          // Don't fail the conversion if AR creation fails
         }
       }
 
-      // Update quote status to converted
       await updateQuoteStatus(quote.id, "converted");
 
       toast({
         title: "Quote Converted to Invoice",
-        description: `Quote successfully converted to invoice ${invoiceNumber}. The invoice is now awaiting payment.`,
+        description: `Quote successfully converted to invoice ${invoiceNumber}. The invoice is now awaiting payment (Net ${netDays}).`,
       });
 
       fetchQuotes();
@@ -507,7 +560,7 @@ export function QuoteManagement() {
       if (!tenantData) throw new Error("User not assigned to a tenant");
 
       // Generate new quote number
-      const quoteNumber = `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      const quoteNumber = await generateQuoteNumber(tenantData);
 
       // Create new quote
       const { data: newQuote, error: quoteError } = await supabase
@@ -561,23 +614,34 @@ export function QuoteManagement() {
 
   const sendQuoteEmail = async () => {
     try {
-      // This would integrate with an email service
-      // For now, just update status to sent
-      if (selectedQuote) {
-        await updateQuoteStatus(selectedQuote.id, "sent");
-        toast({
-          title: "Quote Sent",
-          description: "Quote has been sent via email",
-        });
-        setEmailDialog(false);
-        setEmailContent({ to: '', subject: '', message: '' });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
+      if (!selectedQuote) return;
+      if (!emailContent.to) throw new Error('Recipient email is required');
+
+      const html = `
+        <div>
+          <h2 style="margin:0 0 8px 0;">Quote ${selectedQuote.quote_number}</h2>
+          <p>Dear ${selectedQuote.customers?.name || 'Customer'},</p>
+          <p>${emailContent.message || 'Please find your quote details below.'}</p>
+          <p><strong>Total:</strong> ${formatCurrency(selectedQuote.total_amount)}</p>
+          ${selectedQuote.valid_until ? `<p><strong>Valid Until:</strong> ${formatDate(selectedQuote.valid_until)}</p>` : ''}
+          <p>If you have any questions or would like to proceed, just reply to this email.</p>
+          <p>Best regards,<br />VibePOS Team</p>
+        </div>`;
+
+      await sendEmail({
+        to: emailContent.to,
+        subject: emailContent.subject || `Quote ${selectedQuote.quote_number}`,
+        htmlContent: html,
+        textContent: `${emailContent.message}\nTotal: ${selectedQuote.total_amount}`,
+        variables: { company_name: 'VibePOS' },
+        priority: 'medium'
       });
+
+      await updateQuoteStatus(selectedQuote.id, 'sent');
+      setEmailDialog(false);
+      setEmailContent({ to: '', subject: '', message: '' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to send email', variant: 'destructive' });
     }
   };
 
@@ -882,7 +946,7 @@ export function QuoteManagement() {
                             <Button 
                               variant="secondary" 
                               size="sm"
-                              onClick={() => convertToInvoice(quote)}
+                              onClick={() => { setSelectedQuoteForInvoice(quote); setSelectedNetDays(30); setShowInvoiceTerms(true); }}
                               title="Convert to Pending Invoice"
                               className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
@@ -933,11 +997,7 @@ export function QuoteManagement() {
               <CardTitle>Create New Quote</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Quote creation form will be integrated with the enhanced sale form.
-                <br />
-                Use the "Save as Quote" option in the sale form instead of "Complete Sale".
-              </div>
+              <SaleForm onSaleCompleted={() => { setActiveTab('list'); fetchQuotes(); }} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1211,6 +1271,33 @@ export function QuoteManagement() {
                 <Mail className="h-4 w-4 mr-2" />
                 Send Quote
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Terms Dialog */}
+      <Dialog open={showInvoiceTerms} onOpenChange={setShowInvoiceTerms}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Payment Terms</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Label>Terms</Label>
+            <Select value={String(selectedNetDays)} onValueChange={(v) => setSelectedNetDays(parseInt(v))}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select terms" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Net 7</SelectItem>
+                <SelectItem value="14">Net 14</SelectItem>
+                <SelectItem value="30">Net 30</SelectItem>
+                <SelectItem value="45">Net 45</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowInvoiceTerms(false)}>Cancel</Button>
+              <Button onClick={() => { if (selectedQuoteForInvoice) { convertToInvoice(selectedQuoteForInvoice, selectedNetDays); } setShowInvoiceTerms(false); setSelectedQuoteForInvoice(null); }}>Convert</Button>
             </div>
           </div>
         </DialogContent>

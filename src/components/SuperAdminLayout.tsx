@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, Search, User, LogOut, Crown } from 'lucide-react';
+import { Bell, Search, User, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { SuperAdminSidebar } from './SuperAdminSidebar';
+import { LazyImage } from '@/components/ui/image-lazy';
+import { useTenantLogo } from '@/hooks/useTenantLogo';
 
 interface SuperAdminLayoutProps {
   children: ReactNode;
@@ -21,6 +23,8 @@ interface SuperAdminLayoutProps {
 export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const tenantLogo = useTenantLogo();
+  const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -33,10 +37,17 @@ export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
             <div className="flex items-center justify-between px-6 py-3">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
-                <div className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-yellow-500" />
-                  <span className="font-semibold text-sm">Super Admin Portal</span>
-                </div>
+                <Link to="/superadmin" aria-label="Go to Super Admin Dashboard" className="flex items-center">
+                  <div className="h-8">
+                    <LazyImage
+                      src={tenantLogo || fallbackLogo}
+                      alt="Logo"
+                      fallback={fallbackLogo}
+                      className="h-8 w-auto"
+                      skeletonClassName="h-8 w-8 rounded"
+                    />
+                  </div>
+                </Link>
               </div>
               
               <div className="flex items-center gap-3">
