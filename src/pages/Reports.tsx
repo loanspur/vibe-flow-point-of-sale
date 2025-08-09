@@ -11,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis } from "recharts";
 
 interface ReportMetrics {
   totalRevenue: number;
@@ -61,6 +63,9 @@ const Reports = () => {
     totalInventoryValue: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [segmentBy, setSegmentBy] = useState<'none' | 'user' | 'location'>('none');
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day');
+  const [productTop, setProductTop] = useState<{ name: string; quantity: number }[]>([]);
 
   useEffect(() => {
     if (tenantId) {
@@ -75,7 +80,7 @@ const Reports = () => {
       // Fetch sales data
       const { data: salesData, error: salesError } = await supabase
         .from("sales")
-        .select("total_amount, created_at")
+        .select("*")
         .eq("tenant_id", tenantId);
 
       if (salesError) throw salesError;
@@ -166,9 +171,9 @@ const Reports = () => {
         productSales.set(productName, (productSales.get(productName) || 0) + item.quantity);
       });
       
-      const topProduct = productSales.size > 0 
-        ? Array.from(productSales.entries()).sort((a, b) => b[1] - a[1])[0][0]
-        : "No data";
+      const sortedProducts = Array.from(productSales.entries()).sort((a, b) => b[1] - a[1]);
+      const topProduct = sortedProducts.length > 0 ? sortedProducts[0][0] : "No data";
+      setProductTop(sortedProducts.slice(0, 10).map(([name, qty]) => ({ name, quantity: qty })));
 
       setMetrics({
         totalRevenue,
@@ -207,6 +212,52 @@ const Reports = () => {
       currency: tenantCurrency || 'USD'
     }).format(amount);
   };
+
+  // Build period key for aggregation
+  const getPeriodKey = (dateStr: string, g: 'day' | 'week' | 'month') => {
+    const d = new Date(dateStr);
+    const y = d.getFullYear();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    if (g === 'day') return `${y}-${m}-${day}`;
+    if (g === 'week') {
+      const temp = new Date(d);
+      const dayNum = d.getDay();
+      const monday = new Date(temp.setDate(d.getDate() - ((dayNum + 6) % 7)));
+      const wm = (monday.getMonth() + 1).toString().padStart(2, '0');
+      const wd = monday.getDate().toString().padStart(2, '0');
+      return `${monday.getFullYear()}-W${wm}${wd}`;
+    }
+    return `${y}-${m}`;
+  };
+
+  // Aggregate sales into chart-friendly data
+  const buildSalesTrendData = (
+    sales: any[],
+    seg: 'none' | 'user' | 'location',
+    g: 'day' | 'week' | 'month'
+  ) => {
+    const map = new Map<string, Record<string, number>>();
+    const segs = new Set<string>();
+
+    sales.forEach((sale) => {
+      const period = getPeriodKey(sale.created_at, g);
+      const segKey = seg === 'user'
+        ? (sale.created_by || sale.user_id || 'Unknown')
+        : seg === 'location'
+          ? (sale.location_name || sale.location || sale.location_id || 'Unknown')
+          : 'Revenue';
+      segs.add(segKey);
+      if (!map.has(period)) map.set(period, {});
+      map.get(period)![segKey] = (map.get(period)![segKey] || 0) + Number(sale.total_amount || 0);
+    });
+
+    const periods = Array.from(map.keys()).sort();
+    const data = periods.map((p) => ({ period: p, ...map.get(p)! }));
+    const segments = seg === 'none' ? ['Revenue'] : Array.from(segs);
+    return { data, segments } as { data: any[]; segments: string[] };
+  };
+
 
   const filteredSales = detailedSales.filter(sale => {
     const matchesSearch = sale.id?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -310,7 +361,7 @@ const Reports = () => {
             </div>
 
             {/* Filters and Search */}
-            <div className="flex items-center gap-4 p-4 bg-card rounded-lg border">
+            <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-lg border">
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
@@ -331,6 +382,28 @@ const Reports = () => {
                     <SelectItem value="today">Today</SelectItem>
                     <SelectItem value="week">This Week</SelectItem>
                     <SelectItem value="month">This Month</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={segmentBy} onValueChange={(v) => setSegmentBy(v as any)}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue placeholder="Segment by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Segment</SelectItem>
+                    <SelectItem value="user">By User</SelectItem>
+                    <SelectItem value="location">By Location</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={granularity} onValueChange={(v) => setGranularity(v as any)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Granularity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Daily</SelectItem>
+                    <SelectItem value="week">Weekly</SelectItem>
+                    <SelectItem value="month">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -464,6 +537,28 @@ const Reports = () => {
                 />
               </div>
             </div>
+
+            {/* Top Products Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Products (by units)</CardTitle>
+                <CardDescription>Top performers from sales history</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={{ quantity: { label: 'Units Sold', color: 'hsl(var(--primary))' } }} className="w-full">
+                  <BarChart data={productTop} margin={{ left: 12, right: 12 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} hide={productTop.length > 8} />
+                    <YAxis tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="quantity" fill="var(--color-quantity)" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ChartContainer>
+                {productTop.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No product sales found yet.</div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Product Performance Table */}
             <Card>
@@ -717,6 +812,31 @@ const Reports = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Financial Trend */}
+            {(() => {
+              const { data } = buildSalesTrendData(filteredSales, 'none', granularity);
+              const chartConfig = { Revenue: { label: 'Revenue', color: 'hsl(var(--primary))' } } as const;
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Revenue Trend</CardTitle>
+                    <CardDescription>Aggregated by {granularity}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ChartContainer config={chartConfig} className="w-full">
+                      <AreaChart data={data} margin={{ left: 12, right: 12 }}>
+                        <CartesianGrid vertical={false} />
+                        <XAxis dataKey="period" tickLine={false} axisLine={false} />
+                        <YAxis tickLine={false} axisLine={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Area type="monotone" dataKey="Revenue" stroke="var(--color-Revenue)" fill="var(--color-Revenue)" />
+                      </AreaChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </div>
         );
         
