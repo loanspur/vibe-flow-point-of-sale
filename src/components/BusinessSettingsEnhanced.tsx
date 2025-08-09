@@ -1547,6 +1547,29 @@ export function BusinessSettingsEnhanced() {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={form.control}
+                        name="stock_accounting_method"
+                        render={({ field }) => {
+                          const isFifo = (field.value || 'FIFO') === 'FIFO';
+                          return (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">Use FIFO Costing</FormLabel>
+                                <FormDescription>
+                                  When enabled, Cost of Goods uses FIFO (First-In, First-Out). When off, uses Weighted Average Cost.
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={isFifo}
+                                  onCheckedChange={(checked) => field.onChange(checked ? 'FIFO' : 'WAC')}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          );
+                        }}
+                      />
                     </CardContent>
                   </Card>
                 </div>
