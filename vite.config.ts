@@ -26,7 +26,14 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     rollupOptions: {
-      output: {}
+      output: {
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name][extname]',
+        manualChunks(id) {
+          if (id.includes('node_modules')) return 'vendor';
+        }
+      }
     },
     target: 'es2020',
     minify: 'esbuild',

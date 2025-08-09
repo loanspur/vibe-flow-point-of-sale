@@ -38,8 +38,7 @@ const Careers = lazy(() => import("./pages/Careers"));
 
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
-const TenantAdminDashboard = lazy(() => import("./pages/TenantAdminDashboard"));
-
+import TenantAdminDashboard from "./pages/TenantAdminDashboard";
 
 // Admin Pages
 const TenantManagement = lazy(() => import("./pages/TenantManagement"));
