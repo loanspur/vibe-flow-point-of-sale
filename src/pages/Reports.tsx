@@ -87,6 +87,35 @@ const Reports = () => {
 
       if (salesError) throw salesError;
 
+      // Map user (cashier) and location from session context tables
+      const cashierIds = Array.from(new Set((salesData || []).map((s: any) => s.cashier_id).filter(Boolean)));
+
+      let profilesData: any[] | null = null;
+      if (cashierIds.length > 0) {
+        const { data: profData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', cashierIds);
+        profilesData = profData || [];
+      }
+
+      const { data: drawersData } = await supabase
+        .from('cash_drawers')
+        .select('user_id, location_name')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+
+      const profileMap: Record<string, string> = {};
+      (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p.full_name; });
+      const drawerMap: Record<string, string | null> = {};
+      (drawersData || []).forEach((d: any) => { drawerMap[d.user_id] = d.location_name; });
+
+      const salesWithDetails = (salesData || []).map((s: any) => ({
+        ...s,
+        user_name: profileMap[s.cashier_id] || null,
+        location_name: drawerMap[s.cashier_id] || null,
+      }));
+
       // Fetch customers data
       const { data: customersData, error: customersError } = await supabase
         .from("customers")
