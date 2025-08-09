@@ -104,7 +104,7 @@ const businessSettingsSchema = z.object({
   // Product and inventory features
   enable_brands: z.boolean().default(false),
   enable_overselling: z.boolean().default(false),
-  enable_product_units: z.boolean().default(false),
+  enable_product_units: z.boolean().default(true),
   enable_warranty: z.boolean().default(false),
   enable_fixed_pricing: z.boolean().default(false),
   auto_generate_sku: z.boolean().default(true),
@@ -298,7 +298,7 @@ export function BusinessSettingsEnhanced() {
       // Product and inventory features
       enable_brands: false,
       enable_overselling: false,
-      enable_product_units: false,
+      enable_product_units: true,
       enable_warranty: false,
       enable_fixed_pricing: false,
       auto_generate_sku: true,

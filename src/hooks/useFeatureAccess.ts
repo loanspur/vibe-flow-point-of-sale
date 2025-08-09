@@ -29,6 +29,8 @@ const DEFAULT_FEATURES: FeatureAccess = {
   basic_inventory: true,
   basic_customers: true,
   basic_sales: true,
+  // Feature toggles backed by business settings (default on)
+  enable_product_units: true,
   
   // Location limits
   max_locations: 1, // Starter: 1, Professional: 5, Enterprise: unlimited
