@@ -110,16 +110,16 @@ const Reports = () => {
       const drawerMap: Record<string, string | null> = {};
       (drawersData || []).forEach((d: any) => { drawerMap[d.user_id] = d.location_name; });
 
-      // Compute total purchase price per sale from sale_items x products(default_profit_margin)
+      // Compute total purchase price per sale from sale_items x products(cost_price)
       const saleIds: string[] = (salesData || []).map((s: any) => s.id);
       let costBySale: Record<string, number> = {};
       if (saleIds.length > 0) {
         const { data: itemsData } = await supabase
           .from('sale_items')
-          .select('sale_id, quantity, products:product_id(default_profit_margin)')
+          .select('sale_id, quantity, products:product_id(cost_price)')
           .in('sale_id', saleIds);
         (itemsData || []).forEach((it: any) => {
-          const unitCost = Number(it?.products?.default_profit_margin || 0);
+          const unitCost = Number(it?.products?.cost_price || 0);
           const qty = Number(it?.quantity || 0);
           const sid = it?.sale_id;
           if (sid) costBySale[sid] = (costBySale[sid] || 0) + unitCost * qty;
@@ -547,7 +547,7 @@ const Reports = () => {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             {searchTerm || dateFilter !== 'all' ? 'No sales found matching your criteria' : 'No sales data available'}
                           </TableCell>
                         </TableRow>
