@@ -21,11 +21,20 @@ export function useRealtimeRefresh({ tables, tenantId, onChange }: RealtimeRefre
 
     tables.forEach((table) => {
       const params: any = { event: '*', schema: 'public', table };
-      if (tenantId) {
-        params.filter = `tenant_id=eq.${tenantId}`;
-      }
-      channel.on('postgres_changes', params, () => {
-        onChange();
+      channel.on('postgres_changes', params, (payload: any) => {
+        try {
+          if (!tenantId) {
+            onChange();
+            return;
+          }
+          const rec: any = payload?.new ?? payload?.old ?? {};
+          // Only trigger when event belongs to this tenant if column exists
+          if (typeof rec.tenant_id === 'undefined' || rec.tenant_id === tenantId) {
+            onChange();
+          }
+        } catch {
+          onChange();
+        }
       });
     });
 
