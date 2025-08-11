@@ -178,17 +178,40 @@ class DomainManager {
         return domainInfo;
       }
 
-      console.log('✅ Tenant resolved:', tenantId);
+      let resolvedTenantId: string | null = tenantId || null;
+
+      // If not found and this is a known subdomain, try alternate TLD (.shop <-> .online)
+      if (!resolvedTenantId && domainInfo.isSubdomain) {
+        const altDomain = currentDomain.endsWith('.vibenet.online')
+          ? currentDomain.replace(/\.vibenet\.online$/, '.vibenet.shop')
+          : currentDomain.endsWith('.vibenet.shop')
+            ? currentDomain.replace(/\.vibenet\.shop$/, '.vibenet.online')
+            : null;
+
+        if (altDomain) {
+          console.log('🪄 Trying alternate TLD for domain resolution:', altDomain);
+          const { data: altTenantId, error: altError } = await supabase
+            .rpc('get_tenant_by_domain', { domain_name_param: altDomain });
+          if (altError) {
+            console.warn('⚠️ Alternate TLD resolution error:', altError);
+          } else if (altTenantId) {
+            resolvedTenantId = altTenantId;
+            console.log('✅ Resolved via alternate TLD:', altTenantId);
+          }
+        }
+      }
+
+      console.log('✅ Tenant resolved:', resolvedTenantId);
 
       const resolvedConfig: DomainConfig = {
         ...domainInfo,
-        tenantId: tenantId || null
+        tenantId: resolvedTenantId
       };
 
       // Cache the result
-      if (tenantId) {
+      if (resolvedTenantId) {
         this.cache.set(currentDomain, {
-          tenantId,
+          tenantId: resolvedTenantId,
           timestamp: Date.now()
         });
         console.log('💾 Cached domain config for:', currentDomain);
@@ -224,15 +247,36 @@ class DomainManager {
         return null;
       }
 
+      let resolvedTenantId: string | null = tenantId || null;
+
+      // If not found, try alternate TLD
+      const isVibenetSub = (d: string) => (d.endsWith('.vibenet.shop') && d !== 'vibenet.shop') || (d.endsWith('.vibenet.online') && d !== 'vibenet.online');
+      if (!resolvedTenantId && isVibenetSub(targetDomain)) {
+        const altDomain = targetDomain.endsWith('.vibenet.online')
+          ? targetDomain.replace(/\.vibenet\.online$/, '.vibenet.shop')
+          : targetDomain.endsWith('.vibenet.shop')
+            ? targetDomain.replace(/\.vibenet\.shop$/, '.vibenet.online')
+            : null;
+        if (altDomain) {
+          const { data: altTenantId, error: altError } = await supabase
+            .rpc('get_tenant_by_domain', { domain_name_param: altDomain });
+          if (altError) {
+            console.warn('Alternate TLD resolution error:', altError);
+          } else if (altTenantId) {
+            resolvedTenantId = altTenantId;
+          }
+        }
+      }
+
       // Cache the result
-      if (tenantId) {
+      if (resolvedTenantId) {
         this.cache.set(targetDomain, {
-          tenantId,
+          tenantId: resolvedTenantId,
           timestamp: Date.now()
         });
       }
 
-      return tenantId;
+      return resolvedTenantId;
     } catch (error) {
       console.error('Error resolving tenant from domain:', error);
       return null;
@@ -309,9 +353,14 @@ export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
 };
 
 export const getBaseDomain = (domain: string = getCurrentDomain()) => {
+  // Respect environment: use the current TLD if already on vibenet.shop or vibenet.online
   if (
     domain === 'localhost' ||
-    domain.endsWith('.lovableproject.com') ||
+    domain.endsWith('.lovableproject.com')
+  ) {
+    return 'vibenet.online';
+  }
+  if (
     domain === 'vibenet.online' || domain === 'www.vibenet.online' ||
     domain.endsWith('.vibenet.online')
   ) {
