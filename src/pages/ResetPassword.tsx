@@ -20,6 +20,9 @@ const ResetPassword = () => {
   const [resetComplete, setResetComplete] = useState(false);
   const [step, setStep] = useState<'otp' | 'password'>('otp');
   
+  // Invitation flow flag
+  const isInvite = (searchParams.get('from') || '').toLowerCase() === 'invite';
+  
   // Error states
   const [otpError, setOtpError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -31,13 +34,26 @@ const ResetPassword = () => {
     confirmPassword: ''
   });
 
-  // Get email from URL params
+  // Get email from URL params and prepare invite flow
   useEffect(() => {
     const email = searchParams.get('email');
     if (email) {
       setFormData(prev => ({ ...prev, email: decodeURIComponent(email) }));
     }
-  }, [searchParams]);
+
+    // If coming from invitation, ensure we show password step and set session from URL tokens
+    if (isInvite) {
+      setStep('password');
+      const access_token = searchParams.get('access_token');
+      const refresh_token = searchParams.get('refresh_token');
+      if (access_token && refresh_token) {
+        // Persist the session so user can update password immediately
+        supabase.auth.setSession({ access_token, refresh_token }).catch((err) => {
+          console.error('Failed to set session from invite link:', err);
+        });
+      }
+    }
+  }, [searchParams, isInvite]);
 
   const validatePassword = (password: string) => {
     if (!password) return 'Password is required';
@@ -94,27 +110,40 @@ const ResetPassword = () => {
     setLoading(false);
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    setPasswordError('');
+const handleResetPassword = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  setPasswordError('');
 
-    // Validate passwords
-    const passwordValidation = validatePassword(formData.password);
-    if (passwordValidation) {
-      setPasswordError(passwordValidation);
-      return;
-    }
+  // Validate passwords
+  const passwordValidation = validatePassword(formData.password);
+  if (passwordValidation) {
+    setPasswordError(passwordValidation);
+    return;
+  }
 
-    if (formData.password !== formData.confirmPassword) {
-      setPasswordError("Passwords don't match");
-      return;
-    }
+  if (formData.password !== formData.confirmPassword) {
+    setPasswordError("Passwords don't match");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      // For password reset, we call verify-otp with both the code AND the new password
+  try {
+    if (isInvite) {
+      // Invitation flow: user has session from link, update password directly
+      const { error: updateError } = await supabase.auth.updateUser({ password: formData.password });
+      if (updateError) {
+        throw updateError;
+      }
+      setResetComplete(true);
+      toast({
+        title: 'Password set!',
+        description: 'Your password has been created. You can now sign in.',
+      });
+      setTimeout(() => navigate('/auth'), 2500);
+    } else {
+      // OTP flow: verify code and set new password via edge function
       console.log('Sending password reset request with data:', {
         email: formData.email,
         otpCode: formData.otpCode,
@@ -122,7 +151,6 @@ const ResetPassword = () => {
         hasNewPassword: !!formData.password
       });
 
-      // SECURITY FIX: Use Supabase client instead of hardcoded API keys
       const response = await supabase.functions.invoke('verify-otp', {
         body: {
           email: formData.email,
@@ -140,24 +168,21 @@ const ResetPassword = () => {
       } else if (response.data?.success) {
         setResetComplete(true);
         toast({
-          title: "Password updated successfully",
-          description: "Your password has been reset. You can now sign in with your new password."
+          title: 'Password updated successfully',
+          description: 'Your password has been reset. You can now sign in with your new password.'
         });
-        
-        // Redirect to login after a short delay
-        setTimeout(() => {
-          navigate('/auth');
-        }, 3000);
+        setTimeout(() => navigate('/auth'), 3000);
       } else {
         setPasswordError('Failed to reset password. Please try again.');
       }
-    } catch (error: any) {
-      console.error('Password reset error:', error);
-      setPasswordError('An unexpected error occurred. Please try again.');
     }
+  } catch (error: any) {
+    console.error('Password reset error:', error);
+    setPasswordError(error.message || 'An unexpected error occurred. Please try again.');
+  }
 
-    setLoading(false);
-  };
+  setLoading(false);
+};
 
   const resendOTP = async () => {
     setLoading(true);

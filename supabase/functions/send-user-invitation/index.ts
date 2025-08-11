@@ -108,6 +108,20 @@ const handler = async (req: Request): Promise<Response> => {
       console.log('Using fallback subdomain:', subdomain);
     }
 
+    // Align TLD with the environment origin (.online vs .shop)
+    const origin = req.headers.get('origin') || '';
+    try {
+      if (origin.includes('.vibenet.online') && invitationBaseUrl.includes('.vibenet.shop')) {
+        invitationBaseUrl = invitationBaseUrl.replace('.vibenet.shop', '.vibenet.online');
+        console.log('Adjusted invitation base URL for .online env:', invitationBaseUrl);
+      } else if (origin.includes('.vibenet.shop') && invitationBaseUrl.includes('.vibenet.online')) {
+        invitationBaseUrl = invitationBaseUrl.replace('.vibenet.online', '.vibenet.shop');
+        console.log('Adjusted invitation base URL for .shop env:', invitationBaseUrl);
+      }
+    } catch (e) {
+      console.warn('Failed to adjust TLD based on origin:', e);
+    }
+
 
     // More efficient approach: try to create user first, handle existing user case
     console.log('Attempting to create user...');
@@ -321,7 +335,8 @@ const handler = async (req: Request): Promise<Response> => {
       type: linkType as 'invite' | 'recovery',
       email: email,
       options: {
-        redirectTo: `${invitationBaseUrl}/auth?invitation=true`
+        // Redirect invited users to tenant-specific password setup page
+        redirectTo: `${invitationBaseUrl}/reset-password?from=invite&email=${encodeURIComponent(email)}`
       }
     });
 
