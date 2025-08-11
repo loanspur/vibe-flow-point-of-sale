@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Clock, AlertTriangle, Ban, CheckCircle, XCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface User {
@@ -136,6 +137,7 @@ const UserManagement = () => {
   const [newUserRole, setNewUserRole] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createUserError, setCreateUserError] = useState<{ message: string; details?: string; code?: string } | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -466,6 +468,7 @@ const UserManagement = () => {
     }
 
     setCreating(true);
+    setCreateUserError(null);
     try {
       const { data, error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
@@ -493,6 +496,7 @@ const UserManagement = () => {
       // Extract detailed error message from edge function response
       let errorMessage = 'Failed to create user';
       let errorDetails = '';
+      let errorCode: string | undefined;
       
       try {
         // Handle FunctionsHttpError specifically
@@ -504,14 +508,17 @@ const UserManagement = () => {
               const errorJson = JSON.parse(errorText);
               errorMessage = errorJson.error || errorJson.message || errorMessage;
               errorDetails = errorJson.details || '';
+              errorCode = errorJson.code || errorJson.error?.code || errorCode;
             } catch {
               errorMessage = errorText;
             }
           }
         } else if (error?.message) {
           errorMessage = error.message;
+          errorCode = (error.code || error.status || error.statusCode || '').toString();
         } else if (error?.error?.message) {
           errorMessage = error.error.message;
+          errorCode = error.error.code;
         } else if (typeof error === 'string') {
           errorMessage = error;
         }
@@ -519,10 +526,11 @@ const UserManagement = () => {
         console.error('Error parsing edge function error:', parseError);
       }
       
-      // Show detailed error in toast
+      // Set error state for dialog and show detailed error in toast
+      setCreateUserError({ message: errorMessage, details: errorDetails, code: errorCode });
       toast.error(`Failed to create user: ${errorMessage}`, {
         duration: 10000, // Show for 10 seconds
-        description: errorDetails || 'Please check the console for more details'
+        description: errorDetails || (errorCode ? `Code: ${errorCode}` : 'Please check the console for more details')
       });
     } finally {
       setCreating(false);
@@ -641,6 +649,7 @@ const UserManagement = () => {
                         setNewUserRole('');
                         setNewUserFullName('');
                         setCreating(false);
+                        setCreateUserError(null);
                       }}>
                         <Plus className="h-4 w-4 mr-2" />
                         Create User
@@ -653,6 +662,16 @@ const UserManagement = () => {
                           Create a new user account and send them an email invitation
                         </DialogDescription>
                       </DialogHeader>
+                      {createUserError && (
+                        <Alert variant="destructive">
+                          <AlertTitle>{createUserError.message || 'Invitation failed'}</AlertTitle>
+                          <AlertDescription>
+                            <div className="mt-1 text-xs whitespace-pre-wrap break-words">
+                              {createUserError.details || (createUserError.code ? `Code: ${createUserError.code}` : 'No further details provided.')}
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="user-full-name">Full Name</Label>
