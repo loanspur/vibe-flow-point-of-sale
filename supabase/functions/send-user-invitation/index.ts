@@ -96,7 +96,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Check if user already exists in auth system
     console.log('Checking if user already exists...');
-    const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+    const { data: usersData, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = usersData?.users?.find(user => user.email === email);
     
     if (existingUser && !getUserError) {
       console.log('User already exists in auth system:', existingUser.id);
