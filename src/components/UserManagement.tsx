@@ -156,14 +156,49 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, user_id, full_name, role, tenant_id, created_at, avatar_url, invitation_status, invited_at, invitation_accepted_at')
+      // Fetch tenant membership as source of truth, then enrich with profiles
+      const { data: tenantUsers, error: tuError } = await supabase
+        .from('tenant_users')
+        .select('user_id, role, tenant_id, is_active, invited_at, created_at')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (tuError) throw tuError;
+
+      if (!tenantUsers || tenantUsers.length === 0) {
+        setUsers([]);
+        return;
+      }
+
+      const userIds = tenantUsers.map((tu: any) => tu.user_id).filter(Boolean);
+
+      const { data: profiles, error: pError } = await supabase
+        .from('profiles')
+        .select('id, user_id, full_name, role, tenant_id, created_at, avatar_url, invitation_status, invited_at, invitation_accepted_at')
+        .in('user_id', userIds);
+
+      if (pError) throw pError;
+
+      const profileMap = new Map<string, any>((profiles || []).map((p: any) => [p.user_id, p]));
+
+      const combined: User[] = tenantUsers.map((tu: any) => {
+        const p = profileMap.get(tu.user_id) || {};
+        return {
+          id: p.id || tu.user_id,
+          user_id: tu.user_id,
+          full_name: p.full_name || 'Unknown User',
+          role: p.role || tu.role,
+          tenant_id: tu.tenant_id,
+          created_at: p.created_at || tu.created_at,
+          avatar_url: p.avatar_url,
+          is_active: tu.is_active,
+          invitation_status: p.invitation_status || (tu.invited_at ? 'pending' : 'accepted'),
+          invited_at: p.invited_at || tu.invited_at || null,
+          invitation_accepted_at: p.invitation_accepted_at || null,
+        } as User;
+      });
+
+      setUsers(combined);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
