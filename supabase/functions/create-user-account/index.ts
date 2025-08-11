@@ -179,8 +179,6 @@ const handler = async (req: Request): Promise<Response> => {
       console.log('Profile created successfully:', profileData);
     }
 
-    console.log('Profile created successfully:', profileData);
-
     // Create or update tenant_users record
     console.log('Creating/updating tenant_users record...');
     const tenantRole = role === 'admin' ? 'admin' : 
@@ -323,7 +321,7 @@ const handler = async (req: Request): Promise<Response> => {
         success: true,
         user_id: userId,
         status: userStatus,
-        profile_created: !!profileData,
+        profile_created: true,
         tenant_user_created: !!tenantUserData,
         email_sent: !emailResponse.error,
         message: userStatus === 'reactivated' 
