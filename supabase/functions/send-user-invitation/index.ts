@@ -151,20 +151,32 @@ const handler = async (req: Request): Promise<Response> => {
           status === 422
         ) {
           console.log('User already exists, proceeding with existing user...');
-          
-          // Get existing user by email - more efficient approach
-          const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
-          
-          if (getUserError) {
-            console.error('Error getting existing user by email:', getUserError);
-            throw new Error(`Failed to find existing user: ${getUserError.message}`);
+
+          // Find existing user by listing users (getUserByEmail removed in supabase-js v2)
+          const findUserByEmail = async (emailToFind: string) => {
+            let page = 1;
+            const perPage = 100;
+            while (page <= 20) { // safety cap of 2000 users scanned
+              const { data: listData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+              if (listErr) {
+                console.error('Error listing users:', listErr);
+                throw new Error(`Failed to list users: ${listErr.message}`);
+              }
+              const users = listData?.users || [];
+              const match = users.find((u: any) => (u.email || '').toLowerCase() === emailToFind.toLowerCase());
+              if (match) return match;
+              if (users.length < perPage) break; // no more pages
+              page++;
+            }
+            return null;
+          };
+
+          const existing = await findUserByEmail(email);
+          if (!existing) {
+            throw new Error('User creation failed and existing user not found by email');
           }
-          
-          if (!existingUser || !existingUser.user) {
-            throw new Error('User creation failed and could not find existing user');
-          }
-          
-          userId = existingUser.user.id;
+
+          userId = existing.id;
           isNewUser = false;
           userStatus = 'reinvited';
           console.log('Found existing user:', userId);
@@ -496,7 +508,8 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         error: errorMessage,
         details: error.toString(),
-        code: error.code || 'INVITATION_ERROR'
+        code: error.code || 'INVITATION_ERROR',
+        status: error.status || error.statusCode || 500
       }),
       {
         status: statusCode,
