@@ -441,5 +441,3 @@ export const useDomainContext = () => {
 
 export default domainManager;
 
-// Clear cache on import to force fresh resolution
-domainManager.clearCache('santalama.vibenet.shop');
