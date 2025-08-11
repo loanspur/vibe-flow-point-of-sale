@@ -26,11 +26,17 @@ const ProtectedRoute = ({
     switch (role?.toLowerCase()) {
       case 'admin':
       case 'superadmin':
+      case 'tenant admin':
+      case 'tenant_admin':
+      case 'owner':
+      case 'business owner':
         return 'Business Owner';
       case 'manager':
+      case 'store manager':
         return 'Store Manager';
       case 'user':
       case 'cashier':
+      case 'sales staff':
         return 'Sales Staff';
       default:
         return role || 'Sales Staff';
@@ -83,6 +89,12 @@ const ProtectedRoute = ({
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       );
+    }
+
+    // On tenant subdomains, allow any authenticated user to access dashboard/root even if role mapping differs
+    if (isSubdomain() && (location.pathname === '/' || location.pathname.startsWith('/dashboard'))) {
+      console.log('🧩 Allowing subdomain dashboard/root access without strict role check');
+      return <>{children}</>;
     }
 
     // Normalize role comparisons (case-insensitive)
