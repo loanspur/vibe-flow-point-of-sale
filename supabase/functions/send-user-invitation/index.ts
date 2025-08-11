@@ -22,8 +22,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('Starting user invitation process...');
+    console.log('=== SEND USER INVITATION START ===');
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    
     const requestBody = await req.json();
+    console.log('Request body received:', requestBody);
     console.log('Invitation request received for email:', requestBody.email);
 
     const {
@@ -435,7 +439,12 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   } catch (error: any) {
-    console.error("Error in send-user-invitation function:", error);
+    console.error("=== ERROR IN SEND-USER-INVITATION ===");
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error("Error code:", error.code);
+    console.error("Full error object:", error);
+    console.error("=====================================");
     
     let errorMessage = error.message || 'Failed to send user invitation';
     let statusCode = 500;
@@ -448,6 +457,8 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (error.message?.includes('User with this email already exists')) {
       statusCode = 409; // Conflict
     }
+    
+    console.error("Returning error response with status:", statusCode);
     
     return new Response(
       JSON.stringify({ 
