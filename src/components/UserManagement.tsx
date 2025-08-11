@@ -167,7 +167,32 @@ const UserManagement = () => {
       if (tuError) throw tuError;
 
       if (!tenantUsers || tenantUsers.length === 0) {
-        // No tenant users yet; ensure tenant admin is visible by default
+        // Attempt to self-repair admin membership so the user list can load
+        if ((userRole === 'admin' || userRole === 'owner') && user?.email && tenantId) {
+          try {
+            await supabase.rpc('reactivate_tenant_membership', {
+              tenant_id_param: tenantId,
+              target_email_param: user.email,
+            });
+            // Re-fetch after repair
+            const { data: repairedTenantUsers } = await supabase
+              .from('tenant_users')
+              .select('user_id, role, tenant_id, is_active, invited_at, created_at')
+              .eq('tenant_id', tenantId)
+              .order('created_at', { ascending: false });
+
+            if (repairedTenantUsers && repairedTenantUsers.length > 0) {
+              // Re-run fetchUsers to build full list
+              // Use a small delay to allow RLS context to refresh
+              setTimeout(fetchUsers, 50);
+              return;
+            }
+          } catch (e) {
+            console.warn('Membership repair attempt failed:', e);
+          }
+        }
+
+        // Fallback: show current admin locally so UI is not empty
         let result: User[] = [];
         if ((userRole === 'admin' || userRole === 'owner') && user?.id && tenantId) {
           result = [{

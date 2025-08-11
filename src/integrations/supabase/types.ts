@@ -6914,6 +6914,10 @@ export type Database = {
         }
         Returns: string
       }
+      reactivate_tenant_membership: {
+        Args: { tenant_id_param: string; target_email_param: string }
+        Returns: boolean
+      }
       record_cash_transaction_with_accounting: {
         Args: {
           drawer_id_param: string
