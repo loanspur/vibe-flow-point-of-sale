@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRoles } from '@/hooks/useUserRoles';
+import { isSubdomain } from '@/lib/domain-manager';
 
 // User roles are now dynamically managed via user_roles table
 type UserRole = string; // Dynamic role from database
@@ -92,7 +93,8 @@ const ProtectedRoute = ({
     const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || (authLower && allowedNormalized.includes(authLower));
     if (!roleMatch) {
       console.log('🚫 Access denied - role mismatch');
-      return <Navigate to="/dashboard" replace />;
+      const redirectPath = isSubdomain() ? '/auth' : '/';
+      return <Navigate to={redirectPath} state={{ from: location }} replace />;
     }
   }
 
