@@ -225,6 +225,40 @@ const UserManagement = () => {
         } as User;
       });
 
+      // Also include pending invitations that may not yet have a tenant_users/profile row
+      const existingEmails = new Set(
+        combined.map(u => (u.email || '').toLowerCase()).filter(Boolean)
+      );
+      try {
+        const { data: inviteLogs } = await supabase
+          .from('communication_logs')
+          .select('recipient, sent_at, created_at, subject, metadata')
+          .eq('tenant_id', tenantId)
+          .eq('type', 'user_invitation')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        (inviteLogs || []).forEach((log: any) => {
+          const email = (log.recipient || '').toLowerCase();
+          if (!email || existingEmails.has(email)) return;
+          existingEmails.add(email);
+          combined.push({
+            id: `invited:${email}`,
+            user_id: '',
+            full_name: log.metadata?.fullName || log.metadata?.full_name || email,
+            email,
+            role: (log.metadata?.role || 'user') as string,
+            tenant_id: tenantId!,
+            created_at: log.sent_at || log.created_at,
+            is_active: false,
+            invitation_status: 'pending',
+            invited_at: log.sent_at || log.created_at,
+          } as User);
+        });
+      } catch (e) {
+        console.warn('Failed to include pending invitation logs', e);
+      }
+
       // Ensure tenant admin is always present in the list
       let result = combined;
       const hasAdmin = combined.some(u => ['admin', 'owner'].includes((u.role || '').toLowerCase()));
