@@ -22,8 +22,24 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('Starting user invitation process...');
+    console.log('=== SEND USER INVITATION START ===');
+    
+    // Check environment variables first
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const resendKey = Deno.env.get('RESEND_API_KEY');
+    
+    console.log('Environment check:');
+    console.log('SUPABASE_URL exists:', !!supabaseUrl);
+    console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!supabaseServiceKey);
+    console.log('RESEND_API_KEY exists:', !!resendKey);
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required Supabase environment variables');
+    }
+    
     const requestBody = await req.json();
+    console.log('Request body received:', JSON.stringify(requestBody, null, 2));
     console.log('Invitation request received for email:', requestBody.email);
 
     const {
