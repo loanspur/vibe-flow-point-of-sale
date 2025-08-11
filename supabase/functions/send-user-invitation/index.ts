@@ -43,17 +43,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log('Invitation request received for email:', requestBody.email);
 
-    const {
-      email,
-      fullName,
-      role,
-      tenantId
-    }: InviteUserRequest = requestBody;
-
-    // Validate required fields
-    if (!email || !fullName || !role || !tenantId) {
-      throw new Error('Missing required fields: email, fullName, role, tenantId');
-    }
 
     console.log('Processing invitation for:', email, 'to tenant:', tenantId);
 
