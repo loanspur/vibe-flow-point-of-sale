@@ -23,23 +23,24 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     console.log('=== SEND USER INVITATION START ===');
-    
-    // Check environment variables first
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const resendKey = Deno.env.get('RESEND_API_KEY');
-    
-    console.log('Environment check:');
-    console.log('SUPABASE_URL exists:', !!supabaseUrl);
-    console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!supabaseServiceKey);
-    console.log('RESEND_API_KEY exists:', !!resendKey);
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing required Supabase environment variables');
-    }
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     
     const requestBody = await req.json();
-    console.log('Request body received:', JSON.stringify(requestBody, null, 2));
+    console.log('Request body received:', requestBody);
+    console.log('Invitation request received for email:', requestBody.email);
+
+    const {
+      email,
+      fullName,
+      role,
+      tenantId
+    }: InviteUserRequest = requestBody;
+
+    // Validate required fields
+    if (!email || !fullName || !role || !tenantId) {
+      throw new Error('Missing required fields: email, fullName, role, tenantId');
+    }
     console.log('Invitation request received for email:', requestBody.email);
 
     const {
@@ -487,7 +488,12 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   } catch (error: any) {
-    console.error("Error in send-user-invitation function:", error);
+    console.error("=== ERROR IN SEND-USER-INVITATION ===");
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error("Error code:", error.code);
+    console.error("Full error object:", error);
+    console.error("=====================================");
     
     let errorMessage = error.message || 'Failed to send user invitation';
     let statusCode = 500;
@@ -503,6 +509,8 @@ const handler = async (req: Request): Promise<Response> => {
     ) {
       statusCode = 409; // Conflict
     }
+    
+    console.error("Returning error response with status:", statusCode);
     
     return new Response(
       JSON.stringify({ 

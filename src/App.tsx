@@ -64,17 +64,18 @@ const Accounting = lazy(() => import("./pages/Accounting"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
-// Auth page wrapper to redirect authenticated users on subdomains
+// Auth page wrapper to redirect authenticated users on subdomains (only when tenant is resolved)
 const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
+  const { domainConfig } = useDomainContext();
   
   useEffect(() => {
-    // If user is authenticated and on subdomain, redirect to dashboard
-    if (user && isSubdomain()) {
-      console.log('👤 User authenticated, redirecting from auth page to dashboard');
+    // Redirect only when tenant context is resolved to avoid loops
+    if (user && isSubdomain() && domainConfig?.tenantId) {
+      console.log('👤 User authenticated, tenant resolved; redirecting to dashboard');
       window.location.replace('/dashboard');
     }
-  }, [user]);
+  }, [user, domainConfig?.tenantId]);
   
   return <>{children}</>;
 };
@@ -224,17 +225,36 @@ const DomainRouter = () => {
   }, [loading, domainConfig, user]);
   
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    const base = getBaseDomain();
-    const targetUrl = `https://${base}/dashboard`;
-    window.location.replace(targetUrl);
-    
+    // Tenant not resolved yet on subdomain: allow auth and a minimal dashboard/root for authenticated users
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Redirecting to main site...</p>
-        </div>
-      </div>
+      <Suspense fallback={<PageLoader />}>        
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route 
+            path="/" 
+            element={
+              <ProtectedRoute>
+                <TenantAdminLayout>
+                  <TenantAdminDashboard />
+                </TenantAdminLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <TenantAdminLayout>
+                  <TenantAdminDashboard />
+                </TenantAdminLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to={user ? '/dashboard' : '/auth'} replace />} />
+        </Routes>
+      </Suspense>
     );
   }
 

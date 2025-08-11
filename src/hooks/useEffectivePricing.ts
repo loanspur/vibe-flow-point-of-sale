@@ -40,12 +40,17 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
       if (data && data.length > 0) {
         // Always fetch setup fee from custom pricing if available
         console.log('Fetching setup fee from custom pricing...');
+        const today = new Date().toISOString().split('T')[0];
         const { data: customPricing, error: customError } = await supabase
           .from('tenant_custom_pricing')
-          .select('setup_fee')
+          .select('setup_fee,effective_date,expires_at')
           .eq('tenant_id', tenantId)
           .eq('billing_plan_id', billingPlanId)
           .eq('is_active', true)
+          .lte('effective_date', today)
+          .or(`expires_at.is.null,expires_at.gte.${today}`)
+          .order('effective_date', { ascending: false, nullsFirst: false })
+          .limit(1)
           .maybeSingle();
         
         console.log('Custom pricing setup fee response:', { customPricing, customError });

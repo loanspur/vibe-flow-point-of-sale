@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentDomain } from '@/lib/domain-manager';
+import { useDomainContext } from '@/lib/domain-manager';
 const Auth = () => {
   const navigate = useNavigate();
   const AUTH_DEBUG = false;
@@ -18,6 +18,7 @@ const Auth = () => {
   const location = useLocation();
   const fromPath = (location.state as any)?.from?.pathname || '/dashboard';
   const { toast } = useToast();
+  const { domainConfig, refreshConfig } = useDomainContext();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -31,16 +32,17 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect authenticated users only on tenant subdomains
+  // Redirect after login on subdomains regardless of tenant resolution; refresh domain in background
   useEffect(() => {
-    if (user) {
-      const domain = window.location.hostname;
-      const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
-      if (!isMainDomain) {
-        navigate(fromPath, { replace: true });
-      }
+    if (!user) return;
+    const domain = window.location.hostname;
+    const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
+    if (!isMainDomain) {
+      navigate(fromPath, { replace: true });
+      // Try to resolve tenant context in the background to avoid loops
+      refreshConfig().catch(() => {});
     }
-  }, [user, navigate, fromPath]);
+  }, [user, navigate, fromPath, refreshConfig]);
 
   // On main domain, auto-redirect superadmins to /superadmin after login
   useEffect(() => {
@@ -118,11 +120,12 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in."
       });
-      // Navigate after successful login: subdomains -> fromPath; main domain -> wait for role effect
+      // On subdomains, wait for tenant context to resolve before navigating
       const domain = window.location.hostname;
       const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
       if (!isMainDomain) {
-        navigate(fromPath, { replace: true });
+        // Trigger a domain refresh; Auth effect will navigate when ready
+        refreshConfig().catch(() => {});
       }
 
     }

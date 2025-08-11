@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRoles } from '@/hooks/useUserRoles';
+import { isSubdomain } from '@/lib/domain-manager';
 
 // User roles are now dynamically managed via user_roles table
 type UserRole = string; // Dynamic role from database
@@ -25,11 +26,17 @@ const ProtectedRoute = ({
     switch (role?.toLowerCase()) {
       case 'admin':
       case 'superadmin':
+      case 'tenant admin':
+      case 'tenant_admin':
+      case 'owner':
+      case 'business owner':
         return 'Business Owner';
       case 'manager':
+      case 'store manager':
         return 'Store Manager';
       case 'user':
       case 'cashier':
+      case 'sales staff':
         return 'Sales Staff';
       default:
         return role || 'Sales Staff';
@@ -84,6 +91,12 @@ const ProtectedRoute = ({
       );
     }
 
+    // On tenant subdomains, allow any authenticated user to access dashboard/root even if role mapping differs
+    if (isSubdomain() && (location.pathname === '/' || location.pathname.startsWith('/dashboard'))) {
+      console.log('🧩 Allowing subdomain dashboard/root access without strict role check');
+      return <>{children}</>;
+    }
+
     // Normalize role comparisons (case-insensitive)
     const allowedNormalized = allowedRoles.map(r => r.toLowerCase());
     const authLower = authUserRole?.toLowerCase();
@@ -92,7 +105,8 @@ const ProtectedRoute = ({
     const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || (authLower && allowedNormalized.includes(authLower));
     if (!roleMatch) {
       console.log('🚫 Access denied - role mismatch');
-      return <Navigate to="/dashboard" replace />;
+      const redirectPath = isSubdomain() ? '/auth' : '/';
+      return <Navigate to={redirectPath} state={{ from: location }} replace />;
     }
   }
 
