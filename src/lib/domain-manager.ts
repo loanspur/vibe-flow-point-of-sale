@@ -9,8 +9,10 @@ export interface DomainConfig {
 }
 
 class DomainManager {
-  private cache = new Map<string, { tenantId: string; timestamp: number }>();
+  private cache = new Map<string, { tenantId: string | null; timestamp: number }>();
+  private negativeCache = new Map<string, number>(); // cache misses to prevent loops
   private readonly CACHE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+  private readonly NEGATIVE_CACHE_TIMEOUT = 30 * 1000; // 30 seconds dampening for misses
   private initialized = false;
   private resolving = new Set<string>(); // Track domains being resolved
 
@@ -117,6 +119,12 @@ class DomainManager {
 
     const domainInfo = this.parseDomain(currentDomain);
 
+    // If we recently confirmed no tenant for this domain, short-circuit to avoid tight loops
+    const negTs = this.negativeCache.get(currentDomain);
+    if (negTs && Date.now() - negTs < this.NEGATIVE_CACHE_TIMEOUT) {
+      return domainInfo;
+    }
+
     // For development/main domains, return as-is
     if (currentDomain === 'localhost' || 
         currentDomain.endsWith('.lovableproject.com') ||
@@ -142,12 +150,16 @@ class DomainManager {
       const cachedAfterWait = this.cache.get(currentDomain);
       if (cachedAfterWait && Date.now() - cachedAfterWait.timestamp < this.CACHE_TIMEOUT) {
         console.log('📦 Using cached config after wait:', currentDomain);
-          return {
-            tenantId: cachedAfterWait.tenantId,
-            domain: currentDomain,
-            isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-            isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
-          };
+        return {
+          tenantId: cachedAfterWait.tenantId,
+          domain: currentDomain,
+          isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
+          isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
+        };
+      }
+      const negAfterWait = this.negativeCache.get(currentDomain);
+      if (negAfterWait && Date.now() - negAfterWait < this.NEGATIVE_CACHE_TIMEOUT) {
+        return domainInfo;
       }
     }
 
@@ -180,6 +192,9 @@ class DomainManager {
           timestamp: Date.now()
         });
         console.log('💾 Cached domain config for:', currentDomain);
+      } else {
+        // Negative cache to prevent rapid re-resolution loops
+        this.negativeCache.set(currentDomain, Date.now());
       }
 
       this.resolving.delete(currentDomain); // Clean up

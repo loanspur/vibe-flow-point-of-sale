@@ -32,20 +32,17 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect after login only when tenant context is resolved on subdomains
+  // Redirect after login on subdomains regardless of tenant resolution; refresh domain in background
   useEffect(() => {
     if (!user) return;
     const domain = window.location.hostname;
     const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
     if (!isMainDomain) {
-      if (domainConfig?.tenantId) {
-        navigate(fromPath, { replace: true });
-      } else {
-        // Attempt to resolve and refresh domain context once after login
-        refreshConfig().catch(() => {});
-      }
+      navigate(fromPath, { replace: true });
+      // Try to resolve tenant context in the background to avoid loops
+      refreshConfig().catch(() => {});
     }
-  }, [user, navigate, fromPath, domainConfig?.tenantId, refreshConfig]);
+  }, [user, navigate, fromPath, refreshConfig]);
 
   // On main domain, auto-redirect superadmins to /superadmin after login
   useEffect(() => {
