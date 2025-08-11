@@ -6,7 +6,7 @@ import { getCurrentDomain, isSubdomain, isCustomDomain } from "@/lib/domain-mana
 import { supabase } from "@/integrations/supabase/client";
 
 export default function LandingPage() {
-  const { user, loading, tenantId } = useAuth();
+  const { user, loading, tenantId, userRole } = useAuth();
   const navigate = useNavigate();
   const [redirecting, setRedirecting] = useState(false);
 
@@ -25,8 +25,15 @@ export default function LandingPage() {
         // On apex domains, send authenticated users to their tenant's primary domain
         if (isApexShop || isApexOnline) {
           setRedirecting(true);
-          console.info('LandingPage: apex redirect start', { domain: getCurrentDomain(), tenantId });
+          console.info('LandingPage: apex redirect start', { domain: getCurrentDomain(), tenantId, userRole });
           try {
+            // Superadmins should stay on apex and go to SuperAdmin
+            if (userRole === 'superadmin') {
+              console.info('LandingPage: superadmin on apex, routing to /superadmin');
+              navigate('/superadmin');
+              return;
+            }
+
             if (!tenantId) {
               console.warn('LandingPage: missing tenantId, falling back to vibenet.online');
               window.location.href = "https://vibenet.online/dashboard";
@@ -80,7 +87,7 @@ export default function LandingPage() {
       };
       handleRedirect();
     }
-  }, [user, loading, tenantId, navigate, shouldRedirect, isApexShop, isApexOnline]);
+  }, [user, loading, tenantId, userRole, navigate, shouldRedirect, isApexShop, isApexOnline]);
 
   // Show landing page while loading
   if (loading) {
