@@ -404,8 +404,14 @@ const handler = async (req: Request): Promise<Response> => {
     // Initialize Resend
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
+    // Choose sending domain based on tenant domain/base URL
+    const fromDomain = (tenantDomain?.domain_name && tenantDomain.domain_name.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online')
+      ? 'vibenet.online'
+      : 'vibenet.shop';
+    console.log('Email sending domain selected:', fromDomain);
+
     const emailResponse = await resend.emails.send({
-      from: 'VibePOS Team <noreply@vibenet.shop>',
+      from: `VibePOS Team <noreply@${fromDomain}>`,
       to: [email],
       subject: emailSubject,
       html: htmlContent,
