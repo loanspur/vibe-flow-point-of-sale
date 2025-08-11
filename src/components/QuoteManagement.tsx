@@ -421,12 +421,23 @@ export function QuoteManagement() {
       if (saleError) throw saleError;
 
       // Create sale items
+      const productIds = (quoteItems || []).map((item: any) => item.product_id);
+      let unitMap: Record<string, string | null> = {};
+      if (productIds.length > 0) {
+        const { data: prodUnits } = await supabase
+          .from('products')
+          .select('id, unit_id')
+          .in('id', productIds);
+        unitMap = Object.fromEntries((prodUnits || []).map((p: any) => [p.id, p.unit_id]));
+      }
+
       const saleItemsData = quoteItems?.map(item => ({
         sale_id: sale.id,
         product_id: item.product_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
+        unit_id: unitMap[item.product_id] || null,
       })) || [];
 
       const { error: itemsInsertError } = await supabase
@@ -490,6 +501,17 @@ export function QuoteManagement() {
 
       if (saleError) throw saleError;
 
+      // Create sale items with unit tracking
+      const productIds2 = (quoteItems || []).map((item: any) => item.product_id);
+      let unitMap2: Record<string, string | null> = {};
+      if (productIds2.length > 0) {
+        const { data: prodUnits2 } = await supabase
+          .from('products')
+          .select('id, unit_id')
+          .in('id', productIds2);
+        unitMap2 = Object.fromEntries((prodUnits2 || []).map((p: any) => [p.id, p.unit_id]));
+      }
+
       const saleItemsData = quoteItems?.map(item => ({
         sale_id: sale.id,
         product_id: item.product_id,
@@ -497,6 +519,7 @@ export function QuoteManagement() {
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
+        unit_id: unitMap2[item.product_id] || null,
       })) || [];
 
       const { error: itemsInsertError } = await supabase

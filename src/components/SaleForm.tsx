@@ -17,6 +17,7 @@ import QuickCreateCustomerDialog from './QuickCreateCustomerDialog';
 import { CashChangeModal } from './CashChangeModal';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEnsureBaseUnitPcs } from "@/hooks/useEnsureBaseUnitPcs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PaymentProcessor } from "./PaymentProcessor";
 import { MpesaPaymentModal } from "./MpesaPaymentModal";
@@ -56,6 +57,7 @@ interface SaleFormProps {
 
 export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProps) {
   const { tenantId } = useAuth();
+  useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   
@@ -182,6 +184,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           min_stock_level,
           image_url,
            is_active,
+          unit_id,
           product_variants (
             id,
             name,
@@ -678,14 +681,18 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       if (saleError) throw saleError;
 
       // Add sale items
-      const saleItemsData = saleItems.map(item => ({
-        sale_id: sale.id,
-        product_id: item.product_id,
-        variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-      }));
+      const saleItemsData = saleItems.map(item => {
+        const prod = products.find(p => p.id === item.product_id);
+        return {
+          sale_id: sale.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          unit_id: prod?.unit_id || null,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from("sale_items")
@@ -943,7 +950,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
                                  <div className="flex items-center gap-4">
                                    <div className="flex-1">
-                                     <label className="text-sm font-medium">Quantity</label>
+                                     <label className="text-sm font-medium">Quantity (pcs)</label>
                                      <Input
                                        type="number"
                                        min="1"

@@ -3074,6 +3074,7 @@ export type Database = {
         Row: {
           abbreviation: string
           base_unit_id: string | null
+          code: string
           conversion_factor: number | null
           created_at: string
           id: string
@@ -3085,6 +3086,7 @@ export type Database = {
         Insert: {
           abbreviation: string
           base_unit_id?: string | null
+          code: string
           conversion_factor?: number | null
           created_at?: string
           id?: string
@@ -3096,6 +3098,7 @@ export type Database = {
         Update: {
           abbreviation?: string
           base_unit_id?: string | null
+          code?: string
           conversion_factor?: number | null
           created_at?: string
           id?: string

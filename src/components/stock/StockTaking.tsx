@@ -16,6 +16,7 @@ import { ClipboardCheck, Plus, Eye, CheckCircle, Calculator, AlertCircle, BarCha
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { initializeStockTakingSession, completeStockTaking } from '@/lib/inventory-integration';
 
 export const StockTaking: React.FC = () => {
@@ -34,6 +35,7 @@ export const StockTaking: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const { user } = useAuth();
+  useEnsureBaseUnitPcs();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -494,7 +496,7 @@ export const StockTaking: React.FC = () => {
 
       if (format === 'csv') {
         const csvContent = [
-          'Product,SKU,System Quantity,Counted Quantity,Variance,Value Impact,Status',
+          'Product,SKU,System Quantity (pcs),Counted Quantity (pcs),Variance (pcs),Value Impact,Status',
           ...items.map(item => [
             (item as any).products?.name || '',
             (item as any).products?.sku || (item as any).product_variants?.sku || '',

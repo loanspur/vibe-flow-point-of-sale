@@ -16,24 +16,26 @@ export function useRealtimeRefresh({ tables, tenantId, onChange }: RealtimeRefre
   useEffect(() => {
     if (!tables || tables.length === 0) return;
 
-    const channel = supabase.channel('schema-db-changes');
+    const channelName = `schema-db-changes:${tenantId ?? 'global'}:${tables.slice().sort().join(',')}`;
+    const channel = supabase.channel(channelName);
 
     tables.forEach((table) => {
-      channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        (payload: any) => {
-          try {
-            const rec = (payload.new ?? payload.old) as { tenant_id?: string } | null;
-            if (tenantId) {
-              if (rec && rec.tenant_id && rec.tenant_id !== tenantId) return; // ignore other tenants
-            }
+      const params: any = { event: '*', schema: 'public', table };
+      channel.on('postgres_changes', params, (payload: any) => {
+        try {
+          if (!tenantId) {
             onChange();
-          } catch {
+            return;
+          }
+          const rec: any = payload?.new ?? payload?.old ?? {};
+          // Only trigger when event belongs to this tenant if column exists
+          if (typeof rec.tenant_id === 'undefined' || rec.tenant_id === tenantId) {
             onChange();
           }
+        } catch {
+          onChange();
         }
-      );
+      });
     });
 
     channel.subscribe();
@@ -41,6 +43,5 @@ export function useRealtimeRefresh({ tables, tenantId, onChange }: RealtimeRefre
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, JSON.stringify(tables)]);
+    }, [tenantId, onChange, JSON.stringify(tables)]);
 }

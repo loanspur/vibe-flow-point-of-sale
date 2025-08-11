@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
@@ -66,7 +66,7 @@ interface Product {
   product_variants?: any[];
 }
 
-export default function ProductManagement() {
+export default function ProductManagement({ refreshSignal }: { refreshSignal?: number }) {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const { formatCurrency } = useApp();
@@ -80,8 +80,10 @@ export default function ProductManagement() {
   const location = useLocation();
   const [activeFilter, setActiveFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'expiring'>('all');
   const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const didMountRef = useRef(false);
+ 
+   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const f = params.get('filter') as 'low-stock' | 'out-of-stock' | 'expiring' | null;
     setActiveFilter(f || 'all');
@@ -126,6 +128,20 @@ export default function ProductManagement() {
       cacheKey: `products-list-${tenantId}`
     }
   );
+
+  useEffect(() => {
+    if (!loading) setHasLoaded(true);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    if (typeof refreshSignal !== 'undefined') {
+      refetchProducts();
+    }
+  }, [refreshSignal, refetchProducts]);
 
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
@@ -418,7 +434,7 @@ export default function ProductManagement() {
     </Card>
   );
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

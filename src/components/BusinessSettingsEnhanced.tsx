@@ -104,7 +104,7 @@ const businessSettingsSchema = z.object({
   // Product and inventory features
   enable_brands: z.boolean().default(false),
   enable_overselling: z.boolean().default(false),
-  enable_product_units: z.boolean().default(false),
+  enable_product_units: z.boolean().default(true),
   enable_warranty: z.boolean().default(false),
   enable_fixed_pricing: z.boolean().default(false),
   auto_generate_sku: z.boolean().default(true),
@@ -298,7 +298,7 @@ export function BusinessSettingsEnhanced() {
       // Product and inventory features
       enable_brands: false,
       enable_overselling: false,
-      enable_product_units: false,
+      enable_product_units: true,
       enable_warranty: false,
       enable_fixed_pricing: false,
       auto_generate_sku: true,
@@ -1466,6 +1466,27 @@ export function BusinessSettingsEnhanced() {
                       
                       <FormField
                         control={form.control}
+                        name="enable_product_units"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Product Units</FormLabel>
+                              <FormDescription>
+                                Enable units of measure and conversions
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
                         name="enable_barcode_scanning"
                         render={({ field }) => (
                           <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
@@ -1525,6 +1546,29 @@ export function BusinessSettingsEnhanced() {
                             </FormControl>
                           </FormItem>
                         )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="stock_accounting_method"
+                        render={({ field }) => {
+                          const isFifo = (field.value || 'FIFO') === 'FIFO';
+                          return (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">Use FIFO Costing</FormLabel>
+                                <FormDescription>
+                                  When enabled, Cost of Goods uses FIFO (First-In, First-Out). When off, uses Weighted Average Cost.
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={isFifo}
+                                  onCheckedChange={(checked) => field.onChange(checked ? 'FIFO' : 'WAC')}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          );
+                        }}
                       />
                     </CardContent>
                   </Card>

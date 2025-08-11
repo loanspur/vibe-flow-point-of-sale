@@ -11,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis } from "recharts";
 
 interface ReportMetrics {
   totalRevenue: number;
@@ -33,6 +35,7 @@ interface ReportMetrics {
 type ReportView = 'overview' | 'sales' | 'products' | 'customers' | 'financial' | 'inventory' | 'custom';
 
 import { SafeWrapper } from '@/components/SafeWrapper';
+import FinancialStatements from '@/components/accounting/FinancialStatements';
 
 const Reports = () => {
   const { tenantId } = useAuth();
@@ -61,7 +64,11 @@ const Reports = () => {
     totalInventoryValue: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
-
+  const [segmentBy, setSegmentBy] = useState<'none' | 'user' | 'location'>('none');
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day');
+  const [productTop, setProductTop] = useState<{ name: string; quantity: number }[]>([]);
+  const [customerTotals, setCustomerTotals] = useState<Record<string, number>>({});
+  const [customerOutstanding, setCustomerOutstanding] = useState<Record<string, number>>({});
   useEffect(() => {
     if (tenantId) {
       fetchReportData();
@@ -75,15 +82,144 @@ const Reports = () => {
       // Fetch sales data
       const { data: salesData, error: salesError } = await supabase
         .from("sales")
-        .select("total_amount, created_at")
+        .select("*")
         .eq("tenant_id", tenantId);
 
       if (salesError) throw salesError;
 
+      // Map user (cashier) and location from session context tables
+      const cashierIds = Array.from(new Set((salesData || []).map((s: any) => s.cashier_id).filter(Boolean)));
+
+      let profilesData: any[] | null = null;
+      if (cashierIds.length > 0) {
+        const { data: profData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', cashierIds);
+        profilesData = profData || [];
+      }
+
+      const { data: drawersData } = await supabase
+        .from('cash_drawers')
+        .select('user_id, location_name')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+
+      const profileMap: Record<string, string> = {};
+      (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p.full_name; });
+      const drawerMap: Record<string, string | null> = {};
+      (drawersData || []).forEach((d: any) => { drawerMap[d.user_id] = d.location_name; });
+
+      // Compute COGS per sale using FIFO or WAC based on business settings
+      const useFifo = (((businessSettings as any)?.stock_accounting_method) || 'FIFO') === 'FIFO';
+      const saleIds: string[] = (salesData || []).map((s: any) => s.id);
+      const costBySale: Record<string, number> = {};
+
+      if (saleIds.length > 0) {
+        // Fetch all sale items for these sales
+        const { data: allSaleItems } = await supabase
+          .from('sale_items')
+          .select('sale_id, product_id, variant_id, quantity')
+          .in('sale_id', saleIds);
+
+        const productIds = Array.from(new Set((allSaleItems || []).map((i: any) => i.product_id)));
+
+        // Fetch purchase layers for these products (join purchases for order_date and tenant)
+        let purchaseLayers: any[] = [];
+        if (productIds.length > 0) {
+          const { data: plData } = await supabase
+            .from('purchase_items')
+            .select(`
+              product_id,
+              variant_id,
+              quantity_received,
+              unit_cost,
+              created_at,
+              purchases:purchase_id (
+                order_date,
+                tenant_id
+              )
+            `)
+            .in('product_id', productIds);
+          purchaseLayers = (plData || []).filter((l: any) => l?.purchases?.tenant_id === tenantId);
+        }
+
+        // Group purchase layers by product+variant and sort by date (FIFO order)
+        const layersByKey: Record<string, { qty: number; cost: number; date: number }[]> = {};
+        (purchaseLayers || []).forEach((l: any) => {
+          const key = `${l.product_id}:${l.variant_id || 'no'}`;
+          const orderDateStr = l?.purchases?.order_date || l?.created_at;
+          const date = new Date(orderDateStr).getTime();
+          if (!layersByKey[key]) layersByKey[key] = [];
+          layersByKey[key].push({ qty: Number(l.quantity_received || 0), cost: Number(l.unit_cost || 0), date });
+        });
+        Object.values(layersByKey).forEach(arr => arr.sort((a, b) => a.date - b.date));
+
+        // Group sale items by sale
+        const itemsBySale = new Map<string, any[]>();
+        (allSaleItems || []).forEach((it: any) => {
+          const arr = itemsBySale.get(it.sale_id) || [];
+          arr.push(it);
+          itemsBySale.set(it.sale_id, arr);
+        });
+
+        // Compute cost per sale
+        (salesData || []).forEach((s: any) => {
+          const saleItems = itemsBySale.get(s.id) || [];
+          let saleCost = 0;
+          const saleTime = new Date(s.created_at).getTime();
+
+          saleItems.forEach((it: any) => {
+            const key = `${it.product_id}:${it.variant_id || 'no'}`;
+            const layers = (layersByKey[key] || []).filter(l => l.date <= saleTime);
+
+            if (layers.length === 0) {
+              return; // no cost info yet
+            }
+
+            if (useFifo) {
+              // FIFO consumption
+              let remaining = Number(it.quantity || 0);
+              for (const layer of layers) {
+                if (remaining <= 0) break;
+                const take = Math.min(remaining, layer.qty);
+                saleCost += take * layer.cost;
+                remaining -= take;
+              }
+              if (remaining > 0) {
+                const lastCost = layers[layers.length - 1].cost || 0;
+                saleCost += remaining * lastCost;
+              }
+            } else {
+              // Weighted Average Cost up to sale date
+              const sumQty = layers.reduce((sum, l) => sum + l.qty, 0);
+              const sumCost = layers.reduce((sum, l) => sum + l.qty * l.cost, 0);
+              const wac = sumQty > 0 ? (sumCost / sumQty) : 0;
+              saleCost += Number(it.quantity || 0) * wac;
+            }
+          });
+
+          costBySale[s.id] = saleCost;
+        });
+      }
+
+
+      const salesWithDetails = (salesData || []).map((s: any) => {
+        const total_purchase_price = Number(costBySale[s.id] || 0);
+        const total_profit = Number(s.total_amount || 0) - total_purchase_price;
+        return {
+          ...s,
+          user_name: profileMap[s.cashier_id] || null,
+          location_name: drawerMap[s.cashier_id] || null,
+          total_purchase_price,
+          total_profit,
+        };
+      });
+
       // Fetch customers data
       const { data: customersData, error: customersError } = await supabase
         .from("customers")
-        .select("id, created_at")
+        .select("id, name, email, phone, address, created_at")
         .eq("tenant_id", tenantId);
 
       if (customersError) throw customersError;
@@ -91,7 +227,7 @@ const Reports = () => {
       // Fetch products data
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("id, name, price, default_profit_margin, stock_quantity, min_stock_level")
+        .select("id, name, sku, price, default_profit_margin, stock_quantity, min_stock_level, category:product_categories(name)")
         .eq("tenant_id", tenantId)
         .eq("is_active", true);
 
@@ -112,6 +248,13 @@ const Reports = () => {
         .eq("sales.tenant_id", tenantId);
 
       if (topProductsError) throw topProductsError;
+
+      // Fetch accounts receivable for outstanding balances
+      const { data: arData, error: arError } = await supabase
+        .from('accounts_receivable')
+        .select('customer_id, outstanding_amount, status')
+        .eq('tenant_id', tenantId);
+      if (arError) throw arError;
 
       // Calculate metrics
       const now = new Date();
@@ -166,9 +309,9 @@ const Reports = () => {
         productSales.set(productName, (productSales.get(productName) || 0) + item.quantity);
       });
       
-      const topProduct = productSales.size > 0 
-        ? Array.from(productSales.entries()).sort((a, b) => b[1] - a[1])[0][0]
-        : "No data";
+      const sortedProducts = Array.from(productSales.entries()).sort((a, b) => b[1] - a[1]);
+      const topProduct = sortedProducts.length > 0 ? sortedProducts[0][0] : "No data";
+      setProductTop(sortedProducts.slice(0, 10).map(([name, qty]) => ({ name, quantity: qty })));
 
       setMetrics({
         totalRevenue,
@@ -188,10 +331,30 @@ const Reports = () => {
         totalInventoryValue,
       });
 
+      // Build customer aggregates
+      const purchaseTotalsMap = new Map<string, number>();
+      (salesData || []).forEach((sale: any) => {
+        if (sale.customer_id) {
+          purchaseTotalsMap.set(
+            sale.customer_id,
+            (purchaseTotalsMap.get(sale.customer_id) || 0) + Number(sale.total_amount || 0)
+          );
+        }
+      });
+
+      const outstandingMap: Record<string, number> = {};
+      (arData || []).forEach((rec: any) => {
+        if (rec.customer_id && ['outstanding', 'partial', 'overdue'].includes(rec.status)) {
+          outstandingMap[rec.customer_id] = (outstandingMap[rec.customer_id] || 0) + Number(rec.outstanding_amount || 0);
+        }
+      });
+
       // Set detailed data for reports
-      setDetailedSales(salesData || []);
+      setDetailedSales(salesWithDetails || []);
       setDetailedProducts(productsData || []);
       setDetailedCustomers(customersData || []);
+      setCustomerTotals(Object.fromEntries(purchaseTotalsMap));
+      setCustomerOutstanding(outstandingMap);
 
     } catch (error: any) {
       console.error("Error fetching report data:", error);
@@ -207,6 +370,52 @@ const Reports = () => {
       currency: tenantCurrency || 'USD'
     }).format(amount);
   };
+
+  // Build period key for aggregation
+  const getPeriodKey = (dateStr: string, g: 'day' | 'week' | 'month') => {
+    const d = new Date(dateStr);
+    const y = d.getFullYear();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    if (g === 'day') return `${y}-${m}-${day}`;
+    if (g === 'week') {
+      const temp = new Date(d);
+      const dayNum = d.getDay();
+      const monday = new Date(temp.setDate(d.getDate() - ((dayNum + 6) % 7)));
+      const wm = (monday.getMonth() + 1).toString().padStart(2, '0');
+      const wd = monday.getDate().toString().padStart(2, '0');
+      return `${monday.getFullYear()}-W${wm}${wd}`;
+    }
+    return `${y}-${m}`;
+  };
+
+  // Aggregate sales into chart-friendly data
+  const buildSalesTrendData = (
+    sales: any[],
+    seg: 'none' | 'user' | 'location',
+    g: 'day' | 'week' | 'month'
+  ) => {
+    const map = new Map<string, Record<string, number>>();
+    const segs = new Set<string>();
+
+    sales.forEach((sale) => {
+      const period = getPeriodKey(sale.created_at, g);
+      const segKey = seg === 'user'
+        ? (sale.created_by || sale.user_id || 'Unknown')
+        : seg === 'location'
+          ? (sale.location_name || sale.location || sale.location_id || 'Unknown')
+          : 'Revenue';
+      segs.add(segKey);
+      if (!map.has(period)) map.set(period, {});
+      map.get(period)![segKey] = (map.get(period)![segKey] || 0) + Number(sale.total_amount || 0);
+    });
+
+    const periods = Array.from(map.keys()).sort();
+    const data = periods.map((p) => ({ period: p, ...map.get(p)! }));
+    const segments = seg === 'none' ? ['Revenue'] : Array.from(segs);
+    return { data, segments } as { data: any[]; segments: string[] };
+  };
+
 
   const filteredSales = detailedSales.filter(sale => {
     const matchesSearch = sale.id?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -310,7 +519,7 @@ const Reports = () => {
             </div>
 
             {/* Filters and Search */}
-            <div className="flex items-center gap-4 p-4 bg-card rounded-lg border">
+            <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-lg border">
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
@@ -334,6 +543,28 @@ const Reports = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-2">
+                <Select value={segmentBy} onValueChange={(v) => setSegmentBy(v as any)}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue placeholder="Segment by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Segment</SelectItem>
+                    <SelectItem value="user">By User</SelectItem>
+                    <SelectItem value="location">By Location</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={granularity} onValueChange={(v) => setGranularity(v as any)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Granularity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Daily</SelectItem>
+                    <SelectItem value="week">Weekly</SelectItem>
+                    <SelectItem value="month">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Detailed Sales Table */}
@@ -346,43 +577,59 @@ const Reports = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Date/Time</TableHead>
                       <TableHead>Sale ID</TableHead>
-                      <TableHead>Amount</TableHead>
+                      <TableHead>Purchase Amount</TableHead>
+                      <TableHead>Total Purchase Price</TableHead>
+                      <TableHead>Total Profit</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>User</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Payment Method</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSales.length > 0 ? (
-                      filteredSales.slice(0, 20).map((sale) => (
-                        <TableRow key={sale.id}>
-                          <TableCell>
-                            {new Date(sale.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            #{sale.id?.slice(-8)}
-                          </TableCell>
-                          <TableCell className="font-semibold">
-                            {formatCurrency(sale.total_amount)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={sale.status === 'completed' ? 'default' : 'secondary'}>
-                              {sale.status || 'completed'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {sale.payment_method || 'Cash'}
+                      {filteredSales.length > 0 ? (
+                        filteredSales.slice(0, 20).map((sale) => (
+                          <TableRow key={sale.id}>
+                            <TableCell>
+                              {new Date(sale.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              #{sale.id?.slice(-8)}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {formatCurrency(sale.total_amount)}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {formatCurrency(sale.total_purchase_price || 0)}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {formatCurrency(sale.total_profit || 0)}
+                            </TableCell>
+                            <TableCell>
+                              {sale.location_name || sale.location || sale.location_id || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              {sale.user_name || sale.created_by || sale.user_id || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={sale.status === 'completed' ? 'default' : 'secondary'}>
+                                {sale.status || 'completed'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {sale.payment_method || 'Cash'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            {searchTerm || dateFilter !== 'all' ? 'No sales found matching your criteria' : 'No sales data available'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          {searchTerm || dateFilter !== 'all' ? 'No sales found matching your criteria' : 'No sales data available'}
-                        </TableCell>
-                      </TableRow>
-                    )}
+                      )}
                   </TableBody>
                 </Table>
                 {filteredSales.length > 20 && (
@@ -464,6 +711,28 @@ const Reports = () => {
                 />
               </div>
             </div>
+
+            {/* Top Products Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Products (by units)</CardTitle>
+                <CardDescription>Top performers from sales history</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={{ quantity: { label: 'Units Sold', color: 'hsl(var(--primary))' } }} className="w-full">
+                  <BarChart data={productTop} margin={{ left: 12, right: 12 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} hide={productTop.length > 8} />
+                    <YAxis tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="quantity" fill="var(--color-quantity)" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ChartContainer>
+                {productTop.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No product sales found yet.</div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Product Performance Table */}
             <Card>
@@ -619,6 +888,8 @@ const Reports = () => {
                       <TableHead>Phone</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Joined Date</TableHead>
+                      <TableHead>Total Purchases</TableHead>
+                      <TableHead>Outstanding Payments</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -644,11 +915,17 @@ const Reports = () => {
                           <TableCell>
                             {new Date(customer.created_at).toLocaleDateString()}
                           </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(customerTotals[customer.id] || 0)}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(customerOutstanding[customer.id] || 0)}
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           {searchTerm ? 'No customers found matching your search' : 'No customers available'}
                         </TableCell>
                       </TableRow>
@@ -717,6 +994,67 @@ const Reports = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Financial Trend */}
+            {(() => {
+              const { data } = buildSalesTrendData(filteredSales, 'none', granularity);
+              const chartConfig = { Revenue: { label: 'Revenue', color: 'hsl(var(--primary))' } } as const;
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Revenue Trend</CardTitle>
+                    <CardDescription>Aggregated by {granularity}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ChartContainer config={chartConfig} className="w-full">
+                      <AreaChart data={data} margin={{ left: 12, right: 12 }}>
+                        <CartesianGrid vertical={false} />
+                        <XAxis dataKey="period" tickLine={false} axisLine={false} />
+                        <YAxis tickLine={false} axisLine={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Area type="monotone" dataKey="Revenue" stroke="var(--color-Revenue)" fill="var(--color-Revenue)" />
+                      </AreaChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* Financial Statements (downloadable) */}
+            <div className="mt-6">
+              <FinancialStatements />
+            </div>
+
+            {/* Ratio Analysis */}
+            {(() => {
+              const grossMargin = metrics.totalRevenue ? metrics.grossProfit / metrics.totalRevenue : 0;
+              const netMargin = metrics.totalRevenue ? metrics.netProfit / metrics.totalRevenue : 0;
+              const avgOrder = metrics.avgOrderValue || 0;
+              return (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Ratio Analysis</CardTitle>
+                    <CardDescription>Key performance ratios</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Gross Margin</div>
+                        <div className="text-2xl font-bold">{(grossMargin * 100).toFixed(1)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Net Profit Margin</div>
+                        <div className="text-2xl font-bold">{(netMargin * 100).toFixed(1)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Average Order Value</div>
+                        <div className="text-2xl font-bold">{formatCurrency(avgOrder)}</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </div>
         );
         

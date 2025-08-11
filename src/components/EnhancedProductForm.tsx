@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Package, Barcode, Shield, Layers, Clock } from 'lucide-react';
 
@@ -49,6 +50,7 @@ interface EnhancedProductFormProps {
 
 export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: EnhancedProductFormProps) => {
   const { tenantId } = useAuth();
+  useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { hasFeature } = useFeatureAccess();
@@ -463,7 +465,7 @@ export const EnhancedProductForm = ({ productId, onSuccess, onCancel }: Enhanced
                     name="stock_quantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Stock Quantity</FormLabel>
+                        <FormLabel>Stock Quantity (pcs)</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 

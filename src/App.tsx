@@ -38,8 +38,7 @@ const Careers = lazy(() => import("./pages/Careers"));
 
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
-const TenantAdminDashboard = lazy(() => import("./pages/TenantAdminDashboard"));
-
+import TenantAdminDashboard from "./pages/TenantAdminDashboard";
 
 // Admin Pages
 const TenantManagement = lazy(() => import("./pages/TenantManagement"));
@@ -55,7 +54,7 @@ const TenantCommunications = lazy(() => import("./pages/TenantCommunications"));
 const SuperAdminSettings = lazy(() => import("./pages/SuperAdminSettings"));
 const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunications"));
 const SuperAdminPlanManagement = lazy(() => import("./pages/SuperAdminPlanManagement"));
-const Products = lazy(() => import("./pages/Products"));
+import Products from "./pages/Products";
 const Reports = lazy(() => import("./pages/Reports"));
 const Team = lazy(() => import("./pages/Team"));
 const Customers = lazy(() => import("./pages/Customers"));
