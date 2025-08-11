@@ -21,6 +21,7 @@ interface User {
   id: string;
   user_id: string;
   full_name: string;
+  email?: string;
   role: string;
   tenant_id: string;
   created_at: string;
@@ -166,7 +167,22 @@ const UserManagement = () => {
       if (tuError) throw tuError;
 
       if (!tenantUsers || tenantUsers.length === 0) {
-        setUsers([]);
+        // No tenant users yet; ensure tenant admin is visible by default
+        let result: User[] = [];
+        if ((userRole === 'admin' || userRole === 'owner') && user?.id && tenantId) {
+          result = [{
+            id: user.id,
+            user_id: user.id,
+            full_name: (user.user_metadata as any)?.full_name || user.email || 'Tenant Admin',
+            email: user.email || undefined,
+            role: userRole as string,
+            tenant_id: tenantId,
+            created_at: new Date().toISOString(),
+            is_active: true,
+            invitation_status: 'accepted',
+          } as User];
+        }
+        setUsers(result);
         return;
       }
 
@@ -196,6 +212,7 @@ const UserManagement = () => {
           id: p.id || tu.user_id,
           user_id: tu.user_id,
           full_name: displayName,
+          email: emailInfo?.email || undefined,
           role: p.role || tu.role,
           tenant_id: tu.tenant_id,
           created_at: p.created_at || tu.created_at,
@@ -208,7 +225,26 @@ const UserManagement = () => {
         } as User;
       });
 
-      setUsers(combined);
+      // Ensure tenant admin is always present in the list
+      let result = combined;
+      const hasAdmin = combined.some(u => ['admin', 'owner'].includes((u.role || '').toLowerCase()));
+      if (!hasAdmin && (userRole === 'admin' || userRole === 'owner') && user?.id && tenantId) {
+        if (!combined.some(u => u.user_id === user.id)) {
+          result = [{
+            id: user.id,
+            user_id: user.id,
+            full_name: (user.user_metadata as any)?.full_name || user.email || 'Tenant Admin',
+            email: user.email || undefined,
+            role: userRole as string,
+            tenant_id: tenantId,
+            created_at: new Date().toISOString(),
+            is_active: true,
+            invitation_status: 'accepted',
+          } as User, ...combined];
+        }
+      }
+
+      setUsers(result);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -683,8 +719,10 @@ const UserManagement = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.role?.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (user.full_name?.toLowerCase().includes(term) ||
+                         user.role?.toLowerCase().includes(term) ||
+                         user.email?.toLowerCase().includes(term));
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -875,6 +913,7 @@ const UserManagement = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Invitation Status</TableHead>
                       <TableHead>Joined</TableHead>
@@ -885,7 +924,7 @@ const UserManagement = () => {
                   <TableBody>
                     {filteredUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8">
+                        <TableCell colSpan={7} className="text-center py-8">
                           No users found
                         </TableCell>
                       </TableRow>
@@ -904,6 +943,7 @@ const UserManagement = () => {
                                 </div>
                               </div>
                             </TableCell>
+                            <TableCell>{user.email || '-'}</TableCell>
                             <TableCell>
                               <Badge className={roleInfo.color}>
                                 <div className="flex items-center gap-1">
