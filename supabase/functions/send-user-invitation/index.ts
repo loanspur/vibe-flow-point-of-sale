@@ -117,22 +117,19 @@ const handler = async (req: Request): Promise<Response> => {
             createError.code === '422') {
           console.log('User already exists, proceeding with existing user...');
           
-          // Get existing user - use a more targeted approach
-          const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-            page: 1,
-            perPage: 100
-          });
+          // Get existing user by email - more efficient approach
+          const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
           
-          if (listError) {
-            throw new Error(`Failed to check existing users: ${listError.message}`);
+          if (getUserError) {
+            console.error('Error getting existing user by email:', getUserError);
+            throw new Error(`Failed to find existing user: ${getUserError.message}`);
           }
           
-          const existingUser = users?.users?.find(user => user.email === email);
-          if (!existingUser) {
+          if (!existingUser || !existingUser.user) {
             throw new Error('User creation failed and could not find existing user');
           }
           
-          userId = existingUser.id;
+          userId = existingUser.user.id;
           isNewUser = false;
           userStatus = 'reinvited';
           console.log('Found existing user:', userId);
