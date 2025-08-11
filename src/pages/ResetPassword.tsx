@@ -58,9 +58,15 @@ const ResetPassword = () => {
 
       if (access_token && refresh_token) {
         // Persist the session so user can update password immediately
-        supabase.auth.setSession({ access_token, refresh_token }).catch((err) => {
-          console.error('Failed to set session from invite link:', err);
-        });
+        supabase.auth
+          .setSession({ access_token, refresh_token })
+          .then(() => {
+            // Mark invite as accepted upon successful session set
+            markInvitationAccepted();
+          })
+          .catch((err) => {
+            console.error('Failed to set session from invite link:', err);
+          });
 
         // Clean up tokens from the URL for nicer UX
         try {
@@ -81,6 +87,21 @@ const ResetPassword = () => {
     if (!password) return 'Password is required';
     if (password.length < 6) return 'Password must be at least 6 characters';
     return '';
+  };
+
+  // Mark invitation as accepted once the email link establishes a session
+  const markInvitationAccepted = async () => {
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id;
+      if (!uid) return;
+      await supabase
+        .from('profiles')
+        .update({ invitation_status: 'accepted', invitation_accepted_at: new Date().toISOString() })
+        .eq('user_id', uid);
+    } catch (e) {
+      console.warn('Failed to mark invitation as accepted', e);
+    }
   };
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
