@@ -41,8 +41,33 @@ const handler = async (req: Request): Promise<Response> => {
     if (!email || !fullName || !role || !tenantId) {
       throw new Error('Missing required fields: email, fullName, role, tenantId');
     }
+    console.log('Invitation request received for email:', requestBody.email);
+
+    const {
+      email,
+      fullName,
+      role,
+      tenantId
+    }: InviteUserRequest = requestBody;
+
+    // Validate required fields
+    if (!email || !fullName || !role || !tenantId) {
+      throw new Error('Missing required fields: email, fullName, role, tenantId');
+    }
 
     console.log('Processing invitation for:', email, 'to tenant:', tenantId);
+
+    // Normalize role input to allowed values
+    const roleInput = (role || '').toString().trim().toLowerCase();
+    let normalizedRole: 'admin' | 'manager' | 'user' | 'cashier' = 'user';
+    if (['admin','manager','user','cashier'].includes(roleInput)) {
+      normalizedRole = roleInput as any;
+    } else if (roleInput.includes('attend')) { // handle misspellings like "attendand"
+      normalizedRole = 'cashier';
+    } else if (roleInput.includes('staff') || roleInput.includes('employee') || roleInput.includes('sales')) {
+      normalizedRole = 'cashier';
+    }
+    console.log('Normalized role:', roleInput, '->', normalizedRole);
 
     // Initialize Supabase admin client
     const supabaseAdmin = createClient(
@@ -109,40 +134,56 @@ const handler = async (req: Request): Promise<Response> => {
         user_metadata: {
           full_name: fullName,
           tenant_id: tenantId,
-          role: role
+          role: normalizedRole
         },
         email_confirm: false // User must verify email through invitation link
       });
 
       if (createError) {
-        // Check if error is due to user already existing
-        if (createError.message?.includes('already registered') || 
-            createError.message?.includes('already exists') ||
-            createError.code === '422') {
+        const msg = createError.message || '';
+        const code = (createError.code || '').toString();
+        const status = (createError.status || (createError as any).statusCode || null);
+        // Treat known "already exists" cases as existing-user flow
+        if (
+          msg.toLowerCase().includes('already registered') ||
+          msg.toLowerCase().includes('already exists') ||
+          code === '422' ||
+          code === 'email_exists' ||
+          status === 422
+        ) {
           console.log('User already exists, proceeding with existing user...');
-          
-          // Get existing user - use a more targeted approach
-          const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-            page: 1,
-            perPage: 100
-          });
-          
-          if (listError) {
-            throw new Error(`Failed to check existing users: ${listError.message}`);
+
+          // Find existing user by listing users (getUserByEmail removed in supabase-js v2)
+          const findUserByEmail = async (emailToFind: string) => {
+            let page = 1;
+            const perPage = 100;
+            while (page <= 20) { // safety cap of 2000 users scanned
+              const { data: listData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+              if (listErr) {
+                console.error('Error listing users:', listErr);
+                throw new Error(`Failed to list users: ${listErr.message}`);
+              }
+              const users = listData?.users || [];
+              const match = users.find((u: any) => (u.email || '').toLowerCase() === emailToFind.toLowerCase());
+              if (match) return match;
+              if (users.length < perPage) break; // no more pages
+              page++;
+            }
+            return null;
+          };
+
+          const existing = await findUserByEmail(email);
+          if (!existing) {
+            throw new Error('User creation failed and existing user not found by email');
           }
-          
-          const existingUser = users?.users?.find(user => user.email === email);
-          if (!existingUser) {
-            throw new Error('User creation failed and could not find existing user');
-          }
-          
-          userId = existingUser.id;
+
+          userId = existing.id;
           isNewUser = false;
           userStatus = 'reinvited';
           console.log('Found existing user:', userId);
         } else {
           console.error('Error creating user in auth:', createError);
-          throw new Error(`Failed to create user: ${createError.message}`);
+          throw new Error(`Failed to create user: ${msg}`);
         }
       } else {
         if (!authData?.user) {
@@ -170,7 +211,7 @@ const handler = async (req: Request): Promise<Response> => {
         .from('profiles')
         .update({
           full_name: fullName,
-          role: role as 'admin' | 'manager' | 'user' | 'cashier',
+          role: normalizedRole,
           tenant_id: tenantId,
           email_verified: false,
           invitation_status: 'invited',
@@ -192,7 +233,7 @@ const handler = async (req: Request): Promise<Response> => {
         .insert({
           user_id: userId,
           full_name: fullName,
-          role: role as 'admin' | 'manager' | 'user' | 'cashier',
+          role: normalizedRole,
           tenant_id: tenantId,
           email_verified: false,
           invitation_status: 'invited',
@@ -219,9 +260,9 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Profile handled successfully:', profileData);
 
     // Handle tenant_users relationship
-    const tenantRole = role === 'admin' ? 'admin' : 
-                      role === 'manager' ? 'manager' : 
-                      role === 'cashier' ? 'user' : 'user';
+    const tenantRole = normalizedRole === 'admin' ? 'admin' : 
+                      normalizedRole === 'manager' ? 'manager' : 
+                      normalizedRole === 'cashier' ? 'user' : 'user';
 
     const { data: existingTenantUser } = await supabaseAdmin
       .from('tenant_users')
@@ -285,8 +326,10 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Tenant user relationship handled successfully:', tenantUserData);
 
     // Generate email verification link
+    const linkType = isNewUser ? 'invite' : 'recovery';
+    console.log('Generating auth link with type:', linkType);
     const { data: emailLinkData, error: emailLinkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
+      type: linkType as 'invite' | 'recovery',
       email: email,
       options: {
         redirectTo: `${invitationBaseUrl}/auth?invitation=true`
@@ -321,7 +364,7 @@ const handler = async (req: Request): Promise<Response> => {
         <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h2 style="color: #1e293b; margin-top: 0;">Hello ${fullName},</h2>
           <p style="color: #475569; line-height: 1.6;">
-            You've been invited to join <strong>${tenant.name}</strong> on VibePOS as a <strong>${role}</strong>. 
+            You've been invited to join <strong>${tenant.name}</strong> on VibePOS as a <strong>${normalizedRole}</strong>. 
             VibePOS is a powerful point-of-sale system that will help you manage business operations efficiently.
           </p>
         </div>
@@ -374,8 +417,14 @@ const handler = async (req: Request): Promise<Response> => {
     // Initialize Resend
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
+    // Choose sending domain based on tenant domain/base URL
+    const fromDomain = (tenantDomain?.domain_name && tenantDomain.domain_name.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online')
+      ? 'vibenet.online'
+      : 'vibenet.shop';
+    console.log('Email sending domain selected:', fromDomain);
+
     const emailResponse = await resend.emails.send({
-      from: 'VibePOS Team <noreply@vibenet.shop>',
+      from: `VibePOS Team <noreply@${fromDomain}>`,
       to: [email],
       subject: emailSubject,
       html: htmlContent,
@@ -454,7 +503,10 @@ const handler = async (req: Request): Promise<Response> => {
       statusCode = 400; // Bad Request
     } else if (error.message?.includes('Invalid tenant ID')) {
       statusCode = 400; // Bad Request
-    } else if (error.message?.includes('User with this email already exists')) {
+    } else if (
+      /already\s*(been\s*)?registered|already\s*exists/i.test(error.message || '') ||
+      (error.code && (error.code === 'email_exists' || error.code === '422'))
+    ) {
       statusCode = 409; // Conflict
     }
     
@@ -464,7 +516,8 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         error: errorMessage,
         details: error.toString(),
-        code: error.code || 'INVITATION_ERROR'
+        code: error.code || 'INVITATION_ERROR',
+        status: error.status || error.statusCode || 500
       }),
       {
         status: statusCode,

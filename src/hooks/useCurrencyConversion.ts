@@ -24,6 +24,14 @@ export const useCurrencyConversion = () => {
 
   // Get tenant's local currency based on their country
   const fetchTenantCurrency = useCallback(async () => {
+    // Avoid tenant-specific currency fetch on apex domains before redirect
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isApex = host === 'vibenet.shop' || host === 'www.vibenet.shop' || host === 'vibenet.online' || host === 'www.vibenet.online';
+    if (isApex) {
+      setLoading(false);
+      return;
+    }
+
     if (!tenantId) {
       setLoading(false);
       return;
