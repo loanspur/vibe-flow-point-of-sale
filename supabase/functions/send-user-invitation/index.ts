@@ -90,22 +90,16 @@ const handler = async (req: Request): Promise<Response> => {
       console.log('Using fallback subdomain:', subdomain);
     }
 
+
+    // More efficient approach: try to create user first, handle existing user case
+    console.log('Attempting to create user...');
+    
     let userId: string;
     let isNewUser = true;
     let userStatus = 'invited';
-
-    // Check if user already exists in auth system
-    console.log('Checking if user already exists...');
-    const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
     
-    if (existingUser && !getUserError) {
-      console.log('User already exists in auth system:', existingUser.id);
-      userId = existingUser.id;
-      isNewUser = false;
-      userStatus = 'reinvited';
-    } else {
-      console.log('Creating new user account...');
-      // Create user account (unconfirmed)
+    try {
+      // Try to create user account first (more efficient than listing all users)
       const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
         user_metadata: {
@@ -117,16 +111,45 @@ const handler = async (req: Request): Promise<Response> => {
       });
 
       if (createError) {
-        console.error('Error creating user in auth:', createError);
-        throw new Error(`Failed to create user: ${createError.message}`);
+        // Check if error is due to user already existing
+        if (createError.message?.includes('already registered') || 
+            createError.message?.includes('already exists') ||
+            createError.code === '422') {
+          console.log('User already exists, proceeding with existing user...');
+          
+          // Get existing user - use a more targeted approach
+          const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+            page: 1,
+            perPage: 100
+          });
+          
+          if (listError) {
+            throw new Error(`Failed to check existing users: ${listError.message}`);
+          }
+          
+          const existingUser = users?.users?.find(user => user.email === email);
+          if (!existingUser) {
+            throw new Error('User creation failed and could not find existing user');
+          }
+          
+          userId = existingUser.id;
+          isNewUser = false;
+          userStatus = 'reinvited';
+          console.log('Found existing user:', userId);
+        } else {
+          console.error('Error creating user in auth:', createError);
+          throw new Error(`Failed to create user: ${createError.message}`);
+        }
+      } else {
+        if (!authData?.user) {
+          throw new Error('User creation failed - no user data returned');
+        }
+        userId = authData.user.id;
+        console.log('User created successfully in auth:', userId);
       }
-
-      if (!authData?.user) {
-        throw new Error('User creation failed - no user data returned');
-      }
-
-      userId = authData.user.id;
-      console.log('User created successfully in auth:', userId);
+    } catch (error: any) {
+      console.error('Critical error in user creation process:', error);
+      throw new Error(`User creation process failed: ${error.message}`);
     }
 
     // Handle profile creation/update
