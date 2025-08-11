@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Clock, AlertTriangle, Ban, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Clock, AlertTriangle, Ban, CheckCircle, XCircle, Mail } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -139,6 +139,11 @@ const UserManagement = () => {
   const [creating, setCreating] = useState(false);
   const [createUserError, setCreateUserError] = useState<{ message: string; details?: string; code?: string } | null>(null);
 
+  // Resend invitation dialog state
+  const [resendOpen, setResendOpen] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendTarget, setResendTarget] = useState<User | null>(null);
   useEffect(() => {
     if (tenantId) {
       fetchUsers();
@@ -537,6 +542,53 @@ const UserManagement = () => {
     }
   };
 
+  // Open resend invitation dialog and try to prefill last used email
+  const openResendDialog = async (target: User) => {
+    setResendTarget(target);
+    setResendEmail('');
+    setResendOpen(true);
+
+    // Prefill with last invitation recipient if available
+    try {
+      const { data } = await supabase
+        .from('communication_logs')
+        .select('recipient')
+        .eq('tenant_id', tenantId)
+        .eq('user_id', target.user_id)
+        .eq('type', 'user_invitation')
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.recipient) setResendEmail(data.recipient);
+    } catch (e) {
+      // no-op
+    }
+  };
+
+  const resendInvitationConfirm = async () => {
+    if (!resendTarget || !resendEmail) return;
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-user-invitation', {
+        body: {
+          email: resendEmail,
+          fullName: resendTarget.full_name,
+          role: resendTarget.role,
+          tenantId
+        }
+      });
+      if (error) throw error;
+      toast.success(data?.message || 'Invitation email resent');
+      setResendOpen(false);
+      setResendTarget(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to resend invitation');
+    } finally {
+      setResending(false);
+    }
+  };
+
   const deactivateUserSession = async (sessionId: string) => {
     try {
       const { error } = await supabase
@@ -852,6 +904,17 @@ const UserManagement = () => {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
+                                {user.invitation_status !== 'accepted' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openResendDialog(user)}
+                                    disabled={resending && resendTarget?.user_id === user.user_id}
+                                    title="Resend invitation"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 {userRole === 'admin' && (
                                   <>
                                     <Select
@@ -1213,6 +1276,36 @@ const UserManagement = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Resend Invitation Dialog */}
+      <Dialog open={resendOpen} onOpenChange={setResendOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resend Invitation</DialogTitle>
+            <DialogDescription>
+              Send a fresh invitation link to set password and join this tenant.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="resend-email">Recipient Email</Label>
+              <Input
+                id="resend-email"
+                type="email"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setResendOpen(false)}>Cancel</Button>
+              <Button onClick={resendInvitationConfirm} disabled={resending || !resendEmail}>
+                {resending ? 'Sending...' : 'Send Invitation'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

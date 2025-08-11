@@ -44,13 +44,35 @@ const ResetPassword = () => {
     // If coming from invitation, ensure we show password step and set session from URL tokens
     if (isInvite) {
       setStep('password');
-      const access_token = searchParams.get('access_token');
-      const refresh_token = searchParams.get('refresh_token');
+
+      // Try query params first
+      let access_token = searchParams.get('access_token');
+      let refresh_token = searchParams.get('refresh_token');
+
+      // Fallback: parse tokens from URL hash (when detectSessionInUrl is disabled)
+      if ((!access_token || !refresh_token) && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        access_token = access_token || hashParams.get('access_token') || undefined;
+        refresh_token = refresh_token || hashParams.get('refresh_token') || undefined;
+      }
+
       if (access_token && refresh_token) {
         // Persist the session so user can update password immediately
         supabase.auth.setSession({ access_token, refresh_token }).catch((err) => {
           console.error('Failed to set session from invite link:', err);
         });
+
+        // Clean up tokens from the URL for nicer UX
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('access_token');
+          url.searchParams.delete('refresh_token');
+          // Also drop hash
+          url.hash = '';
+          window.history.replaceState({}, '', url.toString());
+        } catch (e) {
+          // no-op
+        }
       }
     }
   }, [searchParams, isInvite]);
