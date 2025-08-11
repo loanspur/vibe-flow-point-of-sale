@@ -71,7 +71,9 @@ const CompactPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSu
           .eq('is_active', true)
           .lte('effective_date', new Date().toISOString().split('T')[0])
           .or('expires_at.is.null,expires_at.gte.' + new Date().toISOString().split('T')[0])
-          .single();
+          .order('effective_date', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle();
 
         if (!error && data) {
           setCustomPricing(data);
@@ -138,7 +140,9 @@ const CurrentPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSu
           .eq('is_active', true)
           .lte('effective_date', new Date().toISOString().split('T')[0])
           .or('expires_at.is.null,expires_at.gte.' + new Date().toISOString().split('T')[0])
-          .single();
+          .order('effective_date', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle();
 
         if (!error && data) {
           setCustomPricing(data);
