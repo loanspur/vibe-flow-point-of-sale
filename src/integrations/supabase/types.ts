@@ -6757,6 +6757,13 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      get_tenant_user_emails: {
+        Args: { tenant_id: string } | { user_ids: string[] }
+        Returns: {
+          user_id: string
+          email: string
+        }[]
+      }
       get_transfer_request_details: {
         Args: { request_id: string }
         Returns: {
