@@ -181,12 +181,21 @@ const UserManagement = () => {
 
       const profileMap = new Map<string, any>((profiles || []).map((p: any) => [p.user_id, p]));
 
+      // Fetch emails from Auth for these tenant users via secure RPC (fallback for unknown profiles)
+      const { data: emailRows, error: emailErr } = await supabase.rpc('get_tenant_user_emails', { tenant_id: tenantId });
+      if (emailErr) {
+        console.warn('get_tenant_user_emails RPC failed:', emailErr);
+      }
+      const emailMap = new Map<string, { email: string; last_sign_in_at?: string; created_at?: string }>((emailRows || []).map((r: any) => [r.user_id, r]));
+
       const combined: User[] = tenantUsers.map((tu: any) => {
         const p = profileMap.get(tu.user_id) || {};
+        const emailInfo = emailMap.get(tu.user_id);
+        const displayName = p.full_name || emailInfo?.email || 'Unknown User';
         return {
           id: p.id || tu.user_id,
           user_id: tu.user_id,
-          full_name: p.full_name || 'Unknown User',
+          full_name: displayName,
           role: p.role || tu.role,
           tenant_id: tu.tenant_id,
           created_at: p.created_at || tu.created_at,
@@ -195,6 +204,7 @@ const UserManagement = () => {
           invitation_status: p.invitation_status || (tu.invited_at ? 'pending' : 'accepted'),
           invited_at: p.invited_at || tu.invited_at || null,
           invitation_accepted_at: p.invitation_accepted_at || null,
+          last_login: emailInfo?.last_sign_in_at || undefined,
         } as User;
       });
 
