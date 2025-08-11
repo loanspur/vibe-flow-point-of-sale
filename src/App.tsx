@@ -224,17 +224,17 @@ const DomainRouter = () => {
   }, [loading, domainConfig, user]);
   
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    const base = getBaseDomain();
-    const targetUrl = `https://${base}/dashboard`;
-    window.location.replace(targetUrl);
-    
+    // Stay on the current subdomain; do not redirect to base domain.
+    // Guide the user to authenticate so we can resolve tenant context.
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Redirecting to main site...</p>
-        </div>
-      </div>
+      <Suspense fallback={<PageLoader />}>        
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="*" element={<Navigate to="/auth" replace />} />
+        </Routes>
+      </Suspense>
     );
   }
 
