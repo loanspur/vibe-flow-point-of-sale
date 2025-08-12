@@ -376,8 +376,8 @@ const handler = async (req: Request): Promise<Response> => {
         <div style="margin-bottom: 30px;">
           <h3 style="color: #1e293b;">What's Next?</h3>
           <ol style="color: #475569; line-height: 1.6;">
-            <li>Click the invitation link below to verify your email</li>
-            <li>Set up your secure password</li>
+            <li>Click the button below to verify your email and set your password</li>
+            <li>Confirm your new password on the secure page</li>
             <li>Start exploring your VibePOS dashboard</li>
             <li>Get familiar with the features available for your role</li>
           </ol>
@@ -385,14 +385,14 @@ const handler = async (req: Request): Promise<Response> => {
 
         <div style="text-align: center; margin: 30px 0;">
           <a href="${verificationUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-            Accept Invitation & Verify Email
+            Accept Invitation & Set Password
           </a>
         </div>
 
         <div style="background-color: #f0f9ff; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
           <p style="margin: 0; color: #075985;">
-            <strong>Your VibePOS Dashboard:</strong><br>
-            <a href="${invitationBaseUrl}" style="color: #0369a1; word-break: break-all;">${invitationBaseUrl}</a>
+            <strong>Set your password (tenant link):</strong><br>
+            <a href="${verificationUrl}" style="color: #0369a1; word-break: break-all;">${invitationBaseUrl}/reset-password</a>
           </p>
         </div>
 
