@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Clock, AlertTriangle, Ban, CheckCircle, XCircle, Mail } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 
 interface User {
   id: string;
@@ -339,6 +340,14 @@ const UserManagement = () => {
     }
   };
 
+  // Realtime refresh for membership and role changes
+  useRealtimeRefresh({
+    tables: ['tenant_users', 'user_role_assignments', 'profiles'],
+    tenantId: tenantId ?? null,
+    onChange: fetchUsers,
+    enabled: !!tenantId,
+  });
+
   const fetchRoles = async () => {
     try {
       const { data, error } = await supabase
@@ -463,14 +472,34 @@ const UserManagement = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: string) => {
+  const updateUserRole = async (userId: string, newRoleName: string) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole as any })
-        .eq('user_id', userId);
+      // Find selected role in tenant's roles
+      const role = roles.find((r) => r.name === newRoleName);
+      if (!role) {
+        toast.error('Selected role not found');
+        return;
+      }
 
-      if (error) throw error;
+      // Deactivate existing assignments for this user in this tenant
+      const { error: deactivateErr } = await supabase
+        .from('user_role_assignments')
+        .update({ is_active: false })
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+      if (deactivateErr) {
+        console.warn('Failed to deactivate existing assignments:', deactivateErr);
+      }
+
+      // Upsert the new active assignment
+      const { error: upsertErr } = await supabase
+        .from('user_role_assignments')
+        .insert({ user_id: userId, role_id: role.id, assigned_by: user?.id, is_active: true, tenant_id: tenantId as string })
+        .select()
+        .single();
+
+      if (upsertErr) throw upsertErr;
 
       toast.success('User role updated successfully');
       fetchUsers();
