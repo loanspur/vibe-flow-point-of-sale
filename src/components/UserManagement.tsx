@@ -222,6 +222,33 @@ const UserManagement = () => {
 
       const profileMap = new Map<string, any>((profiles || []).map((p: any) => [p.user_id, p]));
 
+      // Fetch active role assignments and role names to determine display role
+      const { data: roleAssignments, error: raError } = await supabase
+        .from('user_role_assignments')
+        .select('user_id, role_id, is_active')
+        .in('user_id', userIds)
+        .eq('is_active', true);
+      if (raError) {
+        console.warn('user_role_assignments fetch failed:', raError);
+      }
+
+      const { data: rolesRows, error: rolesErr } = await supabase
+        .from('user_roles')
+        .select('id, name, level')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+      if (rolesErr) {
+        console.warn('user_roles fetch failed:', rolesErr);
+      }
+
+      const assignmentsByUser = new Map<string, any[]>();
+      (roleAssignments || []).forEach((ra: any) => {
+        const list = assignmentsByUser.get(ra.user_id) || [];
+        list.push(ra);
+        assignmentsByUser.set(ra.user_id, list);
+      });
+      const roleNameById = new Map<string, string>((rolesRows || []).map((r: any) => [r.id, r.name]));
+
       // Fetch emails from Auth for these tenant users via secure RPC (fallback for unknown profiles)
       const { data: emailRows, error: emailErr } = await supabase.rpc('get_tenant_user_emails', { tenant_id: tenantId });
       if (emailErr) {
@@ -238,12 +265,14 @@ const UserManagement = () => {
           user_id: tu.user_id,
           full_name: displayName,
           email: emailInfo?.email || undefined,
-          role: tu.role || p.role,
+          role: (assignmentsByUser.get(tu.user_id)?.[0]?.role_id
+            ? (roleNameById.get(assignmentsByUser.get(tu.user_id)![0].role_id) || tu.role || p.role)
+            : (tu.role || p.role)),
           tenant_id: tu.tenant_id,
           created_at: p.created_at || tu.created_at,
           avatar_url: p.avatar_url,
           is_active: (tu.is_active ?? true),
-          invitation_status: p.invitation_status || (tu.invited_at ? 'pending' : 'accepted'),
+          invitation_status: p.invitation_status || (p.invitation_accepted_at ? 'accepted' : (tu.invited_at ? 'pending' : 'accepted')),
           invited_at: p.invited_at || tu.invited_at || null,
           invitation_accepted_at: p.invitation_accepted_at || null,
           last_login: emailInfo?.last_sign_in_at || undefined,
