@@ -34,6 +34,61 @@ const ResetPassword = () => {
     confirmPassword: ''
   });
 
+  // Early cross-domain redirect to tenant reset page when on apex and tokens are present
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const host = window.location.hostname;
+      const isApex = ['vibenet.online','www.vibenet.online','vibenet.shop','www.vibenet.shop'].includes(host);
+      const hash = window.location.hash || '';
+      if (!isApex || !hash.includes('access_token')) return;
+
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+      const accessToken = hashParams.get('access_token');
+      if (!accessToken) return;
+
+      const decodePayload = (jwt: string) => {
+        const part = jwt.split('.')[1];
+        if (!part) return null;
+        const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+        try {
+          const json = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+          return JSON.parse(json);
+        } catch {
+          return null;
+        }
+      };
+
+      const payload = decodePayload(accessToken);
+      const tenantId = payload?.user_metadata?.tenant_id || payload?.tenant_id || payload?.app_metadata?.tenant_id;
+      if (!tenantId) return;
+
+      (async () => {
+        try {
+          const mod = await import('@/utils/emailHelpers');
+          const { generateTenantEmailUrls } = mod as any;
+          const tenantUrls = await generateTenantEmailUrls(tenantId);
+          if (!tenantUrls?.baseUrl) return;
+
+          // Preserve existing query, ensure from=invite flag, and keep the hash
+          const sp = new URLSearchParams(window.location.search || '');
+          if (!sp.get('from')) sp.set('from', 'invite');
+          const qs = sp.toString();
+          const target = `${tenantUrls.baseUrl.replace(/\/$/, '')}/reset-password${qs ? `?${qs}` : ''}${hash}`;
+          // Avoid redirect loop
+          const targetHost = new URL(tenantUrls.baseUrl).hostname;
+          if (targetHost !== host) {
+            window.location.replace(target);
+          }
+        } catch (e) {
+          console.warn('Tenant redirect resolution failed:', e);
+        }
+      })();
+    } catch (e) {
+      // no-op
+    }
+  }, []);
+
   // Get email from URL params and prepare invite flow
   useEffect(() => {
     const email = searchParams.get('email');
