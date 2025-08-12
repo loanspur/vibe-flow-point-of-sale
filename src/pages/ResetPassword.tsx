@@ -150,10 +150,64 @@ const ResetPassword = () => {
       const { data: userRes } = await supabase.auth.getUser();
       const uid = userRes?.user?.id;
       if (!uid) return;
+
+      // Update profile invite status
       await supabase
         .from('profiles')
         .update({ invitation_status: 'accepted', invitation_accepted_at: new Date().toISOString() })
         .eq('user_id', uid);
+
+      // Resolve tenant + role hints from metadata or URL
+      const roleFromMeta = (userRes?.user?.user_metadata as any)?.role || (userRes?.user?.app_metadata as any)?.role;
+      const metaTenantId = (userRes?.user?.user_metadata as any)?.tenant_id || (userRes?.user?.app_metadata as any)?.tenant_id;
+
+      let tenantId = metaTenantId as string | undefined;
+      if (!tenantId) {
+        const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
+        tenantId = tenantData as string | undefined;
+      }
+
+      if (tenantId) {
+        const updatePayload: any = {
+          invitation_status: 'accepted',
+          invitation_accepted_at: new Date().toISOString(),
+          is_active: true,
+        };
+
+        // Prefer role from URL (?role=...) then metadata
+        const roleParam = (searchParams.get('role') || '').toLowerCase();
+        const desiredRole = roleParam || roleFromMeta;
+        if (desiredRole) updatePayload.role = desiredRole;
+
+        const { error: tuError } = await supabase
+          .from('tenant_users')
+          .update(updatePayload)
+          .eq('user_id', uid)
+          .eq('tenant_id', tenantId);
+
+        if (tuError) {
+          // Fallback: self-repair membership to ensure active/accepted
+          const email = userRes?.user?.email;
+          if (email) {
+            try {
+              await supabase.rpc('reactivate_tenant_membership', {
+                tenant_id_param: tenantId,
+                target_email_param: email,
+              });
+              // Try role update again if needed
+              if (desiredRole) {
+                await supabase
+                  .from('tenant_users')
+                  .update({ role: desiredRole })
+                  .eq('user_id', uid)
+                  .eq('tenant_id', tenantId);
+              }
+            } catch (_) {
+              // ignore
+            }
+          }
+        }
+      }
     } catch (e) {
       console.warn('Failed to mark invitation as accepted', e);
     }
