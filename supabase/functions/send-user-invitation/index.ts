@@ -85,26 +85,32 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Tenant found:', tenant.name);
 
-    // Get tenant's primary domain for the invitation link
-    const { data: tenantDomain } = await supabaseAdmin
+    // Get tenant domains for the invitation link (may have multiple)
+    const { data: tenantDomains } = await supabaseAdmin
       .from('tenant_domains')
-      .select('domain_name, domain_type, is_primary')
+      .select('domain_name, domain_type, is_primary, status, is_active')
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
       .eq('status', 'verified')
-      .order('is_primary', { ascending: false })
-      .limit(1)
-      .single();
+      .order('is_primary', { ascending: false });
 
     // Determine the invitation URL
     let invitationBaseUrl: string;
-    if (tenantDomain) {
-      invitationBaseUrl = `https://${tenantDomain.domain_name}`;
-      console.log('Using tenant domain:', tenantDomain.domain_name);
+    if (tenantDomains && tenantDomains.length > 0) {
+      // Prefer: primary custom domain > primary .vibenet.online > any .vibenet.online > primary anything > first
+      const chosen =
+        tenantDomains.find((d: any) => d.domain_type === 'custom_domain' && d.is_primary) ||
+        tenantDomains.find((d: any) => (d.domain_name || '').endsWith('.vibenet.online') && d.is_primary) ||
+        tenantDomains.find((d: any) => (d.domain_name || '').endsWith('.vibenet.online')) ||
+        tenantDomains.find((d: any) => d.is_primary) ||
+        tenantDomains[0];
+
+      invitationBaseUrl = `https://${chosen.domain_name}`;
+      console.log('Using tenant domain:', chosen.domain_name);
     } else {
-      // Fallback to subdomain
+      // Fallback to subdomain - prefer .vibenet.online by default
       const subdomain = tenant.subdomain || `tenant-${tenantId}`;
-      invitationBaseUrl = `https://${subdomain}.vibenet.shop`;
+      invitationBaseUrl = `https://${subdomain}.vibenet.online`;
       console.log('Using fallback subdomain:', subdomain);
     }
 

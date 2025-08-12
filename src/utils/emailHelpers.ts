@@ -7,29 +7,33 @@ import { getBaseDomain } from '@/lib/domain-manager';
  */
 export const generateTenantEmailUrls = async (tenantId: string) => {
   try {
-    // Get tenant's primary domain configuration
-    const { data: tenantDomain } = await supabase
+    // Get tenant's active verified domain configurations (may have multiple)
+    const { data: tenantDomains } = await supabase
       .from('tenant_domains')
-      .select('domain_name, domain_type, is_primary')
+      .select('domain_name, domain_type, is_primary, status, is_active')
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
-      .order('is_primary', { ascending: false })
-      .limit(1)
-      .single();
+      .eq('status', 'verified')
+      .order('is_primary', { ascending: false });
 
-    if (tenantDomain) {
-      const baseUrl = tenantDomain.domain_type === 'custom_domain' 
-        ? `https://${tenantDomain.domain_name}`
-        : `https://${tenantDomain.domain_name}`;
-      
+    if (tenantDomains && tenantDomains.length > 0) {
+      // Prefer: primary custom domain > primary .vibenet.online > any .vibenet.online > primary anything > first
+      const chosen =
+        tenantDomains.find(d => d.domain_type === 'custom_domain' && d.is_primary) ||
+        tenantDomains.find(d => d.domain_name.endsWith('.vibenet.online') && d.is_primary) ||
+        tenantDomains.find(d => d.domain_name.endsWith('.vibenet.online')) ||
+        tenantDomains.find(d => d.is_primary) ||
+        tenantDomains[0];
+
+      const baseUrl = `https://${chosen.domain_name}`;
       return {
         loginUrl: `${baseUrl}/auth`,
         dashboardUrl: `${baseUrl}/admin`,
         supportUrl: `${baseUrl}/support`,
         passwordResetUrl: `${baseUrl}/reset-password`,
         baseUrl,
-        domain: tenantDomain.domain_name,
-        isCustomDomain: tenantDomain.domain_type === 'custom_domain'
+        domain: chosen.domain_name,
+        isCustomDomain: chosen.domain_type === 'custom_domain'
       };
     }
 
