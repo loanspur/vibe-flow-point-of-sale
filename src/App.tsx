@@ -196,6 +196,17 @@ const DomainRouter = () => {
   const { user, loading: authLoading, userRole } = useAuth();
   const location = useLocation();
   
+  // Redirect any hash-token auth callbacks to reset-password flow
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token') && location.pathname !== '/reset-password') {
+      const search = new URLSearchParams(location.search || '');
+      if (!search.get('from')) search.set('from', 'invite');
+      const qs = search.toString();
+      const newUrl = `/reset-password${qs ? `?${qs}` : ''}${window.location.hash}`;
+      window.location.replace(newUrl);
+    }
+  }, [location.pathname, location.search]);
+  
   // Check for authentication session issues
   const [showAuthFix, setShowAuthFix] = useState(false);
   
