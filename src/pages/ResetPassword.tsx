@@ -239,7 +239,7 @@ const handleResetPassword = async (e: React.FormEvent) => {
         title: 'Password set!',
         description: 'Your password has been created. You can now sign in.',
       });
-      setTimeout(() => navigate('/auth'), 2500);
+      navigate('/auth?reset=success', { replace: true });
     } else {
       // OTP flow: verify code and set new password via edge function
       console.log('Sending password reset request with data:', {
@@ -269,7 +269,7 @@ const handleResetPassword = async (e: React.FormEvent) => {
           title: 'Password updated successfully',
           description: 'Your password has been reset. You can now sign in with your new password.'
         });
-        setTimeout(() => navigate('/auth'), 3000);
+        navigate('/auth?reset=success', { replace: true });
       } else {
         setPasswordError('Failed to reset password. Please try again.');
       }
