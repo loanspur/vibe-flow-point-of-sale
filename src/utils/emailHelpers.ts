@@ -29,7 +29,7 @@ export const generateTenantEmailUrls = async (tenantId: string) => {
       let adjustedDomain = chosen.domain_name;
       try {
         const originHost = typeof window !== 'undefined' ? window.location.hostname : '';
-        if (originHost.includes('.vibenet.online') && !adjustedDomain.endsWith('.vibenet.online')) {
+        if ((originHost.includes('.vibenet.online') || originHost.endsWith('.lovableproject.com') || originHost === 'localhost') && !adjustedDomain.endsWith('.vibenet.online')) {
           const onlineAlt = tenantDomains.find(d => d.domain_name.endsWith('.vibenet.online'));
           adjustedDomain = onlineAlt?.domain_name || adjustedDomain.replace('.vibenet.shop', '.vibenet.online');
         } else if (originHost.includes('.vibenet.shop') && !adjustedDomain.endsWith('.vibenet.shop')) {

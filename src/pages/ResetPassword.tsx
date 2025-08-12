@@ -18,10 +18,19 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resetComplete, setResetComplete] = useState(false);
-  const [step, setStep] = useState<'otp' | 'password'>('otp');
+  const [step, setStep] = useState<'otp' | 'password'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+      const hasTokens = /access_token|token_hash|type=invite|type=recovery/i.test(hash + search);
+      try { if (sessionStorage.getItem('invite-flow') === 'true') return 'password'; } catch {}
+      if (hasTokens) return 'password';
+    }
+    return 'otp';
+  });
   
   // Invitation flow flag
-  const isInvite = ((searchParams.get('from') || '').toLowerCase() === 'invite') || (typeof window !== 'undefined' && sessionStorage.getItem('invite-flow') === 'true');
+  const isInvite = ((searchParams.get('from') || '').toLowerCase() === 'invite') || (typeof window !== 'undefined' && sessionStorage.getItem('invite-flow') === 'true') || (typeof window !== 'undefined' && /access_token|token_hash|type=invite|type=recovery/i.test((window.location.hash||'') + (window.location.search||'')));
   
   // Error states
   const [otpError, setOtpError] = useState('');

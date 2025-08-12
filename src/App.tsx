@@ -198,7 +198,9 @@ const DomainRouter = () => {
   
   // Redirect any hash-token auth callbacks to reset-password flow
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash.includes('access_token') && location.pathname !== '/reset-password') {
+    if (typeof window !== 'undefined' && window.location.hash &&
+        /access_token|token_hash|type=invite|type=recovery/i.test(window.location.hash) &&
+        location.pathname !== '/reset-password') {
       const search = new URLSearchParams(location.search || '');
       if (!search.get('from')) search.set('from', 'invite');
       const qs = search.toString();
