@@ -48,6 +48,9 @@ const ResetPassword = () => {
       const accessToken = hashParams.get('access_token');
       if (!accessToken) return;
 
+      // Immediately switch to password step for magic/invite links
+      setStep('password');
+
       const decodePayload = (jwt: string) => {
         const part = jwt.split('.')[1];
         if (!part) return null;
@@ -85,6 +88,14 @@ const ResetPassword = () => {
           const targetHost = new URL(tenantUrls.baseUrl).hostname;
           if (targetHost !== host) {
             window.location.replace(target);
+          } else {
+            // Same host: still apply the from=invite param so UI shows password step
+            try {
+              const url = new URL(window.location.href);
+              // merge in params
+              sp.forEach((v, k) => url.searchParams.set(k, v));
+              window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${hash}`);
+            } catch { /* ignore */ }
           }
         } catch (e) {
           console.warn('Tenant redirect resolution failed:', e);

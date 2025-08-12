@@ -25,14 +25,29 @@ export const generateTenantEmailUrls = async (tenantId: string) => {
         tenantDomains.find(d => d.is_primary) ||
         tenantDomains[0];
 
-      const baseUrl = `https://${chosen.domain_name}`;
+      // Preserve current environment TLD when possible to avoid cross-TLD redirects
+      let adjustedDomain = chosen.domain_name;
+      try {
+        const originHost = typeof window !== 'undefined' ? window.location.hostname : '';
+        if (originHost.includes('.vibenet.online') && !adjustedDomain.endsWith('.vibenet.online')) {
+          const onlineAlt = tenantDomains.find(d => d.domain_name.endsWith('.vibenet.online'));
+          adjustedDomain = onlineAlt?.domain_name || adjustedDomain.replace('.vibenet.shop', '.vibenet.online');
+        } else if (originHost.includes('.vibenet.shop') && !adjustedDomain.endsWith('.vibenet.shop')) {
+          const shopAlt = tenantDomains.find(d => d.domain_name.endsWith('.vibenet.shop'));
+          adjustedDomain = shopAlt?.domain_name || adjustedDomain.replace('.vibenet.online', '.vibenet.shop');
+        }
+      } catch (e) {
+        // no-op if window is unavailable or replacement fails
+      }
+
+      const baseUrl = `https://${adjustedDomain}`;
       return {
         loginUrl: `${baseUrl}/auth`,
         dashboardUrl: `${baseUrl}/admin`,
         supportUrl: `${baseUrl}/support`,
         passwordResetUrl: `${baseUrl}/reset-password`,
         baseUrl,
-        domain: chosen.domain_name,
+        domain: adjustedDomain,
         isCustomDomain: chosen.domain_type === 'custom_domain'
       };
     }
