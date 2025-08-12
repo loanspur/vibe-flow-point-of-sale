@@ -106,6 +106,7 @@ function TenantAdminDashboard() {
     tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
     tenantId,
     onChange: () => fetchDashboardData(),
+    enabled: false,
   });
 
   const fetchCurrentSubscription = async () => {

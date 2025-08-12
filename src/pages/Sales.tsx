@@ -19,6 +19,7 @@ export default function Sales() {
     tables: ['sales', 'sales_items', 'customers', 'ar_ap_payments', 'payment_history'],
     tenantId,
     onChange: handleRefresh,
+    enabled: false,
   });
 
   return (

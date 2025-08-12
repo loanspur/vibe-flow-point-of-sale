@@ -32,6 +32,7 @@ const Products = () => {
     ],
     tenantId,
     onChange: handleRealtimeRefresh,
+    enabled: false,
   });
 
 return (
