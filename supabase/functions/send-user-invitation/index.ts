@@ -422,23 +422,37 @@ const handler = async (req: Request): Promise<Response> => {
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
     // Choose sending domain based on tenant domain/base URL
-    const fromDomain = (tenantDomain?.domain_name && tenantDomain.domain_name.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online')
-      ? 'vibenet.online'
-      : 'vibenet.shop';
+    const prefersOnline = (tenantDomain?.domain_name && tenantDomain.domain_name.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online');
+    let fromDomain = prefersOnline ? 'vibenet.online' : 'vibenet.shop';
+    let fromAddress = `VibePOS Team <noreply@${fromDomain}>`;
     console.log('Email sending domain selected:', fromDomain);
 
-    const emailResponse = await resend.emails.send({
-      from: `VibePOS Team <noreply@${fromDomain}>`,
+    // Attempt to send. If domain is not verified, gracefully fallback to Resend sandbox domain
+    let emailResponse = await resend.emails.send({
+      from: fromAddress,
       to: [email],
       subject: emailSubject,
       html: htmlContent,
     });
+    console.log('Resend response (primary attempt):', emailResponse);
 
-    console.log('Resend response:', emailResponse);
+    // If domain is not verified, retry with onboarding@resend.dev
+    if (emailResponse.error && (String(emailResponse.error?.error || emailResponse.error?.message || '').toLowerCase().includes('not verified') || emailResponse.error?.statusCode === 403 || emailResponse.error?.name === 'validation_error')) {
+      console.warn('Primary domain not verified. Falling back to onboarding@resend.dev');
+      fromAddress = 'VibePOS Team <onboarding@resend.dev>';
+      const fallback = await resend.emails.send({
+        from: fromAddress,
+        to: [email],
+        subject: emailSubject,
+        html: htmlContent,
+      });
+      console.log('Resend response (fallback attempt):', fallback);
+      emailResponse = fallback;
+    }
 
-    // Check if Resend returned an error
+    // Check if Resend returned an error after fallback
     if (emailResponse.error) {
-      console.error('Resend error:', emailResponse.error);
+      console.error('Resend error after fallback:', emailResponse.error);
       throw new Error(`Email sending failed: ${emailResponse.error.message || emailResponse.error}`);
     }
 
