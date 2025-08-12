@@ -99,7 +99,7 @@ function TenantAdminDashboard() {
   }, [tenantId, dateFilter, dateRange.start, dateRange.end]);
 
   // Periodic auto-refresh when tab is visible
-  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true });
+  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: false });
 
   // Realtime updates for key business tables
   useRealtimeRefresh({

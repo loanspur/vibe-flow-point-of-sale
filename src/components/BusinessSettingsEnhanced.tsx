@@ -393,47 +393,9 @@ export function BusinessSettingsEnhanced() {
   });
 
   useEffect(() => {
-    const initializeData = async () => {
-      console.log('🚀 BusinessSettingsEnhanced: Initializing...');
-      
-      // Check current URL
-      console.log('📍 Current URL:', window.location.href);
-      console.log('📍 Current pathname:', window.location.pathname);
-      
-      // Check auth state multiple times to catch timing issues
-      let authAttempts = 0;
-      const maxAttempts = 5;
-      
-      const checkAuth = async () => {
-        authAttempts++;
-        console.log(`🔐 Auth check attempt ${authAttempts}/${maxAttempts}`);
-        
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-        console.log('👤 Auth response:', { 
-          user: authData?.user?.id || 'No user', 
-          email: authData?.user?.email || 'No email',
-          error: authError?.message || 'No error'
-        });
-        
-        if (authData?.user) {
-          console.log('✅ User authenticated, fetching data...');
-          await fetchSettings();
-          return true;
-        } else if (authAttempts < maxAttempts) {
-          console.log('⏳ No user yet, retrying in 1 second...');
-          setTimeout(checkAuth, 1000);
-          return false;
-        } else {
-          console.log('❌ Max auth attempts reached, no user found');
-          return false;
-        }
-      };
-      
-      await checkAuth();
-    };
-
-    initializeData();
+    fetchSettings();
   }, []);
+
 
   // Listen for auth state changes
   useEffect(() => {

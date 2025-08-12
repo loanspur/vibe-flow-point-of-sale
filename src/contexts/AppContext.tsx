@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
@@ -34,6 +34,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loading, setLoading] = useState(true);
   const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
   const { formatLocalCurrency, convertFromKES, tenantCurrency } = useCurrencyConversion();
+  const refreshingRef = useRef(false);
   
   // Use AuthContext directly - it should always be available since we're wrapped by AuthProvider
   const { tenantId } = useAuth();
@@ -86,8 +87,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [tenantId]);
 
   const refreshBusinessSettings = useCallback(async () => {
-    await fetchBusinessSettings();
-    setCurrencyUpdateTrigger(prev => prev + 1);
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    try {
+      await fetchBusinessSettings();
+      setCurrencyUpdateTrigger(prev => prev + 1);
+    } finally {
+      refreshingRef.current = false;
+    }
   }, [fetchBusinessSettings]);
 
   const triggerCurrencyUpdate = useCallback(() => {
@@ -159,18 +166,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
             
             setBusinessSettings(updatedSettings);
-            
-            // Auto-update symbol in database if it was auto-detected
-            if (newSettings.currency_code && !newSettings.currency_symbol && currencySymbol !== '$') {
-              supabase
-                .from('business_settings')
-                .update({ currency_symbol: currencySymbol })
-                .eq('tenant_id', tenantId)
-                .then(() => console.log('Auto-updated currency symbol:', currencySymbol));
-            }
           }
-          // Also refresh to ensure consistency
-          refreshBusinessSettings();
         }
       )
       .subscribe();

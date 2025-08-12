@@ -167,7 +167,7 @@ export const useOptimizedDashboard = () => {
 
   useAutoRefresh({
     interval: 30000, // 30 seconds
-    enabled: !!tenantId,
+    enabled: false,
     onRefresh: refresh,
     visibilityBased: true
   });

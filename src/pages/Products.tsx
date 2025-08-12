@@ -21,7 +21,7 @@ const Products = () => {
     realtimeTimerRef.current = setTimeout(() => setRefreshKey((k) => k + 1), 1000);
   }, []);
   // Periodic refresh when visible
-  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true });
+  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
 
 // Realtime refresh on data changes
   useRealtimeRefresh({

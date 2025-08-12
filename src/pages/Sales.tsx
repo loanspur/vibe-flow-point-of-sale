@@ -12,7 +12,7 @@ export default function Sales() {
   const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   // Periodic refresh when visible
-  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true });
+  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
 
   // Realtime refresh on sales-related changes
   useRealtimeRefresh({
