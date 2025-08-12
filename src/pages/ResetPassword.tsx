@@ -21,7 +21,7 @@ const ResetPassword = () => {
   const [step, setStep] = useState<'otp' | 'password'>('otp');
   
   // Invitation flow flag
-  const isInvite = (searchParams.get('from') || '').toLowerCase() === 'invite';
+  const isInvite = ((searchParams.get('from') || '').toLowerCase() === 'invite') || (typeof window !== 'undefined' && sessionStorage.getItem('invite-flow') === 'true');
   
   // Error states
   const [otpError, setOtpError] = useState('');
@@ -50,6 +50,7 @@ const ResetPassword = () => {
 
       // Immediately switch to password step for magic/invite links
       setStep('password');
+      try { sessionStorage.setItem('invite-flow', 'true'); } catch {}
 
       const decodePayload = (jwt: string) => {
         const part = jwt.split('.')[1];
