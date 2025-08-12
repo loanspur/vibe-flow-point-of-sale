@@ -228,7 +228,8 @@ const UserManagement = () => {
         .from('user_role_assignments')
         .select('user_id, role_id, is_active')
         .in('user_id', userIds)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('tenant_id', tenantId);
       if (raError) {
         console.warn('user_role_assignments fetch failed:', raError);
       }
