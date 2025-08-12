@@ -96,6 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Determine the invitation URL
     let invitationBaseUrl: string;
+    let chosenDomainName: string | null = null;
     if (tenantDomains && tenantDomains.length > 0) {
       // Prefer: primary custom domain > primary .vibenet.online > any .vibenet.online > primary anything > first
       const chosen =
@@ -105,6 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
         tenantDomains.find((d: any) => d.is_primary) ||
         tenantDomains[0];
 
+      chosenDomainName = chosen.domain_name;
       invitationBaseUrl = `https://${chosen.domain_name}`;
       console.log('Using tenant domain:', chosen.domain_name);
     } else {
@@ -428,7 +430,7 @@ const handler = async (req: Request): Promise<Response> => {
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
     // Choose sending domain based on tenant domain/base URL
-    const fromDomain = (tenantDomain?.domain_name && tenantDomain.domain_name.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online')
+    const fromDomain = (chosenDomainName && chosenDomainName.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online')
       ? 'vibenet.online'
       : 'vibenet.shop';
     console.log('Email sending domain selected:', fromDomain);
