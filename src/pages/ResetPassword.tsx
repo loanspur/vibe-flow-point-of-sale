@@ -34,14 +34,15 @@ const ResetPassword = () => {
     confirmPassword: ''
   });
 
-  // Early cross-domain redirect to tenant reset page when on apex and tokens are present
+  // Universal cross-domain redirect to tenant reset page when magic-link tokens are present
   useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
       const host = window.location.hostname;
-      const isApex = ['vibenet.online','www.vibenet.online','vibenet.shop','www.vibenet.shop'].includes(host);
       const hash = window.location.hash || '';
-      if (!isApex || !hash.includes('access_token')) return;
+
+      // Tokens may arrive via hash from Supabase auth callback
+      if (!hash.includes('access_token')) return;
 
       const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
       const accessToken = hashParams.get('access_token');
@@ -52,7 +53,12 @@ const ResetPassword = () => {
         if (!part) return null;
         const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
         try {
-          const json = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+          const json = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
           return JSON.parse(json);
         } catch {
           return null;
@@ -75,7 +81,7 @@ const ResetPassword = () => {
           if (!sp.get('from')) sp.set('from', 'invite');
           const qs = sp.toString();
           const target = `${tenantUrls.baseUrl.replace(/\/$/, '')}/reset-password${qs ? `?${qs}` : ''}${hash}`;
-          // Avoid redirect loop
+
           const targetHost = new URL(tenantUrls.baseUrl).hostname;
           if (targetHost !== host) {
             window.location.replace(target);
