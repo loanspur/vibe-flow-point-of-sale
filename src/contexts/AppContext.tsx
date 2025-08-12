@@ -37,7 +37,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshingRef = useRef(false);
   
   // Use AuthContext directly - it should always be available since we're wrapped by AuthProvider
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
 
   const fetchBusinessSettings = useCallback(async () => {
     if (!tenantId) {
@@ -48,11 +48,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setLoading(true);
       
-      const settingsResponse = await supabase
-        .from('business_settings')
-        .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      const fetchOnce = () =>
+        supabase
+          .from('business_settings')
+          .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+
+      let settingsResponse = await fetchOnce();
+
+      if (settingsResponse.error && (settingsResponse.error.code === '42501' || settingsResponse.error.message?.toLowerCase().includes('row-level security') || settingsResponse.error.message?.toLowerCase().includes('permission denied'))) {
+        try {
+          if (user?.email) {
+            await supabase.rpc('reactivate_tenant_membership', {
+              tenant_id_param: tenantId,
+              target_email_param: user.email,
+            });
+            // Retry once after repair
+            settingsResponse = await fetchOnce();
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
 
       if (settingsResponse.error && settingsResponse.error.code !== 'PGRST116') {
         console.error('Error fetching business settings:', settingsResponse.error);

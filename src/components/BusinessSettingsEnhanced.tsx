@@ -429,21 +429,43 @@ export function BusinessSettingsEnhanced() {
         .from('profiles')
         .select('tenant_id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (!profile?.tenant_id) {
         setIsLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('business_settings')
-        .select('*')
-        .eq('tenant_id', profile.tenant_id)
-        .maybeSingle();
-      
-      if (error) {
-        // ignore, may be no row yet
+      // Try to fetch settings, on RLS error attempt a self-repair then retry once
+      const fetchOnce = () =>
+        supabase
+          .from('business_settings')
+          .select('*')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+      let { data, error: fetchError } = await fetchOnce();
+
+      if (fetchError && (fetchError.code === '42501' || fetchError.message?.toLowerCase().includes('row-level security') || fetchError.message?.toLowerCase().includes('permission denied'))) {
+        const email = authUser?.user?.email;
+        try {
+          if (email) {
+            await supabase.rpc('reactivate_tenant_membership', {
+              tenant_id_param: profile.tenant_id,
+              target_email_param: email,
+            });
+            // Retry once after repair
+            const retry = await fetchOnce();
+            data = retry.data;
+            fetchError = retry.error;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // ignore, may be no row yet or lack of access
       }
       
       if (data) {
