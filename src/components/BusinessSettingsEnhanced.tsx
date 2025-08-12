@@ -746,7 +746,30 @@ export function BusinessSettingsEnhanced() {
 
       // Check if user has permission to modify settings
       if (profile.role !== 'superadmin' && profile.role !== 'admin') {
-        throw new Error('Insufficient permissions to modify business settings');
+        // Attempt membership repair to grant admin if needed
+        try {
+          if (user.user.email) {
+            await supabase.rpc('reactivate_tenant_membership', {
+              tenant_id_param: profile.tenant_id,
+              target_email_param: user.user.email,
+            });
+            // Re-fetch profile role after repair
+            const { data: repairedProfile } = await supabase
+              .from('profiles')
+              .select('tenant_id, role')
+              .eq('user_id', user.user.id)
+              .single();
+            if (repairedProfile?.role === 'admin' || repairedProfile?.role === 'superadmin') {
+              // proceed
+            } else {
+              throw new Error('Insufficient permissions to modify business settings');
+            }
+          } else {
+            throw new Error('Insufficient permissions to modify business settings');
+          }
+        } catch (e) {
+          throw new Error('Insufficient permissions to modify business settings');
+        }
       }
 
       // Prepare the data for update/insert
