@@ -366,8 +366,7 @@ export const getBaseDomain = (domain: string = getCurrentDomain()) => {
   ) {
     return 'vibenet.online';
   }
-  // Default to .online for all other cases (prefer vibenet.online)
-  return 'vibenet.online';
+  return 'vibenet.shop';
 };
 
 export const isCustomDomain = (domain: string = getCurrentDomain()) => {

@@ -81,6 +81,12 @@ const handler = async (req: Request): Promise<Response> => {
     let processedText = emailData.textContent || '';
 
     if (emailData.variables) {
+      // Decide base TLD from request origin: dev => .vibenet.online, prod => .vibenet.shop
+      const origin = req.headers.get('origin') || '';
+      const baseTld = (origin.includes('.vibenet.online') || origin.includes('.lovableproject.com'))
+        ? 'vibenet.online'
+        : 'vibenet.shop';
+
       // Add tenant-specific variables if not already provided
       const enhancedVariables = {
         ...emailData.variables,
@@ -88,12 +94,12 @@ const handler = async (req: Request): Promise<Response> => {
           ? (tenantDomain.domain_type === 'custom_domain' 
               ? `https://${tenantDomain.domain_name}`
               : `https://${tenantDomain.domain_name}`)
-          : `https://tenant-${emailData.tenantId}.vibenet.shop`,
+          : `https://tenant-${emailData.tenantId}.${baseTld}`,
         support_url: tenantDomain
           ? (tenantDomain.domain_type === 'custom_domain'
               ? `https://${tenantDomain.domain_name}/support`
               : `https://${tenantDomain.domain_name}/support`)
-          : `https://tenant-${emailData.tenantId}.vibenet.shop/support`
+          : `https://tenant-${emailData.tenantId}.${baseTld}/support`
       };
 
       for (const [key, value] of Object.entries(enhancedVariables)) {
