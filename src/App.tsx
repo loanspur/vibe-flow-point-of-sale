@@ -196,12 +196,26 @@ const DomainRouter = () => {
   const { user, loading: authLoading, userRole } = useAuth();
   const location = useLocation();
   
+  console.log('🌐 DomainRouter debug:', {
+    pathname: location.pathname,
+    domainConfig: domainConfig ? {
+      isSubdomain: domainConfig.isSubdomain,
+      tenantId: domainConfig.tenantId
+    } : null,
+    user: !!user,
+    userEmail: user?.email,
+    userRole,
+    loading,
+    authLoading
+  });
+  
   // Redirect auth callbacks to reset-password flow - only run once on mount
   useEffect(() => {
     const checkAuthCallback = () => {
       if (typeof window !== 'undefined' && window.location.hash &&
           /access_token|token_hash|type=invite|type=recovery/i.test(window.location.hash) &&
           location.pathname !== '/reset-password') {
+        console.log('🔄 Auth callback detected, redirecting to reset-password');
         const search = new URLSearchParams(location.search || '');
         if (!search.get('from')) search.set('from', 'invite');
         const qs = search.toString();
