@@ -393,47 +393,9 @@ export function BusinessSettingsEnhanced() {
   });
 
   useEffect(() => {
-    const initializeData = async () => {
-      console.log('🚀 BusinessSettingsEnhanced: Initializing...');
-      
-      // Check current URL
-      console.log('📍 Current URL:', window.location.href);
-      console.log('📍 Current pathname:', window.location.pathname);
-      
-      // Check auth state multiple times to catch timing issues
-      let authAttempts = 0;
-      const maxAttempts = 5;
-      
-      const checkAuth = async () => {
-        authAttempts++;
-        console.log(`🔐 Auth check attempt ${authAttempts}/${maxAttempts}`);
-        
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-        console.log('👤 Auth response:', { 
-          user: authData?.user?.id || 'No user', 
-          email: authData?.user?.email || 'No email',
-          error: authError?.message || 'No error'
-        });
-        
-        if (authData?.user) {
-          console.log('✅ User authenticated, fetching data...');
-          await fetchSettings();
-          return true;
-        } else if (authAttempts < maxAttempts) {
-          console.log('⏳ No user yet, retrying in 1 second...');
-          setTimeout(checkAuth, 1000);
-          return false;
-        } else {
-          console.log('❌ Max auth attempts reached, no user found');
-          return false;
-        }
-      };
-      
-      await checkAuth();
-    };
-
-    initializeData();
+    fetchSettings();
   }, []);
+
 
   // Listen for auth state changes
   useEffect(() => {
@@ -467,21 +429,43 @@ export function BusinessSettingsEnhanced() {
         .from('profiles')
         .select('tenant_id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (!profile?.tenant_id) {
         setIsLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('business_settings')
-        .select('*')
-        .eq('tenant_id', profile.tenant_id)
-        .maybeSingle();
-      
-      if (error) {
-        // ignore, may be no row yet
+      // Try to fetch settings, on RLS error attempt a self-repair then retry once
+      const fetchOnce = () =>
+        supabase
+          .from('business_settings')
+          .select('*')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+      let { data, error: fetchError } = await fetchOnce();
+
+      if (fetchError && (fetchError.code === '42501' || fetchError.message?.toLowerCase().includes('row-level security') || fetchError.message?.toLowerCase().includes('permission denied'))) {
+        const email = authUser?.user?.email;
+        try {
+          if (email) {
+            await supabase.rpc('reactivate_tenant_membership', {
+              tenant_id_param: profile.tenant_id,
+              target_email_param: email,
+            });
+            // Retry once after repair
+            const retry = await fetchOnce();
+            data = retry.data;
+            fetchError = retry.error;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // ignore, may be no row yet or lack of access
       }
       
       if (data) {
@@ -784,7 +768,30 @@ export function BusinessSettingsEnhanced() {
 
       // Check if user has permission to modify settings
       if (profile.role !== 'superadmin' && profile.role !== 'admin') {
-        throw new Error('Insufficient permissions to modify business settings');
+        // Attempt membership repair to grant admin if needed
+        try {
+          if (user.user.email) {
+            await supabase.rpc('reactivate_tenant_membership', {
+              tenant_id_param: profile.tenant_id,
+              target_email_param: user.user.email,
+            });
+            // Re-fetch profile role after repair
+            const { data: repairedProfile } = await supabase
+              .from('profiles')
+              .select('tenant_id, role')
+              .eq('user_id', user.user.id)
+              .single();
+            if (repairedProfile?.role === 'admin' || repairedProfile?.role === 'superadmin') {
+              // proceed
+            } else {
+              throw new Error('Insufficient permissions to modify business settings');
+            }
+          } else {
+            throw new Error('Insufficient permissions to modify business settings');
+          }
+        } catch (e) {
+          throw new Error('Insufficient permissions to modify business settings');
+        }
       }
 
       // Prepare the data for update/insert

@@ -6757,6 +6757,13 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      get_tenant_user_emails: {
+        Args: { tenant_id: string } | { user_ids: string[] }
+        Returns: {
+          user_id: string
+          email: string
+        }[]
+      }
       get_transfer_request_details: {
         Args: { request_id: string }
         Returns: {
@@ -6906,6 +6913,10 @@ export type Database = {
           scheduled_for_param: string
         }
         Returns: string
+      }
+      reactivate_tenant_membership: {
+        Args: { tenant_id_param: string; target_email_param: string }
+        Returns: boolean
       }
       record_cash_transaction_with_accounting: {
         Args: {

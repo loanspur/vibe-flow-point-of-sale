@@ -5,6 +5,7 @@ interface RealtimeRefreshOptions {
   tables: string[];
   tenantId?: string | null;
   onChange: () => void;
+  enabled?: boolean;
 }
 
 /**
@@ -12,9 +13,9 @@ interface RealtimeRefreshOptions {
  * Subscribes to INSERT/UPDATE/DELETE on given tables and triggers onChange
  * when the event belongs to the current tenant (if tenantId provided).
  */
-export function useRealtimeRefresh({ tables, tenantId, onChange }: RealtimeRefreshOptions) {
+export function useRealtimeRefresh({ tables, tenantId, onChange, enabled = true }: RealtimeRefreshOptions) {
   useEffect(() => {
-    if (!tables || tables.length === 0) return;
+    if (!enabled || !tables || tables.length === 0) return;
 
     const channelName = `schema-db-changes:${tenantId ?? 'global'}:${tables.slice().sort().join(',')}`;
     const channel = supabase.channel(channelName);
@@ -43,5 +44,5 @@ export function useRealtimeRefresh({ tables, tenantId, onChange }: RealtimeRefre
     return () => {
       supabase.removeChannel(channel);
     };
-    }, [tenantId, onChange, JSON.stringify(tables)]);
+    }, [tenantId, onChange, enabled, JSON.stringify(tables)]);
 }

@@ -43,17 +43,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log('Invitation request received for email:', requestBody.email);
 
-    const {
-      email,
-      fullName,
-      role,
-      tenantId
-    }: InviteUserRequest = requestBody;
-
-    // Validate required fields
-    if (!email || !fullName || !role || !tenantId) {
-      throw new Error('Missing required fields: email, fullName, role, tenantId');
-    }
 
     console.log('Processing invitation for:', email, 'to tenant:', tenantId);
 
@@ -96,27 +85,49 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Tenant found:', tenant.name);
 
-    // Get tenant's primary domain for the invitation link
-    const { data: tenantDomain } = await supabaseAdmin
+    // Get tenant domains for the invitation link (may have multiple)
+    const { data: tenantDomains } = await supabaseAdmin
       .from('tenant_domains')
-      .select('domain_name, domain_type, is_primary')
+      .select('domain_name, domain_type, is_primary, status, is_active')
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
       .eq('status', 'verified')
-      .order('is_primary', { ascending: false })
-      .limit(1)
-      .single();
+      .order('is_primary', { ascending: false });
 
     // Determine the invitation URL
     let invitationBaseUrl: string;
-    if (tenantDomain) {
-      invitationBaseUrl = `https://${tenantDomain.domain_name}`;
-      console.log('Using tenant domain:', tenantDomain.domain_name);
+    let chosenDomainName: string | null = null;
+    if (tenantDomains && tenantDomains.length > 0) {
+      // Prefer: primary custom domain > primary .vibenet.online > any .vibenet.online > primary anything > first
+      const chosen =
+        tenantDomains.find((d: any) => d.domain_type === 'custom_domain' && d.is_primary) ||
+        tenantDomains.find((d: any) => (d.domain_name || '').endsWith('.vibenet.online') && d.is_primary) ||
+        tenantDomains.find((d: any) => (d.domain_name || '').endsWith('.vibenet.online')) ||
+        tenantDomains.find((d: any) => d.is_primary) ||
+        tenantDomains[0];
+
+      chosenDomainName = chosen.domain_name;
+      invitationBaseUrl = `https://${chosen.domain_name}`;
+      console.log('Using tenant domain:', chosen.domain_name);
     } else {
-      // Fallback to subdomain
+      // Fallback to subdomain - prefer .vibenet.online by default
       const subdomain = tenant.subdomain || `tenant-${tenantId}`;
-      invitationBaseUrl = `https://${subdomain}.vibenet.shop`;
+      invitationBaseUrl = `https://${subdomain}.vibenet.online`;
       console.log('Using fallback subdomain:', subdomain);
+    }
+
+    // Align TLD with the environment origin (.online vs .shop)
+    const origin = req.headers.get('origin') || '';
+    try {
+      if (origin.includes('.vibenet.online') && invitationBaseUrl.includes('.vibenet.shop')) {
+        invitationBaseUrl = invitationBaseUrl.replace('.vibenet.shop', '.vibenet.online');
+        console.log('Adjusted invitation base URL for .online env:', invitationBaseUrl);
+      } else if (origin.includes('.vibenet.shop') && invitationBaseUrl.includes('.vibenet.online')) {
+        invitationBaseUrl = invitationBaseUrl.replace('.vibenet.online', '.vibenet.shop');
+        console.log('Adjusted invitation base URL for .shop env:', invitationBaseUrl);
+      }
+    } catch (e) {
+      console.warn('Failed to adjust TLD based on origin:', e);
     }
 
 
@@ -332,7 +343,8 @@ const handler = async (req: Request): Promise<Response> => {
       type: linkType as 'invite' | 'recovery',
       email: email,
       options: {
-        redirectTo: `${invitationBaseUrl}/auth?invitation=true`
+        // Redirect invited users to tenant-specific password setup page
+        redirectTo: `${invitationBaseUrl}/reset-password?from=invite&email=${encodeURIComponent(email)}`
       }
     });
 
@@ -372,8 +384,8 @@ const handler = async (req: Request): Promise<Response> => {
         <div style="margin-bottom: 30px;">
           <h3 style="color: #1e293b;">What's Next?</h3>
           <ol style="color: #475569; line-height: 1.6;">
-            <li>Click the invitation link below to verify your email</li>
-            <li>Set up your secure password</li>
+            <li>Click the button below to verify your email and set your password</li>
+            <li>Confirm your new password on the secure page</li>
             <li>Start exploring your VibePOS dashboard</li>
             <li>Get familiar with the features available for your role</li>
           </ol>
@@ -381,14 +393,14 @@ const handler = async (req: Request): Promise<Response> => {
 
         <div style="text-align: center; margin: 30px 0;">
           <a href="${verificationUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-            Accept Invitation & Verify Email
+            Accept Invitation & Set Password
           </a>
         </div>
 
         <div style="background-color: #f0f9ff; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
           <p style="margin: 0; color: #075985;">
-            <strong>Your VibePOS Dashboard:</strong><br>
-            <a href="${invitationBaseUrl}" style="color: #0369a1; word-break: break-all;">${invitationBaseUrl}</a>
+            <strong>Set your password (tenant link):</strong><br>
+            <a href="${verificationUrl}" style="color: #0369a1; word-break: break-all;">${invitationBaseUrl}/reset-password</a>
           </p>
         </div>
 
@@ -418,7 +430,7 @@ const handler = async (req: Request): Promise<Response> => {
     const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
     // Choose sending domain based on tenant domain/base URL
-    const fromDomain = (tenantDomain?.domain_name && tenantDomain.domain_name.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online')
+    const fromDomain = (chosenDomainName && chosenDomainName.endsWith('vibenet.online')) || invitationBaseUrl.includes('.vibenet.online')
       ? 'vibenet.online'
       : 'vibenet.shop';
     console.log('Email sending domain selected:', fromDomain);

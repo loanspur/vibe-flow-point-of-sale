@@ -18,7 +18,10 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resetComplete, setResetComplete] = useState(false);
+  // Single source of truth for step determination
   const [step, setStep] = useState<'otp' | 'password'>('otp');
+  const [initialized, setInitialized] = useState(false);
+  const [isInvite, setIsInvite] = useState(false);
   
   // Error states
   const [otpError, setOtpError] = useState('');
@@ -31,18 +34,142 @@ const ResetPassword = () => {
     confirmPassword: ''
   });
 
-  // Get email from URL params
+  // Single initialization effect to prevent flickering
   useEffect(() => {
+    if (initialized) return;
+    
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const hasTokens = /access_token|token_hash|type=invite|type=recovery/i.test(hash + search);
+    const fromInvite = ((searchParams.get('from') || '').toLowerCase() === 'invite');
+    const sessionInvite = sessionStorage.getItem('invite-flow') === 'true';
+    
+    const isInviteFlow = fromInvite || sessionInvite || hasTokens;
+    setIsInvite(isInviteFlow);
+    
+    if (isInviteFlow) {
+      setStep('password');
+      try { sessionStorage.setItem('invite-flow', 'true'); } catch {}
+    }
+    
+    // Handle email from URL
     const email = searchParams.get('email');
     if (email) {
       setFormData(prev => ({ ...prev, email: decodeURIComponent(email) }));
     }
-  }, [searchParams]);
+    
+    // Handle session setup for invites
+    if (isInviteFlow && hasTokens) {
+      let access_token = searchParams.get('access_token');
+      let refresh_token = searchParams.get('refresh_token');
+
+      // Fallback: parse tokens from URL hash
+      if ((!access_token || !refresh_token) && hash) {
+        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+        access_token = access_token || hashParams.get('access_token') || undefined;
+        refresh_token = refresh_token || hashParams.get('refresh_token') || undefined;
+      }
+
+      if (access_token && refresh_token) {
+        supabase.auth
+          .setSession({ access_token, refresh_token })
+          .then(() => {
+            markInvitationAccepted();
+          })
+          .catch((err) => {
+            console.error('Failed to set session from invite link:', err);
+          });
+
+        // Clean up tokens from the URL for nicer UX
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('access_token');
+          url.searchParams.delete('refresh_token');
+          // Also drop hash
+          url.hash = '';
+          window.history.replaceState({}, '', url.toString());
+        } catch (e) {
+          // no-op
+        }
+      }
+    }
+    
+    setInitialized(true);
+  }, [searchParams, initialized]);
 
   const validatePassword = (password: string) => {
     if (!password) return 'Password is required';
     if (password.length < 6) return 'Password must be at least 6 characters';
     return '';
+  };
+
+  // Mark invitation as accepted once the email link establishes a session
+  const markInvitationAccepted = async () => {
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id;
+      if (!uid) return;
+
+      // Update profile invite status
+      await supabase
+        .from('profiles')
+        .update({ invitation_status: 'accepted', invitation_accepted_at: new Date().toISOString() })
+        .eq('user_id', uid);
+
+      // Resolve tenant + role hints from metadata or URL
+      const roleFromMeta = (userRes?.user?.user_metadata as any)?.role || (userRes?.user?.app_metadata as any)?.role;
+      const metaTenantId = (userRes?.user?.user_metadata as any)?.tenant_id || (userRes?.user?.app_metadata as any)?.tenant_id;
+
+      let tenantId = metaTenantId as string | undefined;
+      if (!tenantId) {
+        const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
+        tenantId = tenantData as string | undefined;
+      }
+
+      if (tenantId) {
+        const updatePayload: any = {
+          invitation_status: 'accepted',
+          invitation_accepted_at: new Date().toISOString(),
+          is_active: true,
+        };
+
+        // Prefer role from URL (?role=...) then metadata
+        const roleParam = (searchParams.get('role') || '').toLowerCase();
+        const desiredRole = roleParam || roleFromMeta;
+        if (desiredRole) updatePayload.role = desiredRole;
+
+        const { error: tuError } = await supabase
+          .from('tenant_users')
+          .update(updatePayload)
+          .eq('user_id', uid)
+          .eq('tenant_id', tenantId);
+
+        if (tuError) {
+          // Fallback: self-repair membership to ensure active/accepted
+          const email = userRes?.user?.email;
+          if (email) {
+            try {
+              await supabase.rpc('reactivate_tenant_membership', {
+                tenant_id_param: tenantId,
+                target_email_param: email,
+              });
+              // Try role update again if needed
+              if (desiredRole) {
+                await supabase
+                  .from('tenant_users')
+                  .update({ role: desiredRole })
+                  .eq('user_id', uid)
+                  .eq('tenant_id', tenantId);
+              }
+            } catch (_) {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to mark invitation as accepted', e);
+    }
   };
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
@@ -94,27 +221,40 @@ const ResetPassword = () => {
     setLoading(false);
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    setPasswordError('');
+const handleResetPassword = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  setPasswordError('');
 
-    // Validate passwords
-    const passwordValidation = validatePassword(formData.password);
-    if (passwordValidation) {
-      setPasswordError(passwordValidation);
-      return;
-    }
+  // Validate passwords
+  const passwordValidation = validatePassword(formData.password);
+  if (passwordValidation) {
+    setPasswordError(passwordValidation);
+    return;
+  }
 
-    if (formData.password !== formData.confirmPassword) {
-      setPasswordError("Passwords don't match");
-      return;
-    }
+  if (formData.password !== formData.confirmPassword) {
+    setPasswordError("Passwords don't match");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      // For password reset, we call verify-otp with both the code AND the new password
+  try {
+    if (isInvite) {
+      // Invitation flow: user has session from link, update password directly
+      const { error: updateError } = await supabase.auth.updateUser({ password: formData.password });
+      if (updateError) {
+        throw updateError;
+      }
+      setResetComplete(true);
+      toast({
+        title: 'Password set!',
+        description: 'Your password has been created. You can now sign in.',
+      });
+      navigate('/auth?reset=success', { replace: true });
+    } else {
+      // OTP flow: verify code and set new password via edge function
       console.log('Sending password reset request with data:', {
         email: formData.email,
         otpCode: formData.otpCode,
@@ -122,7 +262,6 @@ const ResetPassword = () => {
         hasNewPassword: !!formData.password
       });
 
-      // SECURITY FIX: Use Supabase client instead of hardcoded API keys
       const response = await supabase.functions.invoke('verify-otp', {
         body: {
           email: formData.email,
@@ -140,24 +279,21 @@ const ResetPassword = () => {
       } else if (response.data?.success) {
         setResetComplete(true);
         toast({
-          title: "Password updated successfully",
-          description: "Your password has been reset. You can now sign in with your new password."
+          title: 'Password updated successfully',
+          description: 'Your password has been reset. You can now sign in with your new password.'
         });
-        
-        // Redirect to login after a short delay
-        setTimeout(() => {
-          navigate('/auth');
-        }, 3000);
+        navigate('/auth?reset=success', { replace: true });
       } else {
         setPasswordError('Failed to reset password. Please try again.');
       }
-    } catch (error: any) {
-      console.error('Password reset error:', error);
-      setPasswordError('An unexpected error occurred. Please try again.');
     }
+  } catch (error: any) {
+    console.error('Password reset error:', error);
+    setPasswordError(error.message || 'An unexpected error occurred. Please try again.');
+  }
 
-    setLoading(false);
-  };
+  setLoading(false);
+};
 
   const resendOTP = async () => {
     setLoading(true);

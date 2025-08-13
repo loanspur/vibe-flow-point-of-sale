@@ -13,14 +13,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Clock, AlertTriangle, Ban, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, Clock, AlertTriangle, Ban, CheckCircle, XCircle, Mail } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 
 interface User {
   id: string;
   user_id: string;
   full_name: string;
+  email?: string;
   role: string;
   tenant_id: string;
   created_at: string;
@@ -139,6 +141,11 @@ const UserManagement = () => {
   const [creating, setCreating] = useState(false);
   const [createUserError, setCreateUserError] = useState<{ message: string; details?: string; code?: string } | null>(null);
 
+  // Resend invitation dialog state
+  const [resendOpen, setResendOpen] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendTarget, setResendTarget] = useState<User | null>(null);
   useEffect(() => {
     if (tenantId) {
       fetchUsers();
@@ -151,19 +158,196 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, user_id, full_name, role, tenant_id, created_at, avatar_url, invitation_status, invited_at, invitation_accepted_at')
+      // Fetch tenant membership as source of truth, then enrich with profiles
+      const { data: tenantUsers, error: tuError } = await supabase
+        .from('tenant_users')
+        .select('user_id, role, tenant_id, is_active, invited_at, created_at')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (tuError) throw tuError;
+
+      if (!tenantUsers || tenantUsers.length === 0) {
+        // Attempt to self-repair admin membership so the user list can load
+        if ((userRole === 'admin' || userRole === 'owner') && user?.email && tenantId) {
+          try {
+            await supabase.rpc('reactivate_tenant_membership', {
+              tenant_id_param: tenantId,
+              target_email_param: user.email,
+            });
+            // Re-fetch after repair
+            const { data: repairedTenantUsers } = await supabase
+              .from('tenant_users')
+              .select('user_id, role, tenant_id, is_active, invited_at, created_at')
+              .eq('tenant_id', tenantId)
+              .order('created_at', { ascending: false });
+
+            if (repairedTenantUsers && repairedTenantUsers.length > 0) {
+              // Re-run fetchUsers to build full list
+              // Use a small delay to allow RLS context to refresh
+              setTimeout(fetchUsers, 50);
+              return;
+            }
+          } catch (e) {
+            console.warn('Membership repair attempt failed:', e);
+          }
+        }
+
+        // Fallback: show current admin locally so UI is not empty
+        let result: User[] = [];
+        if ((userRole === 'admin' || userRole === 'owner') && user?.id && tenantId) {
+          result = [{
+            id: user.id,
+            user_id: user.id,
+            full_name: (user.user_metadata as any)?.full_name || user.email || 'Tenant Admin',
+            email: user.email || undefined,
+            role: userRole as string,
+            tenant_id: tenantId,
+            created_at: new Date().toISOString(),
+            is_active: true,
+            invitation_status: 'accepted',
+          } as User];
+        }
+        setUsers(result);
+        return;
+      }
+
+      const userIds = tenantUsers.map((tu: any) => tu.user_id).filter(Boolean);
+
+      const { data: profiles, error: pError } = await supabase
+        .from('profiles')
+        .select('id, user_id, full_name, role, tenant_id, created_at, avatar_url, invitation_status, invited_at, invitation_accepted_at')
+        .in('user_id', userIds);
+
+      if (pError) throw pError;
+
+      const profileMap = new Map<string, any>((profiles || []).map((p: any) => [p.user_id, p]));
+
+      // Fetch active role assignments and role names to determine display role
+      const { data: roleAssignments, error: raError } = await supabase
+        .from('user_role_assignments')
+        .select('user_id, role_id, is_active')
+        .in('user_id', userIds)
+        .eq('is_active', true)
+        .eq('tenant_id', tenantId);
+      if (raError) {
+        console.warn('user_role_assignments fetch failed:', raError);
+      }
+
+      const { data: rolesRows, error: rolesErr } = await supabase
+        .from('user_roles')
+        .select('id, name, level')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+      if (rolesErr) {
+        console.warn('user_roles fetch failed:', rolesErr);
+      }
+
+      const assignmentsByUser = new Map<string, any[]>();
+      (roleAssignments || []).forEach((ra: any) => {
+        const list = assignmentsByUser.get(ra.user_id) || [];
+        list.push(ra);
+        assignmentsByUser.set(ra.user_id, list);
+      });
+      const roleNameById = new Map<string, string>((rolesRows || []).map((r: any) => [r.id, r.name]));
+
+      // Fetch emails from Auth for these tenant users via secure RPC (fallback for unknown profiles)
+      const { data: emailRows, error: emailErr } = await supabase.rpc('get_tenant_user_emails', { tenant_id: tenantId });
+      if (emailErr) {
+        console.warn('get_tenant_user_emails RPC failed:', emailErr);
+      }
+      const emailMap = new Map<string, { email: string; last_sign_in_at?: string; created_at?: string }>((emailRows || []).map((r: any) => [r.user_id, r]));
+
+      const combined: User[] = tenantUsers.map((tu: any) => {
+        const p = profileMap.get(tu.user_id) || {};
+        const emailInfo = emailMap.get(tu.user_id);
+        const displayName = p.full_name || emailInfo?.email || 'Unknown User';
+        return {
+          id: p.id || tu.user_id,
+          user_id: tu.user_id,
+          full_name: displayName,
+          email: emailInfo?.email || undefined,
+          role: (assignmentsByUser.get(tu.user_id)?.[0]?.role_id
+            ? (roleNameById.get(assignmentsByUser.get(tu.user_id)![0].role_id) || tu.role || p.role)
+            : (tu.role || p.role)),
+          tenant_id: tu.tenant_id,
+          created_at: p.created_at || tu.created_at,
+          avatar_url: p.avatar_url,
+          is_active: (tu.is_active ?? true),
+          invitation_status: p.invitation_status || (p.invitation_accepted_at ? 'accepted' : (tu.invited_at ? 'pending' : 'accepted')),
+          invited_at: p.invited_at || tu.invited_at || null,
+          invitation_accepted_at: p.invitation_accepted_at || null,
+          last_login: emailInfo?.last_sign_in_at || undefined,
+        } as User;
+      });
+
+      // Also include pending invitations that may not yet have a tenant_users/profile row
+      const existingEmails = new Set(
+        combined.map(u => (u.email || '').toLowerCase()).filter(Boolean)
+      );
+      try {
+        const { data: inviteLogs } = await supabase
+          .from('communication_logs')
+          .select('recipient, sent_at, created_at, subject, metadata')
+          .eq('tenant_id', tenantId)
+          .eq('type', 'user_invitation')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        (inviteLogs || []).forEach((log: any) => {
+          const email = (log.recipient || '').toLowerCase();
+          if (!email || existingEmails.has(email)) return;
+          existingEmails.add(email);
+          combined.push({
+            id: `invited:${email}`,
+            user_id: '',
+            full_name: log.metadata?.fullName || log.metadata?.full_name || email,
+            email,
+            role: (log.metadata?.role || 'user') as string,
+            tenant_id: tenantId!,
+            created_at: log.sent_at || log.created_at,
+            is_active: false,
+            invitation_status: 'pending',
+            invited_at: log.sent_at || log.created_at,
+          } as User);
+        });
+      } catch (e) {
+        console.warn('Failed to include pending invitation logs', e);
+      }
+
+      // Ensure tenant admin is always present in the list
+      let result = combined;
+      const hasAdmin = combined.some(u => ['admin', 'owner'].includes((u.role || '').toLowerCase()));
+      if (!hasAdmin && (userRole === 'admin' || userRole === 'owner') && user?.id && tenantId) {
+        if (!combined.some(u => u.user_id === user.id)) {
+          result = [{
+            id: user.id,
+            user_id: user.id,
+            full_name: (user.user_metadata as any)?.full_name || user.email || 'Tenant Admin',
+            email: user.email || undefined,
+            role: userRole as string,
+            tenant_id: tenantId,
+            created_at: new Date().toISOString(),
+            is_active: true,
+            invitation_status: 'accepted',
+          } as User, ...combined];
+        }
+      }
+
+      setUsers(result);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
     }
   };
+
+  // Realtime refresh for membership and role changes
+  useRealtimeRefresh({
+    tables: ['tenant_users', 'user_role_assignments', 'profiles'],
+    tenantId: tenantId ?? null,
+    onChange: fetchUsers,
+    enabled: !!tenantId,
+  });
 
   const fetchRoles = async () => {
     try {
@@ -289,14 +473,34 @@ const UserManagement = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: string) => {
+  const updateUserRole = async (userId: string, newRoleName: string) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole as any })
-        .eq('user_id', userId);
+      // Find selected role in tenant's roles
+      const role = roles.find((r) => r.name === newRoleName);
+      if (!role) {
+        toast.error('Selected role not found');
+        return;
+      }
 
-      if (error) throw error;
+      // Deactivate existing assignments for this user in this tenant
+      const { error: deactivateErr } = await supabase
+        .from('user_role_assignments')
+        .update({ is_active: false })
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+      if (deactivateErr) {
+        console.warn('Failed to deactivate existing assignments:', deactivateErr);
+      }
+
+      // Upsert the new active assignment
+      const { error: upsertErr } = await supabase
+        .from('user_role_assignments')
+        .insert({ user_id: userId, role_id: role.id, assigned_by: user?.id, is_active: true, tenant_id: tenantId as string })
+        .select()
+        .single();
+
+      if (upsertErr) throw upsertErr;
 
       toast.success('User role updated successfully');
       fetchUsers();
@@ -537,6 +741,53 @@ const UserManagement = () => {
     }
   };
 
+  // Open resend invitation dialog and try to prefill last used email
+  const openResendDialog = async (target: User) => {
+    setResendTarget(target);
+    setResendEmail('');
+    setResendOpen(true);
+
+    // Prefill with last invitation recipient if available
+    try {
+      const { data } = await supabase
+        .from('communication_logs')
+        .select('recipient')
+        .eq('tenant_id', tenantId)
+        .eq('user_id', target.user_id)
+        .eq('type', 'user_invitation')
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.recipient) setResendEmail(data.recipient);
+    } catch (e) {
+      // no-op
+    }
+  };
+
+  const resendInvitationConfirm = async () => {
+    if (!resendTarget || !resendEmail) return;
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-user-invitation', {
+        body: {
+          email: resendEmail,
+          fullName: resendTarget.full_name,
+          role: resendTarget.role,
+          tenantId
+        }
+      });
+      if (error) throw error;
+      toast.success(data?.message || 'Invitation email resent');
+      setResendOpen(false);
+      setResendTarget(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to resend invitation');
+    } finally {
+      setResending(false);
+    }
+  };
+
   const deactivateUserSession = async (sessionId: string) => {
     try {
       const { error } = await supabase
@@ -586,8 +837,10 @@ const UserManagement = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.role?.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (user.full_name?.toLowerCase().includes(term) ||
+                         user.role?.toLowerCase().includes(term) ||
+                         user.email?.toLowerCase().includes(term));
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -778,6 +1031,7 @@ const UserManagement = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Invitation Status</TableHead>
                       <TableHead>Joined</TableHead>
@@ -788,7 +1042,7 @@ const UserManagement = () => {
                   <TableBody>
                     {filteredUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8">
+                        <TableCell colSpan={7} className="text-center py-8">
                           No users found
                         </TableCell>
                       </TableRow>
@@ -807,6 +1061,7 @@ const UserManagement = () => {
                                 </div>
                               </div>
                             </TableCell>
+                            <TableCell>{user.email || '-'}</TableCell>
                             <TableCell>
                               <Badge className={roleInfo.color}>
                                 <div className="flex items-center gap-1">
@@ -852,6 +1107,17 @@ const UserManagement = () => {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
+                                {user.invitation_status !== 'accepted' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openResendDialog(user)}
+                                    disabled={resending && resendTarget?.user_id === user.user_id}
+                                    title="Resend invitation"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 {userRole === 'admin' && (
                                   <>
                                     <Select
@@ -1213,6 +1479,36 @@ const UserManagement = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Resend Invitation Dialog */}
+      <Dialog open={resendOpen} onOpenChange={setResendOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resend Invitation</DialogTitle>
+            <DialogDescription>
+              Send a fresh invitation link to set password and join this tenant.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="resend-email">Recipient Email</Label>
+              <Input
+                id="resend-email"
+                type="email"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setResendOpen(false)}>Cancel</Button>
+              <Button onClick={resendInvitationConfirm} disabled={resending || !resendEmail}>
+                {resending ? 'Sending...' : 'Send Invitation'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

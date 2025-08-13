@@ -19,6 +19,7 @@ import CookieConsent from "./components/CookieConsent";
 import { PasswordChangeModal } from "./components/PasswordChangeModal";
 import { AuthSessionFix } from "./components/AuthSessionFix";
 import { supabase } from "@/integrations/supabase/client";
+import { SimplifiedTenantRoutes } from "@/components/SimplifiedTenantRoutes";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -195,6 +196,35 @@ const DomainRouter = () => {
   const { domainConfig, loading } = useDomainContext();
   const { user, loading: authLoading, userRole } = useAuth();
   const location = useLocation();
+  
+  console.log('🌐 DOMAIN ROUTER RENDER:', {
+    pathname: location.pathname,
+    timestamp: Date.now(),
+    user: !!user,
+    userEmail: user?.email,
+    isSubdomain: domainConfig?.isSubdomain,
+    tenantId: domainConfig?.tenantId,
+    authLoading,
+    loading
+  });
+  
+  // Redirect auth callbacks to reset-password flow - only run once on mount
+  useEffect(() => {
+    const checkAuthCallback = () => {
+      if (typeof window !== 'undefined' && window.location.hash &&
+          /access_token|token_hash|type=invite|type=recovery/i.test(window.location.hash) &&
+          location.pathname !== '/reset-password') {
+        const search = new URLSearchParams(location.search || '');
+        if (!search.get('from')) search.set('from', 'invite');
+        const qs = search.toString();
+        const newUrl = `/reset-password${qs ? `?${qs}` : ''}${window.location.hash}`;
+        window.location.replace(newUrl);
+      }
+    };
+    
+    // Only check on initial mount, not on every route change
+    checkAuthCallback();
+  }, []); // Remove dependencies to prevent running on route changes
   
   // Check for authentication session issues
   const [showAuthFix, setShowAuthFix] = useState(false);

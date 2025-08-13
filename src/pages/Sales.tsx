@@ -12,13 +12,14 @@ export default function Sales() {
   const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   // Periodic refresh when visible
-  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true });
+  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
 
   // Realtime refresh on sales-related changes
   useRealtimeRefresh({
     tables: ['sales', 'sales_items', 'customers', 'ar_ap_payments', 'payment_history'],
     tenantId,
     onChange: handleRefresh,
+    enabled: false,
   });
 
   return (

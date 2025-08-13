@@ -69,19 +69,44 @@ function TenantAdminDashboard() {
     currentSubscription?.billing_plan_id
   );
 
-  // Fetch subscription data and user profile
+  // Stabilized effect to prevent render loops
   useEffect(() => {
-    if (tenantId) {
-      console.log('Fetching subscription for tenant:', tenantId);
-      fetchCurrentSubscription();
-      fetchDashboardData();
+    if (!tenantId || !user?.id) {
+      setLoading(false);
+      return;
     }
-    if (user?.id) {
-      fetchUserProfile();
-    }
-  }, [tenantId, user?.id]);
+    
+    let isMounted = true;
+    
+    const initializeDashboard = async () => {
+      setLoading(true);
+      
+      try {
+        // Fetch all data in parallel
+        const promises = [
+          fetchCurrentSubscription(),
+          fetchDashboardData(),
+          fetchUserProfile()
+        ];
+        
+        await Promise.all(promises);
+      } catch (error) {
+        console.error('Error initializing dashboard:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  // Listen for cash drawer updates
+    initializeDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [tenantId, user?.id]); // Only depend on essential values
+
+  // Listen for cash drawer updates - stable event listener
   useEffect(() => {
     const handleCashDrawerUpdate = () => {
       setCashDrawerRefreshKey(prev => prev + 1);
@@ -91,26 +116,32 @@ function TenantAdminDashboard() {
     return () => window.removeEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
   }, []);
 
-  // Refetch when date filters change
+  // Date filter effect - debounced to prevent excessive calls
   useEffect(() => {
-    if (tenantId) {
+    if (!tenantId || loading) return;
+    
+    const timeoutId = setTimeout(() => {
       fetchDashboardData();
-    }
-  }, [tenantId, dateFilter, dateRange.start, dateRange.end]);
+    }, 500); // Increased debounce time
 
-  // Periodic auto-refresh when tab is visible
-  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true });
+    return () => clearTimeout(timeoutId);
+  }, [dateFilter, dateRange.start, dateRange.end, tenantId]); // Added tenantId dependency
 
-  // Realtime updates for key business tables
-  useRealtimeRefresh({
-    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
-    tenantId,
-    onChange: () => fetchDashboardData(),
-  });
+  // Auto-refresh features disabled to isolate flickering issue
+  // useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: false });
+
+  // useRealtimeRefresh({
+  //   tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+  //   tenantId,
+  //   onChange: () => fetchDashboardData(),
+  //   enabled: false,
+  // });
 
   const fetchCurrentSubscription = async () => {
+    if (!tenantId) return;
+    
     try {
-      console.log('Starting subscription fetch...');
+      console.log('Fetching subscription for tenant:', tenantId);
       const { data, error } = await supabase
         .from('tenant_subscription_details')
         .select(`
@@ -152,10 +183,13 @@ function TenantAdminDashboard() {
     }
   };
 
-  // Fast dashboard data fetch with minimal queries, honoring date filters
+  // Optimized dashboard data fetch
   const fetchDashboardData = async () => {
     if (!tenantId) return;
-    setLoading(true);
+    
+    // Don't set loading if already loaded to prevent flickering
+    const wasLoading = loading;
+    if (!dashboardData) setLoading(true);
 
     // Determine date window
     const now = new Date();

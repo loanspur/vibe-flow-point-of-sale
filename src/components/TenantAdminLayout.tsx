@@ -84,7 +84,7 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
                       <User className="mr-2 h-4 w-4" />
                       Profile Settings
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/')}>
+                    <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                       Home
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

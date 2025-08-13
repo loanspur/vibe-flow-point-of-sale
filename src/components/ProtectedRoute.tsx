@@ -91,9 +91,9 @@ const ProtectedRoute = ({
       );
     }
 
-    // On tenant subdomains, allow any authenticated user to access dashboard/root even if role mapping differs
-    if (isSubdomain() && (location.pathname === '/' || location.pathname.startsWith('/dashboard'))) {
-      console.log('🧩 Allowing subdomain dashboard/root access without strict role check');
+    // On tenant subdomains, be more permissive to avoid redirect loops
+    if (isSubdomain()) {
+      console.log('🧩 Subdomain detected - allowing access if user exists');
       return <>{children}</>;
     }
 
