@@ -256,11 +256,11 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="tenant-email">Email Address</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                id="email"
+                id="tenant-email"
                 name="email"
                 type="email"
                 placeholder="john@business.com"
