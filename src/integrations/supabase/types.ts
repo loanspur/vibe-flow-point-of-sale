@@ -5779,6 +5779,7 @@ export type Database = {
           plan_type: string
           status: string
           subdomain: string
+          trial_ends_at: string | null
           updated_at: string
         }
         Insert: {
@@ -5796,6 +5797,7 @@ export type Database = {
           plan_type?: string
           status?: string
           subdomain: string
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -5813,6 +5815,7 @@ export type Database = {
           plan_type?: string
           status?: string
           subdomain?: string
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6762,6 +6765,27 @@ export type Database = {
         Returns: {
           user_id: string
           email: string
+        }[]
+      }
+      get_tenant_users_with_roles: {
+        Args: {
+          p_tenant_id?: string
+          p_search?: string
+          p_role_filter?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          user_id: string
+          email: string
+          full_name: string
+          primary_role: string
+          role_names: string[]
+          invited: boolean
+          last_sign_in_at: string
+          created_at: string
+          status: string
+          total_count: number
         }[]
       }
       get_transfer_request_details: {
