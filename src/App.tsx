@@ -19,6 +19,7 @@ import CookieConsent from "./components/CookieConsent";
 import { PasswordChangeModal } from "./components/PasswordChangeModal";
 import { AuthSessionFix } from "./components/AuthSessionFix";
 import { supabase } from "@/integrations/supabase/client";
+import { SimplifiedTenantRoutes } from "@/components/SimplifiedTenantRoutes";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
