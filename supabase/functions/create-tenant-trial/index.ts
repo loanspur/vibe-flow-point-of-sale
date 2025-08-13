@@ -24,6 +24,8 @@ serve(async (req) => {
       email, 
       mobileNumber, 
       country, 
+      currency,
+      timezone,
       password 
     } = await req.json();
 
