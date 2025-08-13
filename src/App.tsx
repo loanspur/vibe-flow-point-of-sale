@@ -196,18 +196,23 @@ const DomainRouter = () => {
   const { user, loading: authLoading, userRole } = useAuth();
   const location = useLocation();
   
-  // Redirect any hash-token auth callbacks to reset-password flow
+  // Redirect auth callbacks to reset-password flow - only run once on mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash &&
-        /access_token|token_hash|type=invite|type=recovery/i.test(window.location.hash) &&
-        location.pathname !== '/reset-password') {
-      const search = new URLSearchParams(location.search || '');
-      if (!search.get('from')) search.set('from', 'invite');
-      const qs = search.toString();
-      const newUrl = `/reset-password${qs ? `?${qs}` : ''}${window.location.hash}`;
-      window.location.replace(newUrl);
-    }
-  }, [location.pathname, location.search]);
+    const checkAuthCallback = () => {
+      if (typeof window !== 'undefined' && window.location.hash &&
+          /access_token|token_hash|type=invite|type=recovery/i.test(window.location.hash) &&
+          location.pathname !== '/reset-password') {
+        const search = new URLSearchParams(location.search || '');
+        if (!search.get('from')) search.set('from', 'invite');
+        const qs = search.toString();
+        const newUrl = `/reset-password${qs ? `?${qs}` : ''}${window.location.hash}`;
+        window.location.replace(newUrl);
+      }
+    };
+    
+    // Only check on initial mount, not on every route change
+    checkAuthCallback();
+  }, []); // Remove dependencies to prevent running on route changes
   
   // Check for authentication session issues
   const [showAuthFix, setShowAuthFix] = useState(false);
