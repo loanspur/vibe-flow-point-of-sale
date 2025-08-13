@@ -69,16 +69,41 @@ function TenantAdminDashboard() {
     currentSubscription?.billing_plan_id
   );
 
-  // Fetch subscription data and user profile
+  // Consolidated effect to prevent excessive re-renders
   useEffect(() => {
-    if (tenantId) {
+    let isMounted = true;
+    
+    const initializeDashboard = async () => {
+      if (!tenantId || !user?.id) return;
+      
       console.log('Fetching subscription for tenant:', tenantId);
-      fetchCurrentSubscription();
-      fetchDashboardData();
+      
+      // Fetch all data in parallel
+      const promises = [];
+      
+      if (tenantId) {
+        promises.push(fetchCurrentSubscription());
+        promises.push(fetchDashboardData());
+      }
+      
+      if (user?.id) {
+        promises.push(fetchUserProfile());
+      }
+      
+      try {
+        await Promise.all(promises);
+      } catch (error) {
+        console.error('Error initializing dashboard:', error);
+      }
+    };
+
+    if (isMounted) {
+      initializeDashboard();
     }
-    if (user?.id) {
-      fetchUserProfile();
-    }
+
+    return () => {
+      isMounted = false;
+    };
   }, [tenantId, user?.id]);
 
   // Listen for cash drawer updates
@@ -91,12 +116,16 @@ function TenantAdminDashboard() {
     return () => window.removeEventListener('cashDrawerUpdated', handleCashDrawerUpdate);
   }, []);
 
-  // Refetch when date filters change
+  // Refetch when date filters change - debounced
   useEffect(() => {
-    if (tenantId) {
+    if (!tenantId) return;
+    
+    const timeoutId = setTimeout(() => {
       fetchDashboardData();
-    }
-  }, [tenantId, dateFilter, dateRange.start, dateRange.end]);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [dateFilter, dateRange.start, dateRange.end]);
 
   // Periodic auto-refresh when tab is visible
   useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: false });
