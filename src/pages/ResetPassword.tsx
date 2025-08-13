@@ -18,19 +18,10 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resetComplete, setResetComplete] = useState(false);
-  const [step, setStep] = useState<'otp' | 'password'>(() => {
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash || '';
-      const search = window.location.search || '';
-      const hasTokens = /access_token|token_hash|type=invite|type=recovery/i.test(hash + search);
-      try { if (sessionStorage.getItem('invite-flow') === 'true') return 'password'; } catch {}
-      if (hasTokens) return 'password';
-    }
-    return 'otp';
-  });
-  
-  // Invitation flow flag
-  const isInvite = ((searchParams.get('from') || '').toLowerCase() === 'invite') || (typeof window !== 'undefined' && sessionStorage.getItem('invite-flow') === 'true') || (typeof window !== 'undefined' && /access_token|token_hash|type=invite|type=recovery/i.test((window.location.hash||'') + (window.location.search||'')));
+  // Single source of truth for step determination
+  const [step, setStep] = useState<'otp' | 'password'>('otp');
+  const [initialized, setInitialized] = useState(false);
+  const [isInvite, setIsInvite] = useState(false);
   
   // Error states
   const [otpError, setOtpError] = useState('');
@@ -43,107 +34,46 @@ const ResetPassword = () => {
     confirmPassword: ''
   });
 
-  // Universal cross-domain redirect to tenant reset page when magic-link tokens are present
+  // Single initialization effect to prevent flickering
   useEffect(() => {
-    try {
-      if (typeof window === 'undefined') return;
-      const host = window.location.hostname;
-      const hash = window.location.hash || '';
-
-      // Tokens may arrive via hash from Supabase auth callback
-      if (!hash.includes('access_token')) return;
-
-      const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
-      const accessToken = hashParams.get('access_token');
-      if (!accessToken) return;
-
-      // Immediately switch to password step for magic/invite links
+    if (initialized) return;
+    
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const hasTokens = /access_token|token_hash|type=invite|type=recovery/i.test(hash + search);
+    const fromInvite = ((searchParams.get('from') || '').toLowerCase() === 'invite');
+    const sessionInvite = sessionStorage.getItem('invite-flow') === 'true';
+    
+    const isInviteFlow = fromInvite || sessionInvite || hasTokens;
+    setIsInvite(isInviteFlow);
+    
+    if (isInviteFlow) {
       setStep('password');
       try { sessionStorage.setItem('invite-flow', 'true'); } catch {}
-
-      const decodePayload = (jwt: string) => {
-        const part = jwt.split('.')[1];
-        if (!part) return null;
-        const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
-        try {
-          const json = decodeURIComponent(
-            atob(base64)
-              .split('')
-              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-              .join('')
-          );
-          return JSON.parse(json);
-        } catch {
-          return null;
-        }
-      };
-
-      const payload = decodePayload(accessToken);
-      const tenantId = payload?.user_metadata?.tenant_id || payload?.tenant_id || payload?.app_metadata?.tenant_id;
-      if (!tenantId) return;
-
-      (async () => {
-        try {
-          const mod = await import('@/utils/emailHelpers');
-          const { generateTenantEmailUrls } = mod as any;
-          const tenantUrls = await generateTenantEmailUrls(tenantId);
-          if (!tenantUrls?.baseUrl) return;
-
-          // Preserve existing query, ensure from=invite flag, and keep the hash
-          const sp = new URLSearchParams(window.location.search || '');
-          if (!sp.get('from')) sp.set('from', 'invite');
-          const qs = sp.toString();
-          const target = `${tenantUrls.baseUrl.replace(/\/$/, '')}/reset-password${qs ? `?${qs}` : ''}${hash}`;
-
-          const targetHost = new URL(tenantUrls.baseUrl).hostname;
-          if (targetHost !== host) {
-            window.location.replace(target);
-          } else {
-            // Same host: still apply the from=invite param so UI shows password step
-            try {
-              const url = new URL(window.location.href);
-              // merge in params
-              sp.forEach((v, k) => url.searchParams.set(k, v));
-              window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${hash}`);
-            } catch { /* ignore */ }
-          }
-        } catch (e) {
-          console.warn('Tenant redirect resolution failed:', e);
-        }
-      })();
-    } catch (e) {
-      // no-op
     }
-  }, []);
-
-  // Get email from URL params and prepare invite flow
-  useEffect(() => {
+    
+    // Handle email from URL
     const email = searchParams.get('email');
     if (email) {
       setFormData(prev => ({ ...prev, email: decodeURIComponent(email) }));
     }
-
-    // If coming from invitation, ensure we show password step and set session from URL tokens
-    if (isInvite) {
-      setStep('password');
-
-      // Try query params first
+    
+    // Handle session setup for invites
+    if (isInviteFlow && hasTokens) {
       let access_token = searchParams.get('access_token');
       let refresh_token = searchParams.get('refresh_token');
 
-      // Fallback: parse tokens from URL hash (when detectSessionInUrl is disabled)
-      if ((!access_token || !refresh_token) && window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      // Fallback: parse tokens from URL hash
+      if ((!access_token || !refresh_token) && hash) {
+        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
         access_token = access_token || hashParams.get('access_token') || undefined;
         refresh_token = refresh_token || hashParams.get('refresh_token') || undefined;
       }
 
       if (access_token && refresh_token) {
-        // Persist the session so user can update password immediately
         supabase.auth
           .setSession({ access_token, refresh_token })
           .then(() => {
-            // Mark invite as accepted upon successful session set
             markInvitationAccepted();
           })
           .catch((err) => {
@@ -163,7 +93,9 @@ const ResetPassword = () => {
         }
       }
     }
-  }, [searchParams, isInvite]);
+    
+    setInitialized(true);
+  }, [searchParams, initialized]);
 
   const validatePassword = (password: string) => {
     if (!password) return 'Password is required';
