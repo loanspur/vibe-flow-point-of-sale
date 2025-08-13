@@ -196,6 +196,17 @@ const DomainRouter = () => {
   const { user, loading: authLoading, userRole } = useAuth();
   const location = useLocation();
   
+  console.log('🌐 DOMAIN ROUTER RENDER:', {
+    pathname: location.pathname,
+    timestamp: Date.now(),
+    user: !!user,
+    userEmail: user?.email,
+    isSubdomain: domainConfig?.isSubdomain,
+    tenantId: domainConfig?.tenantId,
+    authLoading,
+    loading
+  });
+  
   // Redirect auth callbacks to reset-password flow - only run once on mount
   useEffect(() => {
     const checkAuthCallback = () => {

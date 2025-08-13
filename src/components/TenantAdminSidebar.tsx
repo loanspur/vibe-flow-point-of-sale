@@ -121,6 +121,7 @@ export function TenantAdminSidebar() {
                       to={item.url} 
                       end={item.url === "/admin"}
                       className={({ isActive: navActive }) => getNavCls(navActive)}
+                      onClick={() => console.log(`🔗 SIDEBAR: Clicked ${item.title} -> ${item.url}`)}
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -148,6 +149,7 @@ export function TenantAdminSidebar() {
                         className={({ isActive: navActive }) => 
                           `${getNavCls(navActive)} ${!hasAccess && !isOnTrial ? 'opacity-60' : ''}`
                         }
+                        onClick={() => console.log(`🔗 SIDEBAR: Clicked ${item.title} -> ${hasAccess || isOnTrial ? item.url : "/admin/settings?tab=billing"}, hasAccess: ${hasAccess}, isOnTrial: ${isOnTrial}`)}
                       >
                         <item.icon className="h-4 w-4" />
                         {!collapsed && (
@@ -180,6 +182,7 @@ export function TenantAdminSidebar() {
                     <NavLink 
                       to={item.url}
                       className={({ isActive: navActive }) => getNavCls(navActive)}
+                      onClick={() => console.log(`🔗 SIDEBAR: Clicked ${item.title} -> ${item.url}`)}
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
