@@ -127,16 +127,15 @@ function TenantAdminDashboard() {
     return () => clearTimeout(timeoutId);
   }, [dateFilter, dateRange.start, dateRange.end]);
 
-  // Periodic auto-refresh when tab is visible
-  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: false });
+  // Auto-refresh features disabled to isolate flickering issue
+  // useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: false });
 
-  // Realtime updates for key business tables
-  useRealtimeRefresh({
-    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
-    tenantId,
-    onChange: () => fetchDashboardData(),
-    enabled: false,
-  });
+  // useRealtimeRefresh({
+  //   tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+  //   tenantId,
+  //   onChange: () => fetchDashboardData(),
+  //   enabled: false,
+  // });
 
   const fetchCurrentSubscription = async () => {
     try {
