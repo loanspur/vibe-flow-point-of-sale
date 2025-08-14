@@ -120,24 +120,24 @@ const Dashboard = () => {
         trend: "up",
         loading: false
       },
-        {
-          title: "Products Sold",
-          value: dashboardData.totalProductsSold.toString(),
-          change: "Today",
-          icon: ShoppingBag,
-          trend: "up",
-          loading: false
-        },
-        {
-          title: "Purchases",
-          value: formatCurrency(dashboardData.todayPurchases),
-          change: "Today",
-          icon: () => <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-5 w-5 text-destructive" />,
-          trend: "up",
-          loading: false,
-          clickable: true,
-          onClick: () => window.open('/admin/purchases', '_blank')
-        }
+      {
+        title: "Products Sold",
+        value: dashboardData.totalProductsSold.toString(),
+        change: "Today",
+        icon: ShoppingBag,
+        trend: "up",
+        loading: false
+      },
+      {
+        title: "Purchases",
+        value: formatCurrency(dashboardData.todayPurchases),
+        change: "Today",
+        icon: () => <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-5 w-5 text-destructive" />,
+        trend: "up",
+        loading: false,
+        clickable: true,
+        onClick: () => window.open('/admin/purchases', '_blank')
+      }
     ];
   }, [dashboardData, formatCurrency, currentDrawer, percentageChanges, tenantCurrency]);
 
@@ -180,7 +180,7 @@ const Dashboard = () => {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
             <div className="grid grid-cols-3 gap-4">
-              {displayMetrics.slice(0, 6).map((metric, index) => (
+              {displayMetrics.slice(0, 5).map((metric, index) => (
                 <Card key={index} className={`p-6 bg-card border-border hover:shadow-[var(--shadow-card)] transition-all duration-300 ${
                   metric.loading ? 'animate-pulse' : ''
                 } ${metric.clickable ? 'cursor-pointer hover:scale-105' : ''}`}
