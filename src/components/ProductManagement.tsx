@@ -120,7 +120,15 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           *,
           product_categories(name),
           product_subcategories(name),
-          product_units(name, abbreviation)
+          product_units(name, abbreviation),
+          product_variants(
+            id,
+            name,
+            value,
+            stock_quantity,
+            price_adjustment,
+            is_active
+          )
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
@@ -342,22 +350,22 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   {product.is_active ? "Active" : "Inactive"}
                 </Badge>
               </TableCell>
-              <TableCell className="hidden xl:table-cell">
-                {(product as any).product_variants && (product as any).product_variants.length > 0 ? (
+               <TableCell className="hidden xl:table-cell">
+                {product.product_variants && product.product_variants.length > 0 ? (
                   <div className="space-y-1">
-                    {(product as any).product_variants.slice(0, 2).map((variant: any, index: number) => (
-                      <div key={index} className="text-xs flex items-center justify-between">
-                        <Badge variant="outline" className="text-xs">
+                    {product.product_variants.slice(0, 2).map((variant: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="text-xs px-2 py-1">
                           {variant.name}: {variant.value}
                         </Badge>
-                        <span className="text-xs text-muted-foreground ml-2">
+                        <span className="text-xs text-muted-foreground">
                           Stock: {variant.stock_quantity || 0}
                         </span>
                       </div>
                     ))}
-                    {(product as any).product_variants.length > 2 && (
+                    {product.product_variants.length > 2 && (
                       <div className="text-xs text-muted-foreground">
-                        +{(product as any).product_variants.length - 2} more variants
+                        +{product.product_variants.length - 2} more variants
                       </div>
                     )}
                   </div>
@@ -365,7 +373,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   <span className="text-muted-foreground text-sm">No variants</span>
                 )}
               </TableCell>
-              <TableCell className="text-right">
+               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
                   <Button 
                     variant="outline" 
@@ -374,10 +382,10 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       setSelectedProduct(product);
                       setShowProductForm(true);
                     }}
-                    className="hover:bg-primary hover:text-primary-foreground transition-colors touch-target"
+                    className="h-8 px-2 hover:bg-primary hover:text-primary-foreground transition-all duration-200"
                   >
-                    <Edit className="h-4 w-4 sm:mr-1" />
-                    <span className="hidden sm:inline">Edit</span>
+                    <Edit className="h-3 w-3 sm:mr-1" />
+                    <span className="hidden sm:inline text-xs">Edit</span>
                   </Button>
                   
                   <Dialog>
@@ -385,10 +393,10 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        className="hover:bg-secondary hover:text-secondary-foreground transition-colors touch-target"
+                        className="h-8 px-2 hover:bg-muted transition-all duration-200"
                         title="View variants"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-3 w-3" />
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -406,9 +414,9 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                         variant="ghost" 
                         size="sm" 
                         title="View history"
-                        className="hover:bg-secondary hover:text-secondary-foreground transition-colors touch-target"
+                        className="h-8 px-2 hover:bg-muted transition-all duration-200"
                       >
-                        <History className="h-4 w-4" />
+                        <History className="h-3 w-3" />
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
@@ -425,11 +433,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors touch-target"
+                        className="h-8 px-2 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200"
                         disabled={!canDelete('product')}
                         title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
