@@ -169,7 +169,7 @@ export const useOptimizedDashboard = () => {
 
   useAutoRefresh({
     interval: 30000, // 30 seconds
-    enabled: false,
+    enabled: true,
     onRefresh: refresh,
     visibilityBased: true
   });

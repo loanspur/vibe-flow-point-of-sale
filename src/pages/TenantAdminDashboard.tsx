@@ -127,15 +127,15 @@ function TenantAdminDashboard() {
     return () => clearTimeout(timeoutId);
   }, [dateFilter, dateRange.start, dateRange.end, tenantId]); // Added tenantId dependency
 
-  // Auto-refresh features disabled to isolate flickering issue
-  // useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: false });
+  // Auto-refresh features re-enabled
+  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
 
-  // useRealtimeRefresh({
-  //   tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
-  //   tenantId,
-  //   onChange: () => fetchDashboardData(),
-  //   enabled: false,
-  // });
+  useRealtimeRefresh({
+    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+    tenantId,
+    onChange: () => fetchDashboardData(),
+    enabled: true,
+  });
 
   const fetchCurrentSubscription = async () => {
     if (!tenantId) return;
