@@ -555,11 +555,41 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       const quoteNumber = generateQuoteNumber();
       const totalAmount = calculateTotal();
 
+      // Ensure we have a valid customer_id for walk-in customers
+      let customerId = values.customer_id;
+      if (values.customer_id === "walk-in") {
+        // Get or create walk-in customer for this tenant
+        const { data: walkInCustomer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("tenant_id", tenantData)
+          .eq("name", "Walk-in Customer")
+          .maybeSingle();
+
+        if (walkInCustomer) {
+          customerId = walkInCustomer.id;
+        } else {
+          // Create walk-in customer if it doesn't exist
+          const { data: newWalkInCustomer, error: customerError } = await supabase
+            .from("customers")
+            .insert({
+              name: "Walk-in Customer",
+              tenant_id: tenantData,
+              email: `walkin-${tenantData}@customer.local`,
+            })
+            .select("id")
+            .single();
+
+          if (customerError) throw customerError;
+          customerId = newWalkInCustomer.id;
+        }
+      }
+
       const { data: quote, error: quoteError } = await supabase
         .from("quotes")
         .insert({
           quote_number: quoteNumber,
-          customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
+          customer_id: customerId,
           cashier_id: user.id,
           tenant_id: tenantData,
           total_amount: totalAmount,
