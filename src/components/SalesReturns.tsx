@@ -231,7 +231,7 @@ export default function SalesReturns() {
       // Transform the data to match our interface
       const transformedData = {
         ...data,
-        customers: data.customers || null,
+        customers: Array.isArray(data.customers) ? data.customers[0] || null : data.customers || null,
         sale_items: data.sale_items.map((item: any) => ({
           ...item,
           product: item.products
