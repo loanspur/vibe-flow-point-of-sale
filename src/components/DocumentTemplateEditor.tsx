@@ -333,12 +333,32 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
   const saveTemplate = async (templateType: string, content: string) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      // First check if business_settings record exists
+      const { data: existing } = await supabase
         .from('business_settings')
-        .update({ [`${templateType}_template`]: content })
-        .eq('tenant_id', tenantId);
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (!existing) {
+        // Create a new business_settings record if it doesn't exist
+        const { error: insertError } = await supabase
+          .from('business_settings')
+          .insert({
+            tenant_id: tenantId,
+            [`${templateType}_template`]: content
+          });
+        
+        if (insertError) throw insertError;
+      } else {
+        // Update the existing record
+        const { error: updateError } = await supabase
+          .from('business_settings')
+          .update({ [`${templateType}_template`]: content })
+          .eq('tenant_id', tenantId);
+
+        if (updateError) throw updateError;
+      }
 
       setTemplates(prev => ({
         ...prev,

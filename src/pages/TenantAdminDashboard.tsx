@@ -538,13 +538,13 @@ function TenantAdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            <Link to="/admin/products?filter=low-stock" className="block">
+            <Link to="/admin/products?filter=low-profit" className="block">
               <div className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/40 transition-colors">
                 <div>
-                  <p className="text-sm text-muted-foreground">Low Stock Items</p>
-                  <p className="text-xl font-bold">{dashboardData?.lowStockCount || 0}</p>
+                  <p className="text-sm text-muted-foreground">Low Profit Items</p>
+                  <p className="text-xl font-bold">{dashboardData?.lowProfitCount || 0}</p>
                 </div>
-                <AlertTriangle className="h-6 w-6 text-orange-500" />
+                <TrendingDown className="h-6 w-6 text-red-500" />
               </div>
             </Link>
             <Link to="/admin/products?filter=expiring" className="block">
