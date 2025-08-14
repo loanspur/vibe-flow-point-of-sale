@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, Search, Plus, LogOut, User, Settings } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { 
@@ -30,13 +30,21 @@ interface TenantAdminLayoutProps {
 export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   console.log('🏢 TenantAdminLayout rendering with user:', !!user);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const tenantLogo = useTenantLogo();
   const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
+  
+  // Check if we're on sales page with new-sale tab active
+  const isOnAddSalePage = location.pathname === '/admin/sales' && searchParams.get('tab') === 'new-sale';
+  
+  // Sidebar should be open by default except on add sale page
+  const shouldSidebarBeOpen = !isOnAddSalePage;
 
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={shouldSidebarBeOpen}>
       <div className="min-h-screen flex w-full bg-background">
         <TenantAdminSidebar />
         
