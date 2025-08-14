@@ -397,14 +397,14 @@ function TenantAdminDashboard() {
       to: "/admin/sales"
     },
     {
-      title: "Low Stock Items",
-      value: dashboardData?.lowStockCount || 0,
-      icon: AlertTriangle,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
+      title: dateFilter === 'today' ? "Today's Profit" : 'Profit',
+      value: dashboardData?.profit || 0,
+      icon: TrendingUp,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50",
       change: "+0%",
       trend: "up",
-      to: "/admin/products?filter=low-stock"
+      to: "/admin/reports?view=profit-loss"
     }
   ];
 
