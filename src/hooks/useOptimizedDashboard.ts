@@ -148,14 +148,14 @@ export const useOptimizedDashboard = () => {
     }
   }, [tenantId, refreshKey]);
 
-  // Use optimized query with caching
+  // Use optimized query without caching for real-time updates
   const queryResult = useOptimizedQuery(
     fetchDashboardData,
     [tenantId, refreshKey],
     {
       enabled: !!tenantId,
-      staleTime: 2 * 60 * 1000, // 2 minutes cache
-      cacheKey: `optimized-dashboard-${tenantId}-${new Date().toISOString().split('T')[0]}-${refreshKey}`
+      staleTime: 0, // No cache - always fresh data
+      cacheKey: `dashboard-${tenantId}-${Date.now()}-${refreshKey}`
     }
   );
 
