@@ -18,6 +18,8 @@ interface Sale {
   discount_amount: number;
   tax_amount: number;
   payment_method: string;
+  amount_paid?: number;
+  change_amount?: number;
   status: string;
   created_at: string;
   customer_id?: string;
@@ -217,12 +219,12 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                  @page { margin: 0; size: 80mm auto; }
                 body { 
                   font-family: 'Courier New', monospace; 
-                  font-size: 14px;
+                  font-size: 16px;
                   font-weight: bold;
                   margin: 0; 
                   padding: 2mm;
                   width: 76mm;
-                  line-height: 1.3;
+                  line-height: 1.4;
                   color: #000000;
                 }
                 .thermal-receipt { width: 100%; }
@@ -230,8 +232,8 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                 .right { text-align: right; }
                 .left { text-align: left; }
                 .bold { font-weight: 900; }
-                .large { font-size: 16px; font-weight: 900; }
-                .small { font-size: 12px; }
+                .large { font-size: 18px; font-weight: 900; }
+                .small { font-size: 14px; }
                 .separator { 
                   border-top: 1px dashed #000; 
                   margin: 3px 0; 
@@ -276,13 +278,14 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                   @media print {
                   body { 
                     width: 76mm;
-                    font-size: 14px;
+                    font-size: 16px;
                     font-weight: bold;
                     -webkit-print-color-adjust: exact;
                     color-adjust: exact;
                   }
                   .no-print { display: none !important; }
                   * { font-weight: bold !important; }
+                  pre { font-size: 16px !important; font-weight: 900 !important; }
                 }
               </style>
             </head>
@@ -325,24 +328,69 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   };
 
   const renderTemplateReceipt = () => {
-    if (!businessSettings?.receipt_template || businessSettings.receipt_template === 'standard') {
-      return renderStandardReceipt();
-    }
-    
-    // Use custom template if available
-    let templateContent = businessSettings.receipt_template;
+    // Always use modern template design
+    const defaultTemplate = `{{receipt_header}}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            {{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 {{company_address}}
+📞 {{company_phone}}  ✉️ {{company_email}}
+
+┌─────────────────────────────────────────┐
+│                RECEIPT                  │
+│              #{{receipt_number}}        │
+└─────────────────────────────────────────┘
+
+🗓️  {{date}} ⏰ {{time}}
+👤 Cashier: {{cashier_name}}
+👥 Customer: {{customer_name}}
+📞 {{customer_phone}}
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃               ITEMS                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+{{items}}
+
+┌─────────────────────────────────────────┐
+│ 💰 PAYMENT SUMMARY                     │
+├─────────────────────────────────────────┤
+│ Subtotal:              {{subtotal}}     │
+│ Discount:             {{discount_amount}}│
+│ Tax:                  {{tax_amount}}    │
+├─────────────────────────────────────────┤
+│ 🎯 TOTAL:             {{total_amount}}  │
+└─────────────────────────────────────────┘
+
+💳 Payment Method: {{payment_method}}
+💵 Amount Paid: {{amount_paid}}
+💴 Change: {{change_amount}}
+
+{{receipt_footer}}
+
+✨ Thank you for choosing us! ✨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 Powered by VibePOS | 📱 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    // Use stored template or default modern template
+    let templateContent = businessSettings?.receipt_template && businessSettings.receipt_template !== 'standard' 
+      ? businessSettings.receipt_template 
+      : defaultTemplate;
     
     // Replace template variables with actual data
     const replacements: Record<string, string> = {
-      '{{company_name}}': businessSettings.company_name || "VibePOS",
+      '{{company_name}}': businessSettings?.company_name || "VibePOS",
       '{{company_address}}': [
-        businessSettings.address_line_1,
-        businessSettings.address_line_2,
-        [businessSettings.city, businessSettings.state_province, businessSettings.postal_code].filter(Boolean).join(', '),
-        businessSettings.country
+        businessSettings?.address_line_1,
+        businessSettings?.address_line_2,
+        [businessSettings?.city, businessSettings?.state_province, businessSettings?.postal_code].filter(Boolean).join(', '),
+        businessSettings?.country
       ].filter(Boolean).join('\n'),
-      '{{company_phone}}': businessSettings.phone || '',
-      '{{company_email}}': businessSettings.email || '',
+      '{{company_phone}}': businessSettings?.phone || '',
+      '{{company_email}}': businessSettings?.email || '',
       '{{receipt_number}}': sale?.receipt_number || quote?.quote_number || '',
       '{{date}}': formatDate(document?.created_at || ''),
       '{{time}}': new Date(document?.created_at || '').toLocaleTimeString(),
@@ -356,8 +404,10 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
       '{{discount_amount}}': formatAmount(document?.discount_amount || 0),
       '{{total_amount}}': formatAmount(document?.total_amount || 0),
       '{{payment_method}}': type === "receipt" && sale?.payment_method ? sale.payment_method.toUpperCase() : '',
-      '{{receipt_header}}': businessSettings.receipt_header || '',
-      '{{receipt_footer}}': businessSettings.receipt_footer || 'Thank you for your business!'
+      '{{amount_paid}}': type === "receipt" && sale?.amount_paid ? formatAmount(sale.amount_paid) : '',
+      '{{change_amount}}': type === "receipt" && sale?.change_amount ? formatAmount(sale.change_amount) : '',
+      '{{receipt_header}}': businessSettings?.receipt_header || 'Welcome to our store!',
+      '{{receipt_footer}}': businessSettings?.receipt_footer || 'Thank you for shopping with us!'
     };
 
     Object.entries(replacements).forEach(([variable, value]) => {
@@ -366,7 +416,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
 
     return (
       <div className="thermal-receipt bg-white p-6 border rounded-lg">
-        <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+        <pre className="whitespace-pre-wrap font-mono text-base leading-relaxed font-bold">
           {templateContent}
         </pre>
       </div>
@@ -376,21 +426,24 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   const formatItemsForTemplate = () => {
     if (isLoading) return "Loading items...";
     
-    const header = `${'Item'.padEnd(20)} ${'Qty'.padEnd(5)} ${'Rate'.padEnd(8)} ${'Total'.padEnd(8)}`;
-    const separator = "=".repeat(50);
-    
     const itemLines = items.map((item) => {
       const itemName = item.products.name;
       const variantInfo = "product_variants" in item && item.product_variants 
-        ? `(${item.product_variants.name}: ${item.product_variants.value})`
+        ? ` (${item.product_variants.name}: ${item.product_variants.value})`
         : '';
-      const fullItemName = variantInfo ? `${itemName} ${variantInfo}` : itemName;
-      const truncatedName = fullItemName.length > 18 ? fullItemName.substring(0, 15) + '...' : fullItemName;
+      const fullItemName = `${itemName}${variantInfo}`;
       
-      return `${truncatedName.padEnd(20)} ${item.quantity.toString().padEnd(5)} ${formatAmount(item.unit_price).padEnd(8)} ${formatAmount(item.total_price).padEnd(8)}`;
+      // Use modern emoji and formatting
+      const emoji = ['📦', '🖱️', '⌨️', '🎧', '📱', '💻', '🖥️', '🔌'][Math.floor(Math.random() * 8)];
+      
+      const qtyStr = item.quantity.toString().padStart(2);
+      const rateStr = formatAmount(item.unit_price).padStart(10);
+      const totalStr = formatAmount(item.total_price).padStart(10);
+      
+      return `${emoji} ${fullItemName.padEnd(25)} │ ${qtyStr} │ ${rateStr} │ ${totalStr}`;
     });
 
-    return [header, separator, ...itemLines, separator].join('\n');
+    return itemLines.join('\n');
   };
 
   const renderStandardReceipt = () => {
