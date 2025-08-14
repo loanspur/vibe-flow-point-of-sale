@@ -167,49 +167,44 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
 
   const loadTemplate = (settings: any) => {
     const defaultTemplate = `{{receipt_header}}
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             {{company_name}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📍 {{company_address}}
-📞 {{company_phone}}  ✉️ {{company_email}}
+{{company_address}}
+{{company_phone}}  {{company_email}}
 
 ┌─────────────────────────────────────────┐
 │                ${type.toUpperCase()}                  │
 │              #{{receipt_number}}        │
 └─────────────────────────────────────────┘
-
-🗓️  {{date}} ⏰ {{time}}
-👤 Cashier: {{cashier_name}}
-👥 Customer: {{customer_name}}
-📞 {{customer_phone}}
+{{date}} {{time}}
+Cashier: {{cashier_name}}
+Customer: {{customer_name}}
+{{customer_phone}}
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃               ITEMS                  ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
 {{items}}
 
 ┌─────────────────────────────────────────┐
-│ 💰 PAYMENT SUMMARY                     │
+│ PAYMENT SUMMARY                        │
 ├─────────────────────────────────────────┤
 │ Subtotal:              {{subtotal}}     │
 │ Discount:             {{discount_amount}}│
 │ Tax:                  {{tax_amount}}    │
 ├─────────────────────────────────────────┤
-│ 🎯 TOTAL:             {{total_amount}}  │
+│ TOTAL:                {{total_amount}}  │
 └─────────────────────────────────────────┘
-
-💳 Payment Method: {{payment_method}}
-💵 Amount Paid: {{amount_paid}}
-💴 Change: {{change_amount}}
+Payment Method: {{payment_method}}
+Amount Paid: {{amount_paid}}
+Change: {{change_amount}}
 
 {{receipt_footer}}
 
-✨ Thank you for choosing us! ✨
+Thank you for choosing us!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚀 Powered by VibePOS | 📱 0727638940
+Powered by VibePOS | 0727638940
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
     // Get the appropriate template based on type
@@ -292,12 +287,12 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                  @page { margin: 0; size: 80mm auto; }
                 body { 
                   font-family: 'Courier New', monospace; 
-                  font-size: 16px;
-                  font-weight: bold;
+                  font-size: 14px;
+                  font-weight: 900;
                   margin: 0; 
-                  padding: 2mm;
-                  width: 76mm;
-                  line-height: 1.4;
+                  padding: 1mm;
+                  width: 78mm;
+                  line-height: 1.2;
                   color: #000000;
                 }
                 .thermal-receipt { width: 100%; }
@@ -305,23 +300,23 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                 .right { text-align: right; }
                 .left { text-align: left; }
                 .bold { font-weight: 900; }
-                .large { font-size: 18px; font-weight: 900; }
-                .small { font-size: 14px; }
+                .large { font-size: 16px; font-weight: 900; }
+                .small { font-size: 12px; }
                 .separator { 
                   border-top: 1px dashed #000; 
-                  margin: 3px 0; 
+                  margin: 1px 0; 
                   width: 100%;
                 }
                 .item-line { 
                   display: flex; 
                   justify-content: space-between; 
-                  margin: 1px 0; 
+                  margin: 0; 
                 }
                 .item-header .item-line {
                   font-weight: 900;
                   border-bottom: 1px solid #000;
-                  padding-bottom: 2px;
-                  margin-bottom: 3px;
+                  padding-bottom: 1px;
+                  margin-bottom: 1px;
                 }
                 .item-row .item-line {
                   align-items: flex-start;
@@ -331,34 +326,35 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                   white-space: nowrap; 
                   overflow: hidden; 
                   text-overflow: ellipsis; 
-                  margin-right: 8px;
+                  margin-right: 6px;
                 }
                 .qty-price { 
                   white-space: nowrap; 
                   text-align: right; 
-                  min-width: 60px;
+                  min-width: 50px;
                 }
                 .total-line { 
                   display: flex; 
                   justify-content: space-between; 
-                  font-weight: bold; 
+                  font-weight: 900; 
                 }
-                .company-info { margin-bottom: 8px; }
-                .document-info { margin: 8px 0; }
-                .items-section { margin: 8px 0; }
-                .totals-section { margin: 8px 0; }
-                .footer-section { margin-top: 8px; }
+                .company-info { margin-bottom: 2px; }
+                .document-info { margin: 2px 0; }
+                .items-section { margin: 2px 0; }
+                .totals-section { margin: 2px 0; }
+                .footer-section { margin-top: 2px; }
                   @media print {
                   body { 
-                    width: 76mm;
-                    font-size: 16px;
-                    font-weight: bold;
+                    width: 78mm;
+                    font-size: 14px;
+                    font-weight: 900;
                     -webkit-print-color-adjust: exact;
                     color-adjust: exact;
+                    line-height: 1.2;
                   }
                   .no-print { display: none !important; }
-                  * { font-weight: bold !important; }
-                  pre { font-size: 16px !important; font-weight: 900 !important; }
+                  * { font-weight: 900 !important; color: #000000 !important; }
+                  pre { font-size: 14px !important; font-weight: 900 !important; color: #000000 !important; }
                 }
               </style>
             </head>
@@ -439,8 +435,8 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     });
 
     return (
-      <div className="thermal-receipt bg-white p-6 border rounded-lg">
-        <pre className="whitespace-pre-wrap font-mono text-base leading-relaxed font-bold">
+      <div className="thermal-receipt bg-white p-4 border rounded-lg">
+        <pre className="whitespace-pre-wrap font-mono text-sm leading-tight font-black text-black">
           {currentTemplate}
         </pre>
       </div>
@@ -457,14 +453,11 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
         : '';
       const fullItemName = `${itemName}${variantInfo}`;
       
-      // Use modern emoji and formatting
-      const emoji = ['📦', '🖱️', '⌨️', '🎧', '📱', '💻', '🖥️', '🔌'][Math.floor(Math.random() * 8)];
-      
       const qtyStr = item.quantity.toString().padStart(2);
       const rateStr = formatAmount(item.unit_price).padStart(10);
       const totalStr = formatAmount(item.total_price).padStart(10);
       
-      return `${emoji} ${fullItemName.padEnd(25)} │ ${qtyStr} │ ${rateStr} │ ${totalStr}`;
+      return `${fullItemName.padEnd(25)} │ ${qtyStr} │ ${rateStr} │ ${totalStr}`;
     });
 
     return itemLines.join('\n');
