@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { Upload, X, Package, Plus, Trash2 } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
+import QuickCreateUnitDialog from './QuickCreateUnitDialog';
 
 interface Category {
   id: string;
@@ -924,21 +925,24 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           
           <div className="space-y-2">
             <Label htmlFor="unit">Unit of Measurement</Label>
-            <Select
-              value={formData.unit_id}
-              onValueChange={(value) => handleInputChange('unit_id', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select unit" />
-              </SelectTrigger>
-              <SelectContent>
-                {units.map((unit) => (
-                  <SelectItem key={unit.id} value={unit.id}>
-                    {unit.name} ({unit.abbreviation})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select
+                value={formData.unit_id}
+                onValueChange={(value) => handleInputChange('unit_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name} ({unit.abbreviation})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <QuickCreateUnitDialog onUnitCreated={fetchUnits} />
+            </div>
           </div>
         </CardContent>
       </Card>
