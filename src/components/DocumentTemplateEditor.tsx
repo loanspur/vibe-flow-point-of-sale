@@ -78,13 +78,20 @@ Phone: {{customer_phone}}
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃               ITEMS                  ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+Name               Qty   Price    Total
+─────────────────────────────────────────
 {{items}}
 
-Subtotal:      {{subtotal}}    Tax: {{tax_amount}}
-Discount:    {{discount_amount}}   TOTAL: {{total_amount}}
+                           ─────────────
+Subtotal:                    {{subtotal}}
+Tax:                       {{tax_amount}}
+Discount:                {{discount_amount}}
+                           ─────────────
+TOTAL:                   {{total_amount}}
 
-Payment: {{payment_method}}    Paid: {{amount_paid}}
-Change: {{change_amount}}
+Payment Method:       {{payment_method}}
+Amount Paid:              {{amount_paid}}
+Change:                 {{change_amount}}
 
 {{receipt_footer}}
 
