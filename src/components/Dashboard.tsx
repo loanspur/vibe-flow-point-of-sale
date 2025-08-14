@@ -152,11 +152,12 @@ const Dashboard = () => {
   }, [refresh]);
 
   return (
-    <section className="py-20 bg-muted/30">
+    <section className="py-12 sm:py-16 lg:py-20 bg-muted/30">
       <div className="container mx-auto px-4">
-        <div className="text-center space-y-4 mb-16">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <h2 className="text-4xl lg:text-5xl font-bold text-foreground">
+        {/* Mobile-first header */}
+        <div className="text-center space-y-4 mb-8 sm:mb-12 lg:mb-16">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+            <h2 className="text-responsive-2xl font-bold text-foreground text-center">
               Powerful insights at
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent"> your fingertips</span>
             </h2>
@@ -164,75 +165,79 @@ const Dashboard = () => {
               variant="outline"
               size="sm"
               onClick={refresh}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 touch-target"
               disabled={loading}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Make data-driven decisions with real-time analytics, comprehensive reporting, and actionable business insights.
-            <Badge variant="outline" className="ml-2">Auto-refreshes every 30s</Badge>
-          </p>
+          <div className="space-y-2">
+            <p className="text-responsive-base text-muted-foreground max-w-3xl mx-auto">
+              Make data-driven decisions with real-time analytics, comprehensive reporting, and actionable business insights.
+            </p>
+            <Badge variant="outline" className="mx-auto">Auto-refreshes every 30s</Badge>
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8">
-            <div className="grid grid-cols-3 gap-4">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+          <div className="space-y-6 lg:space-y-8 order-2 lg:order-1">
+            {/* Mobile-optimized metrics grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayMetrics.slice(0, 5).map((metric, index) => (
-                <Card key={index} className={`p-6 bg-card border-border hover:shadow-[var(--shadow-card)] transition-all duration-300 ${
+                <Card key={index} className={`mobile-card hover:shadow-[var(--shadow-card)] transition-all duration-300 ${
                   metric.loading ? 'animate-pulse' : ''
                 } ${metric.clickable ? 'cursor-pointer hover:scale-105' : ''}`}
                 onClick={metric.onClick}>
                   <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground font-medium">{metric.title}</p>
-                      <p className={`text-2xl font-bold text-foreground ${metric.loading ? 'bg-muted rounded h-8 w-20' : ''}`}>
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground font-medium truncate">{metric.title}</p>
+                      <p className={`text-lg sm:text-xl lg:text-2xl font-bold text-foreground ${metric.loading ? 'bg-muted rounded h-6 sm:h-8 w-16 sm:w-20' : ''}`}>
                         {metric.loading ? '' : metric.value}
                       </p>
                       <div className="flex items-center gap-1">
-                        <ArrowUpRight className={`h-4 w-4 ${
+                        <ArrowUpRight className={`h-3 w-3 sm:h-4 sm:w-4 ${
                           metric.trend === 'up' ? 'text-pos-success' : 'text-destructive'
                         }`} />
-                        <span className={`text-sm font-medium ${
+                        <span className={`text-xs sm:text-sm font-medium ${
                           metric.trend === 'up' ? 'text-pos-success' : 'text-destructive'
-                        }`}>
+                        } truncate`}>
                           {metric.loading ? '' : metric.change}
                         </span>
                       </div>
                     </div>
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <metric.icon className="h-5 w-5 text-primary" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2">
+                      <metric.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     </div>
                   </div>
                 </Card>
               ))}
             </div>
 
-            {/* Low Stock Alert - Single instance */}
-            <LowStockAlert />
-            
-            {/* Cash Drawer Correction - Show only if needed */}
-            <CashDrawerCorrection />
+            {/* Mobile-optimized alerts */}
+            <div className="space-y-4">
+              <LowStockAlert />
+              <CashDrawerCorrection />
+            </div>
 
-            <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-border">
+            {/* Mobile-optimized quick actions */}
+            <Card className="mobile-card bg-gradient-to-br from-card to-card/50 border-border">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-foreground">Quick Actions</h3>
-                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <h3 className="text-responsive-lg font-semibold text-foreground">Quick Actions</h3>
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" className="justify-start">
+                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
                     New Sale
                   </Button>
-                  <Button variant="outline" className="justify-start">
+                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
                     Add Product
                   </Button>
-                  <Button variant="outline" className="justify-start">
+                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
                     View Reports
                   </Button>
-                  <Button variant="outline" className="justify-start">
+                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
                     Manage Staff
                   </Button>
                 </div>
@@ -240,7 +245,8 @@ const Dashboard = () => {
             </Card>
           </div>
 
-          <div className="relative">
+          {/* Mobile-optimized image section */}
+          <div className="relative order-1 lg:order-2">
             <div className="relative z-10">
               <img 
                 src={dashboardImage} 
