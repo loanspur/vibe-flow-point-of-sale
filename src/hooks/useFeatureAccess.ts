@@ -319,6 +319,11 @@ export const useFeatureAccess = () => {
       }
     } catch (error) {
       console.error('Error fetching subscription features:', error);
+      // Handle as a subscription/feature access error rather than generic error
+      if (error && typeof error === 'object' && 'code' in error) {
+        // This is likely a Supabase error that should be handled by permission error system
+        throw error; // Re-throw for proper permission error handling
+      }
       setFeatures(DEFAULT_FEATURES);
     } finally {
       setLoading(false);

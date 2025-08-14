@@ -1,4 +1,5 @@
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { usePermissionError } from '@/hooks/usePermissionError';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ export const FeatureGuard = ({
   redirect = false 
 }: FeatureGuardProps) => {
   const { hasFeature, getFeatureUpgradeMessage, loading } = useFeatureAccess();
+  const { handleFeatureError } = usePermissionError({ showToast: false }); // Don't show toast since UI handles it
 
   if (loading) {
     return (
@@ -31,6 +33,9 @@ export const FeatureGuard = ({
   if (hasFeature(featureName)) {
     return <>{children}</>;
   }
+
+  // Log the specific feature access denial
+  handleFeatureError(featureName);
 
   if (redirect) {
     return <Navigate to="/admin/settings?tab=billing" replace />;
