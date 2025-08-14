@@ -248,6 +248,29 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
 
   useEffect(() => {
     loadTemplates();
+    
+    // Set up real-time subscription for business settings changes
+    const channel = supabase
+      .channel('business-settings-template-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'business_settings',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        (payload) => {
+          console.log('Template settings changed:', payload);
+          // Reload templates when settings change
+          loadTemplates();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [tenantId]);
 
   const loadTemplates = async () => {
@@ -267,11 +290,13 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
         const templateType = type as keyof typeof DEFAULT_TEMPLATES;
         const storedTemplate = data?.[`${type}_template` as keyof typeof data];
         
-        // Use default template content since database stores template type names, not content
+        // Use stored template content if it exists and contains template variables
         let templateContent = DEFAULT_TEMPLATES[templateType];
         
-        // If it's receipt template and we have header/footer, inject them
-        if (type === 'receipt' && (data?.receipt_header || data?.receipt_footer)) {
+        if (storedTemplate && typeof storedTemplate === 'string' && storedTemplate.includes('{{')) {
+          templateContent = storedTemplate;
+        } else if (type === 'receipt' && (data?.receipt_header || data?.receipt_footer)) {
+          // For receipt templates, inject header/footer into default template
           templateContent = templateContent
             .replace('{{receipt_header}}', data.receipt_header || 'Welcome to our store!')
             .replace('{{receipt_footer}}', data.receipt_footer || 'Thank you for shopping with us!');

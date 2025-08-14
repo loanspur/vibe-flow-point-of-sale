@@ -114,6 +114,33 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     }
   }, [isOpen, document]);
 
+  // Set up real-time subscription for business settings changes
+  useEffect(() => {
+    if (!tenantId || !isOpen) return;
+
+    const channel = supabase
+      .channel('receipt-business-settings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'business_settings',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        (payload) => {
+          console.log('Business settings changed in receipt preview:', payload);
+          // Reload business settings when they change
+          fetchBusinessSettings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, isOpen]);
+
   const fetchBusinessSettings = async () => {
     if (!tenantId) return;
 
@@ -212,9 +239,11 @@ Powered by VibePOS | 0727638940
     }
     
     // Use the stored template if it exists and contains template variables, otherwise use default
-    if (template && template.includes('{{')) {
+    if (template && typeof template === 'string' && template.includes('{{')) {
+      console.log(`Using stored ${type} template:`, template.substring(0, 100) + '...');
       setTemplateContent(template);
     } else {
+      console.log(`Using default ${type} template, stored template:`, template);
       setTemplateContent(defaultTemplate);
     }
   };
