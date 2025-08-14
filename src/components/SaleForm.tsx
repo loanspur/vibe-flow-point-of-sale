@@ -628,13 +628,25 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
     const hasCreditPayment = payments.some(p => p.method === 'credit');
     
+    // Auto-fetch first customer (non-walk-in) for credit sales
     if (hasCreditPayment && (!values.customer_id || values.customer_id === "walk-in")) {
-      toast({
-        title: "Customer Required",
-        description: "Please select a customer for credit sales",
-        variant: "destructive",
-      });
-      return;
+      const firstCustomer = customers.find(c => c.id !== "walk-in");
+      if (firstCustomer) {
+        form.setValue("customer_id", firstCustomer.id);
+        toast({
+          title: "Customer Auto-Selected",
+          description: `Selected ${firstCustomer.name} for credit sale`,
+        });
+        // Re-validate with auto-selected customer
+        return validateAndPrepareSubmit({ ...values, customer_id: firstCustomer.id });
+      } else {
+        toast({
+          title: "Customer Required",
+          description: "Please add a customer first for credit sales",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     if (remainingBalance > 0 && !hasCreditPayment) {
@@ -774,6 +786,26 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         unitCost: item.unit_price
       }));
       await processSaleInventory(sale.id, tenantData, inventoryItems);
+
+      // Create AR entry for credit sales
+      if (hasCreditPayment && values.customer_id && values.customer_id !== "walk-in") {
+        const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
+          tenant_id_param: tenantData,
+          sale_id_param: sale.id,
+          customer_id_param: values.customer_id,
+          total_amount_param: totalAmount,
+          due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        });
+
+        if (arError) {
+          console.error('AR creation error:', arError);
+          toast({
+            title: "Warning",
+            description: "Sale completed but AR entry failed",
+            variant: "destructive",
+          });
+        }
+      }
 
       // Create accounting entries
       await createEnhancedSalesJournalEntry(tenantData, {

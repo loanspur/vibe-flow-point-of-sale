@@ -345,6 +345,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     setLoading(true);
 
     try {
+      // Validate mandatory unit_id
+      if (!formData.unit_id) {
+        toast({
+          title: "Unit Required",
+          description: "Please select a unit for this product.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
       let imageUrl = product?.image_url || '';
       
       if (imageFile) {

@@ -3513,6 +3513,7 @@ export type Database = {
           quantity_received: number
           total_cost: number
           unit_cost: number
+          unit_id: string | null
           updated_at: string
           variant_id: string | null
         }
@@ -3527,6 +3528,7 @@ export type Database = {
           quantity_received?: number
           total_cost: number
           unit_cost: number
+          unit_id?: string | null
           updated_at?: string
           variant_id?: string | null
         }
@@ -3541,6 +3543,7 @@ export type Database = {
           quantity_received?: number
           total_cost?: number
           unit_cost?: number
+          unit_id?: string | null
           updated_at?: string
           variant_id?: string | null
         }
@@ -3557,6 +3560,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
             referencedColumns: ["id"]
           },
           {

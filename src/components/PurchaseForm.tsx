@@ -22,6 +22,7 @@ interface PurchaseFormProps {
 interface PurchaseItem {
   product_id: string;
   product_name: string;
+  unit_id?: string;
   quantity: number;
   unit_cost: number;
   total_cost: number;
@@ -226,6 +227,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       const newItem: PurchaseItem = {
         product_id: selectedProduct,
         product_name: product.name,
+        unit_id: product.unit_id,
         quantity,
         unit_cost: unitCost,
         total_cost: quantity * unitCost,
@@ -330,6 +332,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       const purchaseItemsData = purchaseItems.map(item => ({
         purchase_id: purchase.id,
         product_id: item.product_id,
+        unit_id: item.unit_id,
         quantity_ordered: item.quantity,
         quantity_received: item.quantity,
         unit_cost: item.unit_cost,
