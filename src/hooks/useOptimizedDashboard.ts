@@ -14,6 +14,7 @@ interface DashboardMetrics {
   weeklyRevenue: number;
   monthlyRevenue: number;
   lowStockItems: number;
+  todayPurchases: number;
 }
 
 export const useOptimizedDashboard = () => {
@@ -42,8 +43,8 @@ export const useOptimizedDashboard = () => {
         customersResponse,
         saleItemsResponse,
         bankTransfersResponse,
-        cashTransfersResponse,
-        lowStockResponse
+        lowStockResponse,
+        purchasesResponse
       ] = await Promise.all([
         // Today's sales
         supabase
@@ -94,20 +95,19 @@ export const useOptimizedDashboard = () => {
           .eq('status', 'approved')
           .gte('created_at', today),
         
-        // Cash transfers today
-        supabase
-          .from('cash_transfer_requests')
-          .select('amount')
-          .eq('tenant_id', tenantId)
-          .eq('status', 'approved')
-          .gte('created_at', today),
-        
         // Low stock items
         supabase
           .from('products')
           .select('id, stock_quantity, min_stock_level')
           .eq('tenant_id', tenantId)
-          .neq('min_stock_level', null)
+          .neq('min_stock_level', null),
+        
+        // Purchases today
+        supabase
+          .from('purchases')
+          .select('total_amount')
+          .eq('tenant_id', tenantId)
+          .gte('created_at', today)
       ]);
 
       // Process all data
@@ -119,12 +119,13 @@ export const useOptimizedDashboard = () => {
       const totalProductsSold = saleItemsResponse.data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
       const totalCustomers = customersResponse.count || 0;
       const bankTransferAmount = bankTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
-      const cashTransferAmount = cashTransfersResponse.data?.reduce((sum, transfer) => sum + Number(transfer.amount), 0) || 0;
-      const todayBankedAmount = bankTransferAmount + cashTransferAmount;
+      const todayBankedAmount = bankTransferAmount;
       
       const lowStockItems = lowStockResponse.data?.filter((product: any) => 
         (product.stock_quantity || 0) <= (product.min_stock_level || 0)
       ).length || 0;
+      
+      const todayPurchases = purchasesResponse.data?.reduce((sum, purchase) => sum + Number(purchase.total_amount), 0) || 0;
 
       return {
         data: {
@@ -136,7 +137,8 @@ export const useOptimizedDashboard = () => {
           todayBankedAmount,
           weeklyRevenue,
           monthlyRevenue,
-          lowStockItems
+          lowStockItems,
+          todayPurchases
         } as DashboardMetrics,
         error: null
       };
@@ -146,14 +148,14 @@ export const useOptimizedDashboard = () => {
     }
   }, [tenantId, refreshKey]);
 
-  // Use optimized query with caching
+  // Use optimized query without caching for real-time updates
   const queryResult = useOptimizedQuery(
     fetchDashboardData,
     [tenantId, refreshKey],
     {
       enabled: !!tenantId,
-      staleTime: 2 * 60 * 1000, // 2 minutes cache
-      cacheKey: `optimized-dashboard-${tenantId}-${new Date().toISOString().split('T')[0]}-${refreshKey}`
+      staleTime: 0, // No cache - always fresh data
+      cacheKey: `dashboard-${tenantId}-${Date.now()}-${refreshKey}`
     }
   );
 
@@ -167,7 +169,7 @@ export const useOptimizedDashboard = () => {
 
   useAutoRefresh({
     interval: 30000, // 30 seconds
-    enabled: false,
+    enabled: true,
     onRefresh: refresh,
     visibilityBased: true
   });

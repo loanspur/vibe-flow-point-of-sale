@@ -127,15 +127,15 @@ function TenantAdminDashboard() {
     return () => clearTimeout(timeoutId);
   }, [dateFilter, dateRange.start, dateRange.end, tenantId]); // Added tenantId dependency
 
-  // Auto-refresh features disabled to isolate flickering issue
-  // useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: false });
+  // Auto-refresh features re-enabled
+  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
 
-  // useRealtimeRefresh({
-  //   tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
-  //   tenantId,
-  //   onChange: () => fetchDashboardData(),
-  //   enabled: false,
-  // });
+  useRealtimeRefresh({
+    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+    tenantId,
+    onChange: () => fetchDashboardData(),
+    enabled: true,
+  });
 
   const fetchCurrentSubscription = async () => {
     if (!tenantId) return;
@@ -397,14 +397,14 @@ function TenantAdminDashboard() {
       to: "/admin/sales"
     },
     {
-      title: "Low Stock Items",
-      value: dashboardData?.lowStockCount || 0,
-      icon: AlertTriangle,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
+      title: dateFilter === 'today' ? "Today's Profit" : 'Profit',
+      value: dashboardData?.profit || 0,
+      icon: TrendingUp,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50",
       change: "+0%",
       trend: "up",
-      to: "/admin/products?filter=low-stock"
+      to: "/admin/reports?view=profit-loss"
     }
   ];
 
@@ -538,13 +538,13 @@ function TenantAdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            <Link to="/admin/products?filter=low-stock" className="block">
+            <Link to="/admin/products?filter=low-profit" className="block">
               <div className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/40 transition-colors">
                 <div>
-                  <p className="text-sm text-muted-foreground">Low Stock Items</p>
-                  <p className="text-xl font-bold">{dashboardData?.lowStockCount || 0}</p>
+                  <p className="text-sm text-muted-foreground">Low Profit Items</p>
+                  <p className="text-xl font-bold">{dashboardData?.lowProfitCount || 0}</p>
                 </div>
-                <AlertTriangle className="h-6 w-6 text-orange-500" />
+                <TrendingDown className="h-6 w-6 text-red-500" />
               </div>
             </Link>
             <Link to="/admin/products?filter=expiring" className="block">

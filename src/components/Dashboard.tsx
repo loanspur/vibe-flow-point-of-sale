@@ -17,6 +17,8 @@ import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { useAuth } from "@/contexts/AuthContext";
 import dashboardImage from "@/assets/dashboard-preview.jpg";
 import { useCashDrawer } from "@/hooks/useCashDrawer";
+import { CashDrawerCorrection } from "./CashDrawerCorrection";
+import { LowStockAlert } from "./LowStockAlert";
 import { Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -81,6 +83,14 @@ const Dashboard = () => {
           icon: ShoppingBag,
           trend: "up",
           loading: true
+        },
+        {
+          title: "Purchases",
+          value: "Loading...",
+          change: "0%",
+          icon: DollarSign,
+          trend: "up",
+          loading: true
         }
       ];
     }
@@ -116,8 +126,17 @@ const Dashboard = () => {
         change: "Today",
         icon: ShoppingBag,
         trend: "up",
+        loading: false
+      },
+      {
+        title: "Purchases",
+        value: formatCurrency(dashboardData.todayPurchases),
+        change: "Today",
+        icon: () => <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-5 w-5 text-destructive" />,
+        trend: "up",
         loading: false,
-        alert: dashboardData.lowStockItems > 0 ? `${dashboardData.lowStockItems} low stock` : undefined
+        clickable: true,
+        onClick: () => window.open('/admin/purchases', '_blank')
       }
     ];
   }, [dashboardData, formatCurrency, currentDrawer, percentageChanges, tenantCurrency]);
@@ -160,22 +179,15 @@ const Dashboard = () => {
 
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
-            <div className="grid grid-cols-2 gap-4">
-              {displayMetrics.map((metric, index) => (
+            <div className="grid grid-cols-3 gap-4">
+              {displayMetrics.slice(0, 5).map((metric, index) => (
                 <Card key={index} className={`p-6 bg-card border-border hover:shadow-[var(--shadow-card)] transition-all duration-300 ${
                   metric.loading ? 'animate-pulse' : ''
-                }`}>
+                } ${metric.clickable ? 'cursor-pointer hover:scale-105' : ''}`}
+                onClick={metric.onClick}>
                   <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground font-medium">{metric.title}</p>
-                        {metric.alert && (
-                          <Badge variant="destructive" className="text-xs flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            {metric.alert}
-                          </Badge>
-                        )}
-                      </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground font-medium">{metric.title}</p>
                       <p className={`text-2xl font-bold text-foreground ${metric.loading ? 'bg-muted rounded h-8 w-20' : ''}`}>
                         {metric.loading ? '' : metric.value}
                       </p>
@@ -197,6 +209,12 @@ const Dashboard = () => {
                 </Card>
               ))}
             </div>
+
+            {/* Low Stock Alert - Single instance */}
+            <LowStockAlert />
+            
+            {/* Cash Drawer Correction - Show only if needed */}
+            <CashDrawerCorrection />
 
             <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-border">
               <div className="space-y-4">

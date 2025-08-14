@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, User, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import ContactForm from "@/components/ContactForm";
 import { TrialSignupModal } from "@/components/TrialSignupModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,9 +76,9 @@ const Navigation = () => {
   };
 
   const navigation = [
-    { name: "Features", href: "/#features" },
-    { name: "Pricing", href: "/#pricing" },
-    { name: "Demo", href: "/demo" },
+    { name: "Features", to: "/#features" },
+    { name: "Pricing", to: "/#pricing" },
+    { name: "Demo", to: "/demo" },
   ];
 
   return (
@@ -99,13 +99,13 @@ const Navigation = () => {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               {navigation.map((item) => (
-                <a
+                <Link
                   key={item.name}
-                  href={item.href}
+                  to={item.to}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {item.name}
-                </a>
+                </Link>
               ))}
               
               <button
@@ -162,14 +162,14 @@ const Navigation = () => {
             <div className="md:hidden py-4 border-t border-border">
               <div className="flex flex-col space-y-4">
                 {navigation.map((item) => (
-                  <a
+                  <Link
                     key={item.name}
-                    href={item.href}
+                    to={item.to}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
                     {item.name}
-                  </a>
+                  </Link>
                 ))}
                 
                 <button

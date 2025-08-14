@@ -313,13 +313,13 @@ export const useCashDrawer = () => {
     }
   };
 
-  // Create transfer request with overdraw protection
-  const createTransferRequest = async (toDrawerId: string, amount: number, reason?: string) => {
+  // Create transfer request with admin overdraw capability
+  const createTransferRequest = async (toDrawerId: string, amount: number, reason?: string, allowOverdraw = false) => {
     if (!currentDrawer?.id || !user?.id || !tenantId) return;
 
     try {
-      // Check if source drawer has sufficient balance
-      if (currentDrawer.current_balance < amount) {
+      // Check if source drawer has sufficient balance (allow overdraw for admins)
+      if (currentDrawer.current_balance < amount && !allowOverdraw) {
         toast.error(`Insufficient funds. Available: ${formatCurrency(currentDrawer.current_balance)}, Requested: ${formatCurrency(amount)}`);
         return;
       }
@@ -387,18 +387,25 @@ export const useCashDrawer = () => {
     }
   };
 
-  // Record cash transaction
+  // Record cash transaction with overdraw protection for non-admins
   const recordCashTransaction = async (
     type: string, 
     amount: number, 
     description: string, 
     referenceType?: string, 
-    referenceId?: string
+    referenceId?: string,
+    allowOverdraw = false
   ) => {
     if (!currentDrawer?.id || !tenantId || !user?.id) return;
 
     try {
       const newBalance = currentDrawer.current_balance + amount;
+      
+      // Check for negative balance (only for non-admin users)
+      if (newBalance < 0 && !allowOverdraw) {
+        toast.error(`Transaction would result in negative balance. Current: ${formatCurrency(currentDrawer.current_balance)}, Transaction: ${formatCurrency(amount)}`);
+        return;
+      }
 
       const { data: transactionData, error } = await supabase
         .from('cash_transactions')

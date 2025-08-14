@@ -59,143 +59,147 @@ const TEMPLATE_VARIABLES = {
 
 const DEFAULT_TEMPLATES = {
   receipt: `{{receipt_header}}
-
-{{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            {{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-Tel: {{company_phone}}
-Email: {{company_email}}
+{{company_phone}}          {{company_email}}
 
-================================
-        RECEIPT
-================================
-
-Receipt No: {{receipt_number}}
-Date: {{date}} {{time}}
+┌─────────────────────────────────────────┐
+│                RECEIPT                  │
+│              #{{receipt_number}}        │
+└─────────────────────────────────────────┘
+Date: {{date}}              Time: {{time}}
 Cashier: {{cashier_name}}
 
 Customer: {{customer_name}}
 Phone: {{customer_phone}}
 
-================================
-ITEMS
-================================
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃               ITEMS                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+Name               Qty   Price    Total
+─────────────────────────────────────────
 {{items}}
-================================
 
-Subtotal:       {{subtotal}}
-Tax:           {{tax_amount}}
-Discount:      {{discount_amount}}
---------------------------------
-TOTAL:         {{total_amount}}
-================================
+                           ─────────────
+Subtotal:                    {{subtotal}}
+Tax:                       {{tax_amount}}
+Discount:                {{discount_amount}}
+                           ─────────────
+TOTAL:                   {{total_amount}}
 
-Payment: {{payment_method}}
-Paid:    {{amount_paid}}
-Change:  {{change_amount}}
+Payment Method:       {{payment_method}}
+Amount Paid:              {{amount_paid}}
+Change:                 {{change_amount}}
 
 {{receipt_footer}}
 
-Thank you for your business!
-
---------------------------------
-Powered by vibePOS - 0727638940
+Thank you for choosing us!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+https://vibenet.shop - 0733638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `,
   invoice: `{{company_logo}}
-
-{{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+             {{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-Tel: {{company_phone}}
-Email: {{company_email}}
+{{company_phone}}          {{company_email}}
 
-INVOICE
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                INVOICE                 ┃
+┃              #{{invoice_number}}       ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+Invoice Date: {{invoice_date}}      Due: {{due_date}}
 
-Invoice No: {{invoice_number}}
-Date: {{invoice_date}}
-Due Date: {{due_date}}
+┌──── BILL TO ────┐     ┌──── FROM ────┐
+│ {{customer_name}}       │ {{company_name}}      │
+│ {{customer_address}}    │ {{company_address}}   │
+│ {{customer_phone}}      │ {{company_phone}}     │
+│ {{customer_email}}      │ {{company_email}}     │
+└─────────────────┘     └─────────────────┘
 
-Bill To:
-{{customer_name}}
-{{customer_address}}
-Tel: {{customer_phone}}
-Email: {{customer_email}}
-
-Items:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                ITEMS                   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-Subtotal: {{subtotal}}
-Tax: {{tax_amount}}
-Discount: {{discount_amount}}
-Total: {{total_amount}}
+Subtotal: {{subtotal}}    Discount: {{discount_amount}}
+Tax: {{tax_amount}}       TOTAL: {{total_amount}}
 
-{{terms_conditions}}
+Terms: {{terms_conditions}}
+Notes: {{notes}}
 
-{{notes}}
-
---------------------------------
-Powered by vibePOS - 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Powered by VibePOS | 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `,
   quote: `{{company_logo}}
-
-{{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+             {{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-Tel: {{company_phone}}
-Email: {{company_email}}
+{{company_phone}}          {{company_email}}
 
-QUOTATION
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃               QUOTATION                ┃
+┃              #{{quote_number}}         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+Quote Date: {{quote_date}}    Valid Until: {{valid_until}}
 
-Quote No: {{quote_number}}
-Date: {{quote_date}}
-Valid Until: {{valid_until}}
+┌──── QUOTE FOR ────┐     ┌──── FROM ────┐
+│ {{customer_name}}       │ {{company_name}}      │
+│ {{customer_address}}    │ {{company_address}}   │
+│ {{customer_phone}}      │ {{company_phone}}     │
+│ {{customer_email}}      │ {{company_email}}     │
+└───────────────────┘     └─────────────────┘
 
-Quote For:
-{{customer_name}}
-{{customer_address}}
-Tel: {{customer_phone}}
-Email: {{customer_email}}
-
-Items:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                ITEMS                   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-Subtotal: {{subtotal}}
-Tax: {{tax_amount}}
-Discount: {{discount_amount}}
-Total: {{total_amount}}
+Subtotal: {{subtotal}}    Discount: {{discount_amount}}
+Tax: {{tax_amount}}       TOTAL: {{total_amount}}
 
-{{terms_conditions}}
+Terms: {{terms_conditions}}
+Notes: {{notes}}
 
-{{notes}}
-
---------------------------------
-Powered by vibePOS - 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Powered by VibePOS | 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `,
-  delivery_note: `{{company_name}}
+  delivery_note: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            {{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-Tel: {{company_phone}}
-Email: {{company_email}}
+{{company_phone}}          {{company_email}}
 
-DELIVERY NOTE
-
-Delivery Note No: {{delivery_note_number}}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃             DELIVERY NOTE             ┃
+┃           #{{delivery_note_number}}   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 Date: {{delivery_date}}
 
-Deliver To:
-{{delivery_address}}
+┌─── DELIVER TO ───┐     ┌─── CUSTOMER ───┐
+│ {{delivery_address}}   │ {{customer_name}}     │
+│                        │ {{customer_phone}}    │
+│                        │ {{customer_email}}    │
+└──────────────────┘     └───────────────────┘
 
-Customer:
-{{customer_name}}
-Tel: {{customer_phone}}
-Email: {{customer_email}}
-
-Items:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃               ITEMS                   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-Driver: {{driver_name}}
-Vehicle: {{vehicle_number}}
+Driver: {{driver_name}}    Vehicle: {{vehicle_number}}
 
-{{notes}}
+Notes: {{notes}}
 
---------------------------------
-Powered by vibePOS - 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Powered by VibePOS | 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `
 };
 
@@ -224,9 +228,10 @@ const SAMPLE_DATA: Record<string, string> = {
   '{{cashier_name}}': 'Jane Smith',
   '{{driver_name}}': 'Mike Wilson',
   '{{vehicle_number}}': 'ABC-123',
-  '{{items}}': `Product A x2         $20.00
-Product B x1         $15.00
-Service Fee          $5.00`,
+  '{{items}}': `📦 Gaming Laptop Pro x1     │  1  │ $1,299.99 │ $1,299.99
+🖱️ Wireless Mouse (Black)  │  2  │   $29.99 │    $59.98
+⌨️ Mechanical Keyboard     │  1  │   $89.99 │    $89.99
+🎧 Headset Premium         │  1  │  $149.99 │   $149.99`,
   '{{subtotal}}': '$40.00',
   '{{tax_amount}}': '$4.00',
   '{{discount_amount}}': '$2.00',
@@ -250,6 +255,29 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
 
   useEffect(() => {
     loadTemplates();
+    
+    // Set up real-time subscription for business settings changes
+    const channel = supabase
+      .channel('business-settings-template-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'business_settings',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        (payload) => {
+          console.log('Template settings changed:', payload);
+          // Reload templates when settings change
+          loadTemplates();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [tenantId]);
 
   const loadTemplates = async () => {
@@ -269,11 +297,13 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
         const templateType = type as keyof typeof DEFAULT_TEMPLATES;
         const storedTemplate = data?.[`${type}_template` as keyof typeof data];
         
-        // Use default template content since database stores template type names, not content
+        // Use stored template content if it exists and contains template variables
         let templateContent = DEFAULT_TEMPLATES[templateType];
         
-        // If it's receipt template and we have header/footer, inject them
-        if (type === 'receipt' && (data?.receipt_header || data?.receipt_footer)) {
+        if (storedTemplate && typeof storedTemplate === 'string' && storedTemplate.includes('{{')) {
+          templateContent = storedTemplate;
+        } else if (type === 'receipt' && (data?.receipt_header || data?.receipt_footer)) {
+          // For receipt templates, inject header/footer into default template
           templateContent = templateContent
             .replace('{{receipt_header}}', data.receipt_header || 'Welcome to our store!')
             .replace('{{receipt_footer}}', data.receipt_footer || 'Thank you for shopping with us!');
@@ -308,27 +338,58 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
   };
 
   const saveTemplate = async (templateType: string, content: string) => {
+    console.log('Saving template:', templateType, 'content length:', content.length);
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      // Protect the VibePOS footer from being modified
+      const protectedContent = ensureProtectedFooter(content);
+      
+      // First check if business_settings record exists
+      const { data: existing } = await supabase
         .from('business_settings')
-        .update({ [`${templateType}_template`]: content })
-        .eq('tenant_id', tenantId);
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (!existing) {
+        // Create a new business_settings record if it doesn't exist
+        const { error: insertError } = await supabase
+          .from('business_settings')
+          .insert({
+            tenant_id: tenantId,
+            [`${templateType}_template`]: protectedContent
+          });
+        
+        if (insertError) throw insertError;
+      } else {
+        // Update the existing record
+        const { error: updateError } = await supabase
+          .from('business_settings')
+          .update({ [`${templateType}_template`]: protectedContent })
+          .eq('tenant_id', tenantId);
+
+        if (updateError) throw updateError;
+      }
 
       setTemplates(prev => ({
         ...prev,
         [templateType]: {
           ...prev[templateType],
-          content
+          content: protectedContent
         }
       }));
 
       toast({
         title: "Template Saved",
-        description: `${templateType.charAt(0).toUpperCase() + templateType.slice(1)} template has been updated successfully.`,
+        description: "Template saved and updated throughout the system!",
       });
+      
+      console.log('Template saved successfully:', templateType);
+
+      // Force reload templates to reflect changes immediately
+      setTimeout(() => {
+        loadTemplates();
+      }, 100);
     } catch (error) {
       console.error('Error saving template:', error);
       toast({
@@ -339,6 +400,37 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Function to ensure the VibePOS footer is protected and cannot be modified
+  const ensureProtectedFooter = (content: string): string => {
+    const protectedFooter = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+https://vibenet.shop - 0733638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    // Remove any existing footer variations
+    const footerPatterns = [
+      /━+\s*Powered by VibePOS[^\n]*\n━+/gi,
+      /Powered by VibePOS[^\n]*/gi,
+      /━+\s*VibePOS[^\n]*\n━+/gi,
+      /━+\s*https:\/\/vibenet\.shop[^\n]*\n━+/gi,
+      /https:\/\/vibenet\.shop[^\n]*/gi
+    ];
+
+    let cleanedContent = content;
+    footerPatterns.forEach(pattern => {
+      cleanedContent = cleanedContent.replace(pattern, '');
+    });
+
+    // Remove trailing whitespace and newlines
+    cleanedContent = cleanedContent.trim();
+
+    // Ensure the content ends with the protected footer
+    if (!cleanedContent.endsWith(protectedFooter)) {
+      cleanedContent += '\n\n' + protectedFooter;
+    }
+
+    return cleanedContent;
   };
 
   const resetTemplate = (templateType: string) => {
@@ -444,14 +536,12 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
           <div className="flex items-center justify-between">
             <Label>Template Content</Label>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={copyTemplate}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copy
-              </Button>
-              <Button variant="outline" size="sm" onClick={downloadTemplate}>
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
+                <Button variant="outline" size="sm" onClick={copyTemplate}>
+                  Copy
+                </Button>
+                <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                  Download
+                </Button>
               <Button
                 variant="outline"
                 size="sm"

@@ -183,8 +183,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           stock_quantity,
           min_stock_level,
           image_url,
-           is_active,
+          is_active,
           unit_id,
+          product_units (
+            id,
+            name,
+            abbreviation
+          ),
           product_variants (
             id,
             name,
@@ -550,11 +555,21 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       const quoteNumber = generateQuoteNumber();
       const totalAmount = calculateTotal();
 
+      // Validate that customer is not walk-in
+      if (values.customer_id === "walk-in") {
+        toast({
+          title: "Error",
+          description: "Quotes can only be created for existing customer accounts, not walk-in customers",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: quote, error: quoteError } = await supabase
         .from("quotes")
         .insert({
           quote_number: quoteNumber,
-          customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
+          customer_id: values.customer_id,
           cashier_id: user.id,
           tenant_id: tenantData,
           total_amount: totalAmount,
@@ -623,13 +638,27 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
     const hasCreditPayment = payments.some(p => p.method === 'credit');
     
+    // Auto-fetch first customer (non-walk-in) for credit sales
     if (hasCreditPayment && (!values.customer_id || values.customer_id === "walk-in")) {
-      toast({
-        title: "Customer Required",
-        description: "Please select a customer for credit sales",
-        variant: "destructive",
-      });
-      return;
+      const firstCustomer = customers.find(c => c.id !== "walk-in");
+      if (firstCustomer) {
+        form.setValue("customer_id", firstCustomer.id);
+        // Trigger field update to reflect in UI immediately
+        form.trigger("customer_id");
+        toast({
+          title: "Customer Auto-Selected",
+          description: `Selected ${firstCustomer.name} for credit sale`,
+        });
+        // Re-validate with auto-selected customer
+        return validateAndPrepareSubmit({ ...values, customer_id: firstCustomer.id });
+      } else {
+        toast({
+          title: "Customer Required",
+          description: "Please add a customer first for credit sales",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     if (remainingBalance > 0 && !hasCreditPayment) {
@@ -770,6 +799,26 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       }));
       await processSaleInventory(sale.id, tenantData, inventoryItems);
 
+      // Create AR entry for credit sales
+      if (hasCreditPayment && values.customer_id && values.customer_id !== "walk-in") {
+        const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
+          tenant_id_param: tenantData,
+          sale_id_param: sale.id,
+          customer_id_param: values.customer_id,
+          total_amount_param: totalAmount,
+          due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        });
+
+        if (arError) {
+          console.error('AR creation error:', arError);
+          toast({
+            title: "Warning",
+            description: "Sale completed but AR entry failed",
+            variant: "destructive",
+          });
+        }
+      }
+
       // Create accounting entries
       await createEnhancedSalesJournalEntry(tenantData, {
         saleId: sale.id,
@@ -870,13 +919,16 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                />
                              )}
                              <div className="flex-1 flex items-start justify-between">
-                               <div className="space-y-1">
-                                 <p className="font-medium text-sm">{product.name}</p>
-                                 <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
-                                 <p className="text-sm font-semibold text-green-600">
-                                   {formatAmount(product.price)}
-                                 </p>
-                               </div>
+                                <div className="space-y-1">
+                                  <p className="font-medium text-sm">{product.name}</p>
+                                  <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
+                                  {product.product_units && (
+                                    <p className="text-xs text-muted-foreground">Unit: {product.product_units.name} ({product.product_units.abbreviation})</p>
+                                  )}
+                                  <p className="text-sm font-semibold text-green-600">
+                                    {formatAmount(product.price)}
+                                  </p>
+                                </div>
                                <div className="text-right">
                                  <p className="text-xs text-muted-foreground">Stock</p>
                                  <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
@@ -949,15 +1001,17 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                  </div>
 
                                  <div className="flex items-center gap-4">
-                                   <div className="flex-1">
-                                     <label className="text-sm font-medium">Quantity (pcs)</label>
-                                     <Input
-                                       type="number"
-                                       min="1"
-                                       value={quantity}
-                                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                                     />
-                                   </div>
+                                    <div className="flex-1">
+                                      <label className="text-sm font-medium">
+                                        Quantity {product.product_units ? `(${product.product_units.abbreviation})` : '(pcs)'}
+                                      </label>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={quantity}
+                                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                                      />
+                                    </div>
                                    <Button onClick={addItemToSale} className="mt-6">
                                      <Plus className="h-4 w-4 mr-2" />
                                      Add

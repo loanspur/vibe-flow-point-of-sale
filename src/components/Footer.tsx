@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { TrialSignupModal } from "@/components/TrialSignupModal";
 import { VersionBadge } from "@/components/VersionBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -178,15 +179,15 @@ const Footer = () => {
               <VersionBadge variant="minimal" />
             </div>
             <div className="flex items-center space-x-6">
-              <a href="/privacy-policy" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/privacy-policy" className="text-muted-foreground hover:text-foreground transition-colors">
                 Privacy Policy
-              </a>
-              <a href="/terms-of-service" className="text-muted-foreground hover:text-foreground transition-colors">
+              </Link>
+              <Link to="/terms-of-service" className="text-muted-foreground hover:text-foreground transition-colors">
                 Terms of Service
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+              </Link>
+              <button className="text-muted-foreground hover:text-foreground transition-colors">
                 Cookie Policy
-              </a>
+              </button>
             </div>
           </div>
         </div>

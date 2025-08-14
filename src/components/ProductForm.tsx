@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { Upload, X, Package, Plus, Trash2 } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
+import QuickCreateUnitDialog from './QuickCreateUnitDialog';
 
 interface Category {
   id: string;
@@ -53,6 +54,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [revenueAccounts, setRevenueAccounts] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -66,9 +68,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     price: '',
     default_profit_margin: '',
     barcode: '',
-    category_id: undefined,
+    category_id: '',
     subcategory_id: undefined,
     revenue_account_id: undefined,
+    unit_id: undefined,
     stock_quantity: '',
     min_stock_level: '',
     has_expiry_date: false,
@@ -130,6 +133,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     if (tenantId) {
       fetchCategories();
       fetchRevenueAccounts();
+      fetchUnits();
     }
   }, [tenantId]);
 
@@ -145,6 +149,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         category_id: product.category_id || undefined,
         subcategory_id: product.subcategory_id || undefined,
         revenue_account_id: product.revenue_account_id || undefined,
+        unit_id: product.unit_id || undefined,
         stock_quantity: product.stock_quantity?.toString() || '',
         min_stock_level: product.min_stock_level?.toString() || '',
         has_expiry_date: product.has_expiry_date || false,
@@ -226,6 +231,26 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     } catch (error: any) {
       toast({
         title: "Error fetching asset accounts",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchUnits = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_units')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setUnits(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching units",
         description: error.message,
         variant: "destructive",
       });
@@ -320,6 +345,26 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     setLoading(true);
 
     try {
+      // Validate mandatory fields
+      if (!formData.unit_id) {
+        toast({
+          title: "Unit Required",
+          description: "Please select a unit for this product.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (!formData.category_id) {
+        toast({
+          title: "Category Required",
+          description: "Please select a category for this product.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
       let imageUrl = product?.image_url || '';
       
       if (imageFile) {
@@ -358,6 +403,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         category_id: formData.category_id || null,
         subcategory_id: formData.subcategory_id || null,
         revenue_account_id: formData.revenue_account_id || null,
+        unit_id: formData.unit_id || null,
         stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity) : 0,
         min_stock_level: formData.min_stock_level ? parseInt(formData.min_stock_level) : 0,
         is_active: formData.is_active,
@@ -894,6 +940,28 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="unit">Unit of Measurement</Label>
+            <div className="flex items-center gap-2">
+              <Select
+                value={formData.unit_id}
+                onValueChange={(value) => handleInputChange('unit_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name} ({unit.abbreviation})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <QuickCreateUnitDialog onUnitCreated={fetchUnits} />
             </div>
           </div>
         </CardContent>

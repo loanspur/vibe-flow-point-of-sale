@@ -260,7 +260,7 @@ const AccountsReceivablePayable: React.FC = () => {
       if (salesResult.data) {
         setSales(salesResult.data.map(sale => ({
           ...sale,
-          customer_name: sale.customers?.name || 'Walk-in Customer'
+          customer_name: (sale.customers as any)?.[0]?.name || 'Walk-in Customer'
         })));
       }
 

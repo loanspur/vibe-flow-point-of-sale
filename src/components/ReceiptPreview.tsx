@@ -18,6 +18,8 @@ interface Sale {
   discount_amount: number;
   tax_amount: number;
   payment_method: string;
+  amount_paid?: number;
+  change_amount?: number;
   status: string;
   created_at: string;
   customer_id?: string;
@@ -98,6 +100,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   const [items, setItems] = useState<(SaleItem | QuoteItem)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [businessSettings, setBusinessSettings] = useState<any>(null);
+  const [templateContent, setTemplateContent] = useState<string>('');
   const receiptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { formatAmount } = useCurrencySettings();
@@ -110,6 +113,33 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
       fetchItems();
     }
   }, [isOpen, document]);
+
+  // Set up real-time subscription for business settings changes
+  useEffect(() => {
+    if (!tenantId || !isOpen) return;
+
+    const channel = supabase
+      .channel('receipt-business-settings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'business_settings',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        (payload) => {
+          console.log('Business settings changed in receipt preview:', payload);
+          // Reload business settings when they change
+          fetchBusinessSettings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, isOpen]);
 
   const fetchBusinessSettings = async () => {
     if (!tenantId) return;
@@ -132,17 +162,22 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           receipt_footer,
           receipt_logo_url,
           company_logo_url,
-          receipt_template
+          receipt_template,
+          invoice_template,
+          quote_template
         `)
         .eq('tenant_id', tenantId)
         .single();
 
       if (error) throw error;
       setBusinessSettings(data);
+      
+      // Load the appropriate template content
+      loadTemplate(data);
     } catch (error: any) {
       console.error('Error fetching business settings:', error);
       // Use fallback data if settings not found
-      setBusinessSettings({
+      const fallbackSettings = {
         company_name: "VibePOS",
         address_line_1: "123 Business Street",
         city: "Business City",
@@ -151,7 +186,65 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
         website: "www.vibepos.com",
         receipt_header: "",
         receipt_footer: "Thank you for your business!"
-      });
+      };
+      setBusinessSettings(fallbackSettings);
+      loadTemplate(fallbackSettings);
+    }
+  };
+
+  const loadTemplate = (settings: any) => {
+    const defaultTemplate = `{{receipt_header}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            {{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{company_address}}
+{{company_phone}}          {{company_email}}
+
+┌─────────────────────────────────────────┐
+│                ${type.toUpperCase()}                  │
+│              #{{receipt_number}}        │
+└─────────────────────────────────────────┘
+Date: {{date}}              Time: {{time}}
+Cashier: {{cashier_name}}
+
+Customer: {{customer_name}}
+Phone: {{customer_phone}}
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃               ITEMS                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+{{items}}
+
+Subtotal:      {{subtotal}}    Tax: {{tax_amount}}
+Discount:    {{discount_amount}}   TOTAL: {{total_amount}}
+
+Payment: {{payment_method}}    Paid: {{amount_paid}}
+Change: {{change_amount}}
+
+{{receipt_footer}}
+
+Thank you for choosing us!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Powered by VibePOS | 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    // Get the appropriate template based on type
+    let template = '';
+    if (type === 'receipt' && settings?.receipt_template) {
+      template = settings.receipt_template;
+    } else if (type === 'invoice' && settings?.invoice_template) {
+      template = settings.invoice_template;
+    } else if (type === 'quote' && settings?.quote_template) {
+      template = settings.quote_template;
+    }
+    
+    // Use the stored template if it exists and contains template variables, otherwise use default
+    if (template && typeof template === 'string' && template.includes('{{')) {
+      console.log(`Using stored ${type} template:`, template.substring(0, 100) + '...');
+      setTemplateContent(template);
+    } else {
+      console.log(`Using default ${type} template, stored template:`, template);
+      setTemplateContent(defaultTemplate);
     }
   };
 
@@ -214,60 +307,77 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
             <head>
               <title>${type === "receipt" ? "Receipt" : type === "quote" ? "Quote" : "Invoice"} - ${documentNumber}</title>
               <style>
-                @page { margin: 0; size: 80mm auto; }
+                 @page { margin: 0; size: 80mm auto; }
                 body { 
                   font-family: 'Courier New', monospace; 
-                  font-size: 12px;
+                  font-size: 14px;
+                  font-weight: 900;
                   margin: 0; 
-                  padding: 2mm;
-                  width: 76mm;
+                  padding: 1mm;
+                  width: 78mm;
                   line-height: 1.2;
+                  color: #000000;
                 }
                 .thermal-receipt { width: 100%; }
                 .center { text-align: center; }
                 .right { text-align: right; }
                 .left { text-align: left; }
-                .bold { font-weight: bold; }
-                .large { font-size: 14px; }
-                .small { font-size: 10px; }
+                .bold { font-weight: 900; }
+                .large { font-size: 16px; font-weight: 900; }
+                .small { font-size: 12px; }
                 .separator { 
                   border-top: 1px dashed #000; 
-                  margin: 3px 0; 
+                  margin: 1px 0; 
                   width: 100%;
                 }
                 .item-line { 
                   display: flex; 
                   justify-content: space-between; 
-                  margin: 1px 0; 
+                  margin: 0; 
+                }
+                .item-header .item-line {
+                  font-weight: 900;
+                  border-bottom: 1px solid #000;
+                  padding-bottom: 1px;
+                  margin-bottom: 1px;
+                }
+                .item-row .item-line {
+                  align-items: flex-start;
                 }
                 .item-name { 
                   flex: 1; 
                   white-space: nowrap; 
                   overflow: hidden; 
                   text-overflow: ellipsis; 
-                  margin-right: 8px;
+                  margin-right: 6px;
                 }
                 .qty-price { 
                   white-space: nowrap; 
                   text-align: right; 
-                  min-width: 60px;
+                  min-width: 50px;
                 }
                 .total-line { 
                   display: flex; 
                   justify-content: space-between; 
-                  font-weight: bold; 
+                  font-weight: 900; 
                 }
-                .company-info { margin-bottom: 8px; }
-                .document-info { margin: 8px 0; }
-                .items-section { margin: 8px 0; }
-                .totals-section { margin: 8px 0; }
-                .footer-section { margin-top: 8px; }
-                @media print {
+                .company-info { margin-bottom: 2px; }
+                .document-info { margin: 2px 0; }
+                .items-section { margin: 2px 0; }
+                .totals-section { margin: 2px 0; }
+                .footer-section { margin-top: 2px; }
+                  @media print {
                   body { 
-                    width: 76mm;
-                    font-size: 12px;
+                    width: 78mm;
+                    font-size: 14px;
+                    font-weight: 900;
+                    -webkit-print-color-adjust: exact;
+                    color-adjust: exact;
+                    line-height: 1.2;
                   }
                   .no-print { display: none !important; }
+                  * { font-weight: 900 !important; color: #000000 !important; }
+                  pre { font-size: 14px !important; font-weight: 900 !important; color: #000000 !important; }
                 }
               </style>
             </head>
@@ -309,6 +419,249 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     }
   };
 
+  const renderTemplateReceipt = () => {
+    // Use the loaded template content
+    let currentTemplate = templateContent;
+    
+    // Replace template variables with actual data
+    const replacements: Record<string, string> = {
+      '{{company_name}}': businessSettings?.company_name || "VibePOS",
+      '{{company_address}}': [
+        businessSettings?.address_line_1,
+        businessSettings?.address_line_2,
+        [businessSettings?.city, businessSettings?.state_province, businessSettings?.postal_code].filter(Boolean).join(', '),
+        businessSettings?.country
+      ].filter(Boolean).join('\n'),
+      '{{company_phone}}': businessSettings?.phone || '',
+      '{{company_email}}': businessSettings?.email || '',
+      '{{receipt_number}}': sale?.receipt_number || quote?.quote_number || '',
+      '{{date}}': formatDate(document?.created_at || ''),
+      '{{time}}': new Date(document?.created_at || '').toLocaleTimeString(),
+      '{{cashier_name}}': document?.profiles?.full_name || '',
+      '{{customer_name}}': document?.customers?.name || "Walk-in Customer",
+      '{{customer_phone}}': document?.customers?.phone || '',
+      '{{customer_email}}': document?.customers?.email || '',
+      '{{items}}': formatItemsForTemplate(),
+      '{{subtotal}}': formatAmount(calculateSubtotal()),
+      '{{tax_amount}}': formatAmount(document?.tax_amount || 0),
+      '{{discount_amount}}': formatAmount(document?.discount_amount || 0),
+      '{{total_amount}}': formatAmount(document?.total_amount || 0),
+      '{{payment_method}}': type === "receipt" && sale?.payment_method ? sale.payment_method.toUpperCase() : '',
+      '{{amount_paid}}': type === "receipt" && sale?.amount_paid ? formatAmount(sale.amount_paid) : '',
+      '{{change_amount}}': type === "receipt" && sale?.change_amount ? formatAmount(sale.change_amount) : '',
+      '{{receipt_header}}': businessSettings?.receipt_header || 'Welcome to our store!',
+      '{{receipt_footer}}': businessSettings?.receipt_footer || 'Thank you for shopping with us!'
+    };
+
+    Object.entries(replacements).forEach(([variable, value]) => {
+      currentTemplate = currentTemplate.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
+    });
+
+    return (
+      <div className="thermal-receipt bg-white p-4 border rounded-lg">
+        <pre className="whitespace-pre-wrap font-mono text-sm leading-tight font-black text-black">
+          {currentTemplate}
+        </pre>
+      </div>
+    );
+  };
+
+  const formatItemsForTemplate = () => {
+    if (isLoading) return "Loading items...";
+    
+    const itemLines = items.map((item) => {
+      const itemName = item.products.name;
+      const variantInfo = "product_variants" in item && item.product_variants 
+        ? ` (${item.product_variants.name}: ${item.product_variants.value})`
+        : '';
+      const fullItemName = `${itemName}${variantInfo}`;
+      
+      const qtyStr = item.quantity.toString().padStart(2);
+      const rateStr = formatAmount(item.unit_price).padStart(10);
+      const totalStr = formatAmount(item.total_price).padStart(10);
+      
+      return `${fullItemName.padEnd(25)} │ ${qtyStr} │ ${rateStr} │ ${totalStr}`;
+    });
+
+    return itemLines.join('\n');
+  };
+
+  const renderStandardReceipt = () => {
+    return (
+      <div className="thermal-receipt bg-white p-6 border rounded-lg">
+        {/* Custom Header */}
+        {businessSettings.receipt_header && (
+          <div className="company-info center">
+            <div className="small">{businessSettings.receipt_header}</div>
+          </div>
+        )}
+
+        {/* Logo */}
+        {(businessSettings.receipt_logo_url || businessSettings.company_logo_url) && (
+          <div className="company-info center">
+            <img src={businessSettings.receipt_logo_url || businessSettings.company_logo_url} alt={`${businessSettings.company_name || 'Company'} logo`} style={{ height: '40px', margin: '0 auto' }} />
+          </div>
+        )}
+
+        {/* Company Header */}
+        <div className="company-info center">
+          <div className="bold large">{businessSettings.company_name || "VibePOS"}</div>
+          {businessSettings.address_line_1 && (
+            <div className="small">{businessSettings.address_line_1}</div>
+          )}
+          {businessSettings.address_line_2 && (
+            <div className="small">{businessSettings.address_line_2}</div>
+          )}
+          <div className="small">
+            {[businessSettings.city, businessSettings.state_province, businessSettings.postal_code].filter(Boolean).join(', ')}
+            {businessSettings.country && `, ${businessSettings.country}`}
+          </div>
+          {businessSettings.phone && <div className="small">{businessSettings.phone}</div>}
+          {businessSettings.email && <div className="small">{businessSettings.email}</div>}
+          {businessSettings.website && <div className="small">{businessSettings.website}</div>}
+        </div>
+
+        <div className="separator"></div>
+
+        {/* Document Type and Number */}
+        <div className="document-info center">
+          <div className="bold large">{getTitle().toUpperCase()}</div>
+          <div className="bold">{sale?.receipt_number || quote?.quote_number}</div>
+          <div className="small">{document.status.toUpperCase()}</div>
+        </div>
+
+        <div className="separator"></div>
+
+        {/* Document Details */}
+        <div className="document-info small">
+          <div>Date: {formatDate(document.created_at)}</div>
+          <div>Customer: {document.customers?.name || "Walk-in Customer"}</div>
+          {document.customers?.phone && (
+            <div>Phone: {document.customers.phone}</div>
+          )}
+          {type === "receipt" && sale?.payment_method && (
+            <div>Payment: {sale.payment_method.toUpperCase()}</div>
+          )}
+          {document.profiles?.full_name && (
+            <div>Cashier: {document.profiles.full_name}</div>
+          )}
+          {type === "quote" && quote?.valid_until && (
+            <div>Valid Until: {formatDate(quote.valid_until)}</div>
+          )}
+        </div>
+
+        <div className="separator"></div>
+
+        {/* Items with proper columns */}
+        <div className="items-section">
+          {isLoading ? (
+            <div className="center">Loading items...</div>
+          ) : (
+            <div>
+              {/* Header */}
+              <div className="item-header bold small">
+                <div className="item-line">
+                  <div style={{ width: '45%' }}>Item Details</div>
+                  <div style={{ width: '15%', textAlign: 'center' }}>Qty</div>
+                  <div style={{ width: '20%', textAlign: 'right' }}>Rate</div>
+                  <div style={{ width: '20%', textAlign: 'right' }}>Total</div>
+                </div>
+              </div>
+              <div className="separator"></div>
+              
+              {/* Items */}
+              {items.map((item) => (
+                <div key={item.id} className="item-row">
+                  <div className="item-line small">
+                    <div style={{ width: '45%' }}>
+                      <div>{item.products.name}</div>
+                      {"product_variants" in item && item.product_variants && (
+                        <div className="small" style={{ opacity: 0.8 }}>
+                          ({item.product_variants.name}: {item.product_variants.value})
+                        </div>
+                      )}
+                      {item.products.sku && (
+                        <div className="small" style={{ opacity: 0.7 }}>
+                          SKU: {item.products.sku}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ width: '15%', textAlign: 'center' }}>{item.quantity}</div>
+                    <div style={{ width: '20%', textAlign: 'right' }}>{formatAmount(item.unit_price)}</div>
+                    <div style={{ width: '20%', textAlign: 'right' }}>{formatAmount(item.total_price)}</div>
+                  </div>
+                  <div style={{ height: '3px' }}></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="separator"></div>
+
+        {/* Totals */}
+        <div className="totals-section">
+          <div className="item-line">
+            <div>Subtotal:</div>
+            <div>{formatAmount(calculateSubtotal())}</div>
+          </div>
+          
+          {document.discount_amount > 0 && (
+            <div className="item-line">
+              <div>Discount:</div>
+              <div>-{formatAmount(document.discount_amount)}</div>
+            </div>
+          )}
+          
+          {document.tax_amount > 0 && (
+            <div className="item-line">
+              <div>Tax:</div>
+              <div>{formatAmount(document.tax_amount)}</div>
+            </div>
+          )}
+          
+          <div className="separator"></div>
+          
+          <div className="total-line large">
+            <div>TOTAL:</div>
+            <div>{formatAmount(document.total_amount)}</div>
+          </div>
+        </div>
+
+        {/* Notes for quotes */}
+        {type === "quote" && quote?.notes && (
+          <>
+            <div className="separator"></div>
+            <div className="small">
+              <div className="bold">Notes:</div>
+              <div>{quote.notes}</div>
+            </div>
+          </>
+        )}
+
+        {/* Footer */}
+        <div className="separator"></div>
+        
+        <div className="footer-section center small">
+          {/* Custom Footer */}
+          {businessSettings.receipt_footer ? (
+            <div>{businessSettings.receipt_footer}</div>
+          ) : (
+            <div>Thank you for your business!</div>
+          )}
+          
+          {type === "quote" && (
+            <div className="bold">Valid until {quote?.valid_until ? formatDate(quote.valid_until) : "further notice"}</div>
+          )}
+          {type === "receipt" && (
+            <div>Please keep this receipt</div>
+          )}
+          <div style={{ marginTop: '5px' }}>Powered by VibePOS</div>
+        </div>
+      </div>
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -346,161 +699,8 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           </div>
         </DialogHeader>
 
-        <div ref={receiptRef} className="thermal-receipt bg-white p-6 border rounded-lg">
-          {/* Custom Header */}
-          {businessSettings.receipt_header && (
-            <div className="company-info center">
-              <div className="small">{businessSettings.receipt_header}</div>
-            </div>
-          )}
-
-          {/* Logo */}
-          {(businessSettings.receipt_logo_url || businessSettings.company_logo_url) && (
-            <div className="company-info center">
-              <img src={businessSettings.receipt_logo_url || businessSettings.company_logo_url} alt={`${businessSettings.company_name || 'Company'} logo`} style={{ height: '40px', margin: '0 auto' }} />
-            </div>
-          )}
-
-          {/* Company Header */}
-          <div className="company-info center">
-            <div className="bold large">{businessSettings.company_name || "VibePOS"}</div>
-            {businessSettings.address_line_1 && (
-              <div className="small">{businessSettings.address_line_1}</div>
-            )}
-            {businessSettings.address_line_2 && (
-              <div className="small">{businessSettings.address_line_2}</div>
-            )}
-            <div className="small">
-              {[businessSettings.city, businessSettings.state_province, businessSettings.postal_code].filter(Boolean).join(', ')}
-              {businessSettings.country && `, ${businessSettings.country}`}
-            </div>
-            {businessSettings.phone && <div className="small">{businessSettings.phone}</div>}
-            {businessSettings.email && <div className="small">{businessSettings.email}</div>}
-            {businessSettings.website && <div className="small">{businessSettings.website}</div>}
-          </div>
-
-          <div className="separator"></div>
-
-          {/* Document Type and Number */}
-          <div className="document-info center">
-            <div className="bold large">{getTitle().toUpperCase()}</div>
-            <div className="bold">{sale?.receipt_number || quote?.quote_number}</div>
-            <div className="small">{document.status.toUpperCase()}</div>
-          </div>
-
-          <div className="separator"></div>
-
-          {/* Document Details */}
-          <div className="document-info small">
-            <div>Date: {formatDate(document.created_at)}</div>
-            <div>Customer: {document.customers?.name || "Walk-in Customer"}</div>
-            {document.customers?.phone && (
-              <div>Phone: {document.customers.phone}</div>
-            )}
-            {type === "receipt" && sale?.payment_method && (
-              <div>Payment: {sale.payment_method.toUpperCase()}</div>
-            )}
-            {document.profiles?.full_name && (
-              <div>Cashier: {document.profiles.full_name}</div>
-            )}
-            {type === "quote" && quote?.valid_until && (
-              <div>Valid Until: {formatDate(quote.valid_until)}</div>
-            )}
-          </div>
-
-          <div className="separator"></div>
-
-          {/* Items */}
-          <div className="items-section">
-            {isLoading ? (
-              <div className="center">Loading items...</div>
-            ) : (
-              <div>
-                {items.map((item) => (
-                  <div key={item.id}>
-                    <div className="item-line">
-                      <div className="item-name">
-                        {item.products.name}
-                        {"product_variants" in item && item.product_variants && (
-                          <div className="small">({item.product_variants.name}: {item.product_variants.value})</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="item-line">
-                      <div>{item.quantity} x {formatAmount(item.unit_price)}</div>
-                      <div className="qty-price">{formatAmount(item.total_price)}</div>
-                    </div>
-                    {item.products.sku && (
-                      <div className="small">SKU: {item.products.sku}</div>
-                    )}
-                    <div style={{ height: '2px' }}></div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="separator"></div>
-
-          {/* Totals */}
-          <div className="totals-section">
-            <div className="item-line">
-              <div>Subtotal:</div>
-              <div>{formatAmount(calculateSubtotal())}</div>
-            </div>
-            
-            {document.discount_amount > 0 && (
-              <div className="item-line">
-                <div>Discount:</div>
-                <div>-{formatAmount(document.discount_amount)}</div>
-              </div>
-            )}
-            
-            {document.tax_amount > 0 && (
-              <div className="item-line">
-                <div>Tax:</div>
-                <div>{formatAmount(document.tax_amount)}</div>
-              </div>
-            )}
-            
-            <div className="separator"></div>
-            
-            <div className="total-line large">
-              <div>TOTAL:</div>
-              <div>{formatAmount(document.total_amount)}</div>
-            </div>
-          </div>
-
-          {/* Notes for quotes */}
-          {type === "quote" && quote?.notes && (
-            <>
-              <div className="separator"></div>
-              <div className="small">
-                <div className="bold">Notes:</div>
-                <div>{quote.notes}</div>
-              </div>
-            </>
-          )}
-
-          {/* Footer */}
-          <div className="separator"></div>
-          
-          <div className="footer-section center small">
-            {/* Custom Footer */}
-            {businessSettings.receipt_footer ? (
-              <div>{businessSettings.receipt_footer}</div>
-            ) : (
-              <div>Thank you for your business!</div>
-            )}
-            
-            {type === "quote" && (
-              <div className="bold">Valid until {quote?.valid_until ? formatDate(quote.valid_until) : "further notice"}</div>
-            )}
-            {type === "receipt" && (
-              <div>Please keep this receipt</div>
-            )}
-            <div style={{ marginTop: '5px' }}>Powered by VibePOS</div>
-          </div>
+        <div ref={receiptRef}>
+          {renderTemplateReceipt()}
         </div>
       </DialogContent>
     </Dialog>

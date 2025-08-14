@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { CashTransferModal } from './CashTransferModal';
 import { CashTransactionHistory } from './CashTransactionHistory';
+import { UnifiedTransactionHistory } from './UnifiedTransactionHistory';
 import { CashJournalReport } from './CashJournalReport';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -261,13 +262,14 @@ export function CashDrawerManagement() {
         if (actionType === 'approve') {
           console.log('🏦 Processing bank transfer - deducting from cash drawer');
           
-          // Record cash transaction for bank transfer
+          // Record cash transaction for bank transfer (allow overdraw for admin users)
           await recordCashTransaction(
             'account_transfer',
             -selectedTransfer.amount, // Negative amount (deduction)
             `Transfer to account: ${selectedTransfer.account_name || 'Bank Account'}`,
             'transfer_request',
-            selectedTransfer.id
+            selectedTransfer.id,
+            isAdmin // Allow overdraw for admin users
           );
           
           console.log('✅ Cash drawer updated for bank transfer');
@@ -579,10 +581,11 @@ export function CashDrawerManagement() {
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-4">
-          <CashTransactionHistory
-            transactions={transactions.slice(0, 15)}
-            formatAmount={formatAmount}
-            getTransactionIcon={getTransactionIcon}
+          <UnifiedTransactionHistory 
+            title="Recent Cash Transactions"
+            filterType="cash"
+            showFilters={false}
+            limit={20}
           />
         </TabsContent>
 
