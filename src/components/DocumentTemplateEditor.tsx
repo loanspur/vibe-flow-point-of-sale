@@ -63,33 +63,27 @@ const DEFAULT_TEMPLATES = {
             {{company_name}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-{{company_phone}}  {{company_email}}
+{{company_phone}}          {{company_email}}
 
 ┌─────────────────────────────────────────┐
 │                RECEIPT                  │
 │              #{{receipt_number}}        │
 └─────────────────────────────────────────┘
-{{date}} {{time}}
+Date: {{date}}              Time: {{time}}
 Cashier: {{cashier_name}}
+
 Customer: {{customer_name}}
-{{customer_phone}}
+Phone: {{customer_phone}}
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃               ITEMS                  ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-┌─────────────────────────────────────────┐
-│ PAYMENT SUMMARY                        │
-├─────────────────────────────────────────┤
-│ Subtotal:              {{subtotal}}     │
-│ Discount:             {{discount_amount}}│
-│ Tax:                  {{tax_amount}}    │
-├─────────────────────────────────────────┤
-│ TOTAL:                {{total_amount}}  │
-└─────────────────────────────────────────┘
-Payment Method: {{payment_method}}
-Amount Paid: {{amount_paid}}
+Subtotal:      {{subtotal}}    Tax: {{tax_amount}}
+Discount:    {{discount_amount}}   TOTAL: {{total_amount}}
+
+Payment: {{payment_method}}    Paid: {{amount_paid}}
 Change: {{change_amount}}
 
 {{receipt_footer}}
@@ -104,43 +98,31 @@ Powered by VibePOS | 0727638940
              {{company_name}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-{{company_phone}}  {{company_email}}
+{{company_phone}}          {{company_email}}
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃                INVOICE                 ┃
 ┃              #{{invoice_number}}       ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-Invoice Date: {{invoice_date}}
-Due Date: {{due_date}}
+Invoice Date: {{invoice_date}}      Due: {{due_date}}
 
-┌─────────────────────────────────────────┐
-│ BILL TO:                               │
-├─────────────────────────────────────────┤
-│ {{customer_name}}                       │
-│ {{customer_address}}                    │
-│ {{customer_phone}}                      │
-│ {{customer_email}}                      │
-└─────────────────────────────────────────┘
+┌──── BILL TO ────┐     ┌──── FROM ────┐
+│ {{customer_name}}       │ {{company_name}}      │
+│ {{customer_address}}    │ {{company_address}}   │
+│ {{customer_phone}}      │ {{company_phone}}     │
+│ {{customer_email}}      │ {{company_email}}     │
+└─────────────────┘     └─────────────────┘
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃                ITEMS                   ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-┌─────────────────────────────────────────┐
-│ PAYMENT SUMMARY                        │
-├─────────────────────────────────────────┤
-│ Subtotal:              {{subtotal}}     │
-│ Discount:             {{discount_amount}}│
-│ Tax:                  {{tax_amount}}    │
-├─────────────────────────────────────────┤
-│ TOTAL AMOUNT:         {{total_amount}}  │
-└─────────────────────────────────────────┘
+Subtotal: {{subtotal}}    Discount: {{discount_amount}}
+Tax: {{tax_amount}}       TOTAL: {{total_amount}}
 
-{{terms_conditions}}
-
-Additional Notes:
-{{notes}}
+Terms: {{terms_conditions}}
+Notes: {{notes}}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Powered by VibePOS | 0727638940
@@ -151,44 +133,31 @@ Powered by VibePOS | 0727638940
              {{company_name}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-{{company_phone}}  {{company_email}}
+{{company_phone}}          {{company_email}}
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃               QUOTATION                ┃
 ┃              #{{quote_number}}         ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-Quote Date: {{quote_date}}
-Valid Until: {{valid_until}}
+Quote Date: {{quote_date}}    Valid Until: {{valid_until}}
 
-┌─────────────────────────────────────────┐
-│ QUOTE FOR:                             │
-├─────────────────────────────────────────┤
-│ {{customer_name}}                       │
-│ {{customer_address}}                    │
-│ {{customer_phone}}                      │
-│ {{customer_email}}                      │
-└─────────────────────────────────────────┘
+┌──── QUOTE FOR ────┐     ┌──── FROM ────┐
+│ {{customer_name}}       │ {{company_name}}      │
+│ {{customer_address}}    │ {{company_address}}   │
+│ {{customer_phone}}      │ {{company_phone}}     │
+│ {{customer_email}}      │ {{company_email}}     │
+└───────────────────┘     └─────────────────┘
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃                ITEMS                   ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-┌─────────────────────────────────────────┐
-│ QUOTE SUMMARY                          │
-├─────────────────────────────────────────┤
-│ Subtotal:              {{subtotal}}     │
-│ Discount:             {{discount_amount}}│
-│ Tax:                  {{tax_amount}}    │
-├─────────────────────────────────────────┤
-│ TOTAL QUOTED:         {{total_amount}}  │
-└─────────────────────────────────────────┘
+Subtotal: {{subtotal}}    Discount: {{discount_amount}}
+Tax: {{tax_amount}}       TOTAL: {{total_amount}}
 
-Terms & Conditions:
-{{terms_conditions}}
-
-Additional Notes:
-{{notes}}
+Terms: {{terms_conditions}}
+Notes: {{notes}}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Powered by VibePOS | 0727638940
@@ -198,42 +167,28 @@ Powered by VibePOS | 0727638940
             {{company_name}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-{{company_phone}}  {{company_email}}
+{{company_phone}}          {{company_email}}
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃             DELIVERY NOTE             ┃
 ┃           #{{delivery_note_number}}   ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-Delivery Date: {{delivery_date}}
+Date: {{delivery_date}}
 
-┌─────────────────────────────────────────┐
-│ DELIVER TO:                            │
-├─────────────────────────────────────────┤
-│ {{delivery_address}}                    │
-└─────────────────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│ CUSTOMER:                              │
-├─────────────────────────────────────────┤
-│ {{customer_name}}                       │
-│ {{customer_phone}}                      │
-│ {{customer_email}}                      │
-└─────────────────────────────────────────┘
+┌─── DELIVER TO ───┐     ┌─── CUSTOMER ───┐
+│ {{delivery_address}}   │ {{customer_name}}     │
+│                        │ {{customer_phone}}    │
+│                        │ {{customer_email}}    │
+└──────────────────┘     └───────────────────┘
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃               ITEMS                   ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-┌─────────────────────────────────────────┐
-│ DELIVERY DETAILS                       │
-├─────────────────────────────────────────┤
-│ Driver: {{driver_name}}                 │
-│ Vehicle: {{vehicle_number}}             │
-└─────────────────────────────────────────┘
+Driver: {{driver_name}}    Vehicle: {{vehicle_number}}
 
-Notes:
-{{notes}}
+Notes: {{notes}}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Powered by VibePOS | 0727638940

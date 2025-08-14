@@ -171,33 +171,27 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
             {{company_name}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{company_address}}
-{{company_phone}}  {{company_email}}
+{{company_phone}}          {{company_email}}
 
 ┌─────────────────────────────────────────┐
 │                ${type.toUpperCase()}                  │
 │              #{{receipt_number}}        │
 └─────────────────────────────────────────┘
-{{date}} {{time}}
+Date: {{date}}              Time: {{time}}
 Cashier: {{cashier_name}}
+
 Customer: {{customer_name}}
-{{customer_phone}}
+Phone: {{customer_phone}}
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃               ITEMS                  ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-┌─────────────────────────────────────────┐
-│ PAYMENT SUMMARY                        │
-├─────────────────────────────────────────┤
-│ Subtotal:              {{subtotal}}     │
-│ Discount:             {{discount_amount}}│
-│ Tax:                  {{tax_amount}}    │
-├─────────────────────────────────────────┤
-│ TOTAL:                {{total_amount}}  │
-└─────────────────────────────────────────┘
-Payment Method: {{payment_method}}
-Amount Paid: {{amount_paid}}
+Subtotal:      {{subtotal}}    Tax: {{tax_amount}}
+Discount:    {{discount_amount}}   TOTAL: {{total_amount}}
+
+Payment: {{payment_method}}    Paid: {{amount_paid}}
 Change: {{change_amount}}
 
 {{receipt_footer}}
