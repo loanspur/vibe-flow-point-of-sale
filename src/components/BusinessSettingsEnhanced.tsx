@@ -930,7 +930,7 @@ export function BusinessSettingsEnhanced() {
         {/* Enhanced Navigation with Modern Glass Effect */}
         <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-8 h-auto bg-transparent gap-2 p-0">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
                 value="company" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -951,6 +951,13 @@ export function BusinessSettingsEnhanced() {
               >
                 <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Notifications</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="templates" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <FileText className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium hidden sm:inline">Templates</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="payments" 
@@ -1601,9 +1608,9 @@ export function BusinessSettingsEnhanced() {
                 </div>
               </TabsContent>
 
-              {/* Notifications & Templates Tab */}
+              {/* Notifications Tab */}
               <TabsContent value="notifications" className="space-y-8 mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 gap-8">
                   
                   {/* Notification Settings Card */}
                   <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
@@ -1704,8 +1711,32 @@ export function BusinessSettingsEnhanced() {
                       />
                     </CardContent>
                   </Card>
+                </div>
+                
+                {/* Notifications Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
 
-                  {/* Document Templates Card */}
+              {/* Templates Tab */}
+              <TabsContent value="templates" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 gap-8">
+                  {/* Document Templates Card - Full Width */}
                   <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
                     <CardHeader className="pb-6">
                       <CardTitle className="flex items-center gap-3 text-2xl">
@@ -1724,7 +1755,7 @@ export function BusinessSettingsEnhanced() {
                   </Card>
                 </div>
                 
-                {/* Notifications Tab Actions */}
+                {/* Templates Tab Actions */}
                 <div className="flex justify-end gap-3 pt-6">
                   <Button 
                     variant="outline" 
