@@ -42,7 +42,6 @@ import {
 } from 'lucide-react';
 import { PaymentForm } from './PaymentForm';
 import PurchaseReturns from './PurchaseReturns';
-import { PermissionGuard } from "@/components/PermissionGuard";
 
 interface Purchase {
   id: string;
