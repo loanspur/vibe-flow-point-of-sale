@@ -183,8 +183,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           stock_quantity,
           min_stock_level,
           image_url,
-           is_active,
+          is_active,
           unit_id,
+          product_units (
+            id,
+            name,
+            abbreviation
+          ),
           product_variants (
             id,
             name,
@@ -870,13 +875,16 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                />
                              )}
                              <div className="flex-1 flex items-start justify-between">
-                               <div className="space-y-1">
-                                 <p className="font-medium text-sm">{product.name}</p>
-                                 <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
-                                 <p className="text-sm font-semibold text-green-600">
-                                   {formatAmount(product.price)}
-                                 </p>
-                               </div>
+                                <div className="space-y-1">
+                                  <p className="font-medium text-sm">{product.name}</p>
+                                  <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
+                                  {product.product_units && (
+                                    <p className="text-xs text-muted-foreground">Unit: {product.product_units.name} ({product.product_units.abbreviation})</p>
+                                  )}
+                                  <p className="text-sm font-semibold text-green-600">
+                                    {formatAmount(product.price)}
+                                  </p>
+                                </div>
                                <div className="text-right">
                                  <p className="text-xs text-muted-foreground">Stock</p>
                                  <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
@@ -949,15 +957,17 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                  </div>
 
                                  <div className="flex items-center gap-4">
-                                   <div className="flex-1">
-                                     <label className="text-sm font-medium">Quantity (pcs)</label>
-                                     <Input
-                                       type="number"
-                                       min="1"
-                                       value={quantity}
-                                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                                     />
-                                   </div>
+                                    <div className="flex-1">
+                                      <label className="text-sm font-medium">
+                                        Quantity {product.product_units ? `(${product.product_units.abbreviation})` : '(pcs)'}
+                                      </label>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={quantity}
+                                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                                      />
+                                    </div>
                                    <Button onClick={addItemToSale} className="mt-6">
                                      <Plus className="h-4 w-4 mr-2" />
                                      Add

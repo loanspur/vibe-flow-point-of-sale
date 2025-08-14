@@ -100,7 +100,18 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       // Use explicit tenant_id filter instead of relying on RLS context
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, cost_price')
+        .select(`
+          id, 
+          name, 
+          sku, 
+          cost_price,
+          unit_id,
+          product_units (
+            id,
+            name,
+            abbreviation
+          )
+        `)
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('name');
@@ -510,7 +521,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                             console.log('🎯 Rendering product SelectItem:', { id: product.id, name: product.name });
                             return (
                               <SelectItem key={product.id} value={product.id}>
-                                {product.name} - {product.sku || 'No SKU'}
+                                {product.name} - {product.sku || 'No SKU'} {product.product_units && `(${product.product_units.abbreviation})`}
                               </SelectItem>
                             );
                            })
@@ -523,10 +534,10 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                    </Select>
                  </div>
 
-                <div className="space-y-2">
-                  <Label>Quantity (pcs)</Label>
-                  <Input
-                    type="number"
+                 <div className="space-y-2">
+                   <Label>Quantity {selectedProduct && products.find(p => p.id === selectedProduct)?.product_units && `(${products.find(p => p.id === selectedProduct)?.product_units?.abbreviation})`}</Label>
+                   <Input
+                     type="number"
                     min="1"
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
@@ -564,12 +575,15 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {purchaseItems.map((item, index) => (
                       <div key={index} className="flex items-center justify-between p-3 border rounded">
-                        <div className="flex-1">
-                          <p className="font-medium">{item.product_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {item.quantity} × {formatLocalCurrency(item.unit_cost)}
-                          </p>
-                        </div>
+                         <div className="flex-1">
+                           <p className="font-medium">{item.product_name}</p>
+                           <p className="text-sm text-muted-foreground">
+                             {item.quantity} {(() => {
+                               const product = products.find(p => p.id === item.product_id);
+                               return product?.product_units ? `${product.product_units.abbreviation}` : 'pcs';
+                             })()} × {formatLocalCurrency(item.unit_cost)}
+                           </p>
+                         </div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-lg">{formatLocalCurrency(item.total_cost)}</span>
                           <Button
