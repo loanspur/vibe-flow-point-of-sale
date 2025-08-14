@@ -60,8 +60,10 @@ interface Product {
   is_active: boolean;
   category_id: string;
   subcategory_id: string;
+  unit_id?: string;
   product_categories?: { name: string };
   product_subcategories?: { name: string };
+  product_units?: { name: string; abbreviation: string };
   variants?: any[];
   product_variants?: any[];
 }
@@ -114,7 +116,12 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       
         const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          product_categories(name),
+          product_subcategories(name),
+          product_units(name, abbreviation)
+        `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
@@ -252,6 +259,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             <TableHead>Type</TableHead>
             <TableHead>SKU</TableHead>
             <TableHead>Category</TableHead>
+            <TableHead>Unit</TableHead>
             <TableHead>Price</TableHead>
             <TableHead>Stock</TableHead>
             <TableHead>Status</TableHead>
@@ -306,9 +314,14 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                    Product
                  </Badge>
                </TableCell>
-              <TableCell>{product.sku || 'N/A'}</TableCell>
-              <TableCell>None</TableCell>
-              <TableCell>{formatCurrency(product.price)}</TableCell>
+               <TableCell>{product.sku || 'N/A'}</TableCell>
+               <TableCell>
+                 {product.product_categories?.name || 'None'}
+               </TableCell>
+               <TableCell>
+                 {product.product_units?.abbreviation || 'N/A'}
+               </TableCell>
+               <TableCell>{formatCurrency(product.price)}</TableCell>
                <TableCell>
                  {(() => {
                    // Show total stock including variants

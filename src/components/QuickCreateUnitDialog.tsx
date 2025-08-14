@@ -42,6 +42,28 @@ export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnit
     setLoading(true);
     
     try {
+      // Check if abbreviation already exists for this tenant
+      const { data: existingUnit, error: checkError } = await supabase
+        .from('product_units')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('abbreviation', formData.abbreviation)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingUnit) {
+        toast({
+          title: 'Error',
+          description: 'A unit with this abbreviation already exists',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       const unitData = {
         tenant_id: tenantId,
         name: formData.name,
