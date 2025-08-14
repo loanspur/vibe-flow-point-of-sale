@@ -4194,6 +4194,7 @@ export type Database = {
           quantity: number
           sale_id: string
           total_price: number
+          unit_id: string | null
           unit_price: number
           variant_id: string | null
         }
@@ -4204,6 +4205,7 @@ export type Database = {
           quantity: number
           sale_id: string
           total_price: number
+          unit_id?: string | null
           unit_price: number
           variant_id?: string | null
         }
@@ -4214,6 +4216,7 @@ export type Database = {
           quantity?: number
           sale_id?: string
           total_price?: number
+          unit_id?: string | null
           unit_price?: number
           variant_id?: string | null
         }
@@ -4230,6 +4233,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
             referencedColumns: ["id"]
           },
           {
