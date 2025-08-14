@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { PermissionGuard } from "@/components/PermissionGuard";
 
 interface Product {
   id: string;
@@ -367,38 +368,42 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedProduct(product);
-                      setShowProductForm(true);
-                    }}
-                    className="hover:bg-primary hover:text-primary-foreground transition-colors touch-target"
-                  >
-                    <Edit className="h-4 w-4 sm:mr-1" />
-                    <span className="hidden sm:inline">Edit</span>
-                  </Button>
+                  <PermissionGuard resource="product" action="update">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setShowProductForm(true);
+                      }}
+                      className="hover:bg-primary hover:text-primary-foreground transition-colors touch-target"
+                    >
+                      <Edit className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Edit</span>
+                    </Button>
+                  </PermissionGuard>
                   
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="hover:bg-secondary hover:text-secondary-foreground transition-colors touch-target"
-                        title="View variants"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>{product.name}</DialogTitle>
-                        <DialogDescription>Product details and variants</DialogDescription>
-                      </DialogHeader>
-                      <ProductVariants productId={product.id} />
-                    </DialogContent>
-                  </Dialog>
+                  <PermissionGuard resource="product" action="read">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="hover:bg-secondary hover:text-secondary-foreground transition-colors touch-target"
+                          title="View variants"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>{product.name}</DialogTitle>
+                          <DialogDescription>Product details and variants</DialogDescription>
+                        </DialogHeader>
+                        <ProductVariants productId={product.id} />
+                      </DialogContent>
+                    </Dialog>
+                  </PermissionGuard>
 
                   <Dialog>
                     <DialogTrigger asChild>
@@ -420,37 +425,39 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                     </DialogContent>
                   </Dialog>
                   
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors touch-target"
-                        disabled={!canDelete('product')}
-                        title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{product.name}"? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  <PermissionGuard resource="product" action="delete">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors touch-target"
                           disabled={!canDelete('product')}
+                          title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
                         >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteProduct(product.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={!canDelete('product')}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </PermissionGuard>
                 </div>
               </TableCell>
             </TableRow>
@@ -490,15 +497,17 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             <RotateCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button 
-            onClick={() => {
-              setSelectedProduct(null);
-              setShowProductForm(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
+          <PermissionGuard resource="product" action="create">
+            <Button 
+              onClick={() => {
+                setSelectedProduct(null);
+                setShowProductForm(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 

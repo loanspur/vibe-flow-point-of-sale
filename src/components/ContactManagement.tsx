@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { Users, UserPlus, Link, Edit, Trash2, Phone, Mail, MapPin, Plus, UserCheck, Building, Eye } from 'lucide-react';
 import ContactDetails from './ContactDetails';
+import { PermissionGuard } from "@/components/PermissionGuard";
 
 interface Contact {
   id: string;
@@ -417,20 +418,23 @@ const ContactManagement = () => {
                   <Users className="h-5 w-5" />
                   All Contacts
                 </div>
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={resetForm}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Contact
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create New Contact</DialogTitle>
-                      <DialogDescription>
-                        Add a new contact to your directory
-                      </DialogDescription>
-                    </DialogHeader>
+                <PermissionGuard resource="contact" action="create">
+                  <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                    <DialogTrigger asChild>
+                      <Button onClick={resetForm}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Contact
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                </PermissionGuard>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create New Contact</DialogTitle>
+                        <DialogDescription>
+                          Add a new contact to your directory
+                        </DialogDescription>
+                      </DialogHeader>
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -513,10 +517,9 @@ const ContactManagement = () => {
                           Cancel
                         </Button>
                         <Button onClick={createContact}>Create Contact</Button>
+                        </div>
                       </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
               </CardTitle>
               <CardDescription>Manage all your business contacts</CardDescription>
             </CardHeader>
@@ -596,26 +599,30 @@ const ContactManagement = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {(contact.type === 'customer' || contact.type === 'supplier') && (
+                          <PermissionGuard resource="contact" action="read">
+                            {(contact.type === 'customer' || contact.type === 'supplier') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedContact(contact);
+                                  setIsContactDetailsOpen(true);
+                                }}
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </PermissionGuard>
+                          <PermissionGuard resource="contact" action="update">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setSelectedContact(contact);
-                                setIsContactDetailsOpen(true);
-                              }}
-                              title="View Details"
+                              onClick={() => openEditDialog(contact)}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(contact)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          </PermissionGuard>
                           {contact.type === 'sales_rep' && !contact.user_id && (
                             <Button
                               variant="outline"
@@ -634,15 +641,17 @@ const ContactManagement = () => {
                               Unlink
                             </Button>
                           )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteContact(contact.id)}
-                            disabled={!canDelete('contact')}
-                            title={!canDelete('contact') ? 'Deletion disabled for audit trail' : 'Deactivate contact'}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <PermissionGuard resource="contact" action="delete">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteContact(contact.id)}
+                              disabled={!canDelete('contact')}
+                              title={!canDelete('contact') ? 'Deletion disabled for audit trail' : 'Deactivate contact'}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </PermissionGuard>
                         </div>
                       </TableCell>
                     </TableRow>

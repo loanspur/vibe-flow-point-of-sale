@@ -28,6 +28,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Badge } from '@/components/ui/badge';
 import { LazyImage } from '@/components/ui/image-lazy';
 import { useTenantLogo } from '@/hooks/useTenantLogo';
+import { PermissionGuard } from '@/components/PermissionGuard';
 
 const mainItems = [
   { title: "Dashboard", url: "/admin", icon: Home },
@@ -114,20 +115,54 @@ export function TenantAdminSidebar() {
           <SidebarGroupLabel>Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      end={item.url === "/admin"}
-                      className={({ isActive: navActive }) => getNavCls(navActive)}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {mainItems.map((item) => {
+                // Determine permission requirements based on navigation item
+                const getPermissionForItem = (title: string) => {
+                  switch(title) {
+                    case 'Sales': return { resource: 'sales', action: 'read' };
+                    case 'Products': return { resource: 'product', action: 'read' };
+                    case 'Purchases': return { resource: 'purchase', action: 'read' };
+                    case 'Contacts': return { resource: 'contact', action: 'read' };
+                    default: return null;
+                  }
+                };
+
+                const permission = getPermissionForItem(item.title);
+                
+                if (permission) {
+                  return (
+                    <PermissionGuard key={item.title} resource={permission.resource} action={permission.action}>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild>
+                          <NavLink 
+                            to={item.url} 
+                            end={item.url === "/admin"}
+                            className={({ isActive: navActive }) => getNavCls(navActive)}
+                          >
+                            <item.icon className="h-4 w-4" />
+                            {!collapsed && <span>{item.title}</span>}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </PermissionGuard>
+                  );
+                }
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.url} 
+                        end={item.url === "/admin"}
+                        className={({ isActive: navActive }) => getNavCls(navActive)}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -140,7 +175,21 @@ export function TenantAdminSidebar() {
               {businessItems.map((item) => {
                 const hasAccess = !item.featureRequired || hasFeature(item.featureRequired);
                 const showUpgradeBadge = !hasAccess && !isOnTrial; // Don't show badge if on trial
-                return (
+                
+                // Determine permission requirements for business items
+                const getBusinessPermission = (title: string) => {
+                  switch(title) {
+                    case 'Accounting': return { resource: 'accounting', action: 'read' };
+                    case 'Reports': return { resource: 'report', action: 'read' };
+                    case 'Team': return { resource: 'user', action: 'read' };
+                    case 'Communications': return { resource: 'communication', action: 'read' };
+                    default: return null;
+                  }
+                };
+
+                const permission = getBusinessPermission(item.title);
+                
+                const menuItem = (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <NavLink 
@@ -164,6 +213,16 @@ export function TenantAdminSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
+
+                if (permission) {
+                  return (
+                    <PermissionGuard key={item.title} resource={permission.resource} action={permission.action}>
+                      {menuItem}
+                    </PermissionGuard>
+                  );
+                }
+
+                return menuItem;
               })}
             </SidebarMenu>
           </SidebarGroupContent>

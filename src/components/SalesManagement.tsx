@@ -21,6 +21,7 @@ import { Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
+import { PermissionGuard } from "@/components/PermissionGuard";
 
 interface Sale {
   id: string;

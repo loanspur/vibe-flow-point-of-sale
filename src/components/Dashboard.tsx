@@ -21,6 +21,7 @@ import { CashDrawerCorrection } from "./CashDrawerCorrection";
 import { LowStockAlert } from "./LowStockAlert";
 import { Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PermissionGuard } from "@/components/PermissionGuard";
 
 const Dashboard = () => {
   const { tenantId } = useAuth();
@@ -228,18 +229,26 @@ const Dashboard = () => {
                   <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
-                    New Sale
-                  </Button>
-                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
-                    Add Product
-                  </Button>
-                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
-                    View Reports
-                  </Button>
-                  <Button variant="outline" className="justify-start touch-target text-responsive-sm">
-                    Manage Staff
-                  </Button>
+                  <PermissionGuard resource="sales" action="create">
+                    <Button variant="outline" className="justify-start touch-target text-responsive-sm">
+                      New Sale
+                    </Button>
+                  </PermissionGuard>
+                  <PermissionGuard resource="product" action="create">
+                    <Button variant="outline" className="justify-start touch-target text-responsive-sm">
+                      Add Product
+                    </Button>
+                  </PermissionGuard>
+                  <PermissionGuard resource="report" action="read">
+                    <Button variant="outline" className="justify-start touch-target text-responsive-sm">
+                      View Reports
+                    </Button>
+                  </PermissionGuard>
+                  <PermissionGuard resource="user" action="read">
+                    <Button variant="outline" className="justify-start touch-target text-responsive-sm">
+                      Manage Staff
+                    </Button>
+                  </PermissionGuard>
                 </div>
               </div>
             </Card>
