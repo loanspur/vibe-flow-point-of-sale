@@ -201,9 +201,23 @@ export function ARAPPaymentProcessor({ type }: ARAPPaymentProcessorProps) {
                 reference_type: selectedItem.reference_type,
                 performed_by: user.id,
               });
+            
+            console.log(`✅ Cash drawer updated: ${type} payment of ${amount}, new balance: ${drawer.current_balance + balanceChange}`);
+          } else {
+            console.warn('⚠️ No open cash drawer found - cash payment recorded but drawer not updated');
+            toast({
+              title: "Warning",
+              description: "Payment recorded but no open cash drawer found. Please open your cash drawer to track cash payments.",
+              variant: "destructive",
+            });
           }
         } catch (drawerError) {
-          console.error('Error updating cash drawer:', drawerError);
+          console.error('❌ Error updating cash drawer:', drawerError);
+          toast({
+            title: "Warning", 
+            description: "Payment recorded but cash drawer update failed",
+            variant: "destructive",
+          });
         }
       }
 
