@@ -11,8 +11,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,11 +20,6 @@ interface QuickCreateUnitDialogProps {
   onUnitCreated: () => void;
 }
 
-type Unit = {
-  id: string;
-  name: string;
-  abbreviation: string;
-};
 
 export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnitDialogProps) {
   const { tenantId } = useAuth();
@@ -35,13 +28,8 @@ export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnit
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    abbreviation: '',
-    is_base_unit: true,
-    base_unit_id: '',
-    conversion_factor: 1
+    abbreviation: ''
   });
-
-  const [baseUnits, setBaseUnits] = useState<Unit[]>([]);
 
   const generateUnitCode = (name: string) => {
     return name.toLowerCase().replace(/\s+/g, '_').substring(0, 10);
@@ -59,9 +47,9 @@ export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnit
         name: formData.name,
         abbreviation: formData.abbreviation,
         code: generateUnitCode(formData.name),
-        is_base_unit: formData.is_base_unit,
-        base_unit_id: formData.is_base_unit ? null : formData.base_unit_id || null,
-        conversion_factor: formData.is_base_unit ? 1 : formData.conversion_factor
+        is_base_unit: true,
+        base_unit_id: null,
+        conversion_factor: 1
       };
 
       const { error } = await supabase
@@ -78,10 +66,7 @@ export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnit
       // Reset form
       setFormData({
         name: '',
-        abbreviation: '',
-        is_base_unit: true,
-        base_unit_id: '',
-        conversion_factor: 1
+        abbreviation: ''
       });
 
       setOpen(false);
@@ -98,36 +83,8 @@ export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnit
     }
   };
 
-  const fetchBaseUnits = async () => {
-    if (!tenantId) return;
-
-    try {
-      // Fetch units directly without complex typing
-      const { data, error } = await (supabase as any)
-        .from('product_units')
-        .select('id, name, abbreviation')
-        .eq('tenant_id', tenantId)
-        .eq('is_base_unit', true);
-
-      if (error) throw error;
-      
-      const units = (data || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        abbreviation: item.abbreviation
-      }));
-      
-      setBaseUnits(units);
-    } catch (error) {
-      console.error('Error fetching base units:', error);
-    }
-  };
-
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
-    if (newOpen) {
-      fetchBaseUnits();
-    }
   };
 
   return (
@@ -168,50 +125,6 @@ export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnit
               />
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="is_base_unit"
-                checked={formData.is_base_unit}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_base_unit: checked })}
-              />
-              <Label htmlFor="is_base_unit">Base Unit</Label>
-            </div>
-
-            {!formData.is_base_unit && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="base_unit">Base Unit</Label>
-                  <Select
-                    value={formData.base_unit_id}
-                    onValueChange={(value) => setFormData({ ...formData, base_unit_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select base unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {baseUnits.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name} ({unit.abbreviation})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="conversion_factor">Conversion Factor</Label>
-                  <Input
-                    id="conversion_factor"
-                    type="number"
-                    step="0.01"
-                    value={formData.conversion_factor}
-                    onChange={(e) => setFormData({ ...formData, conversion_factor: Number(e.target.value) })}
-                    placeholder="1"
-                    required
-                  />
-                </div>
-              </>
-            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
