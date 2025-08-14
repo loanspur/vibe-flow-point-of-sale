@@ -150,10 +150,12 @@ const PurchaseManagement = () => {
     items: [] as any[]
   });
 
-  // Optimized purchase data fetching with caching
+  // Optimized purchase data fetching with caching - auto-loads when component mounts
   const { data: purchases = [], loading, refetch: refetchPurchases } = useOptimizedQuery(
     async () => {
       if (!tenantId) return { data: [], error: null };
+      
+      console.log('Auto-loading purchases list for tenant:', tenantId);
       
       try {
         const { data, error } = await supabase
@@ -172,6 +174,8 @@ const PurchaseManagement = () => {
           supplier_name: purchase.supplier?.name || 'Unknown Supplier'
         }));
         
+        console.log('Purchases loaded successfully:', purchasesWithSupplier.length, 'items');
+        
         return { data: purchasesWithSupplier, error: null };
       } catch (error) {
         console.error('Error fetching purchases:', error);
@@ -181,7 +185,7 @@ const PurchaseManagement = () => {
     [tenantId],
     {
       enabled: !!tenantId,
-      staleTime: 2 * 60 * 1000, // 2 minutes cache
+      staleTime: 30 * 1000, // 30 seconds cache for immediate loading
       cacheKey: `purchases-${tenantId}`
     }
   );
