@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -4292,13 +4292,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_sales_customer"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "sales_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -6499,9 +6492,9 @@ export type Database = {
     Functions: {
       calculate_aging_analysis: {
         Args: {
-          tenant_id_param: string
           analysis_type: string
           as_of_date?: string
+          tenant_id_param: string
         }
         Returns: {
           current_amount: number
@@ -6518,33 +6511,33 @@ export type Database = {
       }
       calculate_profit_loss: {
         Args: {
-          tenant_id_param: string
-          start_date_param: string
           end_date_param: string
+          start_date_param: string
+          tenant_id_param: string
         }
         Returns: {
-          income: number
           expenses: number
+          income: number
           profit_loss: number
         }[]
       }
       calculate_promotion_discount: {
         Args: {
-          promotion_id_param: string
           item_price_param: number
           item_quantity_param?: number
+          promotion_id_param: string
           total_amount_param?: number
         }
         Returns: {
-          discount_amount: number
           affected_quantity: number
+          discount_amount: number
         }[]
       }
       calculate_prorated_amount: {
-        Args: { full_amount: number; start_date: string; billing_day?: number }
+        Args: { billing_day?: number; full_amount: number; start_date: string }
         Returns: {
-          prorated_amount: number
           days_in_period: number
+          prorated_amount: number
           total_days_in_month: number
         }[]
       }
@@ -6553,84 +6546,84 @@ export type Database = {
         Returns: number
       }
       calculate_review_analytics: {
-        Args: { tenant_id_param: string; date_param?: string }
+        Args: { date_param?: string; tenant_id_param: string }
         Returns: undefined
       }
       calculate_tax_amount: {
         Args: {
-          tenant_id_param: string
           base_amount_param: number
-          tax_rate_id_param: string
           exemption_id_param?: string
+          tax_rate_id_param: string
+          tenant_id_param: string
         }
         Returns: {
-          tax_amount: number
           exemption_amount: number
           final_tax_amount: number
+          tax_amount: number
         }[]
       }
       check_rate_limit: {
         Args: {
-          identifier_param: string
           action_type_param: string
+          block_minutes?: number
+          identifier_param: string
           max_attempts?: number
           window_minutes?: number
-          block_minutes?: number
         }
         Returns: boolean
       }
       copy_role: {
         Args: {
-          source_role_id: string
-          new_role_name: string
           new_role_description?: string
+          new_role_name: string
+          source_role_id: string
           target_tenant_id?: string
         }
         Returns: string
       }
       create_accounts_payable_record: {
         Args: {
-          tenant_id_param: string
+          due_date_param?: string
           purchase_id_param: string
           supplier_id_param: string
+          tenant_id_param: string
           total_amount_param: number
-          due_date_param?: string
         }
         Returns: string
       }
       create_accounts_receivable_record: {
         Args: {
-          tenant_id_param: string
-          sale_id_param: string
           customer_id_param: string
-          total_amount_param: number
           due_date_param?: string
+          sale_id_param: string
+          tenant_id_param: string
+          total_amount_param: number
         }
         Returns: string
       }
       create_initial_admin_role: {
-        Args: { tenant_id_param: string; admin_user_id: string }
+        Args: { admin_user_id: string; tenant_id_param: string }
         Returns: string
       }
       create_otp_verification: {
         Args: {
-          user_id_param: string
           email_param: string
           otp_type_param: string
+          user_id_param: string
         }
         Returns: {
-          otp_code: string
           expires_at: string
+          otp_code: string
         }[]
       }
       create_payment_record: {
         Args: {
-          tenant_id_param: string
-          billing_plan_id_param: string
           amount_param: number
-          reference_param: string
+          billing_plan_id_param: string
           currency_param?: string
           payment_type_param?: string
+          reference_param: string
+          tenant_id_param: string
         }
         Returns: string
       }
@@ -6640,10 +6633,10 @@ export type Database = {
       }
       create_whatsapp_billing_record: {
         Args: {
-          tenant_id_param: string
-          phone_number_id_param: string
-          billing_period_start_param: string
           billing_period_end_param: string
+          billing_period_start_param: string
+          phone_number_id_param: string
+          tenant_id_param: string
         }
         Returns: string
       }
@@ -6651,10 +6644,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: {
           auth_uid_result: string
-          user_tenant_id_result: string
           current_role_result: Database["public"]["Enums"]["user_role"]
           profile_exists: boolean
           tenant_user_exists: boolean
+          user_tenant_id_result: string
         }[]
       }
       ensure_tenant_subdomain: {
@@ -6682,35 +6675,35 @@ export type Database = {
         Returns: number
       }
       get_campaign_target_tenants: {
-        Args: { target_audience_param: string; segment_criteria_param?: Json }
+        Args: { segment_criteria_param?: Json; target_audience_param: string }
         Returns: {
-          tenant_id: string
-          tenant_name: string
           admin_email: string
           admin_name: string
-          status: string
           created_at: string
+          status: string
+          tenant_id: string
+          tenant_name: string
         }[]
       }
       get_current_application_version: {
         Args: Record<PropertyKey, never>
         Returns: {
-          version_number: string
-          version_name: string
-          release_date: string
           build_number: number
           is_stable: boolean
+          release_date: string
+          version_name: string
+          version_number: string
         }[]
       }
       get_current_legal_document: {
         Args: { document_type_param: string; tenant_id_param?: string }
         Returns: {
-          document_id: string
-          version_id: string
-          title: string
           content: string
-          version_number: string
+          document_id: string
           effective_date: string
+          title: string
+          version_id: string
+          version_number: string
         }[]
       }
       get_current_user_role: {
@@ -6724,12 +6717,12 @@ export type Database = {
       get_product_history_summary: {
         Args: { product_id_param: string }
         Returns: {
-          total_changes: number
           last_change_date: string
-          price_changes: number
-          stock_adjustments: number
-          status_changes: number
           most_active_user: string
+          price_changes: number
+          status_changes: number
+          stock_adjustments: number
+          total_changes: number
         }[]
       }
       get_tenant_by_domain: {
@@ -6737,85 +6730,85 @@ export type Database = {
         Returns: string
       }
       get_tenant_effective_pricing: {
-        Args: { tenant_id_param: string; billing_plan_id_param: string }
+        Args: { billing_plan_id_param: string; tenant_id_param: string }
         Returns: {
-          effective_amount: number
-          is_custom: boolean
           custom_pricing_id: string
           discount_percentage: number
+          effective_amount: number
+          is_custom: boolean
           original_amount: number
         }[]
       }
       get_tenant_permissions: {
         Args: { tenant_id_param: string }
         Returns: {
-          id: string
-          name: string
-          description: string
-          resource: string
           action: string
           category: string
+          description: string
+          id: string
           is_critical: boolean
           is_custom: boolean
+          name: string
+          resource: string
           tenant_id: string
         }[]
       }
       get_tenant_user_emails: {
         Args: { tenant_id: string } | { user_ids: string[] }
         Returns: {
-          user_id: string
           email: string
+          user_id: string
         }[]
       }
       get_tenant_users_with_roles: {
         Args: {
-          p_tenant_id?: string
-          p_search?: string
-          p_role_filter?: string
           p_limit?: number
           p_offset?: number
+          p_role_filter?: string
+          p_search?: string
+          p_tenant_id?: string
         }
         Returns: {
-          user_id: string
+          created_at: string
           email: string
           full_name: string
-          primary_role: string
-          role_names: string[]
           invited: boolean
           last_sign_in_at: string
-          created_at: string
+          primary_role: string
+          role_names: string[]
           status: string
           total_count: number
+          user_id: string
         }[]
       }
       get_transfer_request_details: {
         Args: { request_id: string }
         Returns: {
-          id: string
-          tenant_id: string
-          transfer_type: string
           amount: number
+          completed_at: string
+          created_at: string
           currency_code: string
-          from_user_id: string
           from_drawer_id: string
+          from_drawer_name: string
           from_payment_method_id: string
-          to_user_id: string
-          to_drawer_id: string
-          to_payment_method_id: string
-          reason: string
+          from_payment_method_name: string
+          from_user_id: string
+          id: string
           notes: string
+          reason: string
           reference_number: string
-          status: string
           requested_at: string
           responded_at: string
-          completed_at: string
           responded_by: string
-          created_at: string
-          updated_at: string
-          from_drawer_name: string
+          status: string
+          tenant_id: string
+          to_drawer_id: string
           to_drawer_name: string
-          from_payment_method_name: string
+          to_payment_method_id: string
           to_payment_method_name: string
+          to_user_id: string
+          transfer_type: string
+          updated_at: string
         }[]
       }
       get_user_contact_profile: {
@@ -6825,18 +6818,18 @@ export type Database = {
       get_user_feature_access: {
         Args: { user_tenant_id: string }
         Returns: {
+          expires_at: string
           feature_name: string
           is_enabled: boolean
-          expires_at: string
         }[]
       }
       get_user_permissions: {
         Args: { user_id_param: string }
         Returns: {
-          resource: Database["public"]["Enums"]["permission_resource"]
           action: Database["public"]["Enums"]["permission_action"]
-          permission_name: string
           category: string
+          permission_name: string
+          resource: Database["public"]["Enums"]["permission_resource"]
         }[]
       }
       get_user_tenant_id: {
@@ -6849,10 +6842,10 @@ export type Database = {
       }
       is_promotion_valid: {
         Args: {
-          promotion_id_param: string
           current_time_param?: string
-          purchase_amount_param?: number
           customer_type_param?: string
+          promotion_id_param: string
+          purchase_amount_param?: number
         }
         Returns: boolean
       }
@@ -6866,24 +6859,24 @@ export type Database = {
       }
       log_security_event: {
         Args: {
-          event_type: string
-          user_id_param: string
           details?: Json
+          event_type: string
           ip_address_param?: unknown
           user_agent_param?: string
+          user_id_param: string
         }
         Returns: string
       }
       log_user_activity: {
         Args: {
-          tenant_id_param: string
-          user_id_param: string
           action_type_param: string
-          resource_type_param?: string
-          resource_id_param?: string
           details_param?: Json
           ip_address_param?: unknown
+          resource_id_param?: string
+          resource_type_param?: string
+          tenant_id_param: string
           user_agent_param?: string
+          user_id_param: string
         }
         Returns: string
       }
@@ -6893,22 +6886,22 @@ export type Database = {
       }
       process_bank_transfer: {
         Args: {
-          transfer_id_param: string
           action_param: string
           notes_param?: string
+          transfer_id_param: string
         }
         Returns: boolean
       }
       process_cash_transfer: {
         Args: {
-          transfer_request_id_param: string
           action_param: string
           notes_param?: string
+          transfer_request_id_param: string
         }
         Returns: boolean
       }
       process_cash_transfer_request: {
-        Args: { transfer_request_id_param: string; action_param: string }
+        Args: { action_param: string; transfer_request_id_param: string }
         Returns: boolean
       }
       process_return: {
@@ -6916,7 +6909,7 @@ export type Database = {
         Returns: boolean
       }
       process_transfer_request: {
-        Args: { transfer_request_id: string; action: string }
+        Args: { action: string; transfer_request_id: string }
         Returns: boolean
       }
       queue_campaign_emails: {
@@ -6925,31 +6918,31 @@ export type Database = {
       }
       queue_email: {
         Args: {
-          tenant_id_param: string
-          template_id_param: string
-          to_email_param: string
-          to_name_param: string
-          subject_param: string
           html_content_param: string
-          text_content_param: string
-          variables_param: Json
           priority_param: string
           scheduled_for_param: string
+          subject_param: string
+          template_id_param: string
+          tenant_id_param: string
+          text_content_param: string
+          to_email_param: string
+          to_name_param: string
+          variables_param: Json
         }
         Returns: string
       }
       reactivate_tenant_membership: {
-        Args: { tenant_id_param: string; target_email_param: string }
+        Args: { target_email_param: string; tenant_id_param: string }
         Returns: boolean
       }
       record_cash_transaction_with_accounting: {
         Args: {
-          drawer_id_param: string
-          transaction_type_param: string
           amount_param: number
           description_param: string
-          reference_type_param?: string
+          drawer_id_param: string
           reference_id_param?: string
+          reference_type_param?: string
+          transaction_type_param: string
         }
         Returns: string
       }
@@ -6971,16 +6964,16 @@ export type Database = {
       }
       setup_monthly_billing_cycle: {
         Args: {
-          tenant_id_param: string
           billing_plan_id_param: string
           start_date_param?: string
+          tenant_id_param: string
         }
         Returns: {
           billing_amount: number
+          billing_period_end: string
+          billing_period_start: string
           is_prorated: boolean
           next_billing_date: string
-          billing_period_start: string
-          billing_period_end: string
         }[]
       }
       setup_tenant_default_features: {
@@ -6989,9 +6982,9 @@ export type Database = {
       }
       track_tenant_deployment: {
         Args: {
+          deployment_method_param?: string
           tenant_id_param: string
           version_number_param: string
-          deployment_method_param?: string
         }
         Returns: string
       }
@@ -7005,9 +6998,9 @@ export type Database = {
       }
       update_payment_status: {
         Args: {
+          metadata_param?: Json
           reference_param: string
           status_param: string
-          metadata_param?: Json
         }
         Returns: boolean
       }
@@ -7016,26 +7009,26 @@ export type Database = {
         Returns: undefined
       }
       update_variant_stock: {
-        Args: { variant_id: string; quantity_sold: number }
+        Args: { quantity_sold: number; variant_id: string }
         Returns: undefined
       }
       user_has_feature_access: {
-        Args: { user_tenant_id: string; feature_name_param: string }
+        Args: { feature_name_param: string; user_tenant_id: string }
         Returns: boolean
       }
       user_has_permission: {
         Args: {
-          user_id_param: string
-          resource_param: Database["public"]["Enums"]["permission_resource"]
           action_param: Database["public"]["Enums"]["permission_action"]
+          resource_param: Database["public"]["Enums"]["permission_resource"]
+          user_id_param: string
         }
         Returns: boolean
       }
       verify_otp_code: {
         Args: {
-          user_id_param: string
           otp_code_param: string
           otp_type_param: string
+          user_id_param: string
         }
         Returns: boolean
       }
