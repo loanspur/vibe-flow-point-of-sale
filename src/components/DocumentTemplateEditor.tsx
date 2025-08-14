@@ -97,7 +97,7 @@ Change:                 {{change_amount}}
 
 Thank you for choosing us!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Powered by VibePOS | 0727638940
+https://vibenet.shop - 0733638940
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `,
   invoice: `{{company_logo}}
@@ -405,14 +405,16 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
   // Function to ensure the VibePOS footer is protected and cannot be modified
   const ensureProtectedFooter = (content: string): string => {
     const protectedFooter = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Powered by VibePOS | 0727638940
+https://vibenet.shop - 0733638940
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
-    // Remove any existing VibePOS footer variations
+    // Remove any existing footer variations
     const footerPatterns = [
       /━+\s*Powered by VibePOS[^\n]*\n━+/gi,
       /Powered by VibePOS[^\n]*/gi,
-      /━+\s*VibePOS[^\n]*\n━+/gi
+      /━+\s*VibePOS[^\n]*\n━+/gi,
+      /━+\s*https:\/\/vibenet\.shop[^\n]*\n━+/gi,
+      /https:\/\/vibenet\.shop[^\n]*/gi
     ];
 
     let cleanedContent = content;
