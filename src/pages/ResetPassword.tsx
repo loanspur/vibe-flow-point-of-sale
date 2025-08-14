@@ -252,7 +252,10 @@ const handleResetPassword = async (e: React.FormEvent) => {
         title: 'Password set!',
         description: 'Your password has been created. You can now sign in.',
       });
-      navigate('/auth?reset=success', { replace: true });
+      // After password reset, redirect back to current domain's auth page
+      const currentDomain = window.location.hostname;
+      const authUrl = `${window.location.protocol}//${currentDomain}/auth?reset=success`;
+      window.location.href = authUrl;
     } else {
       // OTP flow: verify code and set new password via edge function
       console.log('Sending password reset request with data:', {
@@ -282,7 +285,10 @@ const handleResetPassword = async (e: React.FormEvent) => {
           title: 'Password updated successfully',
           description: 'Your password has been reset. You can now sign in with your new password.'
         });
-        navigate('/auth?reset=success', { replace: true });
+        // After password reset, redirect back to current domain's auth page
+        const currentDomain = window.location.hostname;
+        const authUrl = `${window.location.protocol}//${currentDomain}/auth?reset=success`;
+        window.location.href = authUrl;
       } else {
         setPasswordError('Failed to reset password. Please try again.');
       }

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
 };
 
 serve(async (req) => {
@@ -24,6 +24,8 @@ serve(async (req) => {
       email, 
       mobileNumber, 
       country, 
+      currency,
+      timezone,
       password 
     } = await req.json();
 
@@ -50,8 +52,28 @@ serve(async (req) => {
 
     if (userError) {
       console.error('User creation error:', userError);
+      
+      // Return specific error messages for different auth errors
+      let errorMessage = 'Failed to create tenant account';
+      let errorCode = userError.code || 'AUTH_ERROR';
+      
+      if (userError.message?.includes('already been registered')) {
+        errorMessage = 'An account with this email already exists. Please use a different email or sign in to your existing account.';
+        errorCode = 'EMAIL_EXISTS';
+      } else if (userError.message?.includes('Invalid email')) {
+        errorMessage = 'Please provide a valid email address.';
+        errorCode = 'INVALID_EMAIL';
+      } else if (userError.message?.includes('Password')) {
+        errorMessage = 'Password must be at least 6 characters long.';
+        errorCode = 'WEAK_PASSWORD';
+      }
+      
       return new Response(
-        JSON.stringify({ error: userError.message }),
+        JSON.stringify({ 
+          error: errorMessage,
+          code: errorCode,
+          details: userError.message 
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

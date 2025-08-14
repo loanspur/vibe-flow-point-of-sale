@@ -243,11 +243,11 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="trial-email">Email Address</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                id="email"
+                id="trial-email"
                 name="email"
                 type="email"
                 placeholder="john@example.com"

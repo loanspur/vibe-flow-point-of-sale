@@ -227,15 +227,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     if (mounted) setLoading(false);
                   });
                 
-                // Log login activity
+                // Log login activity and mark invitation as accepted
                 if (event === 'SIGNED_IN') {
                   logUserActivity('login', session.user.id);
+                  markInvitationAccepted(session.user);
                 }
               }
             }, 0);
           } else {
             // Profile already fetched
             setLoading(false);
+            
+            // Still mark invitation as accepted on signin
+            if (event === 'SIGNED_IN') {
+              markInvitationAccepted(session.user);
+            }
           }
         } else {
           // User signed out - reset everything including profile fetch tracking
@@ -319,6 +325,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       // Silent fail - user experience is more important than logout errors
       console.warn('Logout error (ignored):', error);
+    }
+  };
+
+  // Mark invitation as accepted when user signs in
+  const markInvitationAccepted = async (user: any) => {
+    try {
+      const uid = user.id;
+      if (!uid) return;
+
+      // Update profile invite status
+      await supabase
+        .from('profiles')
+        .update({ 
+          invitation_status: 'accepted', 
+          invitation_accepted_at: new Date().toISOString() 
+        })
+        .eq('user_id', uid);
+
+      // Get tenant ID and update tenant_users
+      const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
+      const tenantId = tenantData as string;
+      
+      if (tenantId) {
+        // Update tenant_users status for this user
+        await supabase
+          .from('tenant_users')
+          .update({
+            invitation_status: 'accepted',
+            invitation_accepted_at: new Date().toISOString(),
+            is_active: true,
+          })
+          .eq('user_id', uid)
+          .eq('tenant_id', tenantId);
+
+        // Also ensure any existing users with pending status get updated
+        await supabase
+          .from('tenant_users')
+          .update({
+            invitation_status: 'accepted',
+            invitation_accepted_at: new Date().toISOString(),
+            is_active: true,
+          })
+          .eq('user_id', uid)
+          .eq('tenant_id', tenantId)
+          .eq('invitation_status', 'pending');
+      }
+    } catch (e) {
+      console.warn('Failed to mark invitation as accepted', e);
     }
   };
 

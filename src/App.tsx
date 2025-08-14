@@ -28,6 +28,7 @@ const CurrencyDebug = lazy(() => import("./pages/CurrencyDebug"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
+const TenantRedirect = lazy(() => import("./pages/TenantRedirect"));
 
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -534,6 +535,7 @@ const DomainRouter = () => {
         <Route path="/" element={<LandingPage />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/tenant-redirect" element={<TenantRedirect />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         
         

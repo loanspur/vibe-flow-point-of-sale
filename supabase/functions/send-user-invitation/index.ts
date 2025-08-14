@@ -336,15 +336,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Tenant user relationship handled successfully:', tenantUserData);
 
-    // Generate email verification link
+    // Generate email verification link with two-step redirect approach
     const linkType = isNewUser ? 'invite' : 'recovery';
     console.log('Generating auth link with type:', linkType);
+    
+    // Determine the main domain based on environment
+    const mainDomain = origin.includes('.vibenet.shop') ? 'vibenet.shop' : 'vibenet.online';
+    const targetTenantDomain = chosenDomainName || `${tenant.subdomain}.${mainDomain}`;
+    
+    console.log('Using main domain for auth redirect:', mainDomain);
+    console.log('Target tenant domain:', targetTenantDomain);
+    
     const { data: emailLinkData, error: emailLinkError } = await supabaseAdmin.auth.admin.generateLink({
       type: linkType as 'invite' | 'recovery',
       email: email,
       options: {
-        // Redirect invited users to tenant-specific password setup page
-        redirectTo: `${invitationBaseUrl}/reset-password?from=invite&email=${encodeURIComponent(email)}`
+        // Use main domain first, then redirect to tenant domain via tenant-redirect handler
+        redirectTo: `https://${mainDomain}/auth/tenant-redirect?tenant_domain=${encodeURIComponent(targetTenantDomain)}&redirect_to=${encodeURIComponent('/reset-password')}&from=invite&email=${encodeURIComponent(email)}&tenant_id=${encodeURIComponent(tenantId)}`
       }
     });
 

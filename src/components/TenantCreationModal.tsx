@@ -196,8 +196,15 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
       
       let errorMessage = "Failed to create account. Please try again.";
       
+      // Handle different error types with specific messages
       if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
-        errorMessage = "An account with this email already exists. Please try signing in instead.";
+        errorMessage = "An account with this email already exists. Please use a different email or sign in to your existing account.";
+      } else if (error.message?.includes('Invalid email')) {
+        errorMessage = "Please provide a valid email address.";
+      } else if (error.message?.includes('Password')) {
+        errorMessage = "Password must be at least 6 characters long.";
+      } else if (error.message?.includes('All fields are required')) {
+        errorMessage = "Please fill in all required fields.";
       }
       
       toast({
@@ -256,11 +263,11 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="tenant-email">Email Address</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                id="email"
+                id="tenant-email"
                 name="email"
                 type="email"
                 placeholder="john@business.com"
