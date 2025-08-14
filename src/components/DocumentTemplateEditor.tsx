@@ -341,6 +341,9 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
     console.log('Saving template:', templateType, 'content length:', content.length);
     setIsLoading(true);
     try {
+      // Protect the VibePOS footer from being modified
+      const protectedContent = ensureProtectedFooter(content);
+      
       // First check if business_settings record exists
       const { data: existing } = await supabase
         .from('business_settings')
@@ -354,7 +357,7 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
           .from('business_settings')
           .insert({
             tenant_id: tenantId,
-            [`${templateType}_template`]: content
+            [`${templateType}_template`]: protectedContent
           });
         
         if (insertError) throw insertError;
@@ -362,7 +365,7 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
         // Update the existing record
         const { error: updateError } = await supabase
           .from('business_settings')
-          .update({ [`${templateType}_template`]: content })
+          .update({ [`${templateType}_template`]: protectedContent })
           .eq('tenant_id', tenantId);
 
         if (updateError) throw updateError;
@@ -372,7 +375,7 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
         ...prev,
         [templateType]: {
           ...prev[templateType],
-          content
+          content: protectedContent
         }
       }));
 
@@ -397,6 +400,35 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Function to ensure the VibePOS footer is protected and cannot be modified
+  const ensureProtectedFooter = (content: string): string => {
+    const protectedFooter = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Powered by VibePOS | 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    // Remove any existing VibePOS footer variations
+    const footerPatterns = [
+      /━+\s*Powered by VibePOS[^\n]*\n━+/gi,
+      /Powered by VibePOS[^\n]*/gi,
+      /━+\s*VibePOS[^\n]*\n━+/gi
+    ];
+
+    let cleanedContent = content;
+    footerPatterns.forEach(pattern => {
+      cleanedContent = cleanedContent.replace(pattern, '');
+    });
+
+    // Remove trailing whitespace and newlines
+    cleanedContent = cleanedContent.trim();
+
+    // Ensure the content ends with the protected footer
+    if (!cleanedContent.endsWith(protectedFooter)) {
+      cleanedContent += '\n\n' + protectedFooter;
+    }
+
+    return cleanedContent;
   };
 
   const resetTemplate = (templateType: string) => {
