@@ -100,6 +100,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   const [items, setItems] = useState<(SaleItem | QuoteItem)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [businessSettings, setBusinessSettings] = useState<any>(null);
+  const [templateContent, setTemplateContent] = useState<string>('');
   const receiptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { formatAmount } = useCurrencySettings();
@@ -134,17 +135,22 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           receipt_footer,
           receipt_logo_url,
           company_logo_url,
-          receipt_template
+          receipt_template,
+          invoice_template,
+          quote_template
         `)
         .eq('tenant_id', tenantId)
         .single();
 
       if (error) throw error;
       setBusinessSettings(data);
+      
+      // Load the appropriate template content
+      loadTemplate(data);
     } catch (error: any) {
       console.error('Error fetching business settings:', error);
       // Use fallback data if settings not found
-      setBusinessSettings({
+      const fallbackSettings = {
         company_name: "VibePOS",
         address_line_1: "123 Business Street",
         city: "Business City",
@@ -153,7 +159,74 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
         website: "www.vibepos.com",
         receipt_header: "",
         receipt_footer: "Thank you for your business!"
-      });
+      };
+      setBusinessSettings(fallbackSettings);
+      loadTemplate(fallbackSettings);
+    }
+  };
+
+  const loadTemplate = (settings: any) => {
+    const defaultTemplate = `{{receipt_header}}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            {{company_name}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 {{company_address}}
+📞 {{company_phone}}  ✉️ {{company_email}}
+
+┌─────────────────────────────────────────┐
+│                ${type.toUpperCase()}                  │
+│              #{{receipt_number}}        │
+└─────────────────────────────────────────┘
+
+🗓️  {{date}} ⏰ {{time}}
+👤 Cashier: {{cashier_name}}
+👥 Customer: {{customer_name}}
+📞 {{customer_phone}}
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃               ITEMS                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+{{items}}
+
+┌─────────────────────────────────────────┐
+│ 💰 PAYMENT SUMMARY                     │
+├─────────────────────────────────────────┤
+│ Subtotal:              {{subtotal}}     │
+│ Discount:             {{discount_amount}}│
+│ Tax:                  {{tax_amount}}    │
+├─────────────────────────────────────────┤
+│ 🎯 TOTAL:             {{total_amount}}  │
+└─────────────────────────────────────────┘
+
+💳 Payment Method: {{payment_method}}
+💵 Amount Paid: {{amount_paid}}
+💴 Change: {{change_amount}}
+
+{{receipt_footer}}
+
+✨ Thank you for choosing us! ✨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 Powered by VibePOS | 📱 0727638940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    // Get the appropriate template based on type
+    let template = '';
+    if (type === 'receipt' && settings?.receipt_template) {
+      template = settings.receipt_template;
+    } else if (type === 'invoice' && settings?.invoice_template) {
+      template = settings.invoice_template;
+    } else if (type === 'quote' && settings?.quote_template) {
+      template = settings.quote_template;
+    }
+    
+    // Use the stored template if it exists and contains template variables, otherwise use default
+    if (template && template.includes('{{')) {
+      setTemplateContent(template);
+    } else {
+      setTemplateContent(defaultTemplate);
     }
   };
 
@@ -328,57 +401,8 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   };
 
   const renderTemplateReceipt = () => {
-    // Always use modern template design
-    const defaultTemplate = `{{receipt_header}}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            {{company_name}}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📍 {{company_address}}
-📞 {{company_phone}}  ✉️ {{company_email}}
-
-┌─────────────────────────────────────────┐
-│                RECEIPT                  │
-│              #{{receipt_number}}        │
-└─────────────────────────────────────────┘
-
-🗓️  {{date}} ⏰ {{time}}
-👤 Cashier: {{cashier_name}}
-👥 Customer: {{customer_name}}
-📞 {{customer_phone}}
-
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃               ITEMS                  ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-{{items}}
-
-┌─────────────────────────────────────────┐
-│ 💰 PAYMENT SUMMARY                     │
-├─────────────────────────────────────────┤
-│ Subtotal:              {{subtotal}}     │
-│ Discount:             {{discount_amount}}│
-│ Tax:                  {{tax_amount}}    │
-├─────────────────────────────────────────┤
-│ 🎯 TOTAL:             {{total_amount}}  │
-└─────────────────────────────────────────┘
-
-💳 Payment Method: {{payment_method}}
-💵 Amount Paid: {{amount_paid}}
-💴 Change: {{change_amount}}
-
-{{receipt_footer}}
-
-✨ Thank you for choosing us! ✨
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚀 Powered by VibePOS | 📱 0727638940
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-    // Use stored template or default modern template
-    let templateContent = businessSettings?.receipt_template && businessSettings.receipt_template !== 'standard' 
-      ? businessSettings.receipt_template 
-      : defaultTemplate;
+    // Use the loaded template content
+    let currentTemplate = templateContent;
     
     // Replace template variables with actual data
     const replacements: Record<string, string> = {
@@ -411,13 +435,13 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     };
 
     Object.entries(replacements).forEach(([variable, value]) => {
-      templateContent = templateContent.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
+      currentTemplate = currentTemplate.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
     });
 
     return (
       <div className="thermal-receipt bg-white p-6 border rounded-lg">
         <pre className="whitespace-pre-wrap font-mono text-base leading-relaxed font-bold">
-          {templateContent}
+          {currentTemplate}
         </pre>
       </div>
     );
