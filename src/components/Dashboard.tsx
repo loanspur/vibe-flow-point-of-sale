@@ -17,6 +17,7 @@ import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { useAuth } from "@/contexts/AuthContext";
 import dashboardImage from "@/assets/dashboard-preview.jpg";
 import { useCashDrawer } from "@/hooks/useCashDrawer";
+import { CashDrawerCorrection } from "./CashDrawerCorrection";
 import { Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -197,6 +198,9 @@ const Dashboard = () => {
                 </Card>
               ))}
             </div>
+
+            {/* Cash Drawer Correction - Show only if needed */}
+            <CashDrawerCorrection />
 
             <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-border">
               <div className="space-y-4">
