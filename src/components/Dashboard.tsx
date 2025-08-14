@@ -180,7 +180,7 @@ const Dashboard = () => {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
             <div className="grid grid-cols-3 gap-4">
-              {displayMetrics.slice(0, 5).map((metric, index) => (
+              {displayMetrics.slice(0, 6).map((metric, index) => (
                 <Card key={index} className={`p-6 bg-card border-border hover:shadow-[var(--shadow-card)] transition-all duration-300 ${
                   metric.loading ? 'animate-pulse' : ''
                 } ${metric.clickable ? 'cursor-pointer hover:scale-105' : ''}`}
