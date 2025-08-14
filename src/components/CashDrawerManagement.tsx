@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { CashTransferModal } from './CashTransferModal';
 import { CashTransactionHistory } from './CashTransactionHistory';
+import { UnifiedTransactionHistory } from './UnifiedTransactionHistory';
 import { CashJournalReport } from './CashJournalReport';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -579,10 +580,11 @@ export function CashDrawerManagement() {
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-4">
-          <CashTransactionHistory
-            transactions={transactions.slice(0, 15)}
-            formatAmount={formatAmount}
-            getTransactionIcon={getTransactionIcon}
+          <UnifiedTransactionHistory 
+            title="Recent Cash Transactions"
+            filterType="cash"
+            showFilters={false}
+            limit={20}
           />
         </TabsContent>
 

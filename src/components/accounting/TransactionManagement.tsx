@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { format } from 'date-fns';
 import { Plus, FileText, Calendar, DollarSign, Trash2, Edit, Eye, CheckCircle, AlertCircle } from 'lucide-react';
+import { UnifiedTransactionHistory } from '../UnifiedTransactionHistory';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -640,114 +641,15 @@ export default function TransactionManagement() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Transaction #</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell className="font-mono">{transaction.transaction_number}</TableCell>
-                  <TableCell>{format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}</TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell>{formatCurrency(transaction.total_amount)}</TableCell>
-                  <TableCell>
-                    {transaction.is_posted ? (
-                      <Badge className="bg-green-500">Posted</Badge>
-                    ) : (
-                      <Badge variant="outline">Draft</Badge>
-                    )}
-                  </TableCell>
-                   <TableCell>
-                     <div className="flex space-x-2">
-                       <Button
-                         size="sm"
-                         variant="outline"
-                         onClick={() => openViewDialog(transaction)}
-                         title="View transaction"
-                       >
-                         <Eye className="w-4 h-4" />
-                       </Button>
-                       {transaction.is_posted ? (
-                         // For posted transactions - view only with edit option for reversals
-                         <Button
-                           size="sm"
-                           variant="outline"
-                           onClick={() => openEditDialog(transaction)}
-                           title="View/Reverse transaction"
-                         >
-                           <Edit className="w-4 h-4" />
-                         </Button>
-                       ) : (
-                         // For draft transactions - full edit capabilities
-                         <>
-                           <Button
-                             size="sm"
-                             variant="outline"
-                             onClick={() => openEditDialog(transaction)}
-                             title="Edit transaction"
-                           >
-                             <Edit className="w-4 h-4" />
-                           </Button>
-                           <Button
-                             size="sm"
-                             variant="outline"
-                             onClick={() => postTransaction(transaction.id)}
-                             title="Post transaction"
-                           >
-                             <CheckCircle className="w-4 h-4" />
-                           </Button>
-                           <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  title={!canDelete('transaction') ? 'Deletion disabled for audit trail' : 'Delete transaction'}
-                                  disabled={!canDelete('transaction')}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                             <AlertDialogContent>
-                               <AlertDialogHeader>
-                                 <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
-                                 <AlertDialogDescription>
-                                   Are you sure you want to delete this transaction? This action cannot be undone.
-                                 </AlertDialogDescription>
-                               </AlertDialogHeader>
-                               <AlertDialogFooter>
-                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={() => deleteTransaction(transaction.id)}
-                                    disabled={!canDelete('transaction')}
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                               </AlertDialogFooter>
-                             </AlertDialogContent>
-                           </AlertDialog>
-                         </>
-                       )}
-                     </div>
-                   </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Import and use unified transaction history */}
+      <div className="mt-8">
+        <UnifiedTransactionHistory 
+          title="Recent Accounting Transactions"
+          filterType="accounting"
+          showFilters={false}
+          limit={15}
+        />
+      </div>
 
       {/* Edit Transaction Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
