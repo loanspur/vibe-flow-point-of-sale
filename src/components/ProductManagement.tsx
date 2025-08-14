@@ -382,7 +382,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       setSelectedProduct(product);
                       setShowProductForm(true);
                     }}
-                    className="h-8 px-2 hover:bg-primary hover:text-primary-foreground transition-all duration-200"
+                    className="h-8 w-8 sm:w-auto px-2 hover:bg-primary hover:text-primary-foreground transition-colors duration-150"
                   >
                     <Edit className="h-3 w-3 sm:mr-1" />
                     <span className="hidden sm:inline text-xs">Edit</span>
@@ -393,7 +393,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        className="h-8 px-2 hover:bg-muted transition-all duration-200"
+                        className="h-8 w-8 px-2 hover:bg-muted transition-colors duration-150"
                         title="View variants"
                       >
                         <Eye className="h-3 w-3" />
@@ -414,7 +414,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                         variant="ghost" 
                         size="sm" 
                         title="View history"
-                        className="h-8 px-2 hover:bg-muted transition-all duration-200"
+                        className="h-8 w-8 px-2 hover:bg-muted transition-colors duration-150"
                       >
                         <History className="h-3 w-3" />
                       </Button>
@@ -433,7 +433,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 px-2 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200"
+                        className="h-8 w-8 px-2 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors duration-150"
                         disabled={!canDelete('product')}
                         title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
                       >
