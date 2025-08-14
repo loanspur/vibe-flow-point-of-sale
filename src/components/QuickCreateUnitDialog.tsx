@@ -69,9 +69,9 @@ export default function QuickCreateUnitDialog({ onUnitCreated }: QuickCreateUnit
         name: formData.name,
         abbreviation: formData.abbreviation,
         code: generateUnitCode(formData.name),
-        is_base_unit: true,
         base_unit_id: null,
-        conversion_factor: 1
+        conversion_factor: 1,
+        is_active: true
       };
 
       const { error } = await supabase
