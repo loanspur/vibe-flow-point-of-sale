@@ -262,13 +262,14 @@ export function CashDrawerManagement() {
         if (actionType === 'approve') {
           console.log('🏦 Processing bank transfer - deducting from cash drawer');
           
-          // Record cash transaction for bank transfer
+          // Record cash transaction for bank transfer (allow overdraw for admin users)
           await recordCashTransaction(
             'account_transfer',
             -selectedTransfer.amount, // Negative amount (deduction)
             `Transfer to account: ${selectedTransfer.account_name || 'Bank Account'}`,
             'transfer_request',
-            selectedTransfer.id
+            selectedTransfer.id,
+            isAdmin // Allow overdraw for admin users
           );
           
           console.log('✅ Cash drawer updated for bank transfer');

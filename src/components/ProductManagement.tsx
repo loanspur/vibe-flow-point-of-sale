@@ -128,11 +128,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       if (error) throw error;
       return { data: data || [], error: null };
     },
-    [tenantId],
+    [tenantId, refreshSignal],
     {
       enabled: !!tenantId,
-      staleTime: 2 * 60 * 1000, // 2 minute cache for better performance
-      cacheKey: `products-list-${tenantId}`
+      staleTime: 0, // No cache for real-time updates
+      cacheKey: `products-list-${tenantId}-${Date.now()}`
     }
   );
 
@@ -364,7 +364,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 )}
               </TableCell>
               <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-1">
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -372,6 +372,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       setSelectedProduct(product);
                       setShowProductForm(true);
                     }}
+                    className="hover:bg-primary hover:text-primary-foreground transition-colors"
                   >
                     <Edit className="h-4 w-4 mr-1" />
                     Edit
@@ -379,7 +380,12 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="hover:bg-secondary hover:text-secondary-foreground transition-colors"
+                        title="View variants"
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -394,7 +400,12 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" title="View history">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        title="View history"
+                        className="hover:bg-secondary hover:text-secondary-foreground transition-colors"
+                      >
                         <History className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -412,7 +423,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="text-destructive"
+                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
                         disabled={!canDelete('product')}
                         title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
                       >
@@ -466,10 +477,14 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
         <div className="flex gap-2">
           <Button 
             variant="outline"
-            onClick={refetchProducts}
+            onClick={() => {
+              setHasLoaded(false);
+              refetchProducts();
+            }}
+            disabled={loading}
             title="Refresh product data"
           >
-            <RotateCcw className="h-4 w-4 mr-2" />
+            <RotateCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button 

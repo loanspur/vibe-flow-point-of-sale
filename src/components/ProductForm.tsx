@@ -68,7 +68,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     price: '',
     default_profit_margin: '',
     barcode: '',
-    category_id: undefined,
+    category_id: '',
     subcategory_id: undefined,
     revenue_account_id: undefined,
     unit_id: undefined,
@@ -345,11 +345,21 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     setLoading(true);
 
     try {
-      // Validate mandatory unit_id
+      // Validate mandatory fields
       if (!formData.unit_id) {
         toast({
           title: "Unit Required",
           description: "Please select a unit for this product.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (!formData.category_id) {
+        toast({
+          title: "Category Required",
+          description: "Please select a category for this product.",
           variant: "destructive",
         });
         setLoading(false);
