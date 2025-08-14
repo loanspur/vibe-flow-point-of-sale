@@ -331,6 +331,7 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
   };
 
   const saveTemplate = async (templateType: string, content: string) => {
+    console.log('Saving template:', templateType, 'content length:', content.length);
     setIsLoading(true);
     try {
       // First check if business_settings record exists
@@ -372,6 +373,8 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
         title: "Template Saved",
         description: "Template saved and updated throughout the system!",
       });
+      
+      console.log('Template saved successfully:', templateType);
 
       // Force reload templates to reflect changes immediately
       setTimeout(() => {
