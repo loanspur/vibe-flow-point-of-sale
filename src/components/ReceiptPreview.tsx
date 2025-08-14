@@ -214,22 +214,24 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
             <head>
               <title>${type === "receipt" ? "Receipt" : type === "quote" ? "Quote" : "Invoice"} - ${documentNumber}</title>
               <style>
-                @page { margin: 0; size: 80mm auto; }
+                 @page { margin: 0; size: 80mm auto; }
                 body { 
                   font-family: 'Courier New', monospace; 
-                  font-size: 12px;
+                  font-size: 14px;
+                  font-weight: bold;
                   margin: 0; 
                   padding: 2mm;
                   width: 76mm;
-                  line-height: 1.2;
+                  line-height: 1.3;
+                  color: #000000;
                 }
                 .thermal-receipt { width: 100%; }
                 .center { text-align: center; }
                 .right { text-align: right; }
                 .left { text-align: left; }
-                .bold { font-weight: bold; }
-                .large { font-size: 14px; }
-                .small { font-size: 10px; }
+                .bold { font-weight: 900; }
+                .large { font-size: 16px; font-weight: 900; }
+                .small { font-size: 12px; }
                 .separator { 
                   border-top: 1px dashed #000; 
                   margin: 3px 0; 
@@ -262,12 +264,16 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
                 .items-section { margin: 8px 0; }
                 .totals-section { margin: 8px 0; }
                 .footer-section { margin-top: 8px; }
-                @media print {
+                  @media print {
                   body { 
                     width: 76mm;
-                    font-size: 12px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    -webkit-print-color-adjust: exact;
+                    color-adjust: exact;
                   }
                   .no-print { display: none !important; }
+                  * { font-weight: bold !important; }
                 }
               </style>
             </head>

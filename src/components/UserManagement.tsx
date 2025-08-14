@@ -158,7 +158,33 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      // Fetch tenant membership as source of truth, then enrich with profiles
+      // Single optimized query to fetch all user data with joins
+      const { data: usersData, error } = await supabase.rpc('get_tenant_users_with_roles', {
+        p_tenant_id: tenantId,
+        p_limit: 100,
+        p_offset: 0
+      });
+
+      if (!error && usersData && usersData.length > 0) {
+        // Use RPC result - map to User interface
+        const mappedUsers: User[] = usersData.map((user: any) => ({
+          id: user.user_id,
+          user_id: user.user_id,
+          full_name: user.full_name || user.email || 'Unknown User',
+          email: user.email,
+          role: user.primary_role || 'user',
+          tenant_id: tenantId!,
+          created_at: user.created_at,
+          is_active: user.status === 'active',
+          invitation_status: user.invited ? 'pending' : 'accepted',
+          last_login: user.last_sign_in_at,
+        }));
+        setUsers(mappedUsers);
+        return;
+      }
+
+      // Fallback to original logic if RPC fails
+      console.error('RPC call failed, falling back to manual fetch:', error);
       const { data: tenantUsers, error: tuError } = await supabase
         .from('tenant_users')
         .select('user_id, role, tenant_id, is_active, invited_at, created_at')
