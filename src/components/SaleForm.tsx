@@ -633,6 +633,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       const firstCustomer = customers.find(c => c.id !== "walk-in");
       if (firstCustomer) {
         form.setValue("customer_id", firstCustomer.id);
+        // Trigger field update to reflect in UI immediately
+        form.trigger("customer_id");
         toast({
           title: "Customer Auto-Selected",
           description: `Selected ${firstCustomer.name} for credit sale`,

@@ -3717,6 +3717,7 @@ export type Database = {
           id: string
           notes: string | null
           quote_number: string
+          shipping_amount: number | null
           status: string
           tax_amount: number | null
           tenant_id: string | null
@@ -3732,6 +3733,7 @@ export type Database = {
           id?: string
           notes?: string | null
           quote_number: string
+          shipping_amount?: number | null
           status?: string
           tax_amount?: number | null
           tenant_id?: string | null
@@ -3747,6 +3749,7 @@ export type Database = {
           id?: string
           notes?: string | null
           quote_number?: string
+          shipping_amount?: number | null
           status?: string
           tax_amount?: number | null
           tenant_id?: string | null
