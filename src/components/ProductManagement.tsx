@@ -120,7 +120,15 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           *,
           product_categories(name),
           product_subcategories(name),
-          product_units(name, abbreviation)
+          product_units(name, abbreviation),
+          product_variants(
+            id,
+            name,
+            value,
+            stock_quantity,
+            price_adjustment,
+            is_active
+          )
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
@@ -251,40 +259,41 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
 
 
   const ProductTable = () => (
-    <Card>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Product</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>SKU</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Unit</TableHead>
-            <TableHead>Price</TableHead>
-            <TableHead>Stock</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Variants</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
+    <Card className="mobile-card">
+      <div className="mobile-table-wrapper">
+        <Table className="mobile-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-[200px]">Product</TableHead>
+              <TableHead className="hidden sm:table-cell">Type</TableHead>
+              <TableHead className="hidden md:table-cell">SKU</TableHead>
+              <TableHead className="hidden lg:table-cell">Category</TableHead>
+              <TableHead className="hidden lg:table-cell">Unit</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Stock</TableHead>
+              <TableHead className="hidden sm:table-cell">Status</TableHead>
+              <TableHead className="hidden xl:table-cell">Variants</TableHead>
+              <TableHead className="text-right min-w-[120px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
         <TableBody>
           {filteredProducts.map((product) => (
             <TableRow key={product.id}>
               <TableCell>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   {product.image_url ? (
                     <img 
                       src={product.image_url} 
                       alt={product.name}
-                      className="w-10 h-10 object-cover rounded-lg"
+                      className="w-8 h-8 sm:w-10 sm:h-10 object-cover rounded-lg flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                      <Package className="h-5 w-5 text-muted-foreground" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     </div>
                   )}
-                  <div>
-                    <div className="font-medium">{product.name}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm sm:text-base truncate">{product.name}</div>
                      {(() => {
                        // Calculate if product is low stock based on variants or main stock
                       
@@ -302,27 +311,28 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       return isLowStock ? (
                         <Badge variant="destructive" className="text-xs mt-1">
                           <AlertTriangle className="h-3 w-3 mr-1" />
-                          Low Stock
+                          <span className="hidden sm:inline">Low Stock</span>
+                          <span className="sm:hidden">Low</span>
                         </Badge>
                       ) : null;
                     })()}
                   </div>
                 </div>
               </TableCell>
-               <TableCell>
-                 <Badge variant="secondary">
+               <TableCell className="hidden sm:table-cell">
+                 <Badge variant="secondary" className="text-xs">
                    Product
                  </Badge>
                </TableCell>
-               <TableCell>{product.sku || 'N/A'}</TableCell>
-               <TableCell>
+               <TableCell className="hidden md:table-cell text-sm">{product.sku || 'N/A'}</TableCell>
+               <TableCell className="hidden lg:table-cell text-sm">
                  {product.product_categories?.name || 'None'}
                </TableCell>
-               <TableCell>
+               <TableCell className="hidden lg:table-cell text-sm">
                  {product.product_units?.abbreviation || 'N/A'}
                </TableCell>
-               <TableCell>{formatCurrency(product.price)}</TableCell>
-               <TableCell>
+               <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
+               <TableCell className="text-sm">
                  {(() => {
                    // Show total stock including variants
                    if ((product as any).product_variants && (product as any).product_variants.length > 0) {
@@ -335,27 +345,27 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                    return product.stock_quantity || 0;
                  })()}
                </TableCell>
-              <TableCell>
-                <Badge variant={product.is_active ? "secondary" : "outline"}>
+              <TableCell className="hidden sm:table-cell">
+                <Badge variant={product.is_active ? "secondary" : "outline"} className="text-xs">
                   {product.is_active ? "Active" : "Inactive"}
                 </Badge>
               </TableCell>
-              <TableCell>
-                {(product as any).product_variants && (product as any).product_variants.length > 0 ? (
+               <TableCell className="hidden xl:table-cell">
+                {product.product_variants && product.product_variants.length > 0 ? (
                   <div className="space-y-1">
-                    {(product as any).product_variants.slice(0, 2).map((variant: any, index: number) => (
-                      <div key={index} className="text-xs flex items-center justify-between">
-                        <Badge variant="outline" className="text-xs">
+                    {product.product_variants.slice(0, 2).map((variant: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="text-xs px-2 py-1">
                           {variant.name}: {variant.value}
                         </Badge>
-                        <span className="text-xs text-muted-foreground ml-2">
+                        <span className="text-xs text-muted-foreground">
                           Stock: {variant.stock_quantity || 0}
                         </span>
                       </div>
                     ))}
-                    {(product as any).product_variants.length > 2 && (
+                    {product.product_variants.length > 2 && (
                       <div className="text-xs text-muted-foreground">
-                        +{(product as any).product_variants.length - 2} more variants
+                        +{product.product_variants.length - 2} more variants
                       </div>
                     )}
                   </div>
@@ -363,7 +373,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   <span className="text-muted-foreground text-sm">No variants</span>
                 )}
               </TableCell>
-              <TableCell className="text-right">
+               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
                   <Button 
                     variant="outline" 
@@ -372,10 +382,10 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       setSelectedProduct(product);
                       setShowProductForm(true);
                     }}
-                    className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                    className="h-8 w-8 sm:w-auto px-2 hover:bg-primary hover:text-primary-foreground transition-colors duration-150"
                   >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
+                    <Edit className="h-3 w-3 sm:mr-1" />
+                    <span className="hidden sm:inline text-xs">Edit</span>
                   </Button>
                   
                   <Dialog>
@@ -383,13 +393,13 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        className="hover:bg-secondary hover:text-secondary-foreground transition-colors"
+                        className="h-8 w-8 px-2 hover:bg-muted transition-colors duration-150"
                         title="View variants"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-3 w-3" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>{product.name}</DialogTitle>
                         <DialogDescription>Product details and variants</DialogDescription>
@@ -404,12 +414,12 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                         variant="ghost" 
                         size="sm" 
                         title="View history"
-                        className="hover:bg-secondary hover:text-secondary-foreground transition-colors"
+                        className="h-8 w-8 px-2 hover:bg-muted transition-colors duration-150"
                       >
-                        <History className="h-4 w-4" />
+                        <History className="h-3 w-3" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+                    <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Product History</DialogTitle>
                         <DialogDescription>View all changes made to this product</DialogDescription>
@@ -423,11 +433,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                        className="h-8 w-8 px-2 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors duration-150"
                         disabled={!canDelete('product')}
                         title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -454,7 +464,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </Card>
   );
 

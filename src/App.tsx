@@ -198,16 +198,7 @@ const DomainRouter = () => {
   const { user, loading: authLoading, userRole } = useAuth();
   const location = useLocation();
   
-  console.log('🌐 DOMAIN ROUTER RENDER:', {
-    pathname: location.pathname,
-    timestamp: Date.now(),
-    user: !!user,
-    userEmail: user?.email,
-    isSubdomain: domainConfig?.isSubdomain,
-    tenantId: domainConfig?.tenantId,
-    authLoading,
-    loading
-  });
+  // Removed excessive logging that caused tab switching reload issues
   
   // Redirect auth callbacks to reset-password flow - only run once on mount
   useEffect(() => {

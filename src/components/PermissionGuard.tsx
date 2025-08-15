@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleManagement } from '@/hooks/useRoleManagement';
+import { useEnhancedRoles } from '@/hooks/useEnhancedRoles';
 import { AlertTriangle, Lock } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -25,6 +26,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 }) => {
   const { userRole, user } = useAuth();
   const { hasFeatureAccess, userRoles, loading } = useRoleManagement();
+  const { hasPermission: hasEnhancedPermission } = useEnhancedRoles();
 
   // If loading, show children to avoid flickering
   if (loading) {
@@ -74,19 +76,30 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
-  // Check resource and action based access
+  // Check resource and action based access with enhanced permissions
   if (resource && action) {
-    // This would check against user_activity_permissions table
-    // For now, we'll do a basic role check
-    const currentUserRole = userRoles.find(r => r.name.toLowerCase() === userRole?.toLowerCase());
-    
-    if (currentUserRole) {
-      // Check if role has permissions for this resource/action
-      const permissions = currentUserRole.permissions || {};
+    // Use enhanced permission system first
+    if (!hasEnhancedPermission(resource, action)) {
+      // Fallback to legacy role-based check
+      const currentUserRole = userRoles.find(r => r.name.toLowerCase() === userRole?.toLowerCase());
       
-      if (permissions[resource]) {
-        const allowedActions = permissions[resource];
-        if (!allowedActions.includes(action) && !allowedActions.includes('*')) {
+      if (currentUserRole) {
+        const permissions = currentUserRole.permissions || {};
+        
+        if (permissions[resource]) {
+          const allowedActions = permissions[resource];
+          if (!allowedActions.includes(action) && !allowedActions.includes('*')) {
+            return fallback || (showMessage ? (
+              <Alert className="border-orange-200 bg-orange-50">
+                <Lock className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800">
+                  You don't have permission to {action} {resource}.
+                </AlertDescription>
+              </Alert>
+            ) : null);
+          }
+        } else {
+          // No permission found
           return fallback || (showMessage ? (
             <Alert className="border-orange-200 bg-orange-50">
               <Lock className="h-4 w-4 text-orange-600" />
@@ -96,6 +109,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
             </Alert>
           ) : null);
         }
+      } else {
+        // No role found, deny access
+        return fallback || (showMessage ? (
+          <Alert className="border-orange-200 bg-orange-50">
+            <Lock className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              You don't have permission to {action} {resource}.
+            </AlertDescription>
+          </Alert>
+        ) : null);
       }
     }
   }
@@ -120,6 +143,7 @@ export const withPermission = (
 export const usePermissions = () => {
   const { userRole } = useAuth();
   const { hasFeatureAccess, userRoles } = useRoleManagement();
+  const { hasPermission: hasEnhancedPermission } = useEnhancedRoles();
 
   const checkPermission = (
     feature?: string,
@@ -140,16 +164,23 @@ export const usePermissions = () => {
       return false;
     }
 
-    // Check resource/action
+    // Check resource/action with enhanced permissions
     if (resource && action) {
-      const currentUserRole = userRoles.find(r => r.name.toLowerCase() === userRole?.toLowerCase());
-      if (currentUserRole) {
-        const permissions = currentUserRole.permissions || {};
-        if (permissions[resource]) {
-          const allowedActions = permissions[resource];
-          if (!allowedActions.includes(action) && !allowedActions.includes('*')) {
+      if (!hasEnhancedPermission(resource, action)) {
+        // Fallback to legacy role check
+        const currentUserRole = userRoles.find(r => r.name.toLowerCase() === userRole?.toLowerCase());
+        if (currentUserRole) {
+          const permissions = currentUserRole.permissions || {};
+          if (permissions[resource]) {
+            const allowedActions = permissions[resource];
+            if (!allowedActions.includes(action) && !allowedActions.includes('*')) {
+              return false;
+            }
+          } else {
             return false;
           }
+        } else {
+          return false;
         }
       }
     }

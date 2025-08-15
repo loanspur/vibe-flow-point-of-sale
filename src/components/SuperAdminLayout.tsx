@@ -27,41 +27,46 @@ export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full bg-background">
         <SuperAdminSidebar />
         
         <div className="flex-1 flex flex-col">
-          {/* Top Header */}
+          {/* Mobile-first Top Header */}
           <header className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 sticky top-0 z-40">
-            <div className="flex items-center justify-between px-6 py-3">
-              <div className="flex items-center gap-4">
-                <SidebarTrigger />
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <SidebarTrigger className="touch-target" />
                 <Link to="/superadmin" aria-label="Go to Super Admin Dashboard" className="flex items-center">
-                  <div className="h-8">
+                  <div className="h-6 sm:h-8">
                     <LazyImage
                       src={tenantLogo || fallbackLogo}
                       alt="Logo"
                       fallback={fallbackLogo}
-                      className="h-8 w-auto"
-                      skeletonClassName="h-8 w-8 rounded"
+                      className="h-6 sm:h-8 w-auto"
+                      skeletonClassName="h-6 sm:h-8 w-6 sm:w-8 rounded"
                     />
                   </div>
                 </Link>
               </div>
               
-              <div className="flex items-center gap-3">
-                {/* Search */}
-                <div className="relative">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Search - hidden on mobile, shown on larger screens */}
+                <div className="relative hidden md:block">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search tenants, users..."
-                    className="pl-10 w-64"
+                    className="pl-10 w-48 lg:w-64"
                   />
                 </div>
 
+                {/* Mobile search button */}
+                <Button variant="ghost" size="icon" className="touch-target md:hidden">
+                  <Search className="h-4 w-4" />
+                </Button>
+
                 {/* Notifications */}
-                <Button variant="ghost" size="icon" className="relative">
+                <Button variant="ghost" size="icon" className="relative touch-target">
                   <Bell className="h-4 w-4" />
                   <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
                 </Button>
@@ -69,7 +74,7 @@ export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
                 {/* User Menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" className="touch-target">
                       <User className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -96,8 +101,8 @@ export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
             </div>
           </header>
 
-          {/* Main Content */}
-          <main className="flex-1 overflow-auto">
+          {/* Main Content with mobile padding */}
+          <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
             {children}
           </main>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissionError } from '@/hooks/usePermissionError';
 
 interface UserRole {
   id: string;
@@ -16,6 +17,7 @@ export const useUserRoles = () => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const { user, tenantId } = useAuth();
+  const { handleSupabaseError } = usePermissionError({ showToast: false });
 
   const fetchRoles = async () => {
     console.log('🔄 useUserRoles: fetchRoles called', { tenantId, userId: user?.id });
@@ -74,8 +76,9 @@ export const useUserRoles = () => {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching roles:', error);
+      handleSupabaseError(error);
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
+Mobile-first responsive design system
 */
 
 @layer base {
@@ -55,9 +56,22 @@ All colors MUST be HSL.
     --shadow-card: 0 4px 20px -4px hsl(215 25% 27% / 0.1);
     --shadow-button: 0 2px 8px -2px hsl(195 85% 41% / 0.3);
     
+    /* Mobile-first responsive spacing */
+    --spacing-mobile: 1rem;
+    --spacing-tablet: 1.5rem;
+    --spacing-desktop: 2rem;
+    
+    /* Mobile-first typography */
+    --text-mobile-base: 0.875rem;
+    --text-mobile-lg: 1rem;
+    --text-mobile-xl: 1.125rem;
+    --text-mobile-2xl: 1.25rem;
+    --text-mobile-3xl: 1.5rem;
+    
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bouncy: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-mobile: all 0.2s ease-out;
 
     --radius: 0.5rem;
 
@@ -124,5 +138,93 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    /* Mobile-first font sizing */
+    font-size: var(--text-mobile-base);
+    line-height: 1.5;
+  }
+
+  /* Mobile-first responsive containers */
+  .container {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Mobile-optimized touch targets */
+  button, [role="button"] {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Mobile-first form inputs */
+  input, select, textarea {
+    @apply text-base; /* Prevents zoom on iOS */
+  }
+}
+
+@layer components {
+  /* Mobile-first grid patterns */
+  .mobile-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+  }
+
+  .mobile-stack {
+    @apply flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0;
+  }
+
+  /* Mobile-optimized cards */
+  .mobile-card {
+    @apply p-4 sm:p-6 rounded-lg border border-border bg-card shadow-sm;
+  }
+
+  /* Mobile navigation patterns */
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50 sm:relative sm:border-t-0 sm:p-0 sm:bg-transparent;
+  }
+
+  /* Mobile-first button groups */
+  .mobile-button-group {
+    @apply flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0;
+  }
+
+  /* Mobile-optimized table wrapper */
+  .mobile-table-wrapper {
+    @apply overflow-x-auto -mx-4 sm:mx-0;
+  }
+
+  .mobile-table {
+    @apply min-w-full;
+  }
+
+  /* Touch-friendly interactive elements */
+  .touch-target {
+    @apply min-h-[48px] flex items-center justify-center;
+  }
+
+  /* Mobile-first sidebar */
+  .mobile-sidebar {
+    @apply fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:relative lg:translate-x-0;
+  }
+
+  /* Responsive text sizing */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl;
+  }
+
+  .text-responsive-2xl {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+
+  .text-responsive-3xl {
+    @apply text-3xl sm:text-4xl lg:text-5xl;
   }
 }

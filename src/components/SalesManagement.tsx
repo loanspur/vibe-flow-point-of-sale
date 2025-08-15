@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,8 @@ interface SalesStats {
 export default function SalesManagement() {
   const { tenantId, user } = useAuth();
   const { setOpen } = useSidebar();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sales, setSales] = useState<Sale[]>([]);
   const [stats, setStats] = useState<SalesStats>({
     totalSales: 0,
@@ -61,7 +64,9 @@ export default function SalesManagement() {
     totalTransactions: 0,
     averageSale: 0,
   });
-  const [activeTab, setActiveTab] = useState("overview");
+  
+  // Get active tab from URL or default to overview
+  const activeTab = searchParams.get('tab') || 'overview';
   const [invoices, setInvoices] = useState<Sale[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -294,7 +299,7 @@ export default function SalesManagement() {
   const handleSaleCompleted = () => {
     fetchSales();
     fetchStats();
-    setActiveTab("overview");
+    setSearchParams({ tab: 'overview' });
     toast({
       title: "Success",
       description: "Sale completed successfully!",
@@ -461,7 +466,7 @@ export default function SalesManagement() {
       if (saleError) throw saleError;
 
       // Navigate to the returns tab with pre-selected sale
-      setActiveTab("returns");
+      setSearchParams({ tab: 'returns' });
       
       // Close the dialog
       setShowReturnDialog(false);
@@ -567,15 +572,15 @@ export default function SalesManagement() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Sales Management</h2>
         <Button onClick={() => {
-          setOpen(false); // Collapse the sidebar
-          setActiveTab("new-sale");
+          // Navigate to new sale tab with URL parameter
+          setSearchParams({ tab: 'new-sale' });
         }}>
           <Plus className="h-4 w-4 mr-2" />
           New Sale
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(value) => setSearchParams({ tab: value })}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="new-sale">New Sale</TabsTrigger>

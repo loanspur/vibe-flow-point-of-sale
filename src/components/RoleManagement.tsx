@@ -1,46 +1,26 @@
-import React, { useState } from 'react';
-import { useRoleManagement, UserRole, SystemFeature } from '@/hooks/useRoleManagement';
+import React from 'react';
+import { useRoleManagement } from '@/hooks/useRoleManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
+  Package,
   Users,
-  Plus,
-  Edit,
-  Trash2,
-  Shield,
   Settings,
   Eye,
-  CheckCircle,
-  XCircle,
-  Package,
   Crown,
-  Lock,
-  Unlock,
   Star,
   Zap,
-  Rocket
+  Rocket,
+  Plus,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { PermissionGuard } from '@/components/PermissionGuard';
-
-interface RoleFormData {
-  name: string;
-  description: string;
-  level: number;
-  can_manage_users: boolean;
-  can_manage_settings: boolean;
-  can_view_reports: boolean;
-  permissions: Record<string, string[]>;
-  color: string;
-}
+import EnhancedRoleManagement from '@/components/EnhancedRoleManagement';
 
 const RoleManagement: React.FC = () => {
   const {
@@ -48,27 +28,11 @@ const RoleManagement: React.FC = () => {
     featureSets,
     tenantFeatures,
     permissionTemplates,
-    userRoles,
     loading,
     toggleTenantFeature,
-    saveUserRole,
-    deleteUserRole,
     applyFeatureSet,
     loadAllData,
   } = useRoleManagement();
-
-  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<UserRole | null>(null);
-  const [roleFormData, setRoleFormData] = useState<RoleFormData>({
-    name: '',
-    description: '',
-    level: 1,
-    can_manage_users: false,
-    can_manage_settings: false,
-    can_view_reports: false,
-    permissions: {},
-    color: '#6366f1',
-  });
 
   const getFeatureIcon = (category: string) => {
     switch (category) {
@@ -102,56 +66,14 @@ const RoleManagement: React.FC = () => {
     }
   };
 
-  const handleSaveRole = async () => {
-    const roleData: Partial<UserRole> = {
-      ...roleFormData,
-      id: editingRole?.id,
-    };
-
-    const success = await saveUserRole(roleData);
-    if (success) {
-      setIsRoleDialogOpen(false);
-      resetRoleForm();
-    }
-  };
-
-  const resetRoleForm = () => {
-    setRoleFormData({
-      name: '',
-      description: '',
-      level: 1,
-      can_manage_users: false,
-      can_manage_settings: false,
-      can_view_reports: false,
-      permissions: {},
-      color: '#6366f1',
-    });
-    setEditingRole(null);
-  };
-
-  const openEditRole = (role: UserRole) => {
-    setEditingRole(role);
-    setRoleFormData({
-      name: role.name,
-      description: role.description || '',
-      level: role.level || 1,
-      can_manage_users: role.can_manage_users || false,
-      can_manage_settings: role.can_manage_settings || false,
-      can_view_reports: role.can_view_reports || false,
-      permissions: role.permissions || {},
-      color: role.color || '#6366f1',
-    });
-    setIsRoleDialogOpen(true);
-  };
-
-  const groupFeaturesByCategory = (features: SystemFeature[]) => {
+  const groupFeaturesByCategory = (features: any[]) => {
     return features.reduce((acc, feature) => {
       if (!acc[feature.category]) {
         acc[feature.category] = [];
       }
       acc[feature.category].push(feature);
       return acc;
-    }, {} as Record<string, SystemFeature[]>);
+    }, {} as Record<string, any[]>);
   };
 
   const isFeatureEnabled = (featureName: string) => {
@@ -180,13 +102,17 @@ const RoleManagement: React.FC = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="features" className="space-y-6">
+      <Tabs defaultValue="enhanced-roles" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="enhanced-roles">User Roles & Permissions</TabsTrigger>
           <TabsTrigger value="features">System Features</TabsTrigger>
-          <TabsTrigger value="roles">User Roles</TabsTrigger>
           <TabsTrigger value="templates">Permission Templates</TabsTrigger>
           <TabsTrigger value="sets">Feature Sets</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="enhanced-roles" className="space-y-6">
+          <EnhancedRoleManagement />
+        </TabsContent>
 
         <TabsContent value="features" className="space-y-6">
           <Card>
@@ -207,7 +133,7 @@ const RoleManagement: React.FC = () => {
                     {category.replace('_', ' ')}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {features.map((feature) => (
+                    {(features as any[]).map((feature: any) => (
                       <Card key={feature.id} className="relative">
                         <CardHeader className="pb-3">
                           <div className="flex items-center justify-between">
@@ -249,174 +175,6 @@ const RoleManagement: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="roles" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    User Roles
-                  </CardTitle>
-                  <CardDescription>
-                    Manage user roles and their permissions
-                  </CardDescription>
-                </div>
-                <PermissionGuard role={['superadmin', 'admin', 'manager']}>
-                  <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button onClick={resetRoleForm}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create Role
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>
-                          {editingRole ? 'Edit Role' : 'Create New Role'}
-                        </DialogTitle>
-                        <DialogDescription>
-                          Define the role permissions and capabilities
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="name">Role Name</Label>
-                            <Input
-                              id="name"
-                              value={roleFormData.name}
-                              onChange={(e) => setRoleFormData({ ...roleFormData, name: e.target.value })}
-                              placeholder="e.g., Store Manager"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="level">Level</Label>
-                            <Input
-                              id="level"
-                              type="number"
-                              min="1"
-                              max="10"
-                              value={roleFormData.level}
-                              onChange={(e) => setRoleFormData({ ...roleFormData, level: parseInt(e.target.value) })}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea
-                            id="description"
-                            value={roleFormData.description}
-                            onChange={(e) => setRoleFormData({ ...roleFormData, description: e.target.value })}
-                            placeholder="Describe this role's responsibilities..."
-                          />
-                        </div>
-                        <div className="space-y-3">
-                          <Label>Role Capabilities</Label>
-                          <div className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                              <Switch
-                                checked={roleFormData.can_manage_users}
-                                onCheckedChange={(checked) => setRoleFormData({ ...roleFormData, can_manage_users: checked })}
-                              />
-                              <Label>Can manage users</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Switch
-                                checked={roleFormData.can_manage_settings}
-                                onCheckedChange={(checked) => setRoleFormData({ ...roleFormData, can_manage_settings: checked })}
-                              />
-                              <Label>Can manage settings</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Switch
-                                checked={roleFormData.can_view_reports}
-                                onCheckedChange={(checked) => setRoleFormData({ ...roleFormData, can_view_reports: checked })}
-                              />
-                              <Label>Can view reports</Label>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex justify-end space-x-2">
-                          <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={handleSaveRole}>
-                            {editingRole ? 'Update' : 'Create'} Role
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </PermissionGuard>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userRoles.map((role) => (
-                  <Card key={role.id} className="relative">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{role.name}</CardTitle>
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" style={{ borderColor: role.color }}>
-                            Level {role.level || 1}
-                          </Badge>
-                          <PermissionGuard role={['superadmin', 'admin', 'manager']}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditRole(role)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            {role.is_editable && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteUserRole(role.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </PermissionGuard>
-                        </div>
-                      </div>
-                      {role.description && (
-                        <CardDescription className="text-sm">
-                          {role.description}
-                        </CardDescription>
-                      )}
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        {role.can_manage_users && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Users className="h-3 w-3 mr-1" />
-                            User Management
-                          </Badge>
-                        )}
-                        {role.can_manage_settings && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Settings className="h-3 w-3 mr-1" />
-                            Settings
-                          </Badge>
-                        )}
-                        {role.can_view_reports && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Eye className="h-3 w-3 mr-1" />
-                            Reports
-                          </Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="templates" className="space-y-6">
           <Card>
             <CardHeader>
@@ -433,23 +191,20 @@ const RoleManagement: React.FC = () => {
                 {permissionTemplates.map((template) => (
                   <Card key={template.id}>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{template.name}</CardTitle>
-                        <Badge variant={template.is_system_template ? "default" : "secondary"}>
-                          {template.is_system_template ? "System" : "Custom"}
-                        </Badge>
-                      </div>
+                      <CardTitle className="text-base">{template.name}</CardTitle>
                       {template.description && (
-                        <CardDescription>{template.description}</CardDescription>
+                        <CardDescription className="text-sm">
+                          {template.description}
+                        </CardDescription>
                       )}
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Permissions Preview:</Label>
-                        <div className="text-xs bg-muted p-2 rounded">
-                          <pre>{JSON.stringify(template.template_data, null, 2)}</pre>
-                        </div>
-                      </div>
+                      <Badge variant="outline" className="mb-2">
+                        {template.category}
+                      </Badge>
+                      <pre className="text-xs bg-muted p-2 rounded">
+                        {JSON.stringify(template.template_data, null, 2)}
+                      </pre>
                     </CardContent>
                   </Card>
                 ))}
@@ -466,43 +221,39 @@ const RoleManagement: React.FC = () => {
                 Feature Sets
               </CardTitle>
               <CardDescription>
-                Pre-configured collections of features for different business needs
+                Collections of features that can be applied together
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {featureSets.map((set) => (
-                  <Card key={set.id}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {featureSets.map((featureSet) => (
+                  <Card key={featureSet.id}>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{set.display_name}</CardTitle>
-                        <PermissionGuard role={['superadmin', 'admin']}>
+                        <CardTitle className="text-base">{featureSet.display_name}</CardTitle>
+                        <PermissionGuard role={['superadmin', 'admin', 'manager']}>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => applyFeatureSet(set.name)}
+                            onClick={() => applyFeatureSet(featureSet.name)}
                           >
-                            Apply
+                            Apply Set
                           </Button>
                         </PermissionGuard>
                       </div>
-                      {set.description && (
-                        <CardDescription>{set.description}</CardDescription>
+                      {featureSet.description && (
+                        <CardDescription className="text-sm">
+                          {featureSet.description}
+                        </CardDescription>
                       )}
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Included Features:</Label>
-                        <div className="flex flex-wrap gap-1">
-                          {set.features.map((featureName) => {
-                            const feature = systemFeatures.find(f => f.name === featureName);
-                            return (
-                              <Badge key={featureName} variant="outline" className="text-xs">
-                                {feature?.display_name || featureName}
-                              </Badge>
-                            );
-                          })}
-                        </div>
+                      <div className="space-y-1">
+                        {featureSet.features.map((featureName) => (
+                          <Badge key={featureName} variant="secondary" className="text-xs mr-1 mb-1">
+                            {featureName}
+                          </Badge>
+                        ))}
                       </div>
                     </CardContent>
                   </Card>

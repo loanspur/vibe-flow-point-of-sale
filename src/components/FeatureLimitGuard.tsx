@@ -1,4 +1,5 @@
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { usePermissionError } from '@/hooks/usePermissionError';
 import { FeatureRestriction } from '@/components/FeatureRestriction';
 import { AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,6 +22,7 @@ export const FeatureLimitGuard = ({
   className 
 }: FeatureLimitGuardProps) => {
   const { getFeatureLimit, getFeatureUpgradeMessage } = useFeatureAccess();
+  const { handleFeatureError } = usePermissionError({ showToast: false });
   
   const limit = getFeatureLimit(featureName);
   const isAtLimit = currentCount >= limit;
@@ -44,7 +46,9 @@ export const FeatureLimitGuard = ({
     );
   }
 
-  // At limit - show restriction
+  // At limit - show restriction and log the specific limit error
+  handleFeatureError(featureName, currentCount, limit);
+  
   return (
     <FeatureRestriction
       featureName={featureName}
