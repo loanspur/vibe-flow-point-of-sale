@@ -229,7 +229,7 @@ Change: {{change_amount}}
 
 Thank you for choosing us!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Powered by VibePOS | 0727638940
+Powered by VibePOS | {{company_phone}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
     // Get the appropriate template based on type
