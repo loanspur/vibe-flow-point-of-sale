@@ -366,21 +366,34 @@ Powered by VibePOS | 0727638940
                   padding-bottom: 1px;
                   margin-bottom: 1px;
                 }
-                .item-row .item-line {
-                  align-items: flex-start;
-                }
-                .item-name { 
-                  flex: 1; 
-                  white-space: nowrap; 
-                  overflow: hidden; 
-                  text-overflow: ellipsis; 
-                  margin-right: 6px;
-                }
-                .qty-price { 
-                  white-space: nowrap; 
-                  text-align: right; 
-                  min-width: 50px;
-                }
+                 .item-row .item-line {
+                   align-items: flex-start;
+                   min-height: 18px;
+                   margin-bottom: 1px;
+                 }
+                 .item-qty, .item-rate, .item-total {
+                   white-space: nowrap;
+                   overflow: hidden;
+                   text-overflow: ellipsis;
+                   height: 14px;
+                   line-height: 14px;
+                   flex-shrink: 0;
+                 }
+                 .item-name { 
+                   flex: 1; 
+                   word-wrap: break-word;
+                   white-space: normal;
+                   overflow: visible;
+                   margin-right: 6px;
+                   max-width: 40%;
+                   line-height: 1.2;
+                 }
+                 .qty-price { 
+                   white-space: nowrap; 
+                   text-align: right; 
+                   min-width: 50px;
+                   flex-shrink: 0;
+                 }
                 .total-line { 
                   display: flex; 
                   justify-content: space-between; 
@@ -517,13 +530,25 @@ Powered by VibePOS | 0727638940
       const variantInfo = "product_variants" in item && item.product_variants 
         ? ` (${item.product_variants.name}: ${item.product_variants.value})`
         : '';
-      const fullItemName = `${itemName}${variantInfo}`;
+      
+      // Limit item name to fit in single line, allowing overflow to second line if needed
+      const maxNameLength = 18;
+      const trimmedName = itemName.length > maxNameLength 
+        ? itemName.substring(0, maxNameLength - 1) + '…'
+        : itemName;
+      const fullItemName = `${trimmedName}${variantInfo}`;
       
       const qtyStr = item.quantity.toString().padStart(2);
-      const rateStr = formatAmount(item.unit_price).padStart(10);
-      const totalStr = formatAmount(item.total_price).padStart(10);
+      const rateStr = formatAmount(item.unit_price).padStart(8);
+      const totalStr = formatAmount(item.total_price).padStart(8);
       
-      return `${fullItemName.padEnd(25)} │ ${qtyStr} │ ${rateStr} │ ${totalStr}`;
+      // Format each line to ensure single line except for item name
+      const namePart = fullItemName.padEnd(20);
+      const qtyPart = qtyStr.padStart(3);
+      const ratePart = rateStr.padStart(8);
+      const totalPart = totalStr.padStart(8);
+      
+      return `${namePart}${qtyPart} ${ratePart} ${totalPart}`;
     });
 
     return itemLines.join('\n');
