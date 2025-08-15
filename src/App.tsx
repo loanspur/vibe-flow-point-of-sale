@@ -247,37 +247,8 @@ const DomainRouter = () => {
   }, [loading, domainConfig, user]);
   
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    // Tenant not resolved yet on subdomain: allow auth and a minimal dashboard/root for authenticated users
-    return (
-      <Suspense fallback={<PageLoader />}>        
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <TenantAdminLayout>
-                  <TenantAdminDashboard />
-                </TenantAdminLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <TenantAdminLayout>
-                  <TenantAdminDashboard />
-                </TenantAdminLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to={user ? '/dashboard' : '/auth'} replace />} />
-        </Routes>
-      </Suspense>
-    );
+    // Show loading while tenant is being resolved on subdomain
+    return <PageLoader />;
   }
 
   const currentPath = location.pathname;
