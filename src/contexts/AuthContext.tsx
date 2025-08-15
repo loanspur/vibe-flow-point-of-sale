@@ -414,7 +414,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // Don't render children until we've checked for an existing session
-  if (loading) {
+  // Add timeout to prevent infinite loading on new devices
+  const [authTimeout, setAuthTimeout] = useState(false);
+  
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => {
+        console.warn('Auth loading timeout reached, forcing render');
+        setLoading(false);
+        setAuthTimeout(true);
+      }, 10000); // 10 second timeout
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
+  if (loading && !authTimeout) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

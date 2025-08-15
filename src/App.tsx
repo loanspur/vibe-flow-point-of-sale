@@ -247,7 +247,29 @@ const DomainRouter = () => {
   }, [loading, domainConfig, user]);
   
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    // Show loading while tenant is being resolved on subdomain
+    // Show loading with timeout to prevent infinite loading
+    const [timeoutReached, setTimeoutReached] = useState(false);
+    
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setTimeoutReached(true);
+      }, 15000); // 15 second timeout
+      
+      return () => clearTimeout(timer);
+    }, []);
+    
+    if (timeoutReached) {
+      // After timeout, show auth page instead of infinite loading
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="*" element={<Navigate to="/auth" replace />} />
+          </Routes>
+        </Suspense>
+      );
+    }
+    
     return <PageLoader />;
   }
 

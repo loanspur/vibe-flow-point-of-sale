@@ -12,7 +12,7 @@ class DomainManager {
   private cache = new Map<string, { tenantId: string | null; timestamp: number }>();
   private negativeCache = new Map<string, number>(); // cache misses to prevent loops
   private readonly CACHE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-  private readonly NEGATIVE_CACHE_TIMEOUT = 30 * 1000; // 30 seconds dampening for misses
+  private readonly NEGATIVE_CACHE_TIMEOUT = 10 * 1000; // 10 seconds dampening for misses (reduced)
   private initialized = false;
   private resolving = new Set<string>(); // Track domains being resolved
 
@@ -139,11 +139,17 @@ class DomainManager {
     // Prevent concurrent resolutions for the same domain
     if (this.resolving.has(currentDomain)) {
       console.log('⏳ Domain already being resolved, waiting...', currentDomain);
-      // Wait for ongoing resolution to complete
+      // Wait for ongoing resolution to complete with shorter timeout
       let attempts = 0;
-      while (this.resolving.has(currentDomain) && attempts < 50) { // 5 second timeout
+      while (this.resolving.has(currentDomain) && attempts < 30) { // 3 second timeout
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
+      }
+      
+      // If timeout reached, force continue with resolution
+      if (attempts >= 30) {
+        console.warn('⚠️ Domain resolution timeout, forcing new resolution for:', currentDomain);
+        this.resolving.delete(currentDomain);
       }
       
       // Check cache again after waiting
