@@ -334,8 +334,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const uid = user.id;
       if (!uid) return;
 
-      // Update profile invite status
-      await supabase
+      console.log('🎯 Marking invitation as accepted for user:', uid);
+
+      // First, update profile invite status
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
           invitation_status: 'accepted', 
@@ -343,13 +345,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         })
         .eq('user_id', uid);
 
-      // Get tenant ID and update tenant_users
-      const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
-      const tenantId = tenantData as string;
+      if (profileError) {
+        console.warn('Failed to update profile invitation status:', profileError);
+      } else {
+        console.log('✅ Profile invitation status updated successfully');
+      }
+
+      // Get tenant ID from multiple sources to ensure we find it
+      let tenantId: string | null = null;
+      
+      // Try getting from user metadata first
+      const metaTenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
+      if (metaTenantId) {
+        tenantId = metaTenantId;
+        console.log('📋 Found tenant ID in user metadata:', tenantId);
+      }
+      
+      // Fallback to RPC function
+      if (!tenantId) {
+        const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
+        tenantId = tenantData as string;
+        console.log('📋 Found tenant ID via RPC:', tenantId);
+      }
+      
+      // Final fallback: check existing profile
+      if (!tenantId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', uid)
+          .maybeSingle();
+        tenantId = profile?.tenant_id;
+        console.log('📋 Found tenant ID in profile:', tenantId);
+      }
       
       if (tenantId) {
-        // Update tenant_users status for this user
-        await supabase
+        console.log('🏢 Updating tenant_users for tenant:', tenantId);
+        
+        // Update all tenant_users records for this user in this tenant
+        const { error: tenantUserError } = await supabase
           .from('tenant_users')
           .update({
             invitation_status: 'accepted',
@@ -359,8 +393,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .eq('user_id', uid)
           .eq('tenant_id', tenantId);
 
-        // Also ensure any existing users with pending status get updated
-        await supabase
+        if (tenantUserError) {
+          console.warn('Failed to update tenant_users invitation status:', tenantUserError);
+        } else {
+          console.log('✅ Tenant_users invitation status updated successfully');
+        }
+
+        // Also update any records that are specifically pending
+        const { error: pendingError } = await supabase
           .from('tenant_users')
           .update({
             invitation_status: 'accepted',
@@ -370,9 +410,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .eq('user_id', uid)
           .eq('tenant_id', tenantId)
           .eq('invitation_status', 'pending');
+
+        if (pendingError) {
+          console.warn('Failed to update pending tenant_users records:', pendingError);
+        }
+      } else {
+        console.warn('⚠️ No tenant ID found for user, skipping tenant_users update');
       }
     } catch (e) {
-      console.warn('Failed to mark invitation as accepted', e);
+      console.error('❌ Failed to mark invitation as accepted:', e);
     }
   };
 
