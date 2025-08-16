@@ -87,6 +87,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
   const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
   const [hasLoaded, setHasLoaded] = useState(false);
   const didMountRef = useRef(false);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
  
    useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -117,7 +118,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     async () => {
       if (!tenantId) return { data: [], error: null };
       
-        const { data, error } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select(`
           *,
@@ -152,15 +153,28 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     if (!loading) setHasLoaded(true);
   }, [loading]);
 
+  // Remove aggressive refresh signal - use debounced approach instead
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
       return;
     }
     if (typeof refreshSignal !== 'undefined') {
-      refetchProducts();
+      // Debounce refresh calls to prevent excessive re-renders
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      refreshTimeoutRef.current = setTimeout(() => {
+        refetchProducts();
+      }, 500);
     }
-  }, [refreshSignal, refetchProducts]);
+    
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [refreshSignal]);
 
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
@@ -298,28 +312,27 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm sm:text-base truncate">{product.name}</div>
-                     {(() => {
-                       // Calculate if product is low stock based on variants or main stock
-                      
-                      let isLowStock = false;
-                      let currentStock = product.stock_quantity || 0;
-                      
-                      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                        currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                          return total + (variant.stock_quantity || 0);
-                        }, 0);
-                      }
-                      
-                      isLowStock = currentStock <= (product.min_stock_level || 0);
-                      
-                      return isLowStock ? (
-                        <Badge variant="destructive" className="text-xs mt-1">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Low Stock</span>
-                          <span className="sm:hidden">Low</span>
-                        </Badge>
-                      ) : null;
-                    })()}
+                     {useMemo(() => {
+                       // Memoize expensive stock calculations
+                       let isLowStock = false;
+                       let currentStock = product.stock_quantity || 0;
+                       
+                       if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                         currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+                           return total + (variant.stock_quantity || 0);
+                         }, 0);
+                       }
+                       
+                       isLowStock = currentStock <= (product.min_stock_level || 0);
+                       
+                       return isLowStock ? (
+                         <Badge variant="destructive" className="text-xs mt-1">
+                           <AlertTriangle className="h-3 w-3 mr-1" />
+                           <span className="hidden sm:inline">Low Stock</span>
+                           <span className="sm:hidden">Low</span>
+                         </Badge>
+                       ) : null;
+                     }, [product.stock_quantity, product.min_stock_level, (product as any).product_variants])}
                   </div>
                 </div>
               </TableCell>
@@ -386,7 +399,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                        setSelectedProduct(product);
                        setShowProductForm(true);
                      }}
-                     className="h-8 w-8 sm:w-auto px-2 transition-colors duration-150"
+                     className="h-8 w-8 sm:w-auto px-2"
                    >
                      <Edit className="h-3 w-3 sm:mr-1" />
                      <span className="hidden sm:inline text-xs">Edit</span>
@@ -397,7 +410,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                        <Button 
                          variant="ghost" 
                          size="sm"
-                         className="h-8 w-8 px-2 transition-colors duration-150"
+                         className="h-8 w-8 px-2"
                          title="View variants"
                        >
                          <Eye className="h-3 w-3" />
@@ -418,7 +431,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                          variant="ghost" 
                          size="sm" 
                          title="View history"
-                         className="h-8 w-8 px-2 transition-colors duration-150"
+                         className="h-8 w-8 px-2"
                        >
                          <History className="h-3 w-3" />
                        </Button>
@@ -437,7 +450,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                        <Button 
                          variant="ghost" 
                          size="sm" 
-                         className="h-8 w-8 px-2 text-destructive transition-colors duration-150"
+                         className="h-8 w-8 px-2 text-destructive"
                          disabled={!canDelete('product')}
                          title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
                        >
@@ -627,8 +640,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             onSuccess={() => {
               setShowProductForm(false);
               setSelectedProduct(null);
-              // Force fresh data fetch with timestamp
-              setTimeout(() => refetchProducts(), 100);
+              // Debounced refresh to prevent rapid re-renders
+              if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
+              }
+              refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
             }}
             onCancel={() => {
               setShowProductForm(false);
