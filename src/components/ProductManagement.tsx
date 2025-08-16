@@ -143,8 +143,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     [tenantId, refreshSignal],
     {
       enabled: !!tenantId,
-      staleTime: 0, // No cache for real-time updates
-      cacheKey: `products-list-${tenantId}-${Date.now()}`
+      staleTime: 0, // Always fetch fresh data
+      cacheKey: `products-list-${tenantId}-${refreshSignal || 0}`
     }
   );
 
@@ -379,29 +379,29 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               </TableCell>
                <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedProduct(product);
-                      setShowProductForm(true);
-                    }}
-                    className="h-8 w-8 sm:w-auto px-2 hover:bg-secondary hover:text-secondary-foreground"
-                  >
-                    <Edit className="h-3 w-3 sm:mr-1" />
-                    <span className="hidden sm:inline text-xs">Edit</span>
-                  </Button>
+                   <Button 
+                     variant="outline" 
+                     size="sm"
+                     onClick={() => {
+                       setSelectedProduct(product);
+                       setShowProductForm(true);
+                     }}
+                     className="h-8 w-8 sm:w-auto px-2 transition-colors duration-150"
+                   >
+                     <Edit className="h-3 w-3 sm:mr-1" />
+                     <span className="hidden sm:inline text-xs">Edit</span>
+                   </Button>
                   
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-8 w-8 px-2 hover:bg-secondary/50"
-                        title="View variants"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
+                       <Button 
+                         variant="ghost" 
+                         size="sm"
+                         className="h-8 w-8 px-2 transition-colors duration-150"
+                         title="View variants"
+                       >
+                         <Eye className="h-3 w-3" />
+                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
@@ -414,14 +414,14 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        title="View history"
-                        className="h-8 w-8 px-2 hover:bg-secondary/50"
-                      >
-                        <History className="h-3 w-3" />
-                      </Button>
+                       <Button 
+                         variant="ghost" 
+                         size="sm" 
+                         title="View history"
+                         className="h-8 w-8 px-2 transition-colors duration-150"
+                       >
+                         <History className="h-3 w-3" />
+                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
                       <DialogHeader>
@@ -434,15 +434,15 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 px-2 text-destructive hover:bg-destructive/10"
-                        disabled={!canDelete('product')}
-                        title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                       <Button 
+                         variant="ghost" 
+                         size="sm" 
+                         className="h-8 w-8 px-2 text-destructive transition-colors duration-150"
+                         disabled={!canDelete('product')}
+                         title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
+                       >
+                         <Trash2 className="h-3 w-3" />
+                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -627,7 +627,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             onSuccess={() => {
               setShowProductForm(false);
               setSelectedProduct(null);
-              refetchProducts();
+              // Force fresh data fetch with timestamp
+              setTimeout(() => refetchProducts(), 100);
             }}
             onCancel={() => {
               setShowProductForm(false);

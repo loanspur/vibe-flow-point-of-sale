@@ -137,6 +137,11 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       fetchRevenueAccounts();
       fetchUnits();
       fetchLocations();
+      
+      // Set default location for new products using database function
+      if (!product && !formData.location_id) {
+        setDefaultLocation();
+      }
     }
   }, [tenantId]);
 
@@ -278,6 +283,38 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const setDefaultLocation = async () => {
+    try {
+      if (!tenantId) return;
+      
+      const { data, error } = await supabase.rpc('get_user_default_location', {
+        user_tenant_id: tenantId
+      });
+
+      if (error) throw error;
+      
+      if (data) {
+        setFormData(prev => ({ ...prev, location_id: data }));
+        localStorage.setItem('selected_location', data);
+      }
+    } catch (error: any) {
+      console.warn('Could not set default location:', error.message);
+      // Fallback to first available location
+      const { data: locations } = await supabase
+        .from('store_locations')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('created_at')
+        .limit(1);
+      
+      if (locations && locations.length > 0) {
+        setFormData(prev => ({ ...prev, location_id: locations[0].id }));
+        localStorage.setItem('selected_location', locations[0].id);
+      }
     }
   };
 
@@ -478,6 +515,31 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         description: `${formData.name} has been ${product ? 'updated' : 'created'} successfully.`,
       });
 
+      // Reset form data and clear states after successful save
+      if (!product) {
+        setFormData({
+          name: '',
+          sku: '',
+          description: '',
+          price: '',
+          default_profit_margin: '',
+          barcode: '',
+          category_id: '',
+          subcategory_id: undefined,
+          revenue_account_id: undefined,
+          unit_id: undefined,
+          stock_quantity: '',
+          min_stock_level: '',
+          has_expiry_date: false,
+          is_active: true,
+          location_id: localStorage.getItem('selected_location') || '',
+        });
+        setImagePreview('');
+        setImageFile(null);
+        setVariants([]);
+        setVariantImages({});
+      }
+      
       onSuccess();
     } catch (error: any) {
       toast({
