@@ -105,7 +105,7 @@ export const StockTransfers: React.FC = () => {
             name,
             value,
             stock_quantity,
-            cost_price
+            sale_price
           )
         `)
         .eq('tenant_id', profile.tenant_id)
@@ -136,7 +136,7 @@ export const StockTransfers: React.FC = () => {
               name: product.name,
               sku: product.sku,
               stock_quantity: variant.stock_quantity,
-              cost_price: variant.cost_price || product.cost_price,
+              cost_price: variant.sale_price || product.cost_price, // Use sale_price from variant as cost_price fallback
               display_name: `${product.name} - ${variant.name}: ${variant.value}`
             });
           });
