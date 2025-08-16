@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowUpDown, Plus, Truck, Package, CheckCircle, Eye, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,8 +20,12 @@ export const StockTransfers: React.FC = () => {
   const [locations, setLocations] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
   const [transferItems, setTransferItems] = useState<any[]>([]);
+  const [editTransferItems, setEditTransferItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
@@ -277,13 +282,67 @@ export const StockTransfers: React.FC = () => {
   };
 
   const viewTransferDetails = async (transferId: string) => {
-    // Implementation for viewing transfer details
-    console.log('View transfer details:', transferId);
+    try {
+      const transfer = transfers.find(t => t.id === transferId);
+      if (!transfer) return;
+
+      // Fetch transfer items
+      const { data: items, error } = await supabase
+        .from('stock_transfer_items')
+        .select(`
+          *,
+          product:products(name, sku),
+          variant:product_variants(name, value)
+        `)
+        .eq('transfer_id', transferId);
+
+      if (error) throw error;
+
+      setSelectedTransfer({ ...transfer, items: items || [] });
+      setIsViewDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching transfer details:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch transfer details.',
+        variant: 'destructive'
+      });
+    }
   };
 
   const editTransfer = async (transfer: any) => {
-    // Implementation for editing transfer
-    console.log('Edit transfer:', transfer);
+    try {
+      // Fetch transfer items for editing
+      const { data: items, error } = await supabase
+        .from('stock_transfer_items')
+        .select(`
+          *,
+          product:products(name, sku),
+          variant:product_variants(name, value)
+        `)
+        .eq('transfer_id', transfer.id);
+
+      if (error) throw error;
+
+      const formattedItems = (items || []).map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        quantity_requested: item.quantity_requested,
+        unit_cost: item.unit_cost
+      }));
+
+      setSelectedTransfer(transfer);
+      setEditTransferItems(formattedItems);
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error('Error preparing transfer for edit:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to prepare transfer for editing.',
+        variant: 'destructive'
+      });
+    }
   };
 
   const deleteTransfer = async (transferId: string) => {
@@ -656,18 +715,38 @@ export const StockTransfers: React.FC = () => {
                           </Button>
                         )}
                         
-                        {/* Delete Transfer (only for pending or cancelled status) */}
-                        {(transfer.status === 'pending' || transfer.status === 'cancelled') && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteTransfer(transfer.id)}
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                            title="Delete Transfer"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                         {/* Delete Transfer (only for pending or cancelled status) */}
+                         {(transfer.status === 'pending' || transfer.status === 'cancelled') && (
+                           <AlertDialog>
+                             <AlertDialogTrigger asChild>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                 title="Delete Transfer"
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
+                             </AlertDialogTrigger>
+                             <AlertDialogContent>
+                               <AlertDialogHeader>
+                                 <AlertDialogTitle>Delete Stock Transfer</AlertDialogTitle>
+                                 <AlertDialogDescription>
+                                   Are you sure you want to delete transfer {transfer.transfer_number}? This action cannot be undone.
+                                 </AlertDialogDescription>
+                               </AlertDialogHeader>
+                               <AlertDialogFooter>
+                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                 <AlertDialogAction
+                                   onClick={() => deleteTransfer(transfer.id)}
+                                   className="bg-red-600 hover:bg-red-700"
+                                 >
+                                   Delete
+                                 </AlertDialogAction>
+                               </AlertDialogFooter>
+                             </AlertDialogContent>
+                           </AlertDialog>
+                         )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -677,6 +756,196 @@ export const StockTransfers: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* View Transfer Details Modal */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transfer Details - {selectedTransfer?.transfer_number}</DialogTitle>
+          </DialogHeader>
+          {selectedTransfer && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Transfer Number</Label>
+                  <Input value={selectedTransfer.transfer_number} readOnly />
+                </div>
+                <div>
+                  <Label>Date</Label>
+                  <Input value={new Date(selectedTransfer.transfer_date).toLocaleDateString()} readOnly />
+                </div>
+                <div>
+                  <Label>From Location</Label>
+                  <Input value={selectedTransfer.from_location?.name || 'N/A'} readOnly />
+                </div>
+                <div>
+                  <Label>To Location</Label>
+                  <Input value={selectedTransfer.to_location?.name || 'N/A'} readOnly />
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`text-white ${getStatusColor(selectedTransfer.status)} flex items-center gap-1 w-fit`}>
+                      {getStatusIcon(selectedTransfer.status)}
+                      {selectedTransfer.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label>Total Value</Label>
+                  <Input value={`KES ${selectedTransfer.total_value.toFixed(2)}`} readOnly />
+                </div>
+              </div>
+              
+              {selectedTransfer.items && selectedTransfer.items.length > 0 && (
+                <div>
+                  <Label>Transfer Items</Label>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Requested</TableHead>
+                        <TableHead>Shipped</TableHead>
+                        <TableHead>Received</TableHead>
+                        <TableHead>Unit Cost</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedTransfer.items.map((item: any, index: number) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            {item.product?.name || 'Unknown Product'}
+                            {item.variant && ` - ${item.variant.name}: ${item.variant.value}`}
+                          </TableCell>
+                          <TableCell>{item.quantity_requested}</TableCell>
+                          <TableCell>{item.quantity_shipped}</TableCell>
+                          <TableCell>{item.quantity_received}</TableCell>
+                          <TableCell>KES {item.unit_cost.toFixed(2)}</TableCell>
+                          <TableCell>KES {item.total_cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Transfer Modal */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Transfer - {selectedTransfer?.transfer_number}</DialogTitle>
+          </DialogHeader>
+          {selectedTransfer && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Transfer Number</Label>
+                  <Input value={selectedTransfer.transfer_number} readOnly className="bg-muted" />
+                </div>
+                <div>
+                  <Label>Date</Label>
+                  <Input value={new Date(selectedTransfer.transfer_date).toLocaleDateString()} readOnly className="bg-muted" />
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-base font-semibold">Transfer Items</Label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  You can only modify quantities for pending transfers.
+                </p>
+                
+                {editTransferItems.length > 0 && (
+                  <div className="space-y-4">
+                    {editTransferItems.map((item, index) => {
+                      const product = products.find(p => 
+                        p.id === item.product_id && 
+                        (item.variant_id ? p.variant_id === item.variant_id : p.variant_id === null)
+                      );
+                      
+                      return (
+                        <Card key={index}>
+                          <CardContent className="p-4">
+                            <div className="grid grid-cols-4 gap-4 items-center">
+                              <div>
+                                <Label>Product</Label>
+                                <Input 
+                                  value={product?.display_name || 'Unknown Product'} 
+                                  readOnly 
+                                  className="bg-muted"
+                                />
+                              </div>
+                              <div>
+                                <Label>Available Stock</Label>
+                                <Input
+                                  type="number"
+                                  value={product?.stock_quantity || 0}
+                                  readOnly
+                                  className="bg-muted"
+                                />
+                              </div>
+                              <div>
+                                <Label>Quantity</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max={product?.stock_quantity || 0}
+                                  value={item.quantity_requested}
+                                  onChange={(e) => {
+                                    const updatedItems = [...editTransferItems];
+                                    updatedItems[index].quantity_requested = parseInt(e.target.value) || 0;
+                                    setEditTransferItems(updatedItems);
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <Label>Unit Cost</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={item.unit_cost}
+                                  readOnly
+                                  className="bg-muted"
+                                />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    // Implementation for updating transfer
+                    toast({
+                      title: 'Feature Coming Soon',
+                      description: 'Transfer editing will be implemented in the next update.',
+                    });
+                    setIsEditDialogOpen(false);
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
