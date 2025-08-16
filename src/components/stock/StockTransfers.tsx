@@ -400,6 +400,39 @@ export const StockTransfers: React.FC = () => {
     }
   };
 
+  const processTransfer = async (transferId: string) => {
+    setLoading(true);
+    try {
+      // Update transfer status from pending to in_transit (active)
+      const { error: updateError } = await supabase
+        .from('stock_transfers')
+        .update({
+          status: 'in_transit',
+          shipped_at: new Date().toISOString(),
+          shipped_by: user?.id
+        })
+        .eq('id', transferId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: 'Transfer Processed',
+        description: 'Stock transfer has been processed and is now in transit.'
+      });
+
+      fetchTransfers();
+    } catch (error) {
+      console.error('Error processing transfer:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to process stock transfer.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const completeTransfer = async (transferId: string) => {
     setLoading(true);
     try {
@@ -728,6 +761,20 @@ export const StockTransfers: React.FC = () => {
                             title="Edit Transfer"
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {/* Process Transfer (only for pending status) */}
+                        {transfer.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => processTransfer(transfer.id)}
+                            disabled={loading}
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                            title="Process Transfer (Ship)"
+                          >
+                            <Truck className="h-4 w-4" />
                           </Button>
                         )}
                         
