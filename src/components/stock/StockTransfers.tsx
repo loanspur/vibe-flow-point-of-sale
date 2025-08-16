@@ -286,19 +286,49 @@ export const StockTransfers: React.FC = () => {
       const transfer = transfers.find(t => t.id === transferId);
       if (!transfer) return;
 
-      // Fetch transfer items
-      const { data: items, error } = await supabase
+      // Fetch transfer items first
+      const { data: items, error: itemsError } = await supabase
         .from('stock_transfer_items')
-        .select(`
-          *,
-          product:products(name, sku),
-          variant:product_variants(name, value)
-        `)
+        .select('*')
         .eq('transfer_id', transferId);
 
-      if (error) throw error;
+      if (itemsError) throw itemsError;
 
-      setSelectedTransfer({ ...transfer, items: items || [] });
+      // If we have items, fetch product details separately
+      let enrichedItems = items || [];
+      if (items && items.length > 0) {
+        const productIds = items.map(item => item.product_id).filter(Boolean);
+        const variantIds = items.map(item => item.variant_id).filter(Boolean);
+
+        // Fetch products
+        let productDetails = [];
+        if (productIds.length > 0) {
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, name, sku')
+            .in('id', productIds);
+          productDetails = products || [];
+        }
+
+        // Fetch variants if any
+        let variantDetails = [];
+        if (variantIds.length > 0) {
+          const { data: variants } = await supabase
+            .from('product_variants')
+            .select('id, name, value')
+            .in('id', variantIds);
+          variantDetails = variants || [];
+        }
+
+        // Enrich items with product/variant details
+        enrichedItems = items.map(item => ({
+          ...item,
+          product: productDetails.find(p => p.id === item.product_id) || null,
+          variant: variantDetails.find(v => v.id === item.variant_id) || null
+        }));
+      }
+
+      setSelectedTransfer({ ...transfer, items: enrichedItems });
       setIsViewDialogOpen(true);
     } catch (error) {
       console.error('Error fetching transfer details:', error);
