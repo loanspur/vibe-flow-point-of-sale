@@ -4,7 +4,7 @@ export interface InventoryTransaction {
   productId: string;
   variantId?: string;
   quantity: number;
-  type: 'purchase' | 'sale' | 'adjustment' | 'return';
+  type: 'purchase' | 'sale' | 'adjustment' | 'return' | 'stock_transfer_out' | 'stock_transfer_in';
   referenceId?: string;
   referenceType?: string;
   unitCost?: number;
@@ -31,7 +31,7 @@ export const updateProductInventory = async (
           continue;
         }
 
-        const newQuantity = transaction.type === 'purchase' || transaction.type === 'return'
+        const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
           ? (variant.stock_quantity || 0) + transaction.quantity
           : (variant.stock_quantity || 0) - transaction.quantity;
 
@@ -56,7 +56,7 @@ export const updateProductInventory = async (
           continue;
         }
 
-        const newQuantity = transaction.type === 'purchase' || transaction.type === 'return'
+        const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
           ? (product.stock_quantity || 0) + transaction.quantity
           : (product.stock_quantity || 0) - transaction.quantity;
 
@@ -487,20 +487,41 @@ export const processStockTransfer = async (
   toLocationId: string
 ) => {
   try {
-    // For now, we'll just track the transfer without location-specific inventory
-    // In the future, this could be enhanced to track per-location stock
-    const inventoryTransactions: InventoryTransaction[] = transferItems.map(item => ({
-      productId: item.productId,
-      variantId: item.variantId,
-      quantity: item.quantityTransferred,
-      type: 'adjustment' as const,
-      referenceId: transferId,
-      referenceType: 'stock_transfer',
-      notes: `Stock transfer from location ${fromLocationId} to ${toLocationId}`
-    }));
+    const { supabase } = await import('@/integrations/supabase/client');
+    
+    // Create inventory transactions for both source and destination
+    const inventoryTransactions: InventoryTransaction[] = [];
+    
+    // Reduce stock at source location (negative quantity)
+    transferItems.forEach(item => {
+      inventoryTransactions.push({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: -item.quantityTransferred, // Negative for source location
+        type: 'stock_transfer_out' as const,
+        referenceId: transferId,
+        referenceType: 'stock_transfer',
+        notes: `Stock transferred out to location ${toLocationId}`
+      });
+    });
+    
+    // Increase stock at destination location (positive quantity)
+    transferItems.forEach(item => {
+      inventoryTransactions.push({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantityTransferred, // Positive for destination location
+        type: 'stock_transfer_in' as const,
+        referenceId: transferId,
+        referenceType: 'stock_transfer',
+        notes: `Stock transferred in from location ${fromLocationId}`
+      });
+    });
 
-    // Note: For transfers, we don't change total stock, just track the movement
-    console.log('Stock transfer processed and tracked');
+    // Apply inventory updates
+    await updateProductInventory(tenantId, inventoryTransactions);
+    
+    console.log('Stock transfer inventory levels updated for both locations');
   } catch (error) {
     console.error('Error processing stock transfer:', error);
     throw error;

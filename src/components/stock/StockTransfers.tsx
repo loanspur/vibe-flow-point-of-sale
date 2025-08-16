@@ -513,6 +513,7 @@ export const StockTransfers: React.FC = () => {
           transferId,
           items.map(item => ({
             productId: item.product_id,
+            variantId: item.variant_id,
             quantityTransferred: item.quantity_shipped
           })),
           transfer.from_location_id,
