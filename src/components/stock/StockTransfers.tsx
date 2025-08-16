@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown, Plus, Truck, Package, CheckCircle } from 'lucide-react';
+import { ArrowUpDown, Plus, Truck, Package, CheckCircle, Eye, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -91,14 +91,59 @@ export const StockTransfers: React.FC = () => {
 
       if (!profile?.tenant_id) return;
 
+      // Fetch products with variants and stock quantities
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock_quantity, cost_price')
+        .select(`
+          id, 
+          name, 
+          sku, 
+          stock_quantity, 
+          cost_price,
+          product_variants (
+            id,
+            name,
+            value,
+            stock_quantity,
+            cost_price
+          )
+        `)
         .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true);
 
       if (error) throw error;
-      setProducts(data || []);
+      
+      // Flatten products and variants for easier selection
+      const productsWithVariants: any[] = [];
+      (data || []).forEach(product => {
+        // Add main product
+        productsWithVariants.push({
+          id: product.id,
+          variant_id: null,
+          name: product.name,
+          sku: product.sku,
+          stock_quantity: product.stock_quantity,
+          cost_price: product.cost_price,
+          display_name: product.name
+        });
+        
+        // Add variants if they exist
+        if (product.product_variants && product.product_variants.length > 0) {
+          product.product_variants.forEach((variant: any) => {
+            productsWithVariants.push({
+              id: product.id,
+              variant_id: variant.id,
+              name: product.name,
+              sku: product.sku,
+              stock_quantity: variant.stock_quantity,
+              cost_price: variant.cost_price || product.cost_price,
+              display_name: `${product.name} - ${variant.name}: ${variant.value}`
+            });
+          });
+        }
+      });
+      
+      setProducts(productsWithVariants);
     } catch (error) {
       console.error('Error fetching products:', error);
     }
@@ -109,6 +154,7 @@ export const StockTransfers: React.FC = () => {
       ...transferItems,
       {
         product_id: '',
+        variant_id: null,
         quantity_requested: 0,
         unit_cost: 0
       }
@@ -117,14 +163,24 @@ export const StockTransfers: React.FC = () => {
 
   const updateTransferItem = (index: number, field: string, value: any) => {
     const updatedItems = [...transferItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
     
-    // Auto-fill unit cost when product is selected
-    if (field === 'product_id') {
-      const product = products.find(p => p.id === value);
+    if (field === 'product_selection') {
+      // Parse product and variant IDs from the selection value
+      const [productId, variantId] = value.split('|');
+      const product = products.find(p => p.id === productId && 
+        (variantId === 'null' ? p.variant_id === null : p.variant_id === variantId));
+      
       if (product) {
-        updatedItems[index].unit_cost = product.cost_price || 0;
+        updatedItems[index] = {
+          ...updatedItems[index],
+          product_id: productId,
+          variant_id: variantId === 'null' ? null : variantId,
+          unit_cost: product.cost_price || 0,
+          available_stock: product.stock_quantity || 0
+        };
       }
+    } else {
+      updatedItems[index] = { ...updatedItems[index], [field]: value };
     }
     
     setTransferItems(updatedItems);
@@ -186,6 +242,7 @@ export const StockTransfers: React.FC = () => {
       const itemsToInsert = transferItems.map(item => ({
         transfer_id: transfer.id,
         product_id: item.product_id,
+        variant_id: item.variant_id,
         quantity_requested: item.quantity_requested,
         quantity_shipped: item.quantity_requested, // Auto-ship for now
         quantity_received: 0,
@@ -216,6 +273,41 @@ export const StockTransfers: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const viewTransferDetails = async (transferId: string) => {
+    // Implementation for viewing transfer details
+    console.log('View transfer details:', transferId);
+  };
+
+  const editTransfer = async (transfer: any) => {
+    // Implementation for editing transfer
+    console.log('Edit transfer:', transfer);
+  };
+
+  const deleteTransfer = async (transferId: string) => {
+    try {
+      const { error } = await supabase
+        .from('stock_transfers')
+        .delete()
+        .eq('id', transferId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Transfer Deleted',
+        description: 'Stock transfer has been deleted successfully.'
+      });
+
+      fetchTransfers();
+    } catch (error) {
+      console.error('Error deleting transfer:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete stock transfer.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -389,55 +481,73 @@ export const StockTransfers: React.FC = () => {
                       {transferItems.map((item, index) => (
                         <Card key={index}>
                           <CardContent className="p-4">
-                            <div className="grid grid-cols-4 gap-4 items-end">
-                              <div>
-                                <Label>Product</Label>
-                                <Select
-                                  value={item.product_id}
-                                  onValueChange={(value) => updateTransferItem(index, 'product_id', value)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select product" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {products.map((product) => (
-                                      <SelectItem key={product.id} value={product.id}>
-                                        {product.name} ({product.sku}) - Stock: {product.stock_quantity}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div>
-                                <Label>Quantity (pcs)</Label>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity_requested}
-                                  onChange={(e) => updateTransferItem(index, 'quantity_requested', parseInt(e.target.value) || 0)}
-                                />
-                              </div>
-                              <div>
-                                <Label>Unit Cost</Label>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  value={item.unit_cost}
-                                  onChange={(e) => updateTransferItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
-                                  readOnly
-                                />
-                              </div>
-                              <div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeTransferItem(index)}
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </div>
+                             <div className="grid grid-cols-5 gap-4 items-end">
+                               <div>
+                                 <Label>Product/Variant</Label>
+                                 <Select
+                                   value={item.product_id ? `${item.product_id}|${item.variant_id || 'null'}` : ''}
+                                   onValueChange={(value) => updateTransferItem(index, 'product_selection', value)}
+                                 >
+                                   <SelectTrigger>
+                                     <SelectValue placeholder="Select product" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                     {products.map((product) => (
+                                       <SelectItem 
+                                         key={`${product.id}-${product.variant_id || 'main'}`} 
+                                         value={`${product.id}|${product.variant_id || 'null'}`}
+                                       >
+                                         {product.display_name} - Stock: {product.stock_quantity}
+                                       </SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
+                               </div>
+                               <div>
+                                 <Label>Available Stock</Label>
+                                 <Input
+                                   type="number"
+                                   value={item.available_stock || 0}
+                                   readOnly
+                                   className="bg-muted"
+                                 />
+                               </div>
+                               <div>
+                                 <Label>Quantity</Label>
+                                 <Input
+                                   type="number"
+                                   min="1"
+                                   max={item.available_stock || 0}
+                                   value={item.quantity_requested}
+                                   onChange={(e) => updateTransferItem(index, 'quantity_requested', parseInt(e.target.value) || 0)}
+                                 />
+                               </div>
+                               <div>
+                                 <Label>Unit Cost</Label>
+                                 <Input
+                                   type="number"
+                                   step="0.01"
+                                   value={item.unit_cost}
+                                   onChange={(e) => updateTransferItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
+                                   readOnly
+                                 />
+                               </div>
+                               <div>
+                                 <Button
+                                   type="button"
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => removeTransferItem(index)}
+                                 >
+                                   Remove
+                                 </Button>
+                               </div>
+                             </div>
+                             {item.available_stock !== undefined && item.quantity_requested > item.available_stock && (
+                               <p className="text-sm text-destructive mt-2">
+                                 Quantity exceeds available stock ({item.available_stock})
+                               </p>
+                             )}
                           </CardContent>
                         </Card>
                       ))}

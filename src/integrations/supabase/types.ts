@@ -1539,6 +1539,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_commission_agent: boolean | null
+          location_id: string | null
           name: string
           notes: string | null
           phone: string | null
@@ -1555,6 +1556,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_commission_agent?: boolean | null
+          location_id?: string | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -1571,6 +1573,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_commission_agent?: boolean | null
+          location_id?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -1579,7 +1582,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_permissions: {
         Row: {
@@ -3189,6 +3200,7 @@ export type Database = {
           image_url: string | null
           is_active: boolean | null
           is_combo_product: boolean | null
+          location_id: string | null
           min_stock_level: number | null
           name: string
           price: number
@@ -3215,6 +3227,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           is_combo_product?: boolean | null
+          location_id?: string | null
           min_stock_level?: number | null
           name: string
           price: number
@@ -3241,6 +3254,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           is_combo_product?: boolean | null
+          location_id?: string | null
           min_stock_level?: number | null
           name?: string
           price?: number
@@ -3265,6 +3279,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
             referencedColumns: ["id"]
           },
           {
@@ -3585,6 +3606,7 @@ export type Database = {
           discount_amount: number
           expected_date: string | null
           id: string
+          location_id: string | null
           notes: string | null
           order_date: string
           purchase_number: string
@@ -3603,6 +3625,7 @@ export type Database = {
           discount_amount?: number
           expected_date?: string | null
           id?: string
+          location_id?: string | null
           notes?: string | null
           order_date?: string
           purchase_number: string
@@ -3621,6 +3644,7 @@ export type Database = {
           discount_amount?: number
           expected_date?: string | null
           id?: string
+          location_id?: string | null
           notes?: string | null
           order_date?: string
           purchase_number?: string
@@ -3634,6 +3658,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "purchases_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchases_supplier_id_fkey"
             columns: ["supplier_id"]
@@ -4271,6 +4302,7 @@ export type Database = {
           customer_id: string | null
           discount_amount: number | null
           id: string
+          location_id: string | null
           payment_method: string
           receipt_number: string
           sale_type: string
@@ -4287,6 +4319,7 @@ export type Database = {
           customer_id?: string | null
           discount_amount?: number | null
           id?: string
+          location_id?: string | null
           payment_method?: string
           receipt_number: string
           sale_type?: string
@@ -4303,6 +4336,7 @@ export type Database = {
           customer_id?: string | null
           discount_amount?: number | null
           id?: string
+          location_id?: string | null
           payment_method?: string
           receipt_number?: string
           sale_type?: string
@@ -4319,6 +4353,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
             referencedColumns: ["id"]
           },
           {
@@ -5623,6 +5664,7 @@ export type Database = {
           invitation_status: string | null
           invited_at: string | null
           is_active: boolean
+          location_id: string | null
           role: string
           tenant_id: string
           user_id: string
@@ -5634,6 +5676,7 @@ export type Database = {
           invitation_status?: string | null
           invited_at?: string | null
           is_active?: boolean
+          location_id?: string | null
           role?: string
           tenant_id: string
           user_id: string
@@ -5645,11 +5688,19 @@ export type Database = {
           invitation_status?: string | null
           invited_at?: string | null
           is_active?: boolean
+          location_id?: string | null
           role?: string
           tenant_id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenant_users_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenant_users_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -6836,6 +6887,10 @@ export type Database = {
       }
       get_user_contact_profile: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_user_default_location: {
+        Args: { user_tenant_id: string }
         Returns: string
       }
       get_user_feature_access: {
