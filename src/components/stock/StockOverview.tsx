@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, Package, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Package, TrendingUp, Search, Download, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
@@ -11,8 +13,13 @@ import { getLowStockItems, getInventoryLevels } from '@/lib/inventory-integratio
 
 export const StockOverview: React.FC = () => {
   const [inventoryData, setInventoryData] = useState<any[]>([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const { user } = useAuth();
   useEnsureBaseUnitPcs();
 
@@ -30,15 +37,43 @@ export const StockOverview: React.FC = () => {
 
       if (!profile?.tenant_id) return;
 
-      const [inventory, lowStock] = await Promise.all([
-        getInventoryLevels(profile.tenant_id),
+      // Fetch inventory with location names
+      const { data: inventory, error: inventoryError } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          sku,
+          stock_quantity,
+          min_stock_level,
+          cost_price,
+          location_id,
+          store_locations(name)
+        `)
+        .eq('tenant_id', profile.tenant_id)
+        .eq('is_active', true);
+
+      if (inventoryError) throw inventoryError;
+
+      // Fetch locations for filter dropdown
+      const { data: locationsData, error: locationsError } = await supabase
+        .from('store_locations')
+        .select('id, name')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('is_active', true);
+
+      if (locationsError) throw locationsError;
+
+      const [lowStock] = await Promise.all([
         getLowStockItems(profile.tenant_id)
       ]);
 
       console.log('Inventory data loaded:', inventory);
       console.log('Low stock items:', lowStock);
 
-      setInventoryData(inventory);
+      setInventoryData(inventory || []);
+      setFilteredData(inventory || []);
+      setLocations(locationsData || []);
       setLowStockItems(lowStock);
     } catch (error) {
       console.error('Error fetching inventory data:', error);
@@ -47,10 +82,63 @@ export const StockOverview: React.FC = () => {
     }
   };
 
+  // Filter and search functionality
+  useEffect(() => {
+    let filtered = inventoryData;
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Apply location filter
+    if (selectedLocation) {
+      filtered = filtered.filter(product => product.location_id === selectedLocation);
+    }
+
+    // Apply status filter
+    if (statusFilter) {
+      filtered = filtered.filter(product => {
+        const status = getStockStatus(product.stock_quantity, product.min_stock_level || 0);
+        return status.label.toLowerCase().replace(' ', '').includes(statusFilter);
+      });
+    }
+
+    setFilteredData(filtered);
+  }, [inventoryData, searchTerm, selectedLocation, statusFilter]);
+
   const getStockStatus = (currentStock: number, minLevel: number) => {
     if (currentStock <= 0) return { label: 'Out of Stock', color: 'bg-red-500' };
     if (currentStock <= minLevel) return { label: 'Low Stock', color: 'bg-yellow-500' };
     return { label: 'In Stock', color: 'bg-green-500' };
+  };
+
+  const exportToCSV = () => {
+    const csvData = filteredData.map(product => ({
+      Product: product.name,
+      SKU: product.sku || '',
+      'Current Stock (pcs)': product.stock_quantity || 0,
+      'Min Level (pcs)': product.min_stock_level || 0,
+      Location: product.store_locations?.name || 'N/A',
+      Status: getStockStatus(product.stock_quantity, product.min_stock_level || 0).label,
+      Value: ((product.stock_quantity || 0) * (product.cost_price || 0)).toFixed(2)
+    }));
+
+    const csvContent = [
+      Object.keys(csvData[0]).join(','),
+      ...csvData.map(row => Object.values(row).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inventory-levels-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -94,15 +182,67 @@ export const StockOverview: React.FC = () => {
       {/* Current Inventory Levels */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Current Inventory Levels
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Current Inventory Levels
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToCSV}
+              disabled={filteredData.length === 0}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {inventoryData.length === 0 ? (
+          {/* Search and Filter Controls */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by product name or SKU..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger className="w-48">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Locations</SelectItem>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="instock">In Stock</SelectItem>
+                  <SelectItem value="lowstock">Low Stock</SelectItem>
+                  <SelectItem value="outofstock">Out of Stock</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {filteredData.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No inventory data available
+              {inventoryData.length === 0 ? 'No inventory data available' : 'No items match your filters'}
             </div>
           ) : (
             <Table>
@@ -110,6 +250,7 @@ export const StockOverview: React.FC = () => {
                 <TableRow>
                   <TableHead>Product</TableHead>
                   <TableHead>SKU</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Current Stock (pcs)</TableHead>
                   <TableHead>Min Level (pcs)</TableHead>
                   <TableHead>Status</TableHead>
@@ -117,7 +258,7 @@ export const StockOverview: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inventoryData.map((product) => {
+                {filteredData.map((product) => {
                   const status = getStockStatus(product.stock_quantity, product.min_stock_level || 0);
                   const value = (product.stock_quantity || 0) * (product.cost_price || 0);
                   
@@ -125,6 +266,7 @@ export const StockOverview: React.FC = () => {
                     <TableRow key={product.id}>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.sku || '-'}</TableCell>
+                      <TableCell>{product.store_locations?.name || 'N/A'}</TableCell>
                       <TableCell>{product.stock_quantity || 0}</TableCell>
                       <TableCell>{product.min_stock_level || 0}</TableCell>
                       <TableCell>
