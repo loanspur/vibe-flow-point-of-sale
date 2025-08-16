@@ -77,7 +77,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     min_stock_level: '',
     has_expiry_date: false,
     is_active: true,
-    location_id: '',
+    location_id: localStorage.getItem('selected_location') || '',
   });
 
   const generateSKU = async (productName: string): Promise<string> => {
@@ -370,6 +370,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
     try {
       // Validate mandatory fields
+      if (!formData.location_id) {
+        toast({
+          title: "Location Required",
+          description: "Please select a location for this product.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       if (!formData.unit_id) {
         toast({
           title: "Unit Required",
@@ -485,6 +495,11 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       const newData = { ...prev, [field]: value };
       return newData;
     });
+
+    // Persist location selection
+    if (field === 'location_id' && typeof value === 'string') {
+      localStorage.setItem('selected_location', value);
+    }
 
     // Auto-generate SKU when product name changes (only for new products)
     if (field === 'name' && !product && typeof value === 'string' && value.trim()) {
@@ -895,6 +910,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               />
             </div>
           </div>
+
           
           <div className="flex items-center space-x-2">
             <Switch

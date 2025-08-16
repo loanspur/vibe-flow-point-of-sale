@@ -37,7 +37,13 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<string>(localStorage.getItem('selected_location') || '');
+  
+  // Location handler with persistence
+  const handleLocationChange = (value: string) => {
+    setSelectedLocation(value);
+    localStorage.setItem('selected_location', value);
+  };
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [remainingBalance, setRemainingBalance] = useState(0);
@@ -331,6 +337,15 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       toast({
         title: "Error",
         description: "Please select a supplier",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedLocation) {
+      toast({
+        title: "Error",
+        description: "Please select a location for this purchase",
         variant: "destructive",
       });
       return;
@@ -682,21 +697,21 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                   </Select>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label>Location *</Label>
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                 <div className="space-y-2">
+                   <Label>Location *</Label>
+                   <Select value={selectedLocation} onValueChange={handleLocationChange}>
+                     <SelectTrigger>
+                       <SelectValue placeholder="Select location" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {locations.map((location) => (
+                         <SelectItem key={location.id} value={location.id}>
+                           {location.name}
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
               </div>
 
               {/* Shipping Charges */}

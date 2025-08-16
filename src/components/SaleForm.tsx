@@ -69,7 +69,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<string>(localStorage.getItem('selected_location') || '');
+  
+  // Location handler with persistence
+  const handleLocationChange = (value: string) => {
+    setSelectedLocation(value);
+    localStorage.setItem('selected_location', value);
+  };
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedVariant, setSelectedVariant] = useState("");
@@ -582,6 +588,15 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return;
     }
 
+    if (!selectedLocation) {
+      toast({
+        title: "Location Required",
+        description: "Please select a location for this quote",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -670,6 +685,15 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       toast({
         title: "Error",
         description: "Please add at least one item to the sale",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedLocation) {
+      toast({
+        title: "Location Required",
+        description: "Please select a location for this sale",
         variant: "destructive",
       });
       return;
@@ -931,18 +955,18 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                   </CardTitle>
                 </CardHeader>
                  <CardContent className="space-y-4">
-                   <div className="space-y-2">
-                     <Label htmlFor="location">Location</Label>
-                     <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                       <SelectTrigger>
-                         <SelectValue placeholder="Select location" />
-                       </SelectTrigger>
-                       <SelectContent>
-                         {locations.map((location) => (
-                           <SelectItem key={location.id} value={location.id}>
-                             {location.name}
-                           </SelectItem>
-                         ))}
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location *</Label>
+                      <Select value={selectedLocation} onValueChange={handleLocationChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name}
+                            </SelectItem>
+                          ))}
                        </SelectContent>
                      </Select>
                    </div>
