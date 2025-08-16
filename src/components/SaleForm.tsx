@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -67,6 +68,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const [actualInventory, setActualInventory] = useState<Record<string, { stock: number; variants: Record<string, number> }>>({});
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedVariant, setSelectedVariant] = useState("");
@@ -101,6 +104,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     if (tenantId) {
       fetchProducts();
       fetchCustomers();
+      fetchLocations();
       fetchActualInventory();
       checkMpesaConfig();
       fetchBusinessSettings();
@@ -108,6 +112,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       setProducts([]);
       setFilteredProducts([]);
       setCustomers([]);
+      setLocations([]);
       setActualInventory({});
       setMpesaEnabled(false);
       setBusinessSettings(null);
@@ -271,6 +276,40 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     } catch (error) {
       console.error('Error fetching customers:', error);
       setCustomers([]);
+    }
+  };
+
+  const fetchLocations = async () => {
+    if (!tenantId) {
+      setLocations([]);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from("store_locations")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("name");
+      
+      if (error) {
+        console.error('Error fetching locations:', error);
+        return;
+      }
+      
+      if (data && Array.isArray(data)) {
+        setLocations(data);
+        // Set first location as default if no location is selected
+        if (data.length > 0 && !selectedLocation) {
+          setSelectedLocation(data[0].id);
+        }
+      } else {
+        setLocations([]);
+      }
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      setLocations([]);
     }
   };
 
@@ -697,6 +736,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
           cashier_id: user.id,
           tenant_id: tenantData,
+          location_id: selectedLocation || null,
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
           tax_amount: values.tax_amount,
@@ -890,16 +930,31 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                     Product Selection
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by name, SKU, or barcode..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
+                 <CardContent className="space-y-4">
+                   <div className="space-y-2">
+                     <Label htmlFor="location">Location</Label>
+                     <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                       <SelectTrigger>
+                         <SelectValue placeholder="Select location" />
+                       </SelectTrigger>
+                       <SelectContent>
+                         {locations.map((location) => (
+                           <SelectItem key={location.id} value={location.id}>
+                             {location.name}
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                   <div className="relative">
+                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                     <Input
+                       placeholder="Search by name, SKU, or barcode..."
+                       value={searchTerm}
+                       onChange={(e) => setSearchTerm(e.target.value)}
+                       className="pl-9"
+                     />
+                   </div>
 
                   {searchTerm && (
                     <div className="grid grid-cols-1 gap-4 max-h-60 overflow-y-auto">

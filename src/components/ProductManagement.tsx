@@ -122,6 +122,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           product_categories(name),
           product_subcategories(name),
           product_units(name, abbreviation),
+          store_locations(name),
           product_variants(
             id,
             name,
@@ -266,7 +267,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           <TableHeader>
             <TableRow>
               <TableHead className="min-w-[200px]">Product</TableHead>
-              <TableHead className="hidden sm:table-cell">Type</TableHead>
+              <TableHead className="hidden sm:table-cell">Location</TableHead>
               <TableHead className="hidden md:table-cell">SKU</TableHead>
               <TableHead className="hidden lg:table-cell">Category</TableHead>
               <TableHead className="hidden lg:table-cell">Unit</TableHead>
@@ -321,10 +322,10 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 </div>
               </TableCell>
                <TableCell className="hidden sm:table-cell">
-                 <Badge variant="secondary" className="text-xs">
-                   Product
-                 </Badge>
-               </TableCell>
+                  <span className="text-sm text-muted-foreground">
+                    {(product as any).store_locations?.name || 'Main Location'}
+                  </span>
+                </TableCell>
                <TableCell className="hidden md:table-cell text-sm">{product.sku || 'N/A'}</TableCell>
                <TableCell className="hidden lg:table-cell text-sm">
                  {product.product_categories?.name || 'None'}
