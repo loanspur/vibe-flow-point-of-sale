@@ -430,12 +430,12 @@ const Reports = () => {
         ['Date/Time', 'Sale ID', 'Sales Amount', 'Purchase Price', 'Profit', 'Location', 'User', 'Status', 'Payment Method'],
         ...filteredSales.map(sale => [
           new Date(sale.created_at).toLocaleString(),
-          sale.id,
+          `#${sale.id?.slice(-8) || 'N/A'}`,
           sale.total_amount || 0,
           sale.total_purchase_price || 0,
           sale.total_profit || 0,
-          sale.location_name || 'N/A',
-          sale.user_name || 'Unknown',
+          sale.location_name || 'Unknown Location',
+          sale.user_name || 'Unknown User',
           sale.status || 'completed',
           sale.payment_method || 'cash'
         ])
