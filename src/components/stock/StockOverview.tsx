@@ -45,40 +45,45 @@ export const StockOverview: React.FC = () => {
         return;
       }
 
-      // Fetch inventory with location names in parallel
+      // Optimized: Fetch data separately to improve performance
       const [inventoryResult, locationsResult, lowStockResult] = await Promise.allSettled([
+        // Simplified products query without joins for better performance
         supabase
           .from('products')
-          .select(`
-            id,
-            name,
-            sku,
-            stock_quantity,
-            min_stock_level,
-            cost_price,
-            location_id,
-            store_locations(name)
-          `)
+          .select('id, name, sku, stock_quantity, min_stock_level, cost_price, location_id')
           .eq('tenant_id', profile.tenant_id)
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .limit(1000), // Add limit for performance
+        // Fetch locations separately
         supabase
           .from('store_locations')
           .select('id, name')
           .eq('tenant_id', profile.tenant_id)
           .eq('is_active', true),
+        // Use optimized low stock function
         getLowStockItems(profile.tenant_id)
       ]);
 
-      // Handle inventory data
+      // Handle inventory data with location mapping
       if (inventoryResult.status === 'fulfilled' && !inventoryResult.value.error) {
         const inventory = inventoryResult.value.data || [];
-        setInventoryData(inventory);
-        setFilteredData(inventory);
-      }
-
-      // Handle locations data
-      if (locationsResult.status === 'fulfilled' && !locationsResult.value.error) {
-        setLocations(locationsResult.value.data || []);
+        
+        // Handle locations data first to create location map
+        let locationMap = new Map();
+        if (locationsResult.status === 'fulfilled' && !locationsResult.value.error) {
+          const locations = locationsResult.value.data || [];
+          setLocations(locations);
+          locationMap = new Map(locations.map(loc => [loc.id, loc.name]));
+        }
+        
+        // Map location names to inventory items
+        const inventoryWithLocations = inventory.map(item => ({
+          ...item,
+          store_locations: { name: locationMap.get(item.location_id) || 'N/A' }
+        }));
+        
+        setInventoryData(inventoryWithLocations);
+        setFilteredData(inventoryWithLocations);
       }
 
       // Handle low stock data

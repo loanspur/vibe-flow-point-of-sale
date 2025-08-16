@@ -617,18 +617,58 @@ export const StockTransfers: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {transfer.status === 'in_transit' && (
+                      <div className="flex items-center gap-2">
+                        {/* View Details */}
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => completeTransfer(transfer.id)}
-                          disabled={loading}
-                          className="flex items-center gap-1"
+                          onClick={() => viewTransferDetails(transfer.id)}
+                          className="h-8 w-8 p-0"
+                          title="View Details"
                         >
-                          <CheckCircle className="h-3 w-3" />
-                          Complete
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
+                        
+                        {/* Edit Transfer (only for pending status) */}
+                        {transfer.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => editTransfer(transfer)}
+                            className="h-8 w-8 p-0"
+                            title="Edit Transfer"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {/* Complete Transfer (only for in_transit status) */}
+                        {transfer.status === 'in_transit' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => completeTransfer(transfer.id)}
+                            disabled={loading}
+                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                            title="Complete Transfer"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {/* Delete Transfer (only for pending or cancelled status) */}
+                        {(transfer.status === 'pending' || transfer.status === 'cancelled') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteTransfer(transfer.id)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                            title="Delete Transfer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
