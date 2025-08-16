@@ -9,8 +9,8 @@ interface AutoRefreshOptions {
 
 export const useAutoRefresh = (options: AutoRefreshOptions = {}) => {
   const {
-    interval = 30000, // Default 30 seconds
-    enabled = true,
+    interval = 60000, // Increased to 60 seconds to reduce load
+    enabled = false, // Disabled by default to prevent performance issues
     onRefresh,
     visibilityBased = true
   } = options;

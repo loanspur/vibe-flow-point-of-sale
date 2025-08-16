@@ -182,13 +182,19 @@ console.log = function(...args) {
   originalConsoleLog.apply(console, args);
 };
 
+// Optimized query client configuration for better performance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: 2 * 60 * 1000, // 2 minutes - shorter for fresher data
+      gcTime: 5 * 60 * 1000, // 5 minutes - shorter to free memory faster
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: false, // Disabled to prevent performance issues
+      refetchOnMount: false, // Disabled to prevent unnecessary refetches
+      refetchOnReconnect: false, // Disabled to prevent network spam
+    },
+    mutations: {
+      retry: 1, // Limit mutation retries
     },
   },
 });
@@ -200,7 +206,7 @@ const DomainRouter = () => {
   
   // Removed excessive logging that caused tab switching reload issues
   
-  // Redirect auth callbacks to reset-password flow - only run once on mount
+  // Redirect auth callbacks to reset-password flow - optimized to prevent reloads
   useEffect(() => {
     const checkAuthCallback = () => {
       if (typeof window !== 'undefined' && window.location.hash &&
@@ -210,41 +216,21 @@ const DomainRouter = () => {
         if (!search.get('from')) search.set('from', 'invite');
         const qs = search.toString();
         const newUrl = `/reset-password${qs ? `?${qs}` : ''}${window.location.hash}`;
-        window.location.replace(newUrl);
+        // Use navigate instead of window.location.replace to prevent full page reload
+        window.history.replaceState(null, '', newUrl);
       }
     };
     
-    // Only check on initial mount, not on every route change
-    checkAuthCallback();
-  }, []); // Remove dependencies to prevent running on route changes
+    // Only check once on mount
+    let hasChecked = false;
+    if (!hasChecked) {
+      checkAuthCallback();
+      hasChecked = true;
+    }
+  }, []); // No dependencies to prevent re-runs
   
-  // Check for authentication session issues
+  // Simplified auth session check - removed to prevent excessive API calls
   const [showAuthFix, setShowAuthFix] = useState(false);
-  
-  useEffect(() => {
-    const checkAuthSession = async () => {
-      if (!loading && user && domainConfig?.tenantId) {
-        try {
-          const { data: authData, error } = await supabase.rpc('debug_user_auth');
-          
-          if (error) {
-            console.error('Error checking auth session:', error);
-            return;
-          }
-          
-          if (authData && authData.length > 0 && !authData[0].auth_uid_result) {
-            setShowAuthFix(true);
-          } else {
-            setShowAuthFix(false);
-          }
-        } catch (error) {
-          console.error('Failed to check auth session:', error);
-        }
-      }
-    };
-
-    checkAuthSession();
-  }, [loading, domainConfig, user]);
   
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
     // Show loading with timeout to prevent infinite loading
@@ -253,7 +239,7 @@ const DomainRouter = () => {
     useEffect(() => {
       const timer = setTimeout(() => {
         setTimeoutReached(true);
-      }, 15000); // 15 second timeout
+      }, 5000); // Reduced to 5 seconds to improve UX
       
       return () => clearTimeout(timer);
     }, []);

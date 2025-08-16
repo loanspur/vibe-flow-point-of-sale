@@ -137,22 +137,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Force refresh on window focus to catch external changes
+  // Optimized - removed window focus refresh to prevent constant reloads and performance issues
   useEffect(() => {
-    const handleFocus = () => {
-      if (user && document.visibilityState === 'visible') {
-        // Only refresh if we haven't fetched profile in the last 5 minutes
-        const shouldRefresh = !profileFetched || profileFetched !== user.id;
-        if (shouldRefresh) {
-          console.log(`👁️ Refreshing user info on focus for: ${user.id}`);
-          setProfileFetched(user.id);
-          fetchUserInfo(user.id, 'focus-refresh');
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleFocus);
-    return () => document.removeEventListener('visibilitychange', handleFocus);
+    if (!user) return;
+    
+    // Only set initial profile state, remove focus refreshing to prevent flickering
+    if (!profileFetched || profileFetched !== user.id) {
+      setProfileFetched(user.id);
+    }
   }, [user, profileFetched]);
 
   // Optimized activity logging function

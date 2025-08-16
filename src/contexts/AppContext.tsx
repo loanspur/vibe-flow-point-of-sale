@@ -147,9 +147,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchBusinessSettings();
   }, [fetchBusinessSettings]);
 
-  // Set up real-time subscription for business settings changes
+  // Optimized real-time subscription with debouncing to prevent performance issues
   useEffect(() => {
     if (!tenantId) return;
+
+    let timeoutRef: NodeJS.Timeout;
 
     const channel = supabase
       .channel('business-settings-changes')
@@ -162,37 +164,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           filter: `tenant_id=eq.${tenantId}`
         },
         (payload) => {
-          console.log('Business settings changed:', payload);
-          // Immediately update with new data if available
-          if (payload.new && typeof payload.new === 'object') {
-            const newSettings = payload.new as any;
-            
-            // Auto-detect currency symbol if only currency code was changed
-            let currencySymbol = newSettings.currency_symbol;
-            if (newSettings.currency_code && !currencySymbol) {
-              const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
-              currencySymbol = autoDetected.symbol;
+          // Debounce updates to prevent rapid flickering
+          if (timeoutRef) clearTimeout(timeoutRef);
+          timeoutRef = setTimeout(() => {
+            if (!refreshingRef.current) {
+              console.log('Business settings changed:', payload);
+              // Immediately update with new data if available
+              if (payload.new && typeof payload.new === 'object') {
+                const newSettings = payload.new as any;
+                
+                // Auto-detect currency symbol if only currency code was changed
+                let currencySymbol = newSettings.currency_symbol;
+                if (newSettings.currency_code && !currencySymbol) {
+                  const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
+                  currencySymbol = autoDetected.symbol;
+                }
+                
+                const updatedSettings = {
+                  currency_code: newSettings.currency_code || 'USD',
+                  currency_symbol: currencySymbol || '$',
+                  company_name: newSettings.company_name || 'Your Business',
+                  timezone: newSettings.timezone || 'UTC',
+                  tax_inclusive: newSettings.tax_inclusive || false,
+                  default_tax_rate: newSettings.default_tax_rate || 0
+                };
+                
+                setBusinessSettings(updatedSettings);
+              }
             }
-            
-            const updatedSettings = {
-              currency_code: newSettings.currency_code || 'USD',
-              currency_symbol: currencySymbol || '$',
-              company_name: newSettings.company_name || 'Your Business',
-              timezone: newSettings.timezone || 'UTC',
-              tax_inclusive: newSettings.tax_inclusive || false,
-              default_tax_rate: newSettings.default_tax_rate || 0
-            };
-            
-            setBusinessSettings(updatedSettings);
-          }
+          }, 1000); // 1 second debounce
         }
       )
       .subscribe();
 
     return () => {
+      if (timeoutRef) clearTimeout(timeoutRef);
       supabase.removeChannel(channel);
     };
-   }, [tenantId, refreshBusinessSettings]);
+  }, [tenantId]);
 
   // Remove the problematic auth readiness check - AuthContext should always be available
 
