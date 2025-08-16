@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +25,16 @@ interface UnifiedTransaction {
   status: string;
   reference_type?: string;
   reference_id?: string;
+  total_amount?: number;
+  is_posted?: boolean;
+  entries?: Array<{
+    id: string;
+    account_code: string;
+    account_name: string;
+    description: string;
+    debit_amount: number;
+    credit_amount: number;
+  }>;
 }
 
 interface UnifiedTransactionHistoryProps {
@@ -47,6 +58,46 @@ export function UnifiedTransactionHistory({
   const [loading, setLoading] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'accounting' | 'cash'>(filterType);
   const [period, setPeriod] = useState('7d'); // 7d, 30d, 90d, all
+  const [selectedTransaction, setSelectedTransaction] = useState<UnifiedTransaction | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
+
+  const fetchUserNames = async (userIds: string[]) => {
+    if (userIds.length === 0) return;
+
+    try {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+
+      if (error) throw error;
+
+      const nameMap: Record<string, string> = {};
+      profiles?.forEach(profile => {
+        nameMap[profile.user_id] = profile.full_name || 'Unknown User';
+      });
+
+      setUserNames(prev => ({ ...prev, ...nameMap }));
+    } catch (error) {
+      console.error('Error fetching user names:', error);
+      // If profiles query fails, try to get emails from auth.users through a function
+      try {
+        const { data: userEmails, error: emailError } = await supabase
+          .rpc('get_tenant_user_emails', { user_ids: userIds });
+
+        if (!emailError && userEmails) {
+          const emailMap: Record<string, string> = {};
+          userEmails.forEach((user: any) => {
+            emailMap[user.user_id] = user.email || 'Unknown User';
+          });
+          setUserNames(prev => ({ ...prev, ...emailMap }));
+        }
+      } catch (emailErr) {
+        console.error('Error fetching user emails:', emailErr);
+      }
+    }
+  };
 
   const fetchTransactions = async () => {
     if (!tenantId) return;
@@ -55,6 +106,7 @@ export function UnifiedTransactionHistory({
     try {
       const dateFilter = getPeriodFilter();
       const allTransactions: UnifiedTransaction[] = [];
+      const userIds = new Set<string>();
 
       // Fetch accounting transactions if needed
       if (selectedFilter === 'all' || selectedFilter === 'accounting') {
@@ -78,20 +130,26 @@ export function UnifiedTransactionHistory({
 
         if (accError) throw accError;
 
-        const formattedAccounting = accountingTxns?.map(txn => ({
-          id: txn.id,
-          transaction_number: txn.transaction_number,
-          description: txn.description,
-          transaction_date: txn.transaction_date,
-          amount: txn.total_amount,
-          payment_method: 'Journal Entry',
-          posted_by_name: 'System',
-          posted_by_id: txn.created_by,
-          type: 'accounting' as const,
-          status: txn.is_posted ? 'Posted' : 'Draft',
-          reference_type: txn.reference_type,
-          reference_id: txn.reference_id
-        })) || [];
+        const formattedAccounting = accountingTxns?.map(txn => {
+          if (txn.created_by) userIds.add(txn.created_by);
+          
+          return {
+            id: txn.id,
+            transaction_number: txn.transaction_number,
+            description: txn.description,
+            transaction_date: txn.transaction_date,
+            amount: txn.total_amount,
+            total_amount: txn.total_amount,
+            is_posted: txn.is_posted,
+            payment_method: 'Journal Entry',
+            posted_by_name: 'Loading...',
+            posted_by_id: txn.created_by,
+            type: 'accounting' as const,
+            status: txn.is_posted ? 'Posted' : 'Draft',
+            reference_type: txn.reference_type,
+            reference_id: txn.reference_id
+          };
+        }) || [];
 
         allTransactions.push(...formattedAccounting);
       }
@@ -117,20 +175,24 @@ export function UnifiedTransactionHistory({
 
         if (cashError) throw cashError;
 
-        const formattedCash = cashTxns?.map(txn => ({
-          id: txn.id,
-          transaction_number: `CASH-${txn.id.substring(0, 8)}`,
-          description: txn.description,
-          transaction_date: txn.transaction_date,
-          amount: txn.amount,
-          payment_method: getPaymentMethodForCashTransaction(txn.transaction_type),
-          posted_by_name: 'System',
-          posted_by_id: txn.performed_by,
-          type: 'cash' as const,
-          status: 'Posted',
-          reference_type: txn.reference_type,
-          reference_id: txn.reference_id
-        })) || [];
+        const formattedCash = cashTxns?.map(txn => {
+          if (txn.performed_by) userIds.add(txn.performed_by);
+          
+          return {
+            id: txn.id,
+            transaction_number: `CASH-${txn.id.substring(0, 8)}`,
+            description: txn.description,
+            transaction_date: txn.transaction_date,
+            amount: txn.amount,
+            payment_method: getPaymentMethodForCashTransaction(txn.transaction_type),
+            posted_by_name: 'Loading...',
+            posted_by_id: txn.performed_by,
+            type: 'cash' as const,
+            status: 'Posted',
+            reference_type: txn.reference_type,
+            reference_id: txn.reference_id
+          };
+        }) || [];
 
         allTransactions.push(...formattedCash);
       }
@@ -141,6 +203,9 @@ export function UnifiedTransactionHistory({
         .slice(0, limit);
 
       setTransactions(sortedTransactions);
+      
+      // Fetch user names for all unique user IDs
+      await fetchUserNames(Array.from(userIds));
     } catch (error) {
       console.error('Error fetching unified transactions:', error);
       toast({ title: "Error", description: "Failed to fetch transactions", variant: "destructive" });
@@ -188,6 +253,57 @@ export function UnifiedTransactionHistory({
   const getAmountColor = (amount: number, type: string) => {
     if (type === 'accounting') return 'text-foreground';
     return amount >= 0 ? 'text-green-600' : 'text-red-600';
+  };
+
+  const viewTransactionDetails = async (transaction: UnifiedTransaction) => {
+    if (transaction.type === 'accounting') {
+      try {
+        // Fetch detailed accounting transaction with entries
+        const { data: txnData, error: txnError } = await supabase
+          .from('accounting_transactions')
+          .select(`
+            *,
+            accounting_entries (
+              id,
+              debit_amount,
+              credit_amount,
+              description,
+              account_id,
+              accounts (
+                code,
+                name
+              )
+            )
+          `)
+          .eq('id', transaction.id)
+          .single();
+
+        if (txnError) throw txnError;
+
+        const detailedTransaction = {
+          ...transaction,
+          ...txnData,
+          entries: txnData.accounting_entries?.map(entry => ({
+            id: entry.id,
+            account_code: entry.accounts?.code || '',
+            account_name: entry.accounts?.name || '',
+            description: entry.description || '',
+            debit_amount: entry.debit_amount || 0,
+            credit_amount: entry.credit_amount || 0
+          })) || []
+        };
+
+        setSelectedTransaction(detailedTransaction);
+        setIsDetailOpen(true);
+      } catch (error) {
+        console.error('Error fetching transaction details:', error);
+        toast({ title: "Error", description: "Failed to fetch transaction details", variant: "destructive" });
+      }
+    } else {
+      // For cash transactions, show basic details
+      setSelectedTransaction(transaction);
+      setIsDetailOpen(true);
+    }
   };
 
   const viewReference = (transaction: UnifiedTransaction) => {
@@ -327,7 +443,7 @@ export function UnifiedTransactionHistory({
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground" />
-                      {transaction.posted_by_name}
+                      {userNames[transaction.posted_by_id] || transaction.posted_by_name}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -336,16 +452,26 @@ export function UnifiedTransactionHistory({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {transaction.reference_id && (
+                    <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => viewReference(transaction)}
-                        title="View reference"
+                        onClick={() => viewTransactionDetails(transaction)}
+                        title="View transaction details"
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
-                    )}
+                      {transaction.reference_id && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => viewReference(transaction)}
+                          title="View reference document"
+                        >
+                          <Building2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -353,6 +479,110 @@ export function UnifiedTransactionHistory({
           </Table>
         )}
       </CardContent>
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              Detailed view of {selectedTransaction?.type === 'accounting' ? 'accounting' : 'cash'} transaction
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTransaction && (
+            <div className="space-y-6">
+              {/* Transaction Header Info */}
+              <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {getTransactionIcon(selectedTransaction.type, selectedTransaction.reference_type)}
+                    <span className="font-medium">Transaction #{selectedTransaction.transaction_number}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(selectedTransaction.transaction_date), 'EEEE, MMMM dd, yyyy HH:mm')}
+                  </p>
+                </div>
+                <div className="space-y-2 text-right">
+                  <div className={`text-2xl font-bold ${getAmountColor(selectedTransaction.amount, selectedTransaction.type)}`}>
+                    {selectedTransaction.amount >= 0 ? '+' : ''}{formatCurrency(selectedTransaction.amount)}
+                  </div>
+                  <Badge variant={selectedTransaction.status === 'Posted' ? 'default' : 'outline'}>
+                    {selectedTransaction.status}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Transaction Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium mb-2">Description</h4>
+                    <p className="text-sm text-muted-foreground">{selectedTransaction.description}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Payment Method</h4>
+                    <Badge variant="outline">{selectedTransaction.payment_method}</Badge>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium mb-2">Posted By</h4>
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{userNames[selectedTransaction.posted_by_id] || 'System'}</span>
+                    </div>
+                  </div>
+                  {selectedTransaction.reference_type && (
+                    <div>
+                      <h4 className="font-medium mb-2">Reference</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedTransaction.reference_type}: {selectedTransaction.reference_id?.substring(0, 8)}...
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Journal Entries (for accounting transactions) */}
+              {selectedTransaction.type === 'accounting' && selectedTransaction.entries && (
+                <div>
+                  <h4 className="font-medium mb-4">Journal Entries</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Account</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Debit</TableHead>
+                        <TableHead className="text-right">Credit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedTransaction.entries.map((entry) => (
+                        <TableRow key={entry.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{entry.account_code}</div>
+                              <div className="text-sm text-muted-foreground">{entry.account_name}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{entry.description}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            {entry.debit_amount > 0 ? formatCurrency(entry.debit_amount) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {entry.credit_amount > 0 ? formatCurrency(entry.credit_amount) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
