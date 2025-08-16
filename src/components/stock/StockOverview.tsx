@@ -18,63 +18,74 @@ export const StockOverview: React.FC = () => {
   const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const { user } = useAuth();
   useEnsureBaseUnitPcs();
 
   useEffect(() => {
-    fetchInventoryData();
-  }, [user]);
+    if (user?.id) {
+      fetchInventoryData();
+    }
+  }, [user?.id]);
 
   const fetchInventoryData = async () => {
+    if (!user?.id) return;
+    
+    setLoading(true);
     try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('tenant_id')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .single();
 
-      if (!profile?.tenant_id) return;
+      if (!profile?.tenant_id) {
+        setLoading(false);
+        return;
+      }
 
-      // Fetch inventory with location names
-      const { data: inventory, error: inventoryError } = await supabase
-        .from('products')
-        .select(`
-          id,
-          name,
-          sku,
-          stock_quantity,
-          min_stock_level,
-          cost_price,
-          location_id,
-          store_locations(name)
-        `)
-        .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true);
-
-      if (inventoryError) throw inventoryError;
-
-      // Fetch locations for filter dropdown
-      const { data: locationsData, error: locationsError } = await supabase
-        .from('store_locations')
-        .select('id, name')
-        .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true);
-
-      if (locationsError) throw locationsError;
-
-      const [lowStock] = await Promise.all([
+      // Fetch inventory with location names in parallel
+      const [inventoryResult, locationsResult, lowStockResult] = await Promise.allSettled([
+        supabase
+          .from('products')
+          .select(`
+            id,
+            name,
+            sku,
+            stock_quantity,
+            min_stock_level,
+            cost_price,
+            location_id,
+            store_locations(name)
+          `)
+          .eq('tenant_id', profile.tenant_id)
+          .eq('is_active', true),
+        supabase
+          .from('store_locations')
+          .select('id, name')
+          .eq('tenant_id', profile.tenant_id)
+          .eq('is_active', true),
         getLowStockItems(profile.tenant_id)
       ]);
 
-      console.log('Inventory data loaded:', inventory);
-      console.log('Low stock items:', lowStock);
+      // Handle inventory data
+      if (inventoryResult.status === 'fulfilled' && !inventoryResult.value.error) {
+        const inventory = inventoryResult.value.data || [];
+        setInventoryData(inventory);
+        setFilteredData(inventory);
+      }
 
-      setInventoryData(inventory || []);
-      setFilteredData(inventory || []);
-      setLocations(locationsData || []);
-      setLowStockItems(lowStock);
+      // Handle locations data
+      if (locationsResult.status === 'fulfilled' && !locationsResult.value.error) {
+        setLocations(locationsResult.value.data || []);
+      }
+
+      // Handle low stock data
+      if (lowStockResult.status === 'fulfilled') {
+        setLowStockItems(lowStockResult.value || []);
+      }
+
     } catch (error) {
       console.error('Error fetching inventory data:', error);
     } finally {
@@ -95,12 +106,12 @@ export const StockOverview: React.FC = () => {
     }
 
     // Apply location filter
-    if (selectedLocation) {
+    if (selectedLocation && selectedLocation !== 'all') {
       filtered = filtered.filter(product => product.location_id === selectedLocation);
     }
 
     // Apply status filter
-    if (statusFilter) {
+    if (statusFilter && statusFilter !== 'all') {
       filtered = filtered.filter(product => {
         const status = getStockStatus(product.stock_quantity, product.min_stock_level || 0);
         return status.label.toLowerCase().replace(' ', '').includes(statusFilter);
@@ -217,8 +228,8 @@ export const StockOverview: React.FC = () => {
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by location" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Locations</SelectItem>
+                <SelectContent className="bg-background border shadow-md z-50">
+                  <SelectItem value="all">All Locations</SelectItem>
                   {locations.map((location) => (
                     <SelectItem key={location.id} value={location.id}>
                       {location.name}
@@ -230,8 +241,8 @@ export const StockOverview: React.FC = () => {
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                <SelectContent className="bg-background border shadow-md z-50">
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="instock">In Stock</SelectItem>
                   <SelectItem value="lowstock">Low Stock</SelectItem>
                   <SelectItem value="outofstock">Out of Stock</SelectItem>
