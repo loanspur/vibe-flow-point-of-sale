@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
-import EnhancedProductForm from './EnhancedProductForm';
+
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
