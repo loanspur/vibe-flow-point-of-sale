@@ -99,7 +99,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
-        console.log(`🔐 FETCHING: Set default values - no profile found`);
       }
     } catch (error) {
       console.warn('Failed to fetch user info:', error);
@@ -107,9 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUserRole('user');
       setTenantId(null);
       setRequirePasswordChange(false);
-      console.log(`🔐 FETCHING: Set default values due to exception:`, error);
     } finally {
-      console.log(`🔐 fetchUserInfo completed for ${userId}, setting fetchInProgress to false`);
       setFetchInProgress(false);
     }
   };
@@ -188,12 +185,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log(`🔄 AUTH STATE CHANGE: ${event}`, { 
-          sessionExists: !!session, 
-          userExists: !!session?.user,
-          currentPath: window.location.pathname,
-          timestamp: Date.now()
-        });
         
         if (!mounted) return;
         
@@ -267,11 +258,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user && profileFetched !== session.user.id && !fetchInProgress) {
-          console.log(`🚀 Initial user info fetch for: ${session.user.id}`);
           setProfileFetched(session.user.id);
           await fetchUserInfo(session.user.id, 'initial-auth-check');
-        } else if (session?.user) {
-          console.log(`✅ Skipping initial fetch - User: ${session.user.id}, Fetched: ${profileFetched}, InProgress: ${fetchInProgress}`);
         }
         
         // Always set loading to false after initial check
