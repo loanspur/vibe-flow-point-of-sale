@@ -51,6 +51,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmailService } from "@/hooks/useEmailService";
 import { SaleForm } from "./SaleForm";
+import { QuoteEmailDialog } from "./QuoteEmailDialog";
 
 interface Quote {
   id: string;
@@ -107,15 +108,12 @@ export function LegacyQuoteManagement() {
   const [showQuoteDetails, setShowQuoteDetails] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [emailDialog, setEmailDialog] = useState(false);
-  const [emailContent, setEmailContent] = useState({
-    to: '',
-    subject: '',
-    message: ''
-  });
+  // Legacy email state - keeping for compatibility but using new enhanced dialog
   const [showInvoiceTerms, setShowInvoiceTerms] = useState(false);
   const [selectedQuoteForInvoice, setSelectedQuoteForInvoice] = useState<Quote | null>(null);
   const [selectedNetDays, setSelectedNetDays] = useState<number>(30);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [selectedQuoteForEmail, setSelectedQuoteForEmail] = useState<Quote | null>(null);
   const { toast } = useToast();
   const { tenantCurrency } = useApp();
   const { sendEmail } = useEmailService();
@@ -640,37 +638,13 @@ export function LegacyQuoteManagement() {
     }
   };
 
-  const sendQuoteEmail = async () => {
-    try {
-      if (!selectedQuote) return;
-      if (!emailContent.to) throw new Error('Recipient email is required');
+  const handleSendQuoteEmail = (quote: Quote) => {
+    setSelectedQuoteForEmail(quote);
+    setShowEmailDialog(true);
+  };
 
-      const html = `
-        <div>
-          <h2 style="margin:0 0 8px 0;">Quote ${selectedQuote.quote_number}</h2>
-          <p>Dear ${selectedQuote.contacts?.name || 'Customer'},</p>
-          <p>${emailContent.message || 'Please find your quote details below.'}</p>
-          <p><strong>Total:</strong> ${formatCurrency(selectedQuote.total_amount)}</p>
-          ${selectedQuote.valid_until ? `<p><strong>Valid Until:</strong> ${formatDate(selectedQuote.valid_until)}</p>` : ''}
-          <p>If you have any questions or would like to proceed, just reply to this email.</p>
-          <p>Best regards,<br />VibePOS Team</p>
-        </div>`;
-
-      await sendEmail({
-        to: emailContent.to,
-        subject: emailContent.subject || `Quote ${selectedQuote.quote_number}`,
-        htmlContent: html,
-        textContent: `${emailContent.message}\nTotal: ${selectedQuote.total_amount}`,
-        variables: { company_name: 'VibePOS' },
-        priority: 'medium'
-      });
-
-      await updateQuoteStatus(selectedQuote.id, 'sent');
-      setEmailDialog(false);
-      setEmailContent({ to: '', subject: '', message: '' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to send email', variant: 'destructive' });
-    }
+  const handleEmailSent = () => {
+    fetchQuotes(); // Refresh quotes list to show updated status
   };
 
   const exportQuotes = () => {
@@ -928,15 +902,8 @@ export function LegacyQuoteManagement() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => {
-                              setSelectedQuote(quote);
-                              setEmailContent({
-                                to: quote.contacts?.email || '',
-                                subject: `Quote ${quote.quote_number}`,
-                                message: `Please find attached quote ${quote.quote_number} for your review.`
-                              });
-                              setEmailDialog(true);
-                            }}
+                            onClick={() => handleSendQuoteEmail(quote)}
+                            title="Send quote via email"
                           >
                             <Send className="h-3 w-3" />
                           </Button>
@@ -1252,57 +1219,13 @@ export function LegacyQuoteManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Email Dialog */}
-      <Dialog open={emailDialog} onOpenChange={setEmailDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Quote via Email</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email_to">To</Label>
-              <Input
-                id="email_to"
-                type="email"
-                value={emailContent.to}
-                onChange={(e) => setEmailContent({...emailContent, to: e.target.value})}
-                placeholder="customer@example.com"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="email_subject">Subject</Label>
-              <Input
-                id="email_subject"
-                value={emailContent.subject}
-                onChange={(e) => setEmailContent({...emailContent, subject: e.target.value})}
-                placeholder="Quote Subject"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="email_message">Message</Label>
-              <Textarea
-                id="email_message"
-                value={emailContent.message}
-                onChange={(e) => setEmailContent({...emailContent, message: e.target.value})}
-                placeholder="Email message..."
-                rows={4}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEmailDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={sendQuoteEmail}>
-                <Mail className="h-4 w-4 mr-2" />
-                Send Quote
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Enhanced Email Dialog */}
+      <QuoteEmailDialog
+        quote={selectedQuoteForEmail}
+        isOpen={showEmailDialog}
+        onClose={() => setShowEmailDialog(false)}
+        onEmailSent={handleEmailSent}
+      />
 
       {/* Invoice Terms Dialog */}
       <Dialog open={showInvoiceTerms} onOpenChange={setShowInvoiceTerms}>
