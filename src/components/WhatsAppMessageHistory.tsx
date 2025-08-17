@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { MessageCircle, Search, Calendar, Phone, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface WhatsAppMessage {
   id: string;
@@ -37,12 +38,20 @@ const WhatsAppMessageHistory: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('7');
   const { toast } = useToast();
+  const { tenantId } = useAuth();
 
   useEffect(() => {
-    fetchMessages();
-  }, [statusFilter, dateFilter]);
+    if (tenantId) {
+      fetchMessages();
+    }
+  }, [statusFilter, dateFilter, tenantId]);
 
   const fetchMessages = async () => {
+    if (!tenantId) {
+      console.log('No tenant ID available yet');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -52,6 +61,7 @@ const WhatsAppMessageHistory: React.FC = () => {
           *,
           whatsapp_templates(name, type)
         `)
+        .eq('tenant_id', tenantId)
         .order('sent_at', { ascending: false });
 
       // Apply status filter
@@ -68,7 +78,11 @@ const WhatsAppMessageHistory: React.FC = () => {
 
       const { data, error } = await query.limit(100);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+      
       setMessages((data as any) || []);
     } catch (error: any) {
       toast({
