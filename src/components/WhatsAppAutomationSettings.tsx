@@ -225,7 +225,7 @@ const WhatsAppAutomationSettings: React.FC = () => {
                             <SelectValue placeholder="Select template" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">No template</SelectItem>
+                            <SelectItem value="none">No template</SelectItem>
                             {templates.map((template) => (
                               <SelectItem key={template.id} value={template.id}>
                                 <div className="flex items-center gap-2">
