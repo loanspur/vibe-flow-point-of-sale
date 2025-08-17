@@ -6407,6 +6407,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_automation_settings: {
+        Row: {
+          conditions: Json | null
+          created_at: string
+          delay_minutes: number | null
+          event_type: string
+          id: string
+          is_enabled: boolean | null
+          template_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string
+          delay_minutes?: number | null
+          event_type: string
+          id?: string
+          is_enabled?: boolean | null
+          template_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string
+          delay_minutes?: number | null
+          event_type?: string
+          id?: string
+          is_enabled?: boolean | null
+          template_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_billing: {
         Row: {
           base_fee: number
@@ -6462,6 +6498,116 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_bulk_campaign_messages: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          contact_name: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          message_content: string
+          phone_number: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          contact_name?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message_content: string
+          phone_number: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          contact_name?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message_content?: string
+          phone_number?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bulk_campaign_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_bulk_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_bulk_campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          failed_count: number | null
+          id: string
+          message_content: string
+          name: string
+          scheduled_for: string | null
+          sent_count: number | null
+          started_at: string | null
+          status: string
+          target_contacts: Json
+          template_id: string | null
+          tenant_id: string
+          total_recipients: number | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          failed_count?: number | null
+          id?: string
+          message_content: string
+          name: string
+          scheduled_for?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          target_contacts?: Json
+          template_id?: string | null
+          tenant_id: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          failed_count?: number | null
+          id?: string
+          message_content?: string
+          name?: string
+          scheduled_for?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          target_contacts?: Json
+          template_id?: string | null
+          tenant_id?: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       whatsapp_message_logs: {
         Row: {
