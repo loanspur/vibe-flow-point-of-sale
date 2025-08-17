@@ -314,6 +314,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const uid = user.id;
       if (!uid) return;
 
+      // Check if invitation was already processed to prevent loops
+      const inviteProcessedKey = `invite_processed_${uid}`;
+      if (sessionStorage.getItem(inviteProcessedKey)) {
+        console.log('🎯 Invitation already processed for user:', uid);
+        return;
+      }
+
       console.log('🎯 Marking invitation as accepted for user:', uid);
 
       // First, update profile invite status
@@ -331,24 +338,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('✅ Profile invitation status updated successfully');
       }
 
-      // Get tenant ID from multiple sources to ensure we find it
-      let tenantId: string | null = null;
+      // Get tenant ID from domain context first
+      let tenantId: string | null = domainManager.getDomainTenantId();
       
-      // Try getting from user metadata first
-      const metaTenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
-      if (metaTenantId) {
-        tenantId = metaTenantId;
-        console.log('📋 Found tenant ID in user metadata:', tenantId);
-      }
-      
-      // Fallback to RPC function
+      // Fallback to user metadata
       if (!tenantId) {
-        const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
-        tenantId = tenantData as string;
-        console.log('📋 Found tenant ID via RPC:', tenantId);
+        const metaTenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
+        if (metaTenantId) {
+          tenantId = metaTenantId;
+          console.log('📋 Found tenant ID in user metadata:', tenantId);
+        }
       }
       
-      // Final fallback: check existing profile
+      // Final fallback: check existing profile (avoid RPC if possible)
       if (!tenantId) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -378,25 +380,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           console.log('✅ Tenant_users invitation status updated successfully');
         }
-
-        // Also update any records that are specifically pending
-        const { error: pendingError } = await supabase
-          .from('tenant_users')
-          .update({
-            invitation_status: 'accepted',
-            invitation_accepted_at: new Date().toISOString(),
-            is_active: true,
-          })
-          .eq('user_id', uid)
-          .eq('tenant_id', tenantId)
-          .eq('invitation_status', 'pending');
-
-        if (pendingError) {
-          console.warn('Failed to update pending tenant_users records:', pendingError);
-        }
       } else {
         console.warn('⚠️ No tenant ID found for user, skipping tenant_users update');
       }
+
+      // Mark as processed to prevent future runs
+      sessionStorage.setItem(inviteProcessedKey, 'true');
     } catch (e) {
       console.error('❌ Failed to mark invitation as accepted:', e);
     }
