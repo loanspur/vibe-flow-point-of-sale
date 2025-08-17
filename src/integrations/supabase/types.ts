@@ -3688,6 +3688,7 @@ export type Database = {
           product_id: string | null
           quantity: number
           quote_id: string | null
+          tenant_id: string
           total_price: number
           unit_price: number
           updated_at: string
@@ -3699,6 +3700,7 @@ export type Database = {
           product_id?: string | null
           quantity: number
           quote_id?: string | null
+          tenant_id: string
           total_price: number
           unit_price: number
           updated_at?: string
@@ -3710,6 +3712,7 @@ export type Database = {
           product_id?: string | null
           quantity?: number
           quote_id?: string | null
+          tenant_id?: string
           total_price?: number
           unit_price?: number
           updated_at?: string
