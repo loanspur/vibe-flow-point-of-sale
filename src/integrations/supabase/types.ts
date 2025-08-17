@@ -6629,6 +6629,7 @@ export type Database = {
           sent_at: string | null
           status: string
           template_id: string | null
+          template_type: string | null
           tenant_id: string
           waba_message_id: string | null
         }
@@ -6651,6 +6652,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           template_id?: string | null
+          template_type?: string | null
           tenant_id: string
           waba_message_id?: string | null
         }
@@ -6673,6 +6675,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           template_id?: string | null
+          template_type?: string | null
           tenant_id?: string
           waba_message_id?: string | null
         }
@@ -6764,6 +6767,7 @@ export type Database = {
           subject: string | null
           template_type: string
           tenant_id: string
+          type: string | null
           updated_at: string
           variables: Json | null
         }
@@ -6777,6 +6781,7 @@ export type Database = {
           subject?: string | null
           template_type: string
           tenant_id: string
+          type?: string | null
           updated_at?: string
           variables?: Json | null
         }
@@ -6790,6 +6795,7 @@ export type Database = {
           subject?: string | null
           template_type?: string
           tenant_id?: string
+          type?: string | null
           updated_at?: string
           variables?: Json | null
         }
