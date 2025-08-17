@@ -79,11 +79,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Sending request to 360messenger:', requestBody);
 
-    const whatsappResponse = await fetch('https://api.360dialog.com/v1/messages', {
+    const whatsappResponse = await fetch('https://api.360messenger.com/v2/sendMessage', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'D360-API-KEY': apiKey,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify(requestBody),
     });
