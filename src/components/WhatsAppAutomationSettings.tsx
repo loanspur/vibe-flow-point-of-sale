@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { Settings, MessageCircle, Clock, CheckCircle, FileText, CreditCard, Package, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AutomationSetting {
   id: string;
@@ -31,6 +32,7 @@ const WhatsAppAutomationSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { tenantId } = useAuth();
 
   const eventTypes = [
     { value: 'receipt_created', label: 'Receipt Created', icon: FileText, description: 'Send WhatsApp when a receipt is generated' },
@@ -85,7 +87,12 @@ const WhatsAppAutomationSettings: React.FC = () => {
     try {
       setSaving(true);
       
+      if (!tenantId) {
+        throw new Error('No tenant ID available');
+      }
+
       const updateData: any = {
+        tenant_id: tenantId,
         event_type: eventType,
         [field]: value,
       };
@@ -124,7 +131,7 @@ const WhatsAppAutomationSettings: React.FC = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to update automation setting",
+        description: `Failed to update automation setting: ${error.message}`,
         variant: "destructive",
       });
       console.error('Error updating setting:', error);
