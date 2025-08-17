@@ -114,17 +114,21 @@ export class EmailService {
   async fetchTemplate(templateId: string): Promise<EmailTemplate> {
     const isUUID = this.isUUID(templateId);
     
+    console.log('EmailService.fetchTemplate called with:', { templateId, isUUID });
+    
     const query = supabase
       .from('email_templates')
       .select('*')
       .eq(isUUID ? 'id' : 'name', templateId)
       .single();
 
+    console.log('EmailService.fetchTemplate query column:', isUUID ? 'id' : 'name');
+
     const { data: template, error } = await query;
 
     if (error) {
       console.error('Error fetching template:', error);
-      throw new Error(`Template "${templateId}" not found`);
+      throw new Error(`Template "${templateId}" not found: ${error.message}`);
     }
     
     if (!template) {
@@ -200,6 +204,8 @@ export class EmailService {
    */
   async sendTemplateEmail(options: TemplateEmailOptions): Promise<any> {
     try {
+      console.log('EmailService.sendTemplateEmail called with:', options);
+      
       // Fetch template
       const template = await this.fetchTemplate(options.templateId);
       

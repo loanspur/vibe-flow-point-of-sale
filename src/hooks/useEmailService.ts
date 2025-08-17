@@ -25,6 +25,8 @@ export const useEmailService = () => {
     variables: Record<string, any>,
     options?: Partial<EmailOptions>
   ) => {
+    console.log('useEmailService.sendTemplateEmail called with:', { templateId, to, variables, options });
+    
     return emailService.sendTemplateEmail({
       templateId,
       to,
