@@ -37,6 +37,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const CompanyInfo = lazy(() => import("./pages/CompanyInfo"));
 const Careers = lazy(() => import("./pages/Careers"));
+const AccountsReceivablePayable = lazy(() => import("./components/AccountsReceivablePayable"));
 
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
@@ -747,6 +748,18 @@ const DomainRouter = () => {
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <Purchases />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/ar-ap" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <AccountsReceivablePayable />
                 </TenantAdminLayout>
               </SubscriptionGuard>
             </ProtectedRoute>

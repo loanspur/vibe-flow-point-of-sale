@@ -4306,9 +4306,11 @@ export type Database = {
           cashier_id: string
           created_at: string
           customer_id: string | null
+          customer_name: string | null
           discount_amount: number | null
           id: string
           location_id: string | null
+          notes: string | null
           payment_method: string
           receipt_number: string
           sale_type: string
@@ -4323,9 +4325,11 @@ export type Database = {
           cashier_id: string
           created_at?: string
           customer_id?: string | null
+          customer_name?: string | null
           discount_amount?: number | null
           id?: string
           location_id?: string | null
+          notes?: string | null
           payment_method?: string
           receipt_number: string
           sale_type?: string
@@ -4340,9 +4344,11 @@ export type Database = {
           cashier_id?: string
           created_at?: string
           customer_id?: string | null
+          customer_name?: string | null
           discount_amount?: number | null
           id?: string
           location_id?: string | null
+          notes?: string | null
           payment_method?: string
           receipt_number?: string
           sale_type?: string

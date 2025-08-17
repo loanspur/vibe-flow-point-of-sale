@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -88,9 +89,15 @@ interface PaymentRecord {
 const AccountsReceivablePayable: React.FC = () => {
   const { tenantId, user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Get URL parameters for filtering
+  const urlTab = searchParams.get('tab') || 'make-payments';
+  const urlFilter = searchParams.get('filter') || 'all';
+  const urlSearch = searchParams.get('search') || '';
 
   // State management
-  const [activeTab, setActiveTab] = useState('make-payments');
+  const [activeTab, setActiveTab] = useState(urlTab);
   const [receivables, setReceivables] = useState<AccountsReceivable[]>([]);
   const [payables, setPayables] = useState<AccountsPayable[]>([]);
   const [receivableAging, setReceivableAging] = useState<AgingAnalysis | null>(null);
@@ -100,8 +107,8 @@ const AccountsReceivablePayable: React.FC = () => {
   const [sales, setSales] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState(urlSearch);
+  const [statusFilter, setStatusFilter] = useState<string>(urlFilter);
   
   // Dialog states
   const [isAddReceivableOpen, setIsAddReceivableOpen] = useState(false);

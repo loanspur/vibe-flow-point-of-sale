@@ -319,9 +319,10 @@ export default function SalesManagement() {
   const handleReprintReceipt = (sale: Sale) => {
     setSelectedSale(sale);
     setShowReceiptPreview(true);
+    const documentType = sale.payment_method === 'credit' ? 'Invoice' : 'Receipt';
     toast({
-      title: "Receipt Reprint",
-      description: `Receipt ${sale.receipt_number} ready for reprint`,
+      title: `${documentType} Reprint`,
+      description: `${documentType} ${sale.receipt_number} ready for reprint`,
     });
   };
 
@@ -966,17 +967,19 @@ export default function SalesManagement() {
                                      >
                                        <Mail className="h-3 w-3" />
                                      </Button>
-                                     {paymentStatus?.status !== 'paid' && (
-                                       <Button 
-                                         variant="outline" 
-                                         size="sm" 
-                                         onClick={() => handleCreditPayment(invoice)} 
-                                         title="Record Payment"
-                                         className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                                       >
-                                         <CreditCard className="h-3 w-3" />
-                                       </Button>
-                                     )}
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => {
+                                          // Navigate to AR section for payment recording
+                                          navigate('/ar-ap?tab=make-payments&filter=receivable&search=' + invoice.receipt_number);
+                                        }}
+                                        title="Record Payment (Go to AR)"
+                                        className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                                      >
+                                        <CreditCard className="h-3 w-3 mr-1" />
+                                        Pay
+                                      </Button>
                                   </div>
                                 </TableCell>
                               </TableRow>

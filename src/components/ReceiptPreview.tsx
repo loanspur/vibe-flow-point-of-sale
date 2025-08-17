@@ -107,6 +107,16 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
 
   const document = sale || quote;
 
+  // Determine document type based on sale payment method if not explicitly set
+  const getDocumentType = () => {
+    if (type === "quote") return "quote";
+    if (type === "invoice") return "invoice";
+    if (sale?.payment_method === "credit") return "invoice";
+    return "receipt";
+  };
+  
+  const documentType = getDocumentType();
+
   useEffect(() => {
     if (isOpen && document) {
       fetchBusinessSettings();
@@ -494,7 +504,7 @@ Powered by VibePOS | {{company_phone}}
       '{{date}}': formatDate(document?.created_at || ''),
       '{{time}}': new Date(document?.created_at || '').toLocaleTimeString(),
       '{{cashier_name}}': document?.profiles?.full_name || '',
-      '{{customer_name}}': document?.customers?.name || "Walk-in Customer",
+      '{{customer_name}}': document?.customers?.name || (sale as any)?.customer_name || "Walk-in Customer",
       '{{customer_phone}}': document?.customers?.phone || '',
       '{{customer_email}}': document?.customers?.email || '',
       '{{items}}': formatItemsForTemplate(),
@@ -603,7 +613,7 @@ Powered by VibePOS | {{company_phone}}
         {/* Document Details */}
         <div className="document-info small">
           <div>Date: {formatDate(document.created_at)}</div>
-          <div>Customer: {document.customers?.name || "Walk-in Customer"}</div>
+          <div>Customer: {document.customers?.name || (sale as any)?.customer_name || "Walk-in Customer"}</div>
           {document.customers?.phone && (
             <div>Phone: {document.customers.phone}</div>
           )}
