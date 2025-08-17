@@ -6,7 +6,7 @@ services:
   github:
     repo: vibenet-pos-system
     branch: main
-    deploy_on_push: true
+    deploy_on_push: false
   run_command: npx serve dist -s -l 8080
   environment_slug: node-js
   instance_count: 1
