@@ -58,14 +58,22 @@ export const useEmailService = () => {
     options?: Partial<EmailOptions>
   ) => {
     try {
-      // First get the template
-      const { data: template, error } = await supabase
+      // Check if templateId is a UUID or a name identifier
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(templateId);
+      
+      // Query by UUID or by name depending on the templateId format
+      const query = supabase
         .from('email_templates')
         .select('*')
-        .eq('id', templateId)
+        .eq(isUUID ? 'id' : 'name', templateId)
         .single();
 
-      if (error) throw error;
+      const { data: template, error } = await query;
+
+      if (error) {
+        console.error('Error fetching template:', error);
+        throw error;
+      }
       if (!template) throw new Error('Template not found');
 
       // Process template variables
