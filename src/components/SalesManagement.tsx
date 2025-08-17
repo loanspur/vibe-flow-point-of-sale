@@ -141,16 +141,37 @@ export default function SalesManagement() {
         profilesMap[profile.user_id] = profile;
       });
       
+      // Fetch customer emails for sales that have customer_id but no contacts join
+      const salesNeedingCustomerData = (data || []).filter(invoice => 
+        invoice.customer_id && !invoice.contacts
+      );
+      
+      let customerEmailMap: Record<string, { name: string; email?: string; phone?: string; address?: string }> = {};
+      
+      if (salesNeedingCustomerData.length > 0) {
+        const customerIds = salesNeedingCustomerData.map(invoice => invoice.customer_id).filter(Boolean);
+        const { data: customerData } = await supabase
+          .from('contacts')
+          .select('id, name, email, phone, address')
+          .in('id', customerIds);
+        
+        customerData?.forEach(customer => {
+          customerEmailMap[customer.id] = customer;
+        });
+      }
+
       const invoicesWithProfiles = (data || []).map(invoice => ({
         ...invoice,
         profiles: profilesMap[invoice.cashier_id] || null,
-        // Handle customer data properly - use customer_name from sales if contacts join fails
-        contacts: invoice.contacts || (invoice.customer_name ? {
-          name: invoice.customer_name,
-          email: null,
-          phone: null,
-          address: null
-        } : null)
+        // Handle customer data properly - prioritize contacts join, then fetch by customer_id, then fallback to customer_name
+        contacts: invoice.contacts || 
+          (invoice.customer_id && customerEmailMap[invoice.customer_id]) ||
+          (invoice.customer_name ? {
+            name: invoice.customer_name,
+            email: null,
+            phone: null,
+            address: null
+          } : null)
       }));
 
       setInvoices(invoicesWithProfiles);
