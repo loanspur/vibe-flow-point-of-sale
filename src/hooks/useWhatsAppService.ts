@@ -26,6 +26,7 @@ export const useWhatsAppService = () => {
   const sendWhatsAppMessage = async (options: SendWhatsAppOptions) => {
     setLoading(true);
     try {
+      console.log('WhatsApp service called with:', { options, tenantId });
       let finalMessage = options.message;
 
       // If template_id is provided, fetch and process the template
@@ -50,6 +51,14 @@ export const useWhatsAppService = () => {
         }
       }
 
+      console.log('Calling edge function with payload:', {
+        tenant_id: tenantId,
+        recipient_phone: options.recipient_phone,
+        message: finalMessage,
+        template_id: options.template_id,
+        use_global: options.use_global || false
+      });
+
       const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
         body: {
           tenant_id: tenantId,
@@ -59,6 +68,8 @@ export const useWhatsAppService = () => {
           use_global: options.use_global || false
         }
       });
+
+      console.log('Edge function response:', { data, error });
 
       if (error) throw error;
 
