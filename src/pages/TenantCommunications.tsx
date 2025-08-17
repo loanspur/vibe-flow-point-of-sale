@@ -3,7 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailTemplateManager } from "@/components/EmailTemplateManager";
 import { CommunicationSettings } from "@/components/CommunicationSettings";
-import { Mail, Settings } from "lucide-react";
+import { WhatsAppTemplateManager } from "@/components/WhatsAppTemplateManager";
+import { WhatsAppConfigManager } from "@/components/WhatsAppConfigManager";
+import { Mail, Settings, MessageSquare, Phone } from "lucide-react";
 
 const TenantCommunications = () => {
   return (
@@ -15,11 +17,19 @@ const TenantCommunications = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="templates" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="templates" className="flex items-center gap-2">
+      <Tabs defaultValue="email-templates" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="email-templates" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
             Email Templates
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp-templates" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            WhatsApp Templates
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp-config" className="flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            WhatsApp Config
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -27,7 +37,7 @@ const TenantCommunications = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="templates">
+        <TabsContent value="email-templates">
           <Card>
             <CardContent>
               <EmailTemplateManager />
@@ -35,6 +45,21 @@ const TenantCommunications = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="whatsapp-templates">
+          <Card>
+            <CardContent>
+              <WhatsAppTemplateManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp-config">
+          <Card>
+            <CardContent>
+              <WhatsAppConfigManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="settings">
           <Card>

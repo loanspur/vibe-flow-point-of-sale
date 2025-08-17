@@ -5779,6 +5779,42 @@ export type Database = {
           },
         ]
       }
+      tenant_whatsapp_configs: {
+        Row: {
+          api_key: string
+          created_at: string
+          display_name: string | null
+          id: string
+          is_active: boolean
+          phone_number: string
+          tenant_id: string
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          phone_number: string
+          tenant_id: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          phone_number?: string
+          tenant_id?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       tenant_whatsapp_numbers: {
         Row: {
           business_profile: Json | null
@@ -6568,6 +6604,48 @@ export type Database = {
           updated_at?: string
           variables?: Json | null
           waba_template_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          message_body: string
+          name: string
+          subject: string | null
+          template_type: string
+          tenant_id: string
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          message_body: string
+          name: string
+          subject?: string | null
+          template_type: string
+          tenant_id: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          message_body?: string
+          name?: string
+          subject?: string | null
+          template_type?: string
+          tenant_id?: string
+          updated_at?: string
+          variables?: Json | null
         }
         Relationships: []
       }
