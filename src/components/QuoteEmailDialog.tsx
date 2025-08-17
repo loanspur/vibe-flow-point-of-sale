@@ -66,7 +66,7 @@ export const QuoteEmailDialog = ({ quote, isOpen, onClose, onEmailSent }: QuoteE
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   
   const { toast } = useToast();
-  const { sendTemplateEmail, sendEmail } = useEmailService();
+  const { sendQuoteEmail, sendEmail } = useEmailService();
   const { tenantCurrency } = useApp();
 
   // Load email templates
@@ -219,13 +219,15 @@ ${getCompanyName()} Team
 
     try {
       if (emailData.useTemplate && selectedTemplate) {
-        // Send using template
-        await sendTemplateEmail(
-          selectedTemplate.id,
+        // Send using unified quote service
+        await sendQuoteEmail(
           emailData.to,
-          generateQuoteVariables(),
+          quote.contacts?.name || 'Valued Customer',
           {
-            priority: 'medium'
+            quoteNumber: quote.quote_number || `QT-${quote.id.slice(0, 8)}`,
+            totalAmount: `${tenantCurrency} ${quote.total_amount.toFixed(2)}`,
+            validUntil: quote.valid_until ? format(new Date(quote.valid_until), "PPP") : "30 days",
+            quoteUrl: `${window.location.origin}/quote/${quote.id}`,
           }
         );
       } else {

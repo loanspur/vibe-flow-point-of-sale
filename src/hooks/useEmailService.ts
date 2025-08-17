@@ -1,54 +1,22 @@
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
-import { domainManager } from '@/lib/domain-manager';
+import { useUnifiedEmailService, BaseEmailOptions, TemplateEmailOptions } from '@/lib/emailService';
 
-export interface EmailOptions {
+// Legacy interface for backward compatibility
+export interface EmailOptions extends BaseEmailOptions {
   templateId?: string;
-  to: string;
-  toName?: string;
-  subject: string;
-  htmlContent: string;
-  textContent?: string;
-  variables?: Record<string, any>;
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  scheduledFor?: Date;
 }
 
+/**
+ * Legacy hook that wraps the new unified email service
+ * @deprecated Use useUnifiedEmailService directly for new code
+ */
 export const useEmailService = () => {
   const { tenantId } = useAuth();
+  const emailService = useUnifiedEmailService(tenantId);
 
+  // Wrapper functions for backward compatibility
   const sendEmail = async (options: EmailOptions) => {
-    try {
-      if (!tenantId) {
-        throw new Error('No tenant ID available');
-      }
-
-      const response = await supabase.functions.invoke('send-enhanced-email', {
-        body: {
-          ...options,
-          tenantId,
-          scheduledFor: options.scheduledFor?.toISOString()
-        }
-      });
-
-      if (response.error) throw response.error;
-
-      toast({
-        title: "Success",
-        description: "Email sent successfully",
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error('Error sending email:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send email",
-        variant: "destructive",
-      });
-      throw error;
-    }
+    return emailService.sendEmail(options);
   };
 
   const sendTemplateEmail = async (
@@ -57,169 +25,23 @@ export const useEmailService = () => {
     variables: Record<string, any>,
     options?: Partial<EmailOptions>
   ) => {
-    try {
-      // Check if templateId is a UUID or a name identifier
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(templateId);
-      
-      // Query by UUID or by name depending on the templateId format
-      const query = supabase
-        .from('email_templates')
-        .select('*')
-        .eq(isUUID ? 'id' : 'name', templateId)
-        .single();
-
-      const { data: template, error } = await query;
-
-      if (error) {
-        console.error('Error fetching template:', error);
-        throw error;
-      }
-      if (!template) throw new Error('Template not found');
-
-      // Process template variables
-      let processedHtml = template.html_content;
-      let processedSubject = template.subject;
-      let processedText = template.text_content || '';
-
-      for (const [key, value] of Object.entries(variables)) {
-        const placeholder = `{{${key}}}`;
-        processedHtml = processedHtml.replace(new RegExp(placeholder, 'g'), String(value));
-        processedSubject = processedSubject.replace(new RegExp(placeholder, 'g'), String(value));
-        processedText = processedText.replace(new RegExp(placeholder, 'g'), String(value));
-      }
-
-      return await sendEmail({
-        templateId,
-        to,
-        subject: processedSubject,
-        htmlContent: processedHtml,
-        textContent: processedText,
-        variables,
-        ...options
-      });
-    } catch (error) {
-      console.error('Error sending template email:', error);
-      throw error;
-    }
+    return emailService.sendTemplateEmail({
+      templateId,
+      to,
+      variables,
+      toName: options?.toName,
+      priority: options?.priority,
+      scheduledFor: options?.scheduledFor,
+      subjectOverride: options?.subject
+    });
   };
 
   const sendWelcomeEmail = async (userEmail: string, userName: string, companyName: string) => {
-    try {
-      // Get tenant's domain configuration for proper redirect URL
-      const domainConfig = await domainManager.getCurrentDomainConfig();
-      let tenantLoginUrl = `${window.location.origin}/auth`;
-      
-      if (tenantId && domainConfig?.tenantId === tenantId) {
-        // Use current domain if we're on a tenant domain
-        tenantLoginUrl = `${window.location.origin}/auth`;
-      } else if (tenantId) {
-        // Generate tenant-specific subdomain URL
-        const { data: tenantDomain } = await supabase
-          .from('tenant_domains')
-          .select('domain_name, domain_type')
-          .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .order('is_primary', { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (tenantDomain) {
-          if (tenantDomain.domain_type === 'custom_domain') {
-            tenantLoginUrl = `https://${tenantDomain.domain_name}/auth`;
-          } else if (tenantDomain.domain_type === 'subdomain') {
-            tenantLoginUrl = `https://${tenantDomain.domain_name}/auth`;
-          }
-        }
-      }
-
-      return await sendTemplateEmail(
-        'welcome', // This would be the template name/ID
-        userEmail,
-        {
-          user_name: userName,
-          company_name: companyName,
-          login_url: tenantLoginUrl,
-          tenant_id: tenantId,
-          dashboard_url: tenantLoginUrl.replace('/auth', '/admin')
-        }
-      );
-    } catch (error) {
-      console.error('Error generating tenant URL for welcome email:', error);
-      // Fallback to current origin
-      return await sendTemplateEmail(
-        'welcome',
-        userEmail,
-        {
-          user_name: userName,
-          company_name: companyName,
-          login_url: `${window.location.origin}/auth`,
-          tenant_id: tenantId,
-          dashboard_url: `${window.location.origin}/admin`
-        }
-      );
-    }
+    return emailService.sendWelcomeEmail(userEmail, userName, companyName);
   };
 
   const sendPasswordResetEmail = async (userEmail: string, userName: string, resetUrl: string) => {
-    try {
-      // Ensure reset URL points to the correct tenant domain
-      const domainConfig = await domainManager.getCurrentDomainConfig();
-      let tenantResetUrl = resetUrl;
-      
-      if (tenantId && domainConfig?.tenantId === tenantId) {
-        // Already on correct domain
-        tenantResetUrl = resetUrl;
-      } else if (tenantId) {
-        // Generate tenant-specific reset URL
-        const { data: tenantDomain } = await supabase
-          .from('tenant_domains')
-          .select('domain_name, domain_type')
-          .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .order('is_primary', { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (tenantDomain) {
-          const baseUrl = tenantDomain.domain_type === 'custom_domain' 
-            ? `https://${tenantDomain.domain_name}`
-            : `https://${tenantDomain.domain_name}`;
-          
-          // Extract token and type from reset URL
-          const url = new URL(resetUrl);
-          const token = url.searchParams.get('token');
-          const type = url.searchParams.get('type');
-          
-          if (token && type) {
-            tenantResetUrl = `${baseUrl}/reset-password?token=${token}&type=${type}`;
-          }
-        }
-      }
-
-      return await sendTemplateEmail(
-        'password_reset',
-        userEmail,
-        {
-          user_name: userName,
-          company_name: 'VibePOS',
-          reset_url: tenantResetUrl,
-          tenant_id: tenantId
-        }
-      );
-    } catch (error) {
-      console.error('Error generating tenant reset URL:', error);
-      // Fallback to original URL
-      return await sendTemplateEmail(
-        'password_reset',
-        userEmail,
-        {
-          user_name: userName,
-          company_name: 'VibePOS',
-          reset_url: resetUrl,
-          tenant_id: tenantId
-        }
-      );
-    }
+    return emailService.sendPasswordResetEmail(userEmail, userName, resetUrl);
   };
 
   const sendOrderConfirmationEmail = async (
@@ -232,17 +54,7 @@ export const useEmailService = () => {
       orderUrl: string;
     }
   ) => {
-    return await sendTemplateEmail(
-      'order_confirmation',
-      customerEmail,
-      {
-        customer_name: customerName,
-        order_number: orderDetails.orderNumber,
-        total_amount: orderDetails.totalAmount,
-        order_date: orderDetails.orderDate,
-        order_url: orderDetails.orderUrl
-      }
-    );
+    return emailService.sendOrderConfirmationEmail(customerEmail, customerName, orderDetails);
   };
 
   return {
@@ -250,6 +62,8 @@ export const useEmailService = () => {
     sendTemplateEmail,
     sendWelcomeEmail,
     sendPasswordResetEmail,
-    sendOrderConfirmationEmail
+    sendOrderConfirmationEmail,
+    sendInvoiceNotificationEmail: emailService.sendInvoiceNotificationEmail.bind(emailService),
+    sendQuoteEmail: emailService.sendQuoteEmail.bind(emailService)
   };
 };

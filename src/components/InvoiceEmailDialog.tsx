@@ -47,7 +47,7 @@ export function InvoiceEmailDialog({ invoice, open, onOpenChange }: InvoiceEmail
   const [publicDownloadUrl, setPublicDownloadUrl] = useState("");
   
   const { toast } = useToast();
-  const { sendTemplateEmail } = useEmailService();
+  const { sendInvoiceNotificationEmail } = useEmailService();
 
   useEffect(() => {
     if (invoice && open) {
@@ -140,24 +140,15 @@ ${publicDownloadUrl}
 
 This invoice can be accessed without login. Please save these links for your records.`;
 
-      // Send email using template
-      await sendTemplateEmail(
-        "invoice-notification",
+      // Send email using unified service
+      await sendInvoiceNotificationEmail(
         emailData.to,
+        invoice.contacts?.name || "Valued Customer",
         {
-          customerName: invoice.contacts?.name || "Valued Customer",
           invoiceNumber: invoice.receipt_number,
-          invoiceAmount: formatCurrency(invoice.total_amount),
-          invoiceDate: new Date(invoice.created_at).toLocaleDateString(),
+          totalAmount: formatCurrency(invoice.total_amount),
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-          message: enhancedMessage,
-          viewUrl: publicViewUrl,
-          downloadUrl: publicDownloadUrl,
-          companyName: "Your Company Name" // Will be replaced by actual business settings
-        },
-        {
-          subject: emailData.subject,
-          priority: emailData.priority
+          invoiceUrl: publicViewUrl,
         }
       );
 

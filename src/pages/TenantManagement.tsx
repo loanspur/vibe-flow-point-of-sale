@@ -283,7 +283,7 @@ export default function TenantManagement() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { sendEmail } = useEmailService();
+  const { sendWelcomeEmail: sendWelcomeEmailService, sendEmail } = useEmailService();
 
   const [manualPayment, setManualPayment] = useState({
     amount: '',
@@ -578,7 +578,7 @@ export default function TenantManagement() {
     }
   };
 
-  const sendWelcomeEmail = async (tenant: Tenant) => {
+  const sendWelcomeEmailToTenant = async (tenant: Tenant) => {
     if (!tenant.contact_email) {
       toast({
         title: "Error",
@@ -923,7 +923,7 @@ export default function TenantManagement() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => sendWelcomeEmail(tenant)}
+                          onClick={() => sendWelcomeEmailToTenant(tenant)}
                           disabled={!tenant.contact_email}
                         >
                           <Mail className="h-4 w-4 mr-1" />
