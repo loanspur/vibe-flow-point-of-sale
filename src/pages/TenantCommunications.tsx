@@ -6,7 +6,10 @@ import { CommunicationSettings } from "@/components/CommunicationSettings";
 import { WhatsAppTemplateManager } from "@/components/WhatsAppTemplateManager";
 import { WhatsAppConfigManager } from "@/components/WhatsAppConfigManager";
 import { WhatsAppTester } from "@/components/WhatsAppTester";
-import { Mail, Settings, MessageSquare, Phone, TestTube } from "lucide-react";
+import WhatsAppMessageHistory from "@/components/WhatsAppMessageHistory";
+import WhatsAppAutomationSettings from "@/components/WhatsAppAutomationSettings";
+import WhatsAppBulkMessaging from "@/components/WhatsAppBulkMessaging";
+import { Mail, Settings, MessageSquare, Phone, TestTube, History, Bot, Users } from "lucide-react";
 
 const TenantCommunications = () => {
   return (
@@ -19,7 +22,7 @@ const TenantCommunications = () => {
       </div>
 
       <Tabs defaultValue="email-templates" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="email-templates" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
             Email Templates
@@ -31,6 +34,18 @@ const TenantCommunications = () => {
           <TabsTrigger value="whatsapp-config" className="flex items-center gap-2">
             <Phone className="h-4 w-4" />
             WhatsApp Config
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp-automation" className="flex items-center gap-2">
+            <Bot className="h-4 w-4" />
+            Automation
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp-bulk" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Bulk Messaging
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp-history" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Message History
           </TabsTrigger>
           <TabsTrigger value="whatsapp-test" className="flex items-center gap-2">
             <TestTube className="h-4 w-4" />
@@ -62,6 +77,30 @@ const TenantCommunications = () => {
           <Card>
             <CardContent>
               <WhatsAppConfigManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp-automation">
+          <Card>
+            <CardContent>
+              <WhatsAppAutomationSettings />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp-bulk">
+          <Card>
+            <CardContent>
+              <WhatsAppBulkMessaging />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp-history">
+          <Card>
+            <CardContent>
+              <WhatsAppMessageHistory />
             </CardContent>
           </Card>
         </TabsContent>
