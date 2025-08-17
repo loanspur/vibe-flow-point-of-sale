@@ -57,10 +57,7 @@ const WhatsAppMessageHistory: React.FC = () => {
       
       let query = supabase
         .from('whatsapp_message_logs')
-        .select(`
-          *,
-          whatsapp_message_templates(name, type)
-        `)
+        .select('*')
         .eq('tenant_id', tenantId)
         .order('sent_at', { ascending: false });
 
