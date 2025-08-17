@@ -7123,7 +7123,13 @@ export type Database = {
       feature_status: "active" | "inactive" | "deprecated" | "beta"
       feature_type: "core" | "premium" | "enterprise" | "addon"
       notification_priority: "low" | "medium" | "high" | "urgent"
-      notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
+      notification_status:
+        | "pending"
+        | "sent"
+        | "delivered"
+        | "failed"
+        | "read"
+        | "queued"
       notification_type:
         | "system"
         | "user_invitation"
@@ -7329,7 +7335,14 @@ export const Constants = {
       feature_status: ["active", "inactive", "deprecated", "beta"],
       feature_type: ["core", "premium", "enterprise", "addon"],
       notification_priority: ["low", "medium", "high", "urgent"],
-      notification_status: ["pending", "sent", "delivered", "failed", "read"],
+      notification_status: [
+        "pending",
+        "sent",
+        "delivered",
+        "failed",
+        "read",
+        "queued",
+      ],
       notification_type: [
         "system",
         "user_invitation",
