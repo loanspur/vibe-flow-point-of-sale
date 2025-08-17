@@ -152,14 +152,19 @@ ${getCompanyName()} Team
   const generateQuoteVariables = () => {
     if (!quote) return {};
 
+    // Generate public quote URL for viewing/downloading
+    const supabaseUrl = 'https://qwtybhvdbbkbcelisuek.supabase.co';
+    const publicQuoteUrl = `${supabaseUrl}/functions/v1/public-quote-viewer?id=${quote.id}&action=view`;
+    const publicQuoteDownloadUrl = `${supabaseUrl}/functions/v1/public-quote-viewer?id=${quote.id}&action=download`;
+
     return {
       customer_name: quote.contacts?.name || 'Valued Customer',
       quote_number: quote.quote_number,
       quote_date: format(new Date(quote.created_at), 'MMM dd, yyyy'),
       valid_until: quote.valid_until ? format(new Date(quote.valid_until), 'MMM dd, yyyy') : 'N/A',
       total_amount: `${tenantCurrency} ${quote.total_amount.toFixed(2)}`,
-      quote_url: `${window.location.origin}/quotes/${quote.id}`,
-      company_name: getCompanyName(),
+      quote_url: publicQuoteUrl,
+      quote_download_url: publicQuoteDownloadUrl,
       support_url: `${window.location.origin}/support`
     };
   };
