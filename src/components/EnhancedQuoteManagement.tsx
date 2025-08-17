@@ -96,7 +96,7 @@ interface Contact {
 interface Product {
   id: string;
   name: string;
-  selling_price: number;
+  price: number;
   stock_quantity: number;
   sku?: string;
 }
@@ -152,16 +152,30 @@ export function EnhancedQuoteManagement() {
 
   const fetchQuotes = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: quotesData, error } = await supabase
         .from("quotes")
-        .select(`
-          *,
-          contacts!customer_id (id, name, email, phone, address, company)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setQuotes(data || []);
+
+      // Fetch contacts separately and merge
+      const quotesWithContacts = await Promise.all(
+        (quotesData || []).map(async (quote) => {
+          let contacts = null;
+          if (quote.customer_id) {
+            const { data: contactData } = await supabase
+              .from("contacts")
+              .select("id, name, email, phone, address, company")
+              .eq("id", quote.customer_id)
+              .single();
+            contacts = contactData;
+          }
+          return { ...quote, contacts };
+        })
+      );
+
+      setQuotes(quotesWithContacts);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -193,7 +207,7 @@ export function EnhancedQuoteManagement() {
     try {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, selling_price, stock_quantity, sku")
+        .select("id, name, price, stock_quantity, sku")
         .eq("is_active", true)
         .order("name", { ascending: true });
 
@@ -812,7 +826,7 @@ export function EnhancedQuoteManagement() {
                           const product = products.find(p => p.id === value);
                           updateQuoteItem(index, "product_id", value);
                           if (product) {
-                            updateQuoteItem(index, "unit_price", product.selling_price);
+                            updateQuoteItem(index, "unit_price", product.price);
                           }
                         }}
                       >
@@ -825,7 +839,7 @@ export function EnhancedQuoteManagement() {
                               <div className="flex flex-col">
                                 <span>{product.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {formatCurrency(product.selling_price)} | Stock: {product.stock_quantity}
+                                  {formatCurrency(product.price)} | Stock: {product.stock_quantity}
                                 </span>
                               </div>
                             </SelectItem>
