@@ -500,7 +500,7 @@ export function LegacyQuoteManagement() {
       // Generate invoice number using business settings and daily sequence
       const invoiceNumber = await generateInvoiceNumber(tenantData);
 
-      // Create sale record as invoice (credit sale awaiting payment)
+      // Create sale record as invoice (credit sale awaiting payment) with all quote data
       const { data: sale, error: saleError } = await supabase
         .from("sales")
         .insert({
@@ -513,6 +513,9 @@ export function LegacyQuoteManagement() {
           tax_amount: quote.tax_amount || 0,
           status: "pending",
           tenant_id: tenantData,
+          // Persist customer name from quote for consistency
+          customer_name: quote.customer_name || quote.contacts?.name,
+          notes: quote.notes,
         })
         .select()
         .single();
