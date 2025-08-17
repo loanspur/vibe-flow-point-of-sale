@@ -59,7 +59,7 @@ const WhatsAppMessageHistory: React.FC = () => {
         .from('whatsapp_message_logs')
         .select(`
           *,
-          whatsapp_templates(name, type)
+          whatsapp_message_templates(name, type)
         `)
         .eq('tenant_id', tenantId)
         .order('sent_at', { ascending: false });
