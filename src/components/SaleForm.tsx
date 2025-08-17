@@ -645,6 +645,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
+        tenant_id: tenantId,
       }));
 
       const { error: itemsError } = await supabase

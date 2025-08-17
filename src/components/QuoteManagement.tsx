@@ -130,7 +130,7 @@ export function LegacyQuoteManagement() {
         .from("quotes")
         .select(`
           *,
-          customers (name, email, phone, address)
+          contacts (name, email, phone, address)
         `)
         .order("created_at", { ascending: false });
 
@@ -617,6 +617,7 @@ export function LegacyQuoteManagement() {
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
+        tenant_id: tenantData,
       })) || [];
 
       const { error: itemsInsertError } = await supabase
