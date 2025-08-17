@@ -332,7 +332,7 @@ export class EmailService {
     const tenantUrls = await generateTenantEmailUrls(this.tenantId);
     
     return this.sendTemplateEmail({
-      templateId: 'invoice-notification',
+      templateId: 'Invoice Sent',
       to: customerEmail,
       toName: customerName,
       variables: {
