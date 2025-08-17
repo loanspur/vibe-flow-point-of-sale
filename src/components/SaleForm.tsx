@@ -29,47 +29,7 @@ import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Helper function to trigger receipt automation
-async function triggerReceiptAutomation(saleId: string, tenantId: string, customerId: string, receiptNumber: string) {
-  try {
-    // Check if receipt automation is enabled
-    const { data: automation } = await supabase
-      .from('whatsapp_automation_settings')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('event_type', 'receipt_created')
-      .eq('is_enabled', true)
-      .single();
-
-    if (!automation) return;
-
-    // Get customer phone number if not walk-in
-    if (customerId === 'walk-in') return;
-    
-    const { data: customer } = await supabase
-      .from('contacts')
-      .select('phone, name')
-      .eq('id', customerId)
-      .single();
-
-    if (!customer?.phone) return;
-
-    // Prepare message content
-    const message = `Hi ${customer.name}, your receipt #${receiptNumber} has been generated. Thank you for your purchase!`;
-
-    // Send WhatsApp message
-    await supabase.functions.invoke('send-whatsapp-message', {
-      body: {
-        tenant_id: tenantId,
-        recipient_phone: customer.phone,
-        message: message,
-        template_id: automation.template_id || undefined,
-      }
-    });
-  } catch (error) {
-    console.error('Receipt automation failed:', error);
-  }
-}
+import { triggerReceiptAutomation, triggerQuoteAutomation } from '@/lib/whatsappAutomation';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
@@ -692,10 +652,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       if (itemsError) throw itemsError;
 
-      toast({
-        title: "Quote Created",
-        description: `Quote #${quoteNumber} created successfully`,
-      });
+        // Trigger quote automation
+        await triggerQuoteAutomation(quote.id, tenantData, values.customer_id, quoteNumber);
+
+        toast({
+          title: "Quote Created",
+          description: `Quote #${quoteNumber} created successfully`,
+        });
 
       form.reset();
       setSaleItems([]);
@@ -934,7 +897,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         payments: hasCreditPayment ? [] : payments,
       });
 
-      // Check and trigger receipt automation
+      // Trigger receipt automation
       await triggerReceiptAutomation(sale.id, tenantData, values.customer_id, receiptNumber);
 
       toast({

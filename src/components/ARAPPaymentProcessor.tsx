@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { format } from 'date-fns';
+import { triggerPaymentReceivedAutomation } from '@/lib/whatsappAutomation';
 
 interface ARAPItem {
   id: string;
@@ -238,6 +239,20 @@ export function ARAPPaymentProcessor({ type }: ARAPPaymentProcessorProps) {
           description: "Payment recorded but accounting entry failed",
           variant: "destructive",
         });
+      }
+
+      // Trigger payment received automation for receivables
+      if (type === 'receivable') {
+        const customerId = (selectedItem as any).customer_id;
+        if (customerId) {
+          await triggerPaymentReceivedAutomation(
+            selectedItem.id, 
+            tenantId || '', 
+            customerId, 
+            amount, 
+            paymentMethod
+          );
+        }
       }
 
       toast({

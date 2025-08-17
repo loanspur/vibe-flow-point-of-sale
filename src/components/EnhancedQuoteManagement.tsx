@@ -41,6 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { triggerQuoteAutomation, triggerInvoiceAutomation } from '@/lib/whatsappAutomation';
 
 interface Quote {
   id: string;
@@ -319,6 +320,9 @@ export function EnhancedQuoteManagement() {
         if (itemsError) throw itemsError;
       }
 
+      // Trigger quote automation
+      await triggerQuoteAutomation(quote.id, tenantId || '', quoteForm.contact_id, quoteNumber);
+
       toast({
         title: "Quote Created",
         description: `Quote ${quoteNumber} has been created successfully`,
@@ -425,6 +429,9 @@ export function EnhancedQuoteManagement() {
             .eq("id", item.product_id);
         }
       }
+
+      // Trigger invoice automation
+      await triggerInvoiceAutomation(sale.id, tenantId || '', quote.contact_id, invoiceNumber);
 
       toast({
         title: "Quote Converted to Invoice",
