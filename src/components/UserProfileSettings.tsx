@@ -284,10 +284,10 @@ export default function UserProfileSettings() {
         await refreshUserInfo();
       }
 
-      // Refresh the page to ensure all components show updated data
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Refresh data without page reload
+      if (refreshUserInfo) {
+        await refreshUserInfo();
+      }
     } catch (error: any) {
       console.error('Unexpected error updating profile:', error);
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);
