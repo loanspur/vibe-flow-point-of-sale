@@ -23,6 +23,7 @@ import { Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
+import { enrichWithCustomerData } from '@/lib/customerUtils';
 
 interface Sale {
   id: string;
@@ -141,37 +142,16 @@ export default function SalesManagement() {
         profilesMap[profile.user_id] = profile;
       });
       
-      // Fetch customer emails for sales that have customer_id but no contacts join
-      const salesNeedingCustomerData = (data || []).filter(invoice => 
-        invoice.customer_id && !invoice.contacts
+      // Enrich invoices with customer data using utility function
+      const invoicesWithCustomerData = await enrichWithCustomerData(
+        data || [],
+        (invoice: any) => invoice.customer_id,
+        (invoice: any) => invoice.customer_name
       );
-      
-      let customerEmailMap: Record<string, { name: string; email?: string; phone?: string; address?: string }> = {};
-      
-      if (salesNeedingCustomerData.length > 0) {
-        const customerIds = salesNeedingCustomerData.map(invoice => invoice.customer_id).filter(Boolean);
-        const { data: customerData } = await supabase
-          .from('contacts')
-          .select('id, name, email, phone, address')
-          .in('id', customerIds);
-        
-        customerData?.forEach(customer => {
-          customerEmailMap[customer.id] = customer;
-        });
-      }
 
-      const invoicesWithProfiles = (data || []).map(invoice => ({
+      const invoicesWithProfiles = invoicesWithCustomerData.map(invoice => ({
         ...invoice,
-        profiles: profilesMap[invoice.cashier_id] || null,
-        // Handle customer data properly - prioritize contacts join, then fetch by customer_id, then fallback to customer_name
-        contacts: invoice.contacts || 
-          (invoice.customer_id && customerEmailMap[invoice.customer_id]) ||
-          (invoice.customer_name ? {
-            name: invoice.customer_name,
-            email: null,
-            phone: null,
-            address: null
-          } : null)
+        profiles: profilesMap[invoice.cashier_id] || null
       }));
 
       setInvoices(invoicesWithProfiles);

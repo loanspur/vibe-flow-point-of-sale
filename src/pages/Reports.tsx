@@ -13,6 +13,7 @@ import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis } from "recharts";
+import { fetchAllCustomers } from '@/lib/customerUtils';
 
 interface ReportMetrics {
   totalRevenue: number;
@@ -233,12 +234,7 @@ const Reports = () => {
         });
 
       // Fetch customers data
-      const { data: customersData, error: customersError } = await supabase
-        .from("customers")
-        .select("id, name, email, phone, address, created_at")
-        .eq("tenant_id", tenantId);
-
-      if (customersError) throw customersError;
+      const customersData = await fetchAllCustomers(tenantId);
 
       // Fetch products data
       const { data: productsData, error: productsError } = await supabase

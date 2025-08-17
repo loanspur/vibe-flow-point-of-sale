@@ -33,6 +33,7 @@ import {
   Download
 } from 'lucide-react';
 import { useCurrencySettings } from "@/lib/currency";
+import { fetchAllCustomers } from '@/lib/customerUtils';
 
 interface AccountsReceivable {
   id: string;
@@ -260,12 +261,12 @@ const AccountsReceivablePayable: React.FC = () => {
   const fetchCustomersAndSuppliers = async () => {
     try {
       const [customersResult, suppliersResult] = await Promise.all([
-        supabase.from('customers').select('id, name').eq('tenant_id', tenantId),
-        supabase.from('contacts').select('id, name').eq('tenant_id', tenantId).eq('type', 'supplier')
+        fetchAllCustomers(tenantId),
+        supabase.from('contacts').select('id, name').eq('tenant_id', tenantId).eq('type', 'supplier').then(res => res.data || [])
       ]);
 
-      if (customersResult.data) setCustomers(customersResult.data);
-      if (suppliersResult.data) setSuppliers(suppliersResult.data);
+      setCustomers(customersResult);
+      setSuppliers(suppliersResult);
     } catch (error) {
       // Error handled silently
     }

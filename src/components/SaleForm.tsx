@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 
@@ -260,25 +261,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
     
     try {
-      // Fetch from contacts table instead of customers, filtering for customers only
-      const { data, error } = await supabase
-        .from("contacts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("type", "customer")
-        .eq("is_active", true)
-        .order("name");
-      
-      if (error) {
-        console.error('Error fetching customers:', error);
-        return;
-      }
-      
-      if (data && Array.isArray(data)) {
-        setCustomers(data);
-      } else {
-        setCustomers([]);
-      }
+      const customersData = await fetchCustomersFromContacts(tenantId);
+      setCustomers(customersData);
     } catch (error) {
       console.error('Error fetching customers:', error);
       setCustomers([]);
