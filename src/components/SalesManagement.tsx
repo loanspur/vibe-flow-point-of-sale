@@ -34,6 +34,7 @@ interface Sale {
   status: string;
   created_at: string;
   customer_id?: string;
+  customer_name?: string;
   cashier_id: string;
   contacts?: {
     name: string;
@@ -143,7 +144,13 @@ export default function SalesManagement() {
       const invoicesWithProfiles = (data || []).map(invoice => ({
         ...invoice,
         profiles: profilesMap[invoice.cashier_id] || null,
-        contacts: invoice.contacts || null
+        // Handle customer data properly - use customer_name from sales if contacts join fails
+        contacts: invoice.contacts || (invoice.customer_name ? {
+          name: invoice.customer_name,
+          email: null,
+          phone: null,
+          address: null
+        } : null)
       }));
 
       setInvoices(invoicesWithProfiles);
