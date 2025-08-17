@@ -92,6 +92,10 @@ interface QuoteItem {
 }
 
 export function QuoteManagement() {
+  return <LegacyQuoteManagement />;
+}
+
+export function LegacyQuoteManagement() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [activeTab, setActiveTab] = useState("list");
   const [searchTerm, setSearchTerm] = useState("");
