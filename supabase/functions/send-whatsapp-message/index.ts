@@ -68,21 +68,22 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Message content is required');
     }
 
-    // Send message via 360messenger API (simple format)
-    const requestBody = {
-      number: recipient_phone.replace(/[^\d+]/g, ''), // Clean phone number
-      message: message
-    };
+    // Send message via 360messenger API (form data format)
+    const formData = new FormData();
+    formData.append('phonenumber', recipient_phone.replace(/[^\d+]/g, '')); // Clean phone number
+    formData.append('text', message);
 
-    console.log('Sending request to 360messenger:', requestBody);
+    console.log('Sending request to 360messenger with form data:', {
+      phonenumber: recipient_phone.replace(/[^\d+]/g, ''),
+      text: message
+    });
 
     const whatsappResponse = await fetch('https://api.360messenger.com/v2/sendMessage', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(requestBody),
+      body: formData,
     });
 
     const responseData = await whatsappResponse.json();
