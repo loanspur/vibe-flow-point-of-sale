@@ -12,6 +12,11 @@ import { MessageSquare, Plus, Edit, Trash2, Copy, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { 
+  getAvailableBusinessVariables, 
+  previewTemplateWithBusinessData,
+  populateTemplate 
+} from '@/lib/whatsappTemplateUtils';
 
 interface WhatsAppTemplate {
   id: string;
@@ -106,6 +111,8 @@ export const WhatsAppTemplateManager = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewText, setPreviewText] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     template_type: 'general',
@@ -114,6 +121,7 @@ export const WhatsAppTemplateManager = () => {
     variables: [] as string[]
   });
   const { tenantId, user } = useAuth();
+  const availableVariables = getAvailableBusinessVariables();
 
   useEffect(() => {
     fetchTemplates();
@@ -248,6 +256,45 @@ export const WhatsAppTemplateManager = () => {
     setIsDialogOpen(true);
   };
 
+  const handlePreview = async () => {
+    if (!tenantId || !formData.message_body) return;
+    
+    try {
+      const preview = await previewTemplateWithBusinessData(
+        formData.message_body,
+        tenantId
+      );
+      setPreviewText(preview);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate preview",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const insertVariable = (variableKey: string) => {
+    const textarea = document.getElementById('message') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.message_body;
+    const variable = `{${variableKey}}`;
+    
+    const newText = text.substring(0, start) + variable + text.substring(end);
+    setFormData(prev => ({ ...prev, message_body: newText }));
+
+    // Reset cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + variable.length, start + variable.length);
+    }, 0);
+  };
+
   if (loading) {
     return <div className="p-4">Loading WhatsApp templates...</div>;
   }
@@ -346,6 +393,37 @@ export const WhatsAppTemplateManager = () => {
                 </div>
               )}
 
+              {/* Available Variables */}
+              <div>
+                <Label>Available Variables</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Click to insert into your template
+                </p>
+                <div className="space-y-3">
+                  {['Business', 'Location', 'Transaction'].map((category) => (
+                    <div key={category}>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">{category}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {availableVariables
+                          .filter(v => v.category === category)
+                          .map((variable) => (
+                            <Button
+                              key={variable.key}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => insertVariable(variable.key)}
+                            >
+                              {variable.label}
+                            </Button>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex justify-between">
                 <div className="flex gap-2">
                   <Button
@@ -374,6 +452,14 @@ export const WhatsAppTemplateManager = () => {
                   </Button>
                 </div>
                 <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handlePreview}
+                    disabled={!formData.message_body}
+                  >
+                    Preview with Business Data
+                  </Button>
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
@@ -458,6 +544,26 @@ export const WhatsAppTemplateManager = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Template Preview with Business Data</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Preview</Label>
+              <div className="mt-2 p-4 border rounded-lg bg-muted/50">
+                <pre className="whitespace-pre-wrap text-sm">{previewText}</pre>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setShowPreview(false)}>Close</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
