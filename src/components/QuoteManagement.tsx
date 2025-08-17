@@ -64,6 +64,7 @@ interface Quote {
   created_at: string;
   updated_at: string;
   contact_id?: string;
+  customer_name?: string;
   cashier_id: string;
   contacts?: {
     name: string;
@@ -133,6 +134,21 @@ export function LegacyQuoteManagement() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      
+      // Persist customer names from contacts if not already persisted
+      const quotesToUpdate = data?.filter(quote => 
+        quote.contacts?.name && !quote.customer_name
+      ) || [];
+      
+      if (quotesToUpdate.length > 0) {
+        for (const quote of quotesToUpdate) {
+          await supabase
+            .from("quotes")
+            .update({ customer_name: quote.contacts.name })
+            .eq("id", quote.id);
+        }
+      }
+      
       setQuotes(data || []);
     } catch (error: any) {
       toast({
@@ -850,9 +866,9 @@ export function LegacyQuoteManagement() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium">
-                            {quote.contacts?.name || "Walk-in Customer"}
-                          </p>
+                           <p className="text-sm font-medium">
+                             {quote.customer_name || quote.contacts?.name || "Walk-in Customer"}
+                           </p>
                           <p className="text-xs text-muted-foreground">
                             {quote.contacts?.email && (
                               <span className="flex items-center gap-1">
@@ -1015,7 +1031,7 @@ export function LegacyQuoteManagement() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Name</Label>
-                      <p className="text-sm">{selectedQuote.contacts?.name || "Walk-in Customer"}</p>
+                      <p className="text-sm">{selectedQuote.customer_name || selectedQuote.contacts?.name || "Walk-in Customer"}</p>
                     </div>
                     {selectedQuote.contacts?.email && (
                       <div>

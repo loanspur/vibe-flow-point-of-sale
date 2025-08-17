@@ -3747,6 +3747,7 @@ export type Database = {
           cashier_id: string
           created_at: string
           customer_id: string | null
+          customer_name: string | null
           discount_amount: number | null
           id: string
           notes: string | null
@@ -3763,6 +3764,7 @@ export type Database = {
           cashier_id: string
           created_at?: string
           customer_id?: string | null
+          customer_name?: string | null
           discount_amount?: number | null
           id?: string
           notes?: string | null
@@ -3779,6 +3781,7 @@ export type Database = {
           cashier_id?: string
           created_at?: string
           customer_id?: string | null
+          customer_name?: string | null
           discount_amount?: number | null
           id?: string
           notes?: string | null

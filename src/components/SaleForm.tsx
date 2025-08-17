@@ -619,11 +619,23 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         return;
       }
 
+      // Fetch customer name for persistence
+      let customerName = null;
+      if (values.customer_id) {
+        const { data: customerData } = await supabase
+          .from("contacts")
+          .select("name")
+          .eq("id", values.customer_id)
+          .single();
+        customerName = customerData?.name;
+      }
+
       const { data: quote, error: quoteError } = await supabase
         .from("quotes")
         .insert({
           quote_number: quoteNumber,
           customer_id: values.customer_id,
+          customer_name: customerName,
           cashier_id: user.id,
           tenant_id: tenantData,
           total_amount: totalAmount,
