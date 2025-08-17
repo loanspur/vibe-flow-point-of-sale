@@ -7003,15 +7003,15 @@ export type Database = {
       queue_email: {
         Args: {
           html_content_param: string
-          priority_param: string
-          scheduled_for_param: string
+          priority_param?: string
+          scheduled_for_param?: string
           subject_param: string
-          template_id_param: string
+          template_id_param?: string
           tenant_id_param: string
-          text_content_param: string
+          text_content_param?: string
           to_email_param: string
-          to_name_param: string
-          variables_param: Json
+          to_name_param?: string
+          variables_param?: Json
         }
         Returns: string
       }
