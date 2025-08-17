@@ -124,7 +124,7 @@ export class EmailService {
       .from('email_templates')
       .select('*')
       .eq(isUUID ? 'id' : 'name', templateId)
-      .single();
+      .maybeSingle();
 
     console.log('EmailService.fetchTemplate query column:', isUUID ? 'id' : 'name');
 
@@ -136,7 +136,8 @@ export class EmailService {
     }
     
     if (!template) {
-      throw new Error(`Template "${templateId}" not found`);
+      console.error(`Template "${templateId}" does not exist in the database`);
+      throw new Error(`Email template "${templateId}" not found. Please create this template first.`);
     }
 
     return template as EmailTemplate;
