@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface SendWhatsAppOptions {
   recipient_phone: string;
@@ -22,6 +22,7 @@ interface WhatsAppTemplate {
 export const useWhatsAppService = () => {
   const [loading, setLoading] = useState(false);
   const { tenantId } = useAuth();
+  const { toast } = useToast();
 
   const sendWhatsAppMessage = async (options: SendWhatsAppOptions) => {
     setLoading(true);
@@ -35,9 +36,9 @@ export const useWhatsAppService = () => {
           .from('whatsapp_templates')
           .select('*')
           .eq('id', options.template_id)
-          .single();
+          .maybeSingle();
 
-        if (templateError) {
+        if (templateError || !template) {
           throw new Error('Template not found');
         }
 
@@ -118,7 +119,7 @@ export const useWhatsAppService = () => {
       .eq('template_type', 'receipt')
       .eq('is_active', true)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     return sendWhatsAppMessage({
       recipient_phone,
@@ -151,7 +152,7 @@ export const useWhatsAppService = () => {
       .eq('template_type', 'invoice')
       .eq('is_active', true)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     return sendWhatsAppMessage({
       recipient_phone,
@@ -184,7 +185,7 @@ export const useWhatsAppService = () => {
       .eq('template_type', 'quote')
       .eq('is_active', true)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     return sendWhatsAppMessage({
       recipient_phone,
