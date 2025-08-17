@@ -131,10 +131,18 @@ function generateQuoteHTML(quote: any): string {
         }
         .company-info {
             flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
         .company-logo {
-            max-width: 150px;
-            height: auto;
+            max-width: 120px;
+            max-height: 120px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        .company-text {
+            flex: 1;
         }
         .quote-details {
             text-align: right;
@@ -221,15 +229,17 @@ function generateQuoteHTML(quote: any): string {
               `<img src="${businessSettings.company_logo_url}" alt="Company Logo" class="company-logo">` : 
               ''
             }
-            <h2>${businessSettings?.company_name || 'Company Name'}</h2>
-            <div>
-                ${businessSettings?.address_line_1 || ''}<br>
-                ${businessSettings?.address_line_2 ? businessSettings.address_line_2 + '<br>' : ''}
-                ${[businessSettings?.city, businessSettings?.state_province, businessSettings?.postal_code].filter(Boolean).join(', ')}<br>
-                ${businessSettings?.country || ''}<br>
-                ${businessSettings?.phone ? 'Phone: ' + businessSettings.phone + '<br>' : ''}
-                ${businessSettings?.email ? 'Email: ' + businessSettings.email + '<br>' : ''}
-                ${businessSettings?.website ? 'Website: ' + businessSettings.website : ''}
+            <div class="company-text">
+                <h2>${businessSettings?.company_name || 'Company Name'}</h2>
+                <div>
+                    ${businessSettings?.address_line_1 || ''}<br>
+                    ${businessSettings?.address_line_2 ? businessSettings.address_line_2 + '<br>' : ''}
+                    ${[businessSettings?.city, businessSettings?.state_province, businessSettings?.postal_code].filter(Boolean).join(', ')}<br>
+                    ${businessSettings?.country || ''}<br>
+                    ${businessSettings?.phone ? 'Phone: ' + businessSettings.phone + '<br>' : ''}
+                    ${businessSettings?.email ? 'Email: ' + businessSettings.email + '<br>' : ''}
+                    ${businessSettings?.website ? 'Website: ' + businessSettings.website : ''}
+                </div>
             </div>
         </div>
         <div class="quote-details">

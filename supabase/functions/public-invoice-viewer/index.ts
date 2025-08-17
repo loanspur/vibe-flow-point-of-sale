@@ -76,11 +76,12 @@ const handler = async (req: Request): Promise<Response> => {
       .from('sales')
       .select(`
         *,
-        contacts!sales_customer_id_fkey (
+        contacts:customer_id (
           name,
           email,
           phone,
-          address
+          address,
+          company
         ),
         sale_items (
           quantity,
@@ -93,7 +94,6 @@ const handler = async (req: Request): Promise<Response> => {
         )
       `)
       .eq('id', invoiceId)
-      .eq('payment_method', 'credit')
       .single();
 
     if (invoiceError || !invoice) {
@@ -192,12 +192,28 @@ function generateInvoiceHTML(invoice: InvoiceData, businessSettings: BusinessSet
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 padding: 30px;
-                text-align: center;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .invoice-header-left {
+                display: flex;
+                align-items: center;
+                gap: 20px;
+            }
+            
+            .company-logo {
+                max-width: 80px;
+                max-height: 80px;
+                border-radius: 8px;
+                background: white;
+                padding: 8px;
             }
             
             .invoice-header h1 {
                 font-size: 2.5rem;
-                margin-bottom: 10px;
+                margin: 0;
                 font-weight: 300;
             }
             
@@ -393,8 +409,16 @@ function generateInvoiceHTML(invoice: InvoiceData, businessSettings: BusinessSet
     <body>
         <div class="invoice-container">
             <div class="invoice-header">
-                <h1>INVOICE</h1>
-                <div style="font-size: 1.2rem; opacity: 0.9;">${invoice.receipt_number}</div>
+                <div class="invoice-header-left">
+                    ${businessSettings?.company_logo_url ? 
+                      `<img src="${businessSettings.company_logo_url}" alt="Company Logo" class="company-logo">` : 
+                      ''
+                    }
+                    <div>
+                        <h1>INVOICE</h1>
+                        <div style="font-size: 1.2rem; opacity: 0.9;">${invoice.receipt_number}</div>
+                    </div>
+                </div>
             </div>
             
             <div class="invoice-content">
@@ -413,10 +437,11 @@ function generateInvoiceHTML(invoice: InvoiceData, businessSettings: BusinessSet
                     <div class="detail-section">
                         <h3>Bill To</h3>
                         <div class="detail-item">
-                            <div style="font-weight: bold; margin-bottom: 5px;">${invoice.contacts.name}</div>
-                            ${invoice.contacts.email ? '<div>Email: ' + invoice.contacts.email + '</div>' : ''}
-                            ${invoice.contacts.phone ? '<div>Phone: ' + invoice.contacts.phone + '</div>' : ''}
-                            ${invoice.contacts.address ? '<div>Address: ' + invoice.contacts.address + '</div>' : ''}
+                            <div style="font-weight: bold; margin-bottom: 5px;">${invoice.contacts?.name || 'Walk-in Customer'}</div>
+                            ${invoice.contacts?.company ? '<div>Company: ' + invoice.contacts.company + '</div>' : ''}
+                            ${invoice.contacts?.email ? '<div>Email: ' + invoice.contacts.email + '</div>' : ''}
+                            ${invoice.contacts?.phone ? '<div>Phone: ' + invoice.contacts.phone + '</div>' : ''}
+                            ${invoice.contacts?.address ? '<div>Address: ' + invoice.contacts.address + '</div>' : ''}
                         </div>
                     </div>
                     
