@@ -5,7 +5,8 @@ import { EmailTemplateManager } from "@/components/EmailTemplateManager";
 import { CommunicationSettings } from "@/components/CommunicationSettings";
 import { WhatsAppTemplateManager } from "@/components/WhatsAppTemplateManager";
 import { WhatsAppConfigManager } from "@/components/WhatsAppConfigManager";
-import { Mail, Settings, MessageSquare, Phone } from "lucide-react";
+import { WhatsAppTester } from "@/components/WhatsAppTester";
+import { Mail, Settings, MessageSquare, Phone, TestTube } from "lucide-react";
 
 const TenantCommunications = () => {
   return (
@@ -18,7 +19,7 @@ const TenantCommunications = () => {
       </div>
 
       <Tabs defaultValue="email-templates" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="email-templates" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
             Email Templates
@@ -30,6 +31,10 @@ const TenantCommunications = () => {
           <TabsTrigger value="whatsapp-config" className="flex items-center gap-2">
             <Phone className="h-4 w-4" />
             WhatsApp Config
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp-test" className="flex items-center gap-2">
+            <TestTube className="h-4 w-4" />
+            Test WhatsApp
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -59,6 +64,10 @@ const TenantCommunications = () => {
               <WhatsAppConfigManager />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp-test">
+          <WhatsAppTester />
         </TabsContent>
 
         <TabsContent value="settings">
