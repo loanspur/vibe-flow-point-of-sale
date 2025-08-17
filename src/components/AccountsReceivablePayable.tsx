@@ -158,20 +158,35 @@ const AccountsReceivablePayable: React.FC = () => {
         .from('accounts_receivable')
         .select(`
           *,
-          customers(name)
+          customers(name),
+          sales!reference_id(customer_name, receipt_number)
         `)
         .eq('tenant_id', tenantId)
         .order('due_date', { ascending: true });
 
       if (error) throw error;
 
-      const formattedData = data?.map(item => ({
-        ...item,
-        customer_name: item.customers?.name || 'Unknown Customer',
-        days_overdue: Math.max(0, Math.floor((new Date().getTime() - new Date(item.due_date).getTime()) / (1000 * 60 * 60 * 24))),
-        status: item.status as 'outstanding' | 'paid' | 'overdue' | 'partial',
-        notes: item.notes || ''
-      })) || [];
+      const formattedData = data?.map(item => {
+        // Get customer name priority: sales.customer_name > customers.name > Unknown
+        let customerName = 'Unknown Customer';
+        const salesRecord = Array.isArray(item.sales) ? item.sales[0] : item.sales;
+        if (item.reference_type === 'sale' && salesRecord?.customer_name) {
+          customerName = salesRecord.customer_name;
+        } else if (item.customers?.name) {
+          customerName = item.customers.name;
+        }
+
+        return {
+          ...item,
+          customer_name: customerName,
+          invoice_number: item.reference_type === 'sale' && salesRecord?.receipt_number 
+            ? salesRecord.receipt_number 
+            : item.invoice_number,
+          days_overdue: Math.max(0, Math.floor((new Date().getTime() - new Date(item.due_date).getTime()) / (1000 * 60 * 60 * 24))),
+          status: item.status as 'outstanding' | 'paid' | 'overdue' | 'partial',
+          notes: item.notes || ''
+        };
+      }) || [];
 
       setReceivables(formattedData);
     } catch (error) {
@@ -252,6 +267,7 @@ const AccountsReceivablePayable: React.FC = () => {
           total_amount, 
           created_at, 
           customer_id,
+          customer_name,
           customers!customer_id(name)
         `).eq('tenant_id', tenantId).eq('status', 'completed'),
         supabase.from('purchases').select(`
@@ -267,7 +283,7 @@ const AccountsReceivablePayable: React.FC = () => {
       if (salesResult.data) {
         setSales(salesResult.data.map(sale => ({
           ...sale,
-          customer_name: (sale.customers as any)?.[0]?.name || 'Walk-in Customer'
+          customer_name: sale.customer_name || (sale.customers as any)?.[0]?.name || 'Walk-in Customer'
         })));
       }
 
