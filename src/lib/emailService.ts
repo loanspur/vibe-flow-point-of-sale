@@ -57,7 +57,11 @@ export class EmailService {
    * Validates UUID format
    */
   private isUUID(str: string): boolean {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+    // Simple check for UUID format: 8-4-4-4-12 characters with hyphens
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const result = uuidPattern.test(str);
+    console.log('UUID validation:', { str, isUUID: result });
+    return result;
   }
 
   /**
