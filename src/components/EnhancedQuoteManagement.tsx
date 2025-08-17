@@ -52,7 +52,7 @@ interface Quote {
   valid_until: string | null;
   created_at: string;
   updated_at: string;
-  customer_id?: string;
+  contact_id?: string;
   cashier_id: string;
   contacts?: {
     id: string;
@@ -128,7 +128,7 @@ export function EnhancedQuoteManagement() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [quoteForm, setQuoteForm] = useState({
-    customer_id: "",
+    contact_id: "",
     notes: "",
     valid_until: "",
     items: [] as Array<{ product_id: string; quantity: number; unit_price: number; total_price: number }>
@@ -154,28 +154,12 @@ export function EnhancedQuoteManagement() {
     try {
       const { data: quotesData, error } = await supabase
         .from("quotes")
-        .select("*")
+        .select("*, contacts(id, name, email, phone, address, company)")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Fetch contacts separately and merge
-      const quotesWithContacts = await Promise.all(
-        (quotesData || []).map(async (quote) => {
-          let contacts = null;
-          if (quote.customer_id) {
-            const { data: contactData } = await supabase
-              .from("contacts")
-              .select("id, name, email, phone, address, company")
-              .eq("id", quote.customer_id)
-              .single();
-            contacts = contactData;
-          }
-          return { ...quote, contacts };
-        })
-      );
-
-      setQuotes(quotesWithContacts);
+      setQuotes(quotesData || []);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -302,7 +286,7 @@ export function EnhancedQuoteManagement() {
         .from("quotes")
         .insert({
           quote_number: quoteNumber,
-          customer_id: quoteForm.customer_id || null,
+          contact_id: quoteForm.contact_id || null,
           cashier_id: user.id,
           total_amount: totalAmount,
           tax_amount: taxAmount,
@@ -365,7 +349,7 @@ export function EnhancedQuoteManagement() {
         .from("sales")
         .insert({
           cashier_id: user.id,
-          customer_id: quote.customer_id,
+          customer_id: quote.contact_id,
           payment_method: "credit",
           receipt_number: invoiceNumber,
           total_amount: quote.total_amount,
@@ -410,7 +394,7 @@ export function EnhancedQuoteManagement() {
       const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
         tenant_id_param: tenantId,
         sale_id_param: sale.id,
-        customer_id_param: quote.customer_id,
+        customer_id_param: quote.contact_id,
         total_amount_param: quote.total_amount,
         due_date_param: dueDate.toISOString().split('T')[0]
       });
@@ -555,7 +539,7 @@ export function EnhancedQuoteManagement() {
 
   const resetQuoteForm = () => {
     setQuoteForm({
-      customer_id: "",
+      contact_id: "",
       notes: "",
       valid_until: "",
       items: []
@@ -764,9 +748,9 @@ export function EnhancedQuoteManagement() {
             <div className="space-y-4">
               <Label>Customer</Label>
               <Select 
-                value={quoteForm.customer_id} 
+                value={quoteForm.contact_id} 
                 onValueChange={(value) => {
-                  setQuoteForm(prev => ({ ...prev, customer_id: value }));
+                  setQuoteForm(prev => ({ ...prev, contact_id: value }));
                   const contact = contacts.find(c => c.id === value);
                   setSelectedContact(contact || null);
                 }}
