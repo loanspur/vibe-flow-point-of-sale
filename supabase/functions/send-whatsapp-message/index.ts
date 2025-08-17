@@ -37,7 +37,11 @@ const handler = async (req: Request): Promise<Response> => {
     if (use_global) {
       // Use global 360messenger API key
       apiKey = Deno.env.get('WHATSAPP_360MESSENGER_API_KEY') ?? '';
-      fromPhone = 'global'; // 360messenger handles the from number
+      if (!apiKey) {
+        throw new Error('Global WhatsApp API key not configured');
+      }
+      // For 360messenger, we need to get the registered phone number
+      fromPhone = ''; // Will be set by 360messenger based on account
     } else {
       // Get tenant's WhatsApp configuration
       const { data: config, error: configError } = await supabase
@@ -56,20 +60,32 @@ const handler = async (req: Request): Promise<Response> => {
       whatsappConfigId = config.id;
     }
 
+    // Validate required parameters
+    if (!recipient_phone) {
+      throw new Error('Recipient phone number is required');
+    }
+    if (!message) {
+      throw new Error('Message content is required');
+    }
+
     // Send message via 360messenger API
-    const whatsappResponse = await fetch('https://api.360messenger.com/v2/sendMessage', {
+    const requestBody = {
+      to: recipient_phone.replace(/[^\d+]/g, ''), // Clean phone number
+      type: "text",
+      text: {
+        body: message
+      }
+    };
+
+    console.log('Sending request to 360messenger:', requestBody);
+
+    const whatsappResponse = await fetch('https://api.360dialog.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'D360-API-KEY': apiKey,
       },
-      body: JSON.stringify({
-        to: recipient_phone,
-        type: 'text',
-        text: {
-          body: message
-        }
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const responseData = await whatsappResponse.json();
