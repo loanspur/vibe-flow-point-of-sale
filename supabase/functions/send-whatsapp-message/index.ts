@@ -70,11 +70,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send message via 360messenger API
     const requestBody = {
-      to: recipient_phone.replace(/[^\d+]/g, ''), // Clean phone number
-      type: "text",
-      text: {
-        body: message
-      }
+      recipient: recipient_phone.replace(/[^\d+]/g, ''), // Clean phone number
+      message: message
     };
 
     console.log('Sending request to 360messenger:', requestBody);
