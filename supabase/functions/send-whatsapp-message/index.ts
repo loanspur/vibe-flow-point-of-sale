@@ -68,15 +68,10 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Message content is required');
     }
 
-    // Send message via 360messenger API (using 360Dialog format)
+    // Send message via 360messenger API (simple format)
     const requestBody = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual", 
-      to: recipient_phone.replace(/[^\d+]/g, ''), // Clean phone number
-      type: "text",
-      text: {
-        body: message
-      }
+      number: recipient_phone.replace(/[^\d+]/g, ''), // Clean phone number
+      message: message
     };
 
     console.log('Sending request to 360messenger:', requestBody);
