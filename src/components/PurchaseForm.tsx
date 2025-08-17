@@ -36,6 +36,14 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>(localStorage.getItem('selected_location') || '');
+  
+  // Location handler with persistence
+  const handleLocationChange = (value: string) => {
+    setSelectedLocation(value);
+    localStorage.setItem('selected_location', value);
+  };
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [remainingBalance, setRemainingBalance] = useState(0);
@@ -52,6 +60,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
     if (tenantId) {
       fetchSuppliers();
       fetchProducts();
+      fetchLocations();
     }
   }, [tenantId]);
 
@@ -161,6 +170,40 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         description: "Failed to load products. Please try refreshing the page.",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchLocations = async () => {
+    if (!tenantId) {
+      setLocations([]);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from("store_locations")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("name");
+      
+      if (error) {
+        console.error('Error fetching locations:', error);
+        return;
+      }
+      
+      if (data && Array.isArray(data)) {
+        setLocations(data);
+        // Set first location as default if no location is selected
+        if (data.length > 0 && !selectedLocation) {
+          setSelectedLocation(data[0].id);
+        }
+      } else {
+        setLocations([]);
+      }
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      setLocations([]);
     }
   };
 
@@ -299,6 +342,15 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       return;
     }
 
+    if (!selectedLocation) {
+      toast({
+        title: "Error",
+        description: "Please select a location for this purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -314,6 +366,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         .insert({
           purchase_number: purchaseNumber,
           supplier_id: selectedSupplier,
+          location_id: selectedLocation || null,
           total_amount: totalAmount,
           shipping_amount: shippingAmount,
           status: 'completed',
@@ -617,30 +670,48 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Supplier Selection */}
-              <div className="space-y-2">
-                <Label>Supplier *</Label>
-                <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.length > 0 ? (
-                      suppliers.map((supplier) => {
-                        console.log('🎯 Rendering supplier SelectItem:', { id: supplier.id, name: supplier.name });
-                        return (
-                          <SelectItem key={supplier.id} value={supplier.id}>
-                            {supplier.name} {supplier.company ? `(${supplier.company})` : ''}
-                          </SelectItem>
-                        );
-                       })
-                     ) : (
-                       <SelectItem key="no-suppliers" value="disabled-no-suppliers" disabled>
-                         No suppliers available
-                       </SelectItem>
-                     )}
-                  </SelectContent>
-                </Select>
+              {/* Supplier and Location Selection */}
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label>Supplier *</Label>
+                  <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.length > 0 ? (
+                        suppliers.map((supplier) => {
+                          console.log('🎯 Rendering supplier SelectItem:', { id: supplier.id, name: supplier.name });
+                          return (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.name} {supplier.company ? `(${supplier.company})` : ''}
+                            </SelectItem>
+                          );
+                         })
+                       ) : (
+                         <SelectItem key="no-suppliers" value="disabled-no-suppliers" disabled>
+                           No suppliers available
+                         </SelectItem>
+                       )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                 <div className="space-y-2">
+                   <Label>Location *</Label>
+                   <Select value={selectedLocation} onValueChange={handleLocationChange}>
+                     <SelectTrigger>
+                       <SelectValue placeholder="Select location" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {locations.map((location) => (
+                         <SelectItem key={location.id} value={location.id}>
+                           {location.name}
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
               </div>
 
               {/* Shipping Charges */}

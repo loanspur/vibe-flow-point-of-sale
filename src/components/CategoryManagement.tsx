@@ -136,10 +136,11 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
         description: `${categoryForm.name} has been ${selectedCategory ? 'updated' : 'created'} successfully.`,
       });
 
+      // Persist changes and refresh
+      await fetchCategories();
       setShowCategoryForm(false);
       setSelectedCategory(null);
       setCategoryForm({ name: '', description: '', color: '#3B82F6' });
-      fetchCategories();
       onUpdate?.();
     } catch (error: any) {
       toast({
@@ -178,10 +179,11 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
         description: `${subcategoryForm.name} has been ${selectedSubcategory ? 'updated' : 'created'} successfully.`,
       });
 
+      // Persist changes and refresh
+      await fetchCategories();
       setShowSubcategoryForm(false);
       setSelectedSubcategory(null);
       setSubcategoryForm({ name: '', description: '', category_id: undefined });
-      fetchCategories();
       onUpdate?.();
     } catch (error: any) {
       toast({

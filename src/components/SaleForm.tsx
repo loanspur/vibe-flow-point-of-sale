@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 
@@ -67,6 +69,14 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const [actualInventory, setActualInventory] = useState<Record<string, { stock: number; variants: Record<string, number> }>>({});
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>(localStorage.getItem('selected_location') || '');
+  
+  // Location handler with persistence
+  const handleLocationChange = (value: string) => {
+    setSelectedLocation(value);
+    localStorage.setItem('selected_location', value);
+  };
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedVariant, setSelectedVariant] = useState("");
@@ -101,6 +111,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     if (tenantId) {
       fetchProducts();
       fetchCustomers();
+      fetchLocations();
       fetchActualInventory();
       checkMpesaConfig();
       fetchBusinessSettings();
@@ -108,6 +119,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       setProducts([]);
       setFilteredProducts([]);
       setCustomers([]);
+      setLocations([]);
       setActualInventory({});
       setMpesaEnabled(false);
       setBusinessSettings(null);
@@ -249,28 +261,45 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
     
     try {
-      // Fetch from contacts table instead of customers, filtering for customers only
+      const customersData = await fetchCustomersFromContacts(tenantId);
+      setCustomers(customersData);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      setCustomers([]);
+    }
+  };
+
+  const fetchLocations = async () => {
+    if (!tenantId) {
+      setLocations([]);
+      return;
+    }
+    
+    try {
       const { data, error } = await supabase
-        .from("contacts")
+        .from("store_locations")
         .select("*")
         .eq("tenant_id", tenantId)
-        .eq("type", "customer")
         .eq("is_active", true)
         .order("name");
       
       if (error) {
-        console.error('Error fetching customers:', error);
+        console.error('Error fetching locations:', error);
         return;
       }
       
       if (data && Array.isArray(data)) {
-        setCustomers(data);
+        setLocations(data);
+        // Set first location as default if no location is selected
+        if (data.length > 0 && !selectedLocation) {
+          setSelectedLocation(data[0].id);
+        }
       } else {
-        setCustomers([]);
+        setLocations([]);
       }
     } catch (error) {
-      console.error('Error fetching customers:', error);
-      setCustomers([]);
+      console.error('Error fetching locations:', error);
+      setLocations([]);
     }
   };
 
@@ -543,6 +572,15 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return;
     }
 
+    if (!selectedLocation) {
+      toast({
+        title: "Location Required",
+        description: "Please select a location for this quote",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -565,11 +603,23 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         return;
       }
 
+      // Fetch customer name for persistence
+      let customerName = null;
+      if (values.customer_id) {
+        const { data: customerData } = await supabase
+          .from("contacts")
+          .select("name")
+          .eq("id", values.customer_id)
+          .single();
+        customerName = customerData?.name;
+      }
+
       const { data: quote, error: quoteError } = await supabase
         .from("quotes")
         .insert({
           quote_number: quoteNumber,
           customer_id: values.customer_id,
+          customer_name: customerName,
           cashier_id: user.id,
           tenant_id: tenantData,
           total_amount: totalAmount,
@@ -591,6 +641,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
+        tenant_id: tenantId,
       }));
 
       const { error: itemsError } = await supabase
@@ -631,6 +682,15 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       toast({
         title: "Error",
         description: "Please add at least one item to the sale",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedLocation) {
+      toast({
+        title: "Location Required",
+        description: "Please select a location for this sale",
         variant: "destructive",
       });
       return;
@@ -697,6 +757,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
           cashier_id: user.id,
           tenant_id: tenantData,
+          location_id: selectedLocation || null,
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
           tax_amount: values.tax_amount,
@@ -890,16 +951,31 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                     Product Selection
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by name, SKU, or barcode..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
+                 <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location *</Label>
+                      <Select value={selectedLocation} onValueChange={handleLocationChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name}
+                            </SelectItem>
+                          ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                   <div className="relative">
+                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                     <Input
+                       placeholder="Search by name, SKU, or barcode..."
+                       value={searchTerm}
+                       onChange={(e) => setSearchTerm(e.target.value)}
+                       className="pl-9"
+                     />
+                   </div>
 
                   {searchTerm && (
                     <div className="grid grid-cols-1 gap-4 max-h-60 overflow-y-auto">

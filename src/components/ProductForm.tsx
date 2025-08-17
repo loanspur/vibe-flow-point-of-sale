@@ -55,6 +55,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [revenueAccounts, setRevenueAccounts] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -76,6 +77,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     min_stock_level: '',
     has_expiry_date: false,
     is_active: true,
+    location_id: localStorage.getItem('selected_location') || '',
   });
 
   const generateSKU = async (productName: string): Promise<string> => {
@@ -134,6 +136,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       fetchCategories();
       fetchRevenueAccounts();
       fetchUnits();
+      fetchLocations();
+      
+      // Set default location for new products using database function
+      if (!product && !formData.location_id) {
+        setDefaultLocation();
+      }
     }
   }, [tenantId]);
 
@@ -154,6 +162,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         min_stock_level: product.min_stock_level?.toString() || '',
         has_expiry_date: product.has_expiry_date || false,
         is_active: product.is_active ?? true,
+        location_id: product.location_id || '',
       });
       if (product.image_url) {
         setImagePreview(product.image_url);
@@ -257,6 +266,58 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   };
 
+  const fetchLocations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('store_locations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching locations",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const setDefaultLocation = async () => {
+    try {
+      if (!tenantId) return;
+      
+      const { data, error } = await supabase.rpc('get_user_default_location', {
+        user_tenant_id: tenantId
+      });
+
+      if (error) throw error;
+      
+      if (data) {
+        setFormData(prev => ({ ...prev, location_id: data }));
+        localStorage.setItem('selected_location', data);
+      }
+    } catch (error: any) {
+      console.warn('Could not set default location:', error.message);
+      // Fallback to first available location
+      const { data: locations } = await supabase
+        .from('store_locations')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('created_at')
+        .limit(1);
+      
+      if (locations && locations.length > 0) {
+        setFormData(prev => ({ ...prev, location_id: locations[0].id }));
+        localStorage.setItem('selected_location', locations[0].id);
+      }
+    }
+  };
+
   const fetchProductVariants = async (productId: string) => {
     try {
       const { data, error } = await supabase
@@ -346,6 +407,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
     try {
       // Validate mandatory fields
+      if (!formData.location_id) {
+        toast({
+          title: "Location Required",
+          description: "Please select a location for this product.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       if (!formData.unit_id) {
         toast({
           title: "Unit Required",
@@ -409,6 +480,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         is_active: formData.is_active,
         image_url: imageUrl || null,
         has_expiry_date: formData.has_expiry_date,
+        location_id: formData.location_id || null,
         tenant_id: tenantId,
       };
 
@@ -443,6 +515,31 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         description: `${formData.name} has been ${product ? 'updated' : 'created'} successfully.`,
       });
 
+      // Reset form data and clear states after successful save
+      if (!product) {
+        setFormData({
+          name: '',
+          sku: '',
+          description: '',
+          price: '',
+          default_profit_margin: '',
+          barcode: '',
+          category_id: '',
+          subcategory_id: undefined,
+          revenue_account_id: undefined,
+          unit_id: undefined,
+          stock_quantity: '',
+          min_stock_level: '',
+          has_expiry_date: false,
+          is_active: true,
+          location_id: localStorage.getItem('selected_location') || '',
+        });
+        setImagePreview('');
+        setImageFile(null);
+        setVariants([]);
+        setVariantImages({});
+      }
+      
       onSuccess();
     } catch (error: any) {
       toast({
@@ -460,6 +557,11 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       const newData = { ...prev, [field]: value };
       return newData;
     });
+
+    // Persist location selection
+    if (field === 'location_id' && typeof value === 'string') {
+      localStorage.setItem('selected_location', value);
+    }
 
     // Auto-generate SKU when product name changes (only for new products)
     if (field === 'name' && !product && typeof value === 'string' && value.trim()) {
@@ -769,6 +871,27 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="location">Location *</Label>
+              <Select
+                value={formData.location_id}
+                onValueChange={(value) => handleInputChange('location_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-2">
               <Label htmlFor="sku">SKU {!product && <span className="text-muted-foreground text-sm">(Auto-generated)</span>}</Label>
               <Input
                 id="sku"
@@ -849,6 +972,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               />
             </div>
           </div>
+
           
           <div className="flex items-center space-x-2">
             <Switch

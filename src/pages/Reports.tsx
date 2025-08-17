@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BarChart3, Download, TrendingUp, DollarSign, ShoppingCart, Users, Calendar, FileText, Filter, Search } from "lucide-react";
+import { ArrowLeft, BarChart3, Download, TrendingUp, DollarSign, ShoppingCart, Users, Calendar, FileText, Filter, Search, MapPin, Clock, ArrowUp, ArrowDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis } from "recharts";
+import { fetchAllCustomers } from '@/lib/customerUtils';
 
 interface ReportMetrics {
   totalRevenue: number;
@@ -30,6 +31,10 @@ interface ReportMetrics {
   totalExpenses: number;
   netProfit: number;
   totalInventoryValue: number;
+  lastWeekSales?: number;
+  lastMonthSales?: number;
+  locationSales?: { name: string; total: number }[];
+  dayOfWeekSales?: { day: string; total: number }[];
 }
 
 type ReportView = 'overview' | 'sales' | 'products' | 'customers' | 'financial' | 'inventory' | 'custom';
@@ -204,25 +209,32 @@ const Reports = () => {
       }
 
 
-      const salesWithDetails = (salesData || []).map((s: any) => {
-        const total_purchase_price = Number(costBySale[s.id] || 0);
-        const total_profit = Number(s.total_amount || 0) - total_purchase_price;
-        return {
-          ...s,
-          user_name: profileMap[s.cashier_id] || null,
-          location_name: drawerMap[s.cashier_id] || null,
-          total_purchase_price,
-          total_profit,
-        };
-      });
+        // Fetch store locations data
+        const { data: locationsData } = await supabase
+          .from('store_locations')
+          .select('id, name')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true);
+
+        const locationMap: Record<string, string> = {};
+        (locationsData || []).forEach((loc: any) => { 
+          locationMap[loc.id] = loc.name; 
+        });
+
+        const salesWithDetails = (salesData || []).map((s: any) => {
+          const total_purchase_price = Number(costBySale[s.id] || 0);
+          const total_profit = Number(s.total_amount || 0) - total_purchase_price;
+          return {
+            ...s,
+            user_name: profileMap[s.cashier_id] || 'Unknown User',
+            location_name: locationMap[s.location_id] || drawerMap[s.cashier_id] || 'Unknown Location',
+            total_purchase_price,
+            total_profit,
+          };
+        });
 
       // Fetch customers data
-      const { data: customersData, error: customersError } = await supabase
-        .from("customers")
-        .select("id, name, email, phone, address, created_at")
-        .eq("tenant_id", tenantId);
-
-      if (customersError) throw customersError;
+      const customersData = await fetchAllCustomers(tenantId);
 
       // Fetch products data
       const { data: productsData, error: productsError } = await supabase
@@ -280,6 +292,23 @@ const Reports = () => {
         new Date(sale.created_at) >= thisMonthStart
       ).reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
 
+      // Calculate last week and last month for comparison
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+      const lastWeekEnd = new Date(thisWeekStart);
+      
+      const lastMonthEnd = new Date(thisMonthStart);
+      
+      const lastWeekSales = salesData?.filter(sale => {
+        const saleDate = new Date(sale.created_at);
+        return saleDate >= lastWeekStart && saleDate < lastWeekEnd;
+      }).reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+
+      const lastMonthSales = salesData?.filter(sale => {
+        const saleDate = new Date(sale.created_at);
+        return saleDate >= lastMonthStart && saleDate < thisMonthStart;
+      }).reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+
       const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
 
       // Calculate customer metrics
@@ -313,6 +342,22 @@ const Reports = () => {
       const topProduct = sortedProducts.length > 0 ? sortedProducts[0][0] : "No data";
       setProductTop(sortedProducts.slice(0, 10).map(([name, qty]) => ({ name, quantity: qty })));
 
+      // Calculate location sales for comparison
+      const locationSales = new Map();
+      salesWithDetails.forEach(sale => {
+        const locationName = sale.location_name || 'Unknown Location';
+        locationSales.set(locationName, (locationSales.get(locationName) || 0) + Number(sale.total_amount));
+      });
+
+      // Calculate day of week analysis
+      const dayOfWeekSales = new Map();
+      const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      salesData?.forEach(sale => {
+        const dayIndex = new Date(sale.created_at).getDay();
+        const dayName = daysOfWeek[dayIndex];
+        dayOfWeekSales.set(dayName, (dayOfWeekSales.get(dayName) || 0) + Number(sale.total_amount));
+      });
+
       setMetrics({
         totalRevenue,
         totalSales,
@@ -329,6 +374,10 @@ const Reports = () => {
         totalExpenses: 0, // Would need expense tracking
         netProfit: grossProfit, // Simplified calculation
         totalInventoryValue,
+        lastWeekSales,
+        lastMonthSales,
+        locationSales: Array.from(locationSales.entries()).map(([name, total]) => ({ name, total })),
+        dayOfWeekSales: Array.from(dayOfWeekSales.entries()).map(([day, total]) => ({ day, total })),
       });
 
       // Build customer aggregates
@@ -369,6 +418,40 @@ const Reports = () => {
       style: 'currency',
       currency: tenantCurrency || 'USD'
     }).format(amount);
+  };
+
+  const exportSalesData = () => {
+    try {
+      const csvContent = [
+        ['Date/Time', 'Sale ID', 'Sales Amount', 'Purchase Price', 'Profit', 'Location', 'User', 'Status', 'Payment Method'],
+        ...filteredSales.map(sale => [
+          new Date(sale.created_at).toLocaleString(),
+          `#${sale.id?.slice(-8) || 'N/A'}`,
+          sale.total_amount || 0,
+          sale.total_purchase_price || 0,
+          sale.total_profit || 0,
+          sale.location_name || 'Unknown Location',
+          sale.user_name || 'Unknown User',
+          sale.status || 'completed',
+          sale.payment_method || 'cash'
+        ])
+      ].map(row => row.join(',')).join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sales-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Sales data exported successfully');
+    } catch (error) {
+      console.error('Error exporting sales data:', error);
+      toast.error('Failed to export sales data');
+    }
   };
 
   // Build period key for aggregation
@@ -471,7 +554,7 @@ const Reports = () => {
                   </div>
                 </div>
               </div>
-              <Button>
+              <Button onClick={exportSalesData}>
                 <Download className="h-4 w-4 mr-2" />
                 Export Sales Data
               </Button>
@@ -500,6 +583,15 @@ const Reports = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{formatCurrency(metrics.thisWeekSales)}</div>
+                  <div className="flex items-center gap-1 mt-1">
+                    {metrics.lastWeekSales ? (
+                      metrics.thisWeekSales > metrics.lastWeekSales ? (
+                        <><ArrowUp className="h-3 w-3 text-green-500" /><span className="text-xs text-green-500">vs last week</span></>
+                      ) : (
+                        <><ArrowDown className="h-3 w-3 text-red-500" /><span className="text-xs text-red-500">vs last week</span></>
+                      )
+                    ) : null}
+                  </div>
                   <p className="text-sm text-muted-foreground">This week's total</p>
                 </CardContent>
               </Card>
@@ -513,10 +605,76 @@ const Reports = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{formatCurrency(metrics.thisMonthSales)}</div>
+                  <div className="flex items-center gap-1 mt-1">
+                    {metrics.lastMonthSales ? (
+                      metrics.thisMonthSales > metrics.lastMonthSales ? (
+                        <><ArrowUp className="h-3 w-3 text-green-500" /><span className="text-xs text-green-500">vs last month</span></>
+                      ) : (
+                        <><ArrowDown className="h-3 w-3 text-red-500" /><span className="text-xs text-red-500">vs last month</span></>
+                      )
+                    ) : null}
+                  </div>
                   <p className="text-sm text-muted-foreground">This month's total</p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Location Sales Comparison */}
+            {metrics.locationSales && metrics.locationSales.length > 1 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Location Sales Comparison
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {metrics.locationSales.map((location, index) => (
+                      <div key={index} className="text-center p-3 bg-muted/30 rounded-lg">
+                        <div className="font-semibold text-sm">{location.name}</div>
+                        <div className="text-lg font-bold text-primary">{formatCurrency(location.total)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Day of Week Analysis */}
+            {metrics.dayOfWeekSales && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Weekly Performance Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-7 gap-2">
+                    {metrics.dayOfWeekSales
+                      .sort((a, b) => {
+                        const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        return dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+                      })
+                      .map((day, index) => {
+                        const maxSales = Math.max(...metrics.dayOfWeekSales!.map(d => d.total));
+                        const intensity = day.total / maxSales;
+                        const isBusiest = day.total === maxSales;
+                        return (
+                          <div key={index} className="text-center p-2 rounded-lg" style={{
+                            backgroundColor: `hsl(var(--primary) / ${intensity * 0.3})`
+                          }}>
+                            <div className="text-xs font-medium">{day.day.slice(0, 3)}</div>
+                            <div className="text-sm font-bold">{formatCurrency(day.total)}</div>
+                            {isBusiest && <div className="text-xs text-primary">Busiest</div>}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Filters and Search */}
             <div className="flex flex-wrap items-center gap-4 p-4 bg-card rounded-lg border">
@@ -577,15 +735,15 @@ const Reports = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date/Time</TableHead>
-                      <TableHead>Sale ID</TableHead>
-                      <TableHead>Purchase Amount</TableHead>
-                      <TableHead>Total Purchase Price</TableHead>
-                      <TableHead>Total Profit</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Payment Method</TableHead>
+                       <TableHead>Date/Time</TableHead>
+                       <TableHead>Sale ID</TableHead>
+                       <TableHead>Sales Amount</TableHead>
+                       <TableHead>Total Purchase Price</TableHead>
+                       <TableHead>Total Profit</TableHead>
+                       <TableHead>Location</TableHead>
+                       <TableHead>User</TableHead>
+                       <TableHead>Status</TableHead>
+                       <TableHead>Payment Method</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

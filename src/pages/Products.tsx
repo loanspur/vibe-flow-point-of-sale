@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SafeWrapper } from '@/components/SafeWrapper';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
 const Products = () => {
@@ -23,8 +23,8 @@ const Products = () => {
   // Periodic refresh when visible
   useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
 
-// Realtime refresh on data changes
-  useRealtimeRefresh({
+// Debounced realtime refresh to prevent excessive re-renders
+  useDebouncedRealtimeRefresh({
     tables: [
       'products',
       'product_variants',
@@ -33,6 +33,7 @@ const Products = () => {
     tenantId,
     onChange: handleRealtimeRefresh,
     enabled: false,
+    debounceMs: 2000,
   });
 
 return (

@@ -11,16 +11,15 @@ export default function Sales() {
 
   const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  // Periodic refresh when visible
-  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
+  // Disabled auto-refresh and realtime to prevent continuous loading issues
+  // useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
 
-  // Realtime refresh on sales-related changes
-  useRealtimeRefresh({
-    tables: ['sales', 'sales_items', 'customers', 'ar_ap_payments', 'payment_history'],
-    tenantId,
-    onChange: handleRefresh,
-    enabled: false,
-  });
+  // useRealtimeRefresh({
+  //   tables: ['sales', 'sales_items', 'customers', 'ar_ap_payments', 'payment_history'],
+  //   tenantId,
+  //   onChange: handleRefresh,
+  //   enabled: false,
+  // });
 
   return (
     <SafeWrapper>

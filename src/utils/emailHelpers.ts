@@ -2,6 +2,59 @@ import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
 import { getBaseDomain } from '@/lib/domain-manager';
 
+interface BusinessSettings {
+  company_name?: string;
+  phone?: string;
+  email?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state_province?: string;
+  postal_code?: string;
+  country?: string;
+  company_logo_url?: string;
+  currency_symbol?: string;
+  currency_code?: string;
+}
+
+interface StoreLocation {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
+/**
+ * Fetches business settings and location details for email templates
+ */
+export const fetchBusinessDetailsForEmail = async (tenantId: string) => {
+  try {
+    const { data: businessSettings } = await supabase
+      .from('business_settings')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .single();
+
+    const { data: locations } = await supabase
+      .from('store_locations')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('is_primary', true)
+      .single();
+
+    return {
+      businessSettings: (businessSettings as BusinessSettings) || {},
+      primaryLocation: (locations as StoreLocation) || {}
+    };
+  } catch (error) {
+    console.error('Error fetching business details:', error);
+    return {
+      businessSettings: {} as BusinessSettings,
+      primaryLocation: {} as StoreLocation
+    };
+  }
+};
+
 /**
  * Generates tenant-specific URLs for emails
  */
@@ -139,10 +192,33 @@ export const processEmailContent = async (
     // Generate tenant URLs
     const tenantUrls = await generateTenantEmailUrls(tenantId);
     
-    // Enhance variables with tenant-specific URLs
+    // Fetch business details
+    const { businessSettings, primaryLocation } = await fetchBusinessDetailsForEmail(tenantId);
+    
+    // Enhance variables with tenant-specific URLs and business details
     const enhancedVariables = {
       ...variables,
-      ...tenantUrls
+      ...tenantUrls,
+      // Business settings variables
+      company_name: businessSettings.company_name || 'Your Company',
+      company_phone: businessSettings.phone || '',
+      company_email: businessSettings.email || '',
+      company_address: [
+        businessSettings.address_line_1,
+        businessSettings.address_line_2,
+        businessSettings.city,
+        businessSettings.state_province,
+        businessSettings.postal_code,
+        businessSettings.country
+      ].filter(Boolean).join(', '),
+      company_logo_url: businessSettings.company_logo_url || '',
+      currency_symbol: businessSettings.currency_symbol || '$',
+      currency_code: businessSettings.currency_code || 'USD',
+      // Location variables
+      location_name: primaryLocation.name || '',
+      location_address: primaryLocation.address || '',
+      location_phone: primaryLocation.phone || '',
+      location_email: primaryLocation.email || ''
     };
 
     let processedContent = content;

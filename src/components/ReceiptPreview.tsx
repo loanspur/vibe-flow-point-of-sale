@@ -107,6 +107,16 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
 
   const document = sale || quote;
 
+  // Determine document type based on sale payment method if not explicitly set
+  const getDocumentType = () => {
+    if (type === "quote") return "quote";
+    if (type === "invoice") return "invoice";
+    if (sale?.payment_method === "credit") return "invoice";
+    return "receipt";
+  };
+  
+  const documentType = getDocumentType();
+
   useEffect(() => {
     if (isOpen && document) {
       fetchBusinessSettings();
@@ -215,8 +225,12 @@ Phone: {{customer_phone}}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-Subtotal:      {{subtotal}}    Tax: {{tax_amount}}
-Discount:    {{discount_amount}}   TOTAL: {{total_amount}}
+                          ─────────────
+Subtotal:                 {{subtotal}}
+Tax:                    {{tax_amount}}
+Discount:             {{discount_amount}}
+                          ─────────────
+TOTAL:                {{total_amount}}
 
 Payment: {{payment_method}}    Paid: {{amount_paid}}
 Change: {{change_amount}}
@@ -225,7 +239,7 @@ Change: {{change_amount}}
 
 Thank you for choosing us!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Powered by VibePOS | 0727638940
+Powered by VibePOS | {{company_phone}}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
     // Get the appropriate template based on type
@@ -297,6 +311,26 @@ Powered by VibePOS | 0727638940
     return items.reduce((sum, item) => sum + item.total_price, 0);
   };
 
+  const formatBusinessAddress = (settings: any) => {
+    if (!settings) return "123 Business Street\nBusiness City, State\nCountry";
+    
+    const addressParts = [];
+    
+    if (settings.address_line_1) addressParts.push(settings.address_line_1);
+    if (settings.address_line_2) addressParts.push(settings.address_line_2);
+    
+    const cityStatePostal = [
+      settings.city,
+      settings.state_province,
+      settings.postal_code
+    ].filter(Boolean).join(', ');
+    
+    if (cityStatePostal) addressParts.push(cityStatePostal);
+    if (settings.country) addressParts.push(settings.country);
+    
+    return addressParts.length > 0 ? addressParts.join('\n') : "Complete business address in Settings";
+  };
+
   const handlePrint = () => {
     if (receiptRef.current) {
       const documentNumber = sale?.receipt_number || quote?.quote_number;
@@ -310,13 +344,14 @@ Powered by VibePOS | 0727638940
                  @page { margin: 0; size: 80mm auto; }
                 body { 
                   font-family: 'Courier New', monospace; 
-                  font-size: 14px;
+                  font-size: 12px;
                   font-weight: 900;
                   margin: 0; 
-                  padding: 1mm;
-                  width: 78mm;
-                  line-height: 1.2;
+                  padding: 2mm;
+                  width: 76mm;
+                  line-height: 1.1;
                   color: #000000;
+                  overflow: hidden;
                 }
                 .thermal-receipt { width: 100%; }
                 .center { text-align: center; }
@@ -341,25 +376,46 @@ Powered by VibePOS | 0727638940
                   padding-bottom: 1px;
                   margin-bottom: 1px;
                 }
-                .item-row .item-line {
-                  align-items: flex-start;
-                }
-                .item-name { 
-                  flex: 1; 
-                  white-space: nowrap; 
-                  overflow: hidden; 
-                  text-overflow: ellipsis; 
-                  margin-right: 6px;
-                }
-                .qty-price { 
-                  white-space: nowrap; 
-                  text-align: right; 
-                  min-width: 50px;
-                }
+                 .item-row .item-line {
+                   align-items: flex-start;
+                   min-height: 18px;
+                   margin-bottom: 1px;
+                 }
+                 .item-qty, .item-rate, .item-total {
+                   white-space: nowrap;
+                   overflow: hidden;
+                   text-overflow: ellipsis;
+                   height: 14px;
+                   line-height: 14px;
+                   flex-shrink: 0;
+                 }
+                 .item-name { 
+                   flex: 1; 
+                   word-wrap: break-word;
+                   white-space: normal;
+                   overflow: visible;
+                   margin-right: 6px;
+                   max-width: 40%;
+                   line-height: 1.2;
+                 }
+                 .qty-price { 
+                   white-space: nowrap; 
+                   text-align: right; 
+                   min-width: 50px;
+                   flex-shrink: 0;
+                 }
                 .total-line { 
                   display: flex; 
                   justify-content: space-between; 
-                  font-weight: 900; 
+                  font-weight: 900;
+                  margin: 1px 0;
+                  width: 100%;
+                }
+                .totals-section {
+                  margin: 2px 0;
+                  width: 100%;
+                  max-width: 76mm;
+                  word-wrap: break-word;
                 }
                 .company-info { margin-bottom: 2px; }
                 .document-info { margin: 2px 0; }
@@ -368,16 +424,31 @@ Powered by VibePOS | 0727638940
                 .footer-section { margin-top: 2px; }
                   @media print {
                   body { 
-                    width: 78mm;
-                    font-size: 14px;
-                    font-weight: 900;
+                    width: 76mm !important;
+                    font-size: 12px !important;
+                    font-weight: 900 !important;
                     -webkit-print-color-adjust: exact;
                     color-adjust: exact;
-                    line-height: 1.2;
+                    line-height: 1.1 !important;
+                    margin: 0 !important;
+                    padding: 2mm !important;
+                    overflow: visible !important;
                   }
                   .no-print { display: none !important; }
                   * { font-weight: 900 !important; color: #000000 !important; }
-                  pre { font-size: 14px !important; font-weight: 900 !important; color: #000000 !important; }
+                  pre { 
+                    font-size: 12px !important; 
+                    font-weight: 900 !important; 
+                    color: #000000 !important;
+                    width: 100% !important;
+                    max-width: 72mm !important;
+                    word-wrap: break-word !important;
+                    white-space: pre-wrap !important;
+                  }
+                  .totals-section { 
+                    width: 100% !important;
+                    max-width: 72mm !important;
+                  }
                 }
               </style>
             </head>
@@ -426,19 +497,14 @@ Powered by VibePOS | 0727638940
     // Replace template variables with actual data
     const replacements: Record<string, string> = {
       '{{company_name}}': businessSettings?.company_name || "VibePOS",
-      '{{company_address}}': [
-        businessSettings?.address_line_1,
-        businessSettings?.address_line_2,
-        [businessSettings?.city, businessSettings?.state_province, businessSettings?.postal_code].filter(Boolean).join(', '),
-        businessSettings?.country
-      ].filter(Boolean).join('\n'),
+      '{{company_address}}': formatBusinessAddress(businessSettings),
       '{{company_phone}}': businessSettings?.phone || '',
       '{{company_email}}': businessSettings?.email || '',
       '{{receipt_number}}': sale?.receipt_number || quote?.quote_number || '',
       '{{date}}': formatDate(document?.created_at || ''),
       '{{time}}': new Date(document?.created_at || '').toLocaleTimeString(),
       '{{cashier_name}}': document?.profiles?.full_name || '',
-      '{{customer_name}}': document?.customers?.name || "Walk-in Customer",
+      '{{customer_name}}': document?.customers?.name || (sale as any)?.customer_name || "Walk-in Customer",
       '{{customer_phone}}': document?.customers?.phone || '',
       '{{customer_email}}': document?.customers?.email || '',
       '{{items}}': formatItemsForTemplate(),
@@ -459,7 +525,7 @@ Powered by VibePOS | 0727638940
 
     return (
       <div className="thermal-receipt bg-white p-4 border rounded-lg">
-        <pre className="whitespace-pre-wrap font-mono text-sm leading-tight font-black text-black">
+        <pre className="whitespace-pre-wrap font-mono text-xs leading-tight font-black text-black max-w-full overflow-hidden">
           {currentTemplate}
         </pre>
       </div>
@@ -474,13 +540,25 @@ Powered by VibePOS | 0727638940
       const variantInfo = "product_variants" in item && item.product_variants 
         ? ` (${item.product_variants.name}: ${item.product_variants.value})`
         : '';
-      const fullItemName = `${itemName}${variantInfo}`;
+      
+      // Limit item name to fit in single line, allowing overflow to second line if needed
+      const maxNameLength = 18;
+      const trimmedName = itemName.length > maxNameLength 
+        ? itemName.substring(0, maxNameLength - 1) + '…'
+        : itemName;
+      const fullItemName = `${trimmedName}${variantInfo}`;
       
       const qtyStr = item.quantity.toString().padStart(2);
-      const rateStr = formatAmount(item.unit_price).padStart(10);
-      const totalStr = formatAmount(item.total_price).padStart(10);
+      const rateStr = formatAmount(item.unit_price).padStart(8);
+      const totalStr = formatAmount(item.total_price).padStart(8);
       
-      return `${fullItemName.padEnd(25)} │ ${qtyStr} │ ${rateStr} │ ${totalStr}`;
+      // Format each line to ensure single line except for item name
+      const namePart = fullItemName.padEnd(20);
+      const qtyPart = qtyStr.padStart(3);
+      const ratePart = rateStr.padStart(8);
+      const totalPart = totalStr.padStart(8);
+      
+      return `${namePart}${qtyPart} ${ratePart} ${totalPart}`;
     });
 
     return itemLines.join('\n');
@@ -535,7 +613,7 @@ Powered by VibePOS | 0727638940
         {/* Document Details */}
         <div className="document-info small">
           <div>Date: {formatDate(document.created_at)}</div>
-          <div>Customer: {document.customers?.name || "Walk-in Customer"}</div>
+          <div>Customer: {document.customers?.name || (sale as any)?.customer_name || "Walk-in Customer"}</div>
           {document.customers?.phone && (
             <div>Phone: {document.customers.phone}</div>
           )}

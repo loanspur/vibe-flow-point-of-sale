@@ -33,7 +33,7 @@ import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
 // Removed unused recharts import that was causing module loading issues
 
 const getTimeBasedGreeting = () => {
@@ -130,11 +130,12 @@ function TenantAdminDashboard() {
   // Auto-refresh features re-enabled
   useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
 
-  useRealtimeRefresh({
+  useDebouncedRealtimeRefresh({
     tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
     tenantId,
     onChange: () => fetchDashboardData(),
     enabled: true,
+    debounceMs: 2000,
   });
 
   const fetchCurrentSubscription = async () => {

@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown, Plus, Truck, Package, CheckCircle } from 'lucide-react';
+import { ArrowUpDown, Plus, Truck, Package, CheckCircle, Eye, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,8 +20,12 @@ export const StockTransfers: React.FC = () => {
   const [locations, setLocations] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
   const [transferItems, setTransferItems] = useState<any[]>([]);
+  const [editTransferItems, setEditTransferItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
@@ -91,14 +96,59 @@ export const StockTransfers: React.FC = () => {
 
       if (!profile?.tenant_id) return;
 
+      // Fetch products with variants and stock quantities
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock_quantity, cost_price')
+        .select(`
+          id, 
+          name, 
+          sku, 
+          stock_quantity, 
+          cost_price,
+          product_variants (
+            id,
+            name,
+            value,
+            stock_quantity,
+            sale_price
+          )
+        `)
         .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true);
 
       if (error) throw error;
-      setProducts(data || []);
+      
+      // Flatten products and variants for easier selection
+      const productsWithVariants: any[] = [];
+      (data || []).forEach(product => {
+        // Add main product
+        productsWithVariants.push({
+          id: product.id,
+          variant_id: null,
+          name: product.name,
+          sku: product.sku,
+          stock_quantity: product.stock_quantity,
+          cost_price: product.cost_price,
+          display_name: product.name
+        });
+        
+        // Add variants if they exist
+        if (product.product_variants && product.product_variants.length > 0) {
+          product.product_variants.forEach((variant: any) => {
+            productsWithVariants.push({
+              id: product.id,
+              variant_id: variant.id,
+              name: product.name,
+              sku: product.sku,
+              stock_quantity: variant.stock_quantity,
+              cost_price: variant.sale_price || product.cost_price, // Use sale_price from variant as cost_price fallback
+              display_name: `${product.name} - ${variant.name}: ${variant.value}`
+            });
+          });
+        }
+      });
+      
+      setProducts(productsWithVariants);
     } catch (error) {
       console.error('Error fetching products:', error);
     }
@@ -109,6 +159,7 @@ export const StockTransfers: React.FC = () => {
       ...transferItems,
       {
         product_id: '',
+        variant_id: null,
         quantity_requested: 0,
         unit_cost: 0
       }
@@ -117,14 +168,24 @@ export const StockTransfers: React.FC = () => {
 
   const updateTransferItem = (index: number, field: string, value: any) => {
     const updatedItems = [...transferItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
     
-    // Auto-fill unit cost when product is selected
-    if (field === 'product_id') {
-      const product = products.find(p => p.id === value);
+    if (field === 'product_selection') {
+      // Parse product and variant IDs from the selection value
+      const [productId, variantId] = value.split('|');
+      const product = products.find(p => p.id === productId && 
+        (variantId === 'null' ? p.variant_id === null : p.variant_id === variantId));
+      
       if (product) {
-        updatedItems[index].unit_cost = product.cost_price || 0;
+        updatedItems[index] = {
+          ...updatedItems[index],
+          product_id: productId,
+          variant_id: variantId === 'null' ? null : variantId,
+          unit_cost: product.cost_price || 0,
+          available_stock: product.stock_quantity || 0
+        };
       }
+    } else {
+      updatedItems[index] = { ...updatedItems[index], [field]: value };
     }
     
     setTransferItems(updatedItems);
@@ -186,6 +247,7 @@ export const StockTransfers: React.FC = () => {
       const itemsToInsert = transferItems.map(item => ({
         transfer_id: transfer.id,
         product_id: item.product_id,
+        variant_id: item.variant_id,
         quantity_requested: item.quantity_requested,
         quantity_shipped: item.quantity_requested, // Auto-ship for now
         quantity_received: 0,
@@ -212,6 +274,189 @@ export const StockTransfers: React.FC = () => {
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to create stock transfer.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const viewTransferDetails = async (transferId: string) => {
+    try {
+      const transfer = transfers.find(t => t.id === transferId);
+      if (!transfer) return;
+
+      // Fetch transfer items first
+      const { data: items, error: itemsError } = await supabase
+        .from('stock_transfer_items')
+        .select('*')
+        .eq('transfer_id', transferId);
+
+      if (itemsError) throw itemsError;
+
+      // If we have items, fetch product details separately
+      let enrichedItems = items || [];
+      if (items && items.length > 0) {
+        const productIds = items.map(item => item.product_id).filter(Boolean);
+        const variantIds = items.map(item => item.variant_id).filter(Boolean);
+
+        // Fetch products
+        let productDetails = [];
+        if (productIds.length > 0) {
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, name, sku')
+            .in('id', productIds);
+          productDetails = products || [];
+        }
+
+        // Fetch variants if any
+        let variantDetails = [];
+        if (variantIds.length > 0) {
+          const { data: variants } = await supabase
+            .from('product_variants')
+            .select('id, name, value')
+            .in('id', variantIds);
+          variantDetails = variants || [];
+        }
+
+        // Enrich items with product/variant details
+        enrichedItems = items.map(item => ({
+          ...item,
+          product: productDetails.find(p => p.id === item.product_id) || null,
+          variant: variantDetails.find(v => v.id === item.variant_id) || null
+        }));
+      }
+
+      setSelectedTransfer({ ...transfer, items: enrichedItems });
+      setIsViewDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching transfer details:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch transfer details.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const editTransfer = async (transfer: any) => {
+    try {
+      // Fetch transfer items for editing with separate queries to avoid RLS issues
+      const { data: items, error: itemsError } = await supabase
+        .from('stock_transfer_items')
+        .select('*')
+        .eq('transfer_id', transfer.id);
+
+      if (itemsError) throw itemsError;
+
+      // If we have items, fetch product details separately
+      let enrichedItems = items || [];
+      if (items && items.length > 0) {
+        const productIds = items.map(item => item.product_id).filter(Boolean);
+        const variantIds = items.map(item => item.variant_id).filter(Boolean);
+
+        // Fetch products
+        let productDetails = [];
+        if (productIds.length > 0) {
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, name, sku')
+            .in('id', productIds);
+          productDetails = products || [];
+        }
+
+        // Fetch variants if any
+        let variantDetails = [];
+        if (variantIds.length > 0) {
+          const { data: variants } = await supabase
+            .from('product_variants')
+            .select('id, name, value')
+            .in('id', variantIds);
+          variantDetails = variants || [];
+        }
+
+        // Enrich items with product/variant details
+        enrichedItems = items.map(item => ({
+          ...item,
+          product: productDetails.find(p => p.id === item.product_id) || null,
+          variant: variantDetails.find(v => v.id === item.variant_id) || null
+        }));
+      }
+
+      const formattedItems = enrichedItems.map((item: any) => ({
+        id: item.id,
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        quantity_requested: item.quantity_requested,
+        unit_cost: item.unit_cost,
+        product: item.product,
+        variant: item.variant
+      }));
+
+      setSelectedTransfer(transfer);
+      setEditTransferItems(formattedItems);
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error('Error preparing transfer for edit:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to prepare transfer for editing.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const deleteTransfer = async (transferId: string) => {
+    try {
+      const { error } = await supabase
+        .from('stock_transfers')
+        .delete()
+        .eq('id', transferId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Transfer Deleted',
+        description: 'Stock transfer has been deleted successfully.'
+      });
+
+      fetchTransfers();
+    } catch (error) {
+      console.error('Error deleting transfer:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete stock transfer.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const processTransfer = async (transferId: string) => {
+    setLoading(true);
+    try {
+      // Update transfer status from pending to in_transit (active)
+      const { error: updateError } = await supabase
+        .from('stock_transfers')
+        .update({
+          status: 'in_transit',
+          shipped_at: new Date().toISOString()
+        })
+        .eq('id', transferId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: 'Transfer Processed',
+        description: 'Stock transfer has been processed and is now in transit.'
+      });
+
+      fetchTransfers();
+    } catch (error) {
+      console.error('Error processing transfer:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to process stock transfer.',
         variant: 'destructive'
       });
     } finally {
@@ -268,6 +513,7 @@ export const StockTransfers: React.FC = () => {
           transferId,
           items.map(item => ({
             productId: item.product_id,
+            variantId: item.variant_id,
             quantityTransferred: item.quantity_shipped
           })),
           transfer.from_location_id,
@@ -389,55 +635,73 @@ export const StockTransfers: React.FC = () => {
                       {transferItems.map((item, index) => (
                         <Card key={index}>
                           <CardContent className="p-4">
-                            <div className="grid grid-cols-4 gap-4 items-end">
-                              <div>
-                                <Label>Product</Label>
-                                <Select
-                                  value={item.product_id}
-                                  onValueChange={(value) => updateTransferItem(index, 'product_id', value)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select product" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {products.map((product) => (
-                                      <SelectItem key={product.id} value={product.id}>
-                                        {product.name} ({product.sku}) - Stock: {product.stock_quantity}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div>
-                                <Label>Quantity (pcs)</Label>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity_requested}
-                                  onChange={(e) => updateTransferItem(index, 'quantity_requested', parseInt(e.target.value) || 0)}
-                                />
-                              </div>
-                              <div>
-                                <Label>Unit Cost</Label>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  value={item.unit_cost}
-                                  onChange={(e) => updateTransferItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
-                                  readOnly
-                                />
-                              </div>
-                              <div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeTransferItem(index)}
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </div>
+                             <div className="grid grid-cols-5 gap-4 items-end">
+                               <div>
+                                 <Label>Product/Variant</Label>
+                                 <Select
+                                   value={item.product_id ? `${item.product_id}|${item.variant_id || 'null'}` : ''}
+                                   onValueChange={(value) => updateTransferItem(index, 'product_selection', value)}
+                                 >
+                                   <SelectTrigger>
+                                     <SelectValue placeholder="Select product" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                     {products.map((product) => (
+                                       <SelectItem 
+                                         key={`${product.id}-${product.variant_id || 'main'}`} 
+                                         value={`${product.id}|${product.variant_id || 'null'}`}
+                                       >
+                                         {product.display_name} - Stock: {product.stock_quantity}
+                                       </SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
+                               </div>
+                               <div>
+                                 <Label>Available Stock</Label>
+                                 <Input
+                                   type="number"
+                                   value={item.available_stock || 0}
+                                   readOnly
+                                   className="bg-muted"
+                                 />
+                               </div>
+                               <div>
+                                 <Label>Quantity</Label>
+                                 <Input
+                                   type="number"
+                                   min="1"
+                                   max={item.available_stock || 0}
+                                   value={item.quantity_requested}
+                                   onChange={(e) => updateTransferItem(index, 'quantity_requested', parseInt(e.target.value) || 0)}
+                                 />
+                               </div>
+                               <div>
+                                 <Label>Unit Cost</Label>
+                                 <Input
+                                   type="number"
+                                   step="0.01"
+                                   value={item.unit_cost}
+                                   onChange={(e) => updateTransferItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
+                                   readOnly
+                                 />
+                               </div>
+                               <div>
+                                 <Button
+                                   type="button"
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => removeTransferItem(index)}
+                                 >
+                                   Remove
+                                 </Button>
+                               </div>
+                             </div>
+                             {item.available_stock !== undefined && item.quantity_requested > item.available_stock && (
+                               <p className="text-sm text-destructive mt-2">
+                                 Quantity exceeds available stock ({item.available_stock})
+                               </p>
+                             )}
                           </CardContent>
                         </Card>
                       ))}
@@ -507,18 +771,92 @@ export const StockTransfers: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {transfer.status === 'in_transit' && (
+                      <div className="flex items-center gap-2">
+                        {/* View Details */}
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => completeTransfer(transfer.id)}
-                          disabled={loading}
-                          className="flex items-center gap-1"
+                          onClick={() => viewTransferDetails(transfer.id)}
+                          className="h-8 w-8 p-0"
+                          title="View Details"
                         >
-                          <CheckCircle className="h-3 w-3" />
-                          Complete
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
+                        
+                        {/* Edit Transfer (only for pending status) */}
+                        {transfer.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => editTransfer(transfer)}
+                            className="h-8 w-8 p-0"
+                            title="Edit Transfer"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {/* Process Transfer (only for pending status) */}
+                        {transfer.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => processTransfer(transfer.id)}
+                            disabled={loading}
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                            title="Process Transfer (Ship)"
+                          >
+                            <Truck className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {/* Complete Transfer (only for in_transit status) */}
+                        {transfer.status === 'in_transit' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => completeTransfer(transfer.id)}
+                            disabled={loading}
+                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                            title="Complete Transfer"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                         {/* Delete Transfer (only for pending or cancelled status) */}
+                         {(transfer.status === 'pending' || transfer.status === 'cancelled') && (
+                           <AlertDialog>
+                             <AlertDialogTrigger asChild>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                 title="Delete Transfer"
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
+                             </AlertDialogTrigger>
+                             <AlertDialogContent>
+                               <AlertDialogHeader>
+                                 <AlertDialogTitle>Delete Stock Transfer</AlertDialogTitle>
+                                 <AlertDialogDescription>
+                                   Are you sure you want to delete transfer {transfer.transfer_number}? This action cannot be undone.
+                                 </AlertDialogDescription>
+                               </AlertDialogHeader>
+                               <AlertDialogFooter>
+                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                 <AlertDialogAction
+                                   onClick={() => deleteTransfer(transfer.id)}
+                                   className="bg-red-600 hover:bg-red-700"
+                                 >
+                                   Delete
+                                 </AlertDialogAction>
+                               </AlertDialogFooter>
+                             </AlertDialogContent>
+                           </AlertDialog>
+                         )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -527,6 +865,196 @@ export const StockTransfers: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* View Transfer Details Modal */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transfer Details - {selectedTransfer?.transfer_number}</DialogTitle>
+          </DialogHeader>
+          {selectedTransfer && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Transfer Number</Label>
+                  <Input value={selectedTransfer.transfer_number} readOnly />
+                </div>
+                <div>
+                  <Label>Date</Label>
+                  <Input value={new Date(selectedTransfer.transfer_date).toLocaleDateString()} readOnly />
+                </div>
+                <div>
+                  <Label>From Location</Label>
+                  <Input value={selectedTransfer.from_location?.name || 'N/A'} readOnly />
+                </div>
+                <div>
+                  <Label>To Location</Label>
+                  <Input value={selectedTransfer.to_location?.name || 'N/A'} readOnly />
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`text-white ${getStatusColor(selectedTransfer.status)} flex items-center gap-1 w-fit`}>
+                      {getStatusIcon(selectedTransfer.status)}
+                      {selectedTransfer.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label>Total Value</Label>
+                  <Input value={`KES ${selectedTransfer.total_value.toFixed(2)}`} readOnly />
+                </div>
+              </div>
+              
+              {selectedTransfer.items && selectedTransfer.items.length > 0 && (
+                <div>
+                  <Label>Transfer Items</Label>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Requested</TableHead>
+                        <TableHead>Shipped</TableHead>
+                        <TableHead>Received</TableHead>
+                        <TableHead>Unit Cost</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedTransfer.items.map((item: any, index: number) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            {item.product?.name || 'Unknown Product'}
+                            {item.variant && ` - ${item.variant.name}: ${item.variant.value}`}
+                          </TableCell>
+                          <TableCell>{item.quantity_requested}</TableCell>
+                          <TableCell>{item.quantity_shipped}</TableCell>
+                          <TableCell>{item.quantity_received}</TableCell>
+                          <TableCell>KES {item.unit_cost.toFixed(2)}</TableCell>
+                          <TableCell>KES {item.total_cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Transfer Modal */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Transfer - {selectedTransfer?.transfer_number}</DialogTitle>
+          </DialogHeader>
+          {selectedTransfer && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Transfer Number</Label>
+                  <Input value={selectedTransfer.transfer_number} readOnly className="bg-muted" />
+                </div>
+                <div>
+                  <Label>Date</Label>
+                  <Input value={new Date(selectedTransfer.transfer_date).toLocaleDateString()} readOnly className="bg-muted" />
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-base font-semibold">Transfer Items</Label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  You can only modify quantities for pending transfers.
+                </p>
+                
+                {editTransferItems.length > 0 && (
+                  <div className="space-y-4">
+                    {editTransferItems.map((item, index) => {
+                      const product = products.find(p => 
+                        p.id === item.product_id && 
+                        (item.variant_id ? p.variant_id === item.variant_id : p.variant_id === null)
+                      );
+                      
+                      return (
+                        <Card key={index}>
+                          <CardContent className="p-4">
+                            <div className="grid grid-cols-4 gap-4 items-center">
+                              <div>
+                                <Label>Product</Label>
+                                <Input 
+                                  value={product?.display_name || 'Unknown Product'} 
+                                  readOnly 
+                                  className="bg-muted"
+                                />
+                              </div>
+                              <div>
+                                <Label>Available Stock</Label>
+                                <Input
+                                  type="number"
+                                  value={product?.stock_quantity || 0}
+                                  readOnly
+                                  className="bg-muted"
+                                />
+                              </div>
+                              <div>
+                                <Label>Quantity</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max={product?.stock_quantity || 0}
+                                  value={item.quantity_requested}
+                                  onChange={(e) => {
+                                    const updatedItems = [...editTransferItems];
+                                    updatedItems[index].quantity_requested = parseInt(e.target.value) || 0;
+                                    setEditTransferItems(updatedItems);
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <Label>Unit Cost</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={item.unit_cost}
+                                  readOnly
+                                  className="bg-muted"
+                                />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    // Implementation for updating transfer
+                    toast({
+                      title: 'Feature Coming Soon',
+                      description: 'Transfer editing will be implemented in the next update.',
+                    });
+                    setIsEditDialogOpen(false);
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

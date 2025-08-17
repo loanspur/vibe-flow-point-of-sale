@@ -51,6 +51,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmailService } from "@/hooks/useEmailService";
 import { SaleForm } from "./SaleForm";
+import { QuoteEmailDialog } from "./QuoteEmailDialog";
 
 interface Quote {
   id: string;
@@ -62,9 +63,10 @@ interface Quote {
   valid_until: string | null;
   created_at: string;
   updated_at: string;
-  customer_id?: string;
+  contact_id?: string;
+  customer_name?: string;
   cashier_id: string;
-  customers?: {
+  contacts?: {
     name: string;
     email?: string;
     phone?: string;
@@ -92,6 +94,10 @@ interface QuoteItem {
 }
 
 export function QuoteManagement() {
+  return <LegacyQuoteManagement />;
+}
+
+export function LegacyQuoteManagement() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [activeTab, setActiveTab] = useState("list");
   const [searchTerm, setSearchTerm] = useState("");
@@ -103,15 +109,12 @@ export function QuoteManagement() {
   const [showQuoteDetails, setShowQuoteDetails] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [emailDialog, setEmailDialog] = useState(false);
-  const [emailContent, setEmailContent] = useState({
-    to: '',
-    subject: '',
-    message: ''
-  });
+  // Legacy email state - keeping for compatibility but using new enhanced dialog
   const [showInvoiceTerms, setShowInvoiceTerms] = useState(false);
   const [selectedQuoteForInvoice, setSelectedQuoteForInvoice] = useState<Quote | null>(null);
   const [selectedNetDays, setSelectedNetDays] = useState<number>(30);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [selectedQuoteForEmail, setSelectedQuoteForEmail] = useState<Quote | null>(null);
   const { toast } = useToast();
   const { tenantCurrency } = useApp();
   const { sendEmail } = useEmailService();
@@ -126,11 +129,26 @@ export function QuoteManagement() {
         .from("quotes")
         .select(`
           *,
-          customers (name, email, phone, address)
+          contacts (name, email, phone, address)
         `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      
+      // Persist customer names from contacts if not already persisted
+      const quotesToUpdate = data?.filter(quote => 
+        quote.contacts?.name && !quote.customer_name
+      ) || [];
+      
+      if (quotesToUpdate.length > 0) {
+        for (const quote of quotesToUpdate) {
+          await supabase
+            .from("quotes")
+            .update({ customer_name: quote.contacts.name })
+            .eq("id", quote.id);
+        }
+      }
+      
       setQuotes(data || []);
     } catch (error: any) {
       toast({
@@ -213,8 +231,8 @@ export function QuoteManagement() {
 
   const filteredQuotes = quotes.filter(quote => {
     const matchesSearch = quote.quote_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         quote.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         quote.customers?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+                         quote.contacts?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         quote.contacts?.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === "all" || quote.status === filterStatus;
     
@@ -406,7 +424,7 @@ export function QuoteManagement() {
         .from("sales")
         .insert({
           cashier_id: user.id,
-          customer_id: quote.customer_id,
+          customer_id: quote.contact_id,
           payment_method: "cash",
           receipt_number: receiptNumber,
           total_amount: quote.total_amount,
@@ -482,12 +500,23 @@ export function QuoteManagement() {
       // Generate invoice number using business settings and daily sequence
       const invoiceNumber = await generateInvoiceNumber(tenantData);
 
-      // Create sale record as invoice (credit sale awaiting payment)
+      // Get customer name from contact if not in quote
+      let customerName = quote.customer_name;
+      if (!customerName && quote.contact_id) {
+        const { data: contactData } = await supabase
+          .from('contacts')
+          .select('name')
+          .eq('id', quote.contact_id)
+          .single();
+        customerName = contactData?.name;
+      }
+
+      // Create sale record as invoice (credit sale awaiting payment) with all quote data
       const { data: sale, error: saleError } = await supabase
         .from("sales")
         .insert({
           cashier_id: user.id,
-          customer_id: quote.customer_id,
+          customer_id: quote.contact_id,
           payment_method: "credit",
           receipt_number: invoiceNumber,
           total_amount: quote.total_amount,
@@ -495,6 +524,9 @@ export function QuoteManagement() {
           tax_amount: quote.tax_amount || 0,
           status: "pending",
           tenant_id: tenantData,
+          // Persist customer name from quote for consistency
+          customer_name: customerName,
+          notes: quote.notes,
         })
         .select()
         .single();
@@ -529,7 +561,7 @@ export function QuoteManagement() {
       if (itemsInsertError) throw itemsInsertError;
 
       // Create accounts receivable record for the invoice with due date based on terms
-      if (quote.customer_id) {
+      if (quote.contact_id) {
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + netDays);
         const dueDateStr = dueDate.toISOString().split('T')[0];
@@ -537,7 +569,7 @@ export function QuoteManagement() {
         const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
           tenant_id_param: tenantData,
           sale_id_param: sale.id,
-          customer_id_param: quote.customer_id,
+          customer_id_param: quote.contact_id,
           total_amount_param: quote.total_amount,
           due_date_param: dueDateStr
         });
@@ -590,7 +622,7 @@ export function QuoteManagement() {
         .from("quotes")
         .insert({
           quote_number: quoteNumber,
-          customer_id: quote.customer_id,
+          contact_id: quote.contact_id,
           cashier_id: user.id,
           tenant_id: tenantData,
           total_amount: quote.total_amount,
@@ -613,6 +645,7 @@ export function QuoteManagement() {
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
+        tenant_id: tenantData,
       })) || [];
 
       const { error: itemsInsertError } = await supabase
@@ -635,44 +668,20 @@ export function QuoteManagement() {
     }
   };
 
-  const sendQuoteEmail = async () => {
-    try {
-      if (!selectedQuote) return;
-      if (!emailContent.to) throw new Error('Recipient email is required');
+  const handleSendQuoteEmail = (quote: Quote) => {
+    setSelectedQuoteForEmail(quote);
+    setShowEmailDialog(true);
+  };
 
-      const html = `
-        <div>
-          <h2 style="margin:0 0 8px 0;">Quote ${selectedQuote.quote_number}</h2>
-          <p>Dear ${selectedQuote.customers?.name || 'Customer'},</p>
-          <p>${emailContent.message || 'Please find your quote details below.'}</p>
-          <p><strong>Total:</strong> ${formatCurrency(selectedQuote.total_amount)}</p>
-          ${selectedQuote.valid_until ? `<p><strong>Valid Until:</strong> ${formatDate(selectedQuote.valid_until)}</p>` : ''}
-          <p>If you have any questions or would like to proceed, just reply to this email.</p>
-          <p>Best regards,<br />VibePOS Team</p>
-        </div>`;
-
-      await sendEmail({
-        to: emailContent.to,
-        subject: emailContent.subject || `Quote ${selectedQuote.quote_number}`,
-        htmlContent: html,
-        textContent: `${emailContent.message}\nTotal: ${selectedQuote.total_amount}`,
-        variables: { company_name: 'VibePOS' },
-        priority: 'medium'
-      });
-
-      await updateQuoteStatus(selectedQuote.id, 'sent');
-      setEmailDialog(false);
-      setEmailContent({ to: '', subject: '', message: '' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to send email', variant: 'destructive' });
-    }
+  const handleEmailSent = () => {
+    fetchQuotes(); // Refresh quotes list to show updated status
   };
 
   const exportQuotes = () => {
     const csvContent = [
       'Quote Number,Customer,Amount,Status,Created Date,Valid Until',
       ...filteredQuotes.map(quote => 
-        `${quote.quote_number},"${quote.customers?.name || 'Walk-in'}",${quote.total_amount},${quote.status},${formatDate(quote.created_at)},${quote.valid_until ? formatDate(quote.valid_until) : ''}`
+        `${quote.quote_number},"${quote.contacts?.name || 'Walk-in'}",${quote.total_amount},${quote.status},${formatDate(quote.created_at)},${quote.valid_until ? formatDate(quote.valid_until) : ''}`
       )
     ].join('\n');
 
@@ -871,14 +880,14 @@ export function QuoteManagement() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium">
-                            {quote.customers?.name || "Walk-in Customer"}
-                          </p>
+                           <p className="text-sm font-medium">
+                             {quote.customer_name || quote.contacts?.name || "Walk-in Customer"}
+                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {quote.customers?.email && (
+                            {quote.contacts?.email && (
                               <span className="flex items-center gap-1">
                                 <Mail className="h-3 w-3" />
-                                {quote.customers.email}
+                                {quote.contacts.email}
                               </span>
                             )}
                           </p>
@@ -923,15 +932,8 @@ export function QuoteManagement() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => {
-                              setSelectedQuote(quote);
-                              setEmailContent({
-                                to: quote.customers?.email || '',
-                                subject: `Quote ${quote.quote_number}`,
-                                message: `Please find attached quote ${quote.quote_number} for your review.`
-                              });
-                              setEmailDialog(true);
-                            }}
+                            onClick={() => handleSendQuoteEmail(quote)}
+                            title="Send quote via email"
                           >
                             <Send className="h-3 w-3" />
                           </Button>
@@ -1043,24 +1045,24 @@ export function QuoteManagement() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Name</Label>
-                      <p className="text-sm">{selectedQuote.customers?.name || "Walk-in Customer"}</p>
+                      <p className="text-sm">{selectedQuote.customer_name || selectedQuote.contacts?.name || "Walk-in Customer"}</p>
                     </div>
-                    {selectedQuote.customers?.email && (
+                    {selectedQuote.contacts?.email && (
                       <div>
                         <Label className="text-sm font-medium">Email</Label>
-                        <p className="text-sm">{selectedQuote.customers.email}</p>
+                        <p className="text-sm">{selectedQuote.contacts.email}</p>
                       </div>
                     )}
-                    {selectedQuote.customers?.phone && (
+                    {selectedQuote.contacts?.phone && (
                       <div>
                         <Label className="text-sm font-medium">Phone</Label>
-                        <p className="text-sm">{selectedQuote.customers.phone}</p>
+                        <p className="text-sm">{selectedQuote.contacts.phone}</p>
                       </div>
                     )}
-                    {selectedQuote.customers?.address && (
+                    {selectedQuote.contacts?.address && (
                       <div>
                         <Label className="text-sm font-medium">Address</Label>
-                        <p className="text-sm">{selectedQuote.customers.address}</p>
+                        <p className="text-sm">{selectedQuote.contacts.address}</p>
                       </div>
                     )}
                   </div>
@@ -1247,57 +1249,13 @@ export function QuoteManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Email Dialog */}
-      <Dialog open={emailDialog} onOpenChange={setEmailDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Quote via Email</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email_to">To</Label>
-              <Input
-                id="email_to"
-                type="email"
-                value={emailContent.to}
-                onChange={(e) => setEmailContent({...emailContent, to: e.target.value})}
-                placeholder="customer@example.com"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="email_subject">Subject</Label>
-              <Input
-                id="email_subject"
-                value={emailContent.subject}
-                onChange={(e) => setEmailContent({...emailContent, subject: e.target.value})}
-                placeholder="Quote Subject"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="email_message">Message</Label>
-              <Textarea
-                id="email_message"
-                value={emailContent.message}
-                onChange={(e) => setEmailContent({...emailContent, message: e.target.value})}
-                placeholder="Email message..."
-                rows={4}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEmailDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={sendQuoteEmail}>
-                <Mail className="h-4 w-4 mr-2" />
-                Send Quote
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Enhanced Email Dialog */}
+      <QuoteEmailDialog
+        quote={selectedQuoteForEmail}
+        isOpen={showEmailDialog}
+        onClose={() => setShowEmailDialog(false)}
+        onEmailSent={handleEmailSent}
+      />
 
       {/* Invoice Terms Dialog */}
       <Dialog open={showInvoiceTerms} onOpenChange={setShowInvoiceTerms}>

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText, Printer, CreditCard, RotateCcw } from "lucide-react";
+import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingUp, FileText, Printer, CreditCard, RotateCcw, Mail } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,11 +17,13 @@ import { SaleForm } from "./SaleForm";
 import { QuoteManagement } from "./QuoteManagement";
 import SalesReturns from "./SalesReturns";
 import { ReceiptPreview } from "./ReceiptPreview";
+import { InvoiceEmailDialog } from "./InvoiceEmailDialog";
 import { createPaymentJournalEntry } from "@/lib/accounting-integration";
 import { Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
+import { enrichWithCustomerData } from '@/lib/customerUtils';
 
 interface Sale {
   id: string;
@@ -33,6 +35,7 @@ interface Sale {
   status: string;
   created_at: string;
   customer_id?: string;
+  customer_name?: string;
   cashier_id: string;
   contacts?: {
     name: string;
@@ -76,6 +79,10 @@ export default function SalesManagement() {
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [saleForReturn, setSaleForReturn] = useState<Sale | null>(null);
+  
+  // Invoice email dialog states
+  const [showInvoiceEmailDialog, setShowInvoiceEmailDialog] = useState(false);
+  const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<Sale | null>(null);
   
   // Payment dialog states
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -135,10 +142,16 @@ export default function SalesManagement() {
         profilesMap[profile.user_id] = profile;
       });
       
-      const invoicesWithProfiles = (data || []).map(invoice => ({
+      // Enrich invoices with customer data using utility function
+      const invoicesWithCustomerData = await enrichWithCustomerData(
+        data || [],
+        (invoice: any) => invoice.customer_id,
+        (invoice: any) => invoice.customer_name
+      );
+
+      const invoicesWithProfiles = invoicesWithCustomerData.map(invoice => ({
         ...invoice,
-        profiles: profilesMap[invoice.cashier_id] || null,
-        contacts: invoice.contacts || null
+        profiles: profilesMap[invoice.cashier_id] || null
       }));
 
       setInvoices(invoicesWithProfiles);
@@ -314,9 +327,10 @@ export default function SalesManagement() {
   const handleReprintReceipt = (sale: Sale) => {
     setSelectedSale(sale);
     setShowReceiptPreview(true);
+    const documentType = sale.payment_method === 'credit' ? 'Invoice' : 'Receipt';
     toast({
-      title: "Receipt Reprint",
-      description: `Receipt ${sale.receipt_number} ready for reprint`,
+      title: `${documentType} Reprint`,
+      description: `${documentType} ${sale.receipt_number} ready for reprint`,
     });
   };
 
@@ -949,17 +963,31 @@ export default function SalesManagement() {
                                     >
                                       <Printer className="h-3 w-3" />
                                     </Button>
-                                    {paymentStatus?.status !== 'paid' && (
+                                     <Button 
+                                       variant="outline" 
+                                       size="sm" 
+                                       onClick={() => {
+                                         setSelectedInvoiceForEmail(invoice);
+                                         setShowInvoiceEmailDialog(true);
+                                       }} 
+                                       title="Email Invoice"
+                                       className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                                     >
+                                       <Mail className="h-3 w-3" />
+                                     </Button>
                                       <Button 
                                         variant="outline" 
                                         size="sm" 
-                                        onClick={() => handleCreditPayment(invoice)} 
-                                        title="Record Payment"
-                                        className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                                        onClick={() => {
+                                          // Navigate to AR section for payment recording
+                                          navigate('/ar-ap?tab=make-payments&filter=receivable&search=' + invoice.receipt_number);
+                                        }}
+                                        title="Record Payment (Go to AR)"
+                                        className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
                                       >
-                                        <CreditCard className="h-3 w-3" />
+                                        <CreditCard className="h-3 w-3 mr-1" />
+                                        Pay
                                       </Button>
-                                    )}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -1065,6 +1093,13 @@ export default function SalesManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Email Dialog */}
+      <InvoiceEmailDialog
+        invoice={selectedInvoiceForEmail}
+        open={showInvoiceEmailDialog}
+        onOpenChange={setShowInvoiceEmailDialog}
+      />
 
       {/* Return Confirmation Dialog */}
       <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>

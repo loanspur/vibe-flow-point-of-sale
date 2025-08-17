@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +33,7 @@ import {
   Download
 } from 'lucide-react';
 import { useCurrencySettings } from "@/lib/currency";
+import { fetchAllCustomers } from '@/lib/customerUtils';
 
 interface AccountsReceivable {
   id: string;
@@ -88,9 +90,15 @@ interface PaymentRecord {
 const AccountsReceivablePayable: React.FC = () => {
   const { tenantId, user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Get URL parameters for filtering
+  const urlTab = searchParams.get('tab') || 'make-payments';
+  const urlFilter = searchParams.get('filter') || 'all';
+  const urlSearch = searchParams.get('search') || '';
 
   // State management
-  const [activeTab, setActiveTab] = useState('make-payments');
+  const [activeTab, setActiveTab] = useState(urlTab);
   const [receivables, setReceivables] = useState<AccountsReceivable[]>([]);
   const [payables, setPayables] = useState<AccountsPayable[]>([]);
   const [receivableAging, setReceivableAging] = useState<AgingAnalysis | null>(null);
@@ -100,8 +108,8 @@ const AccountsReceivablePayable: React.FC = () => {
   const [sales, setSales] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState(urlSearch);
+  const [statusFilter, setStatusFilter] = useState<string>(urlFilter);
   
   // Dialog states
   const [isAddReceivableOpen, setIsAddReceivableOpen] = useState(false);
@@ -158,13 +166,41 @@ const AccountsReceivablePayable: React.FC = () => {
 
       if (error) throw error;
 
-      const formattedData = data?.map(item => ({
-        ...item,
-        customer_name: item.customers?.name || 'Unknown Customer',
-        days_overdue: Math.max(0, Math.floor((new Date().getTime() - new Date(item.due_date).getTime()) / (1000 * 60 * 60 * 24))),
-        status: item.status as 'outstanding' | 'paid' | 'overdue' | 'partial',
-        notes: item.notes || ''
-      })) || [];
+      // Get sales data separately for customer names and receipt numbers
+      const salesForAR = data?.filter(item => item.reference_type === 'sale' && item.reference_id) || [];
+      let salesData = [];
+      
+      if (salesForAR.length > 0) {
+        const salesIds = salesForAR.map(item => item.reference_id);
+        const { data: salesResult } = await supabase
+          .from('sales')
+          .select('id, customer_name, receipt_number')
+          .in('id', salesIds);
+        salesData = salesResult || [];
+      }
+
+      const formattedData = data?.map(item => {
+        // Get customer name priority: sales.customer_name > customers.name > Unknown
+        let customerName = item.customers?.name || 'Unknown Customer';
+        let invoiceNumber = item.invoice_number;
+        
+        if (item.reference_type === 'sale' && item.reference_id) {
+          const saleRecord = salesData.find(sale => sale.id === item.reference_id);
+          if (saleRecord) {
+            customerName = saleRecord.customer_name || customerName;
+            invoiceNumber = saleRecord.receipt_number || invoiceNumber;
+          }
+        }
+
+        return {
+          ...item,
+          customer_name: customerName,
+          invoice_number: invoiceNumber,
+          days_overdue: Math.max(0, Math.floor((new Date().getTime() - new Date(item.due_date).getTime()) / (1000 * 60 * 60 * 24))),
+          status: item.status as 'outstanding' | 'paid' | 'overdue' | 'partial',
+          notes: item.notes || ''
+        };
+      }) || [];
 
       setReceivables(formattedData);
     } catch (error) {
@@ -225,12 +261,12 @@ const AccountsReceivablePayable: React.FC = () => {
   const fetchCustomersAndSuppliers = async () => {
     try {
       const [customersResult, suppliersResult] = await Promise.all([
-        supabase.from('customers').select('id, name').eq('tenant_id', tenantId),
-        supabase.from('contacts').select('id, name').eq('tenant_id', tenantId).eq('type', 'supplier')
+        fetchAllCustomers(tenantId),
+        supabase.from('contacts').select('id, name').eq('tenant_id', tenantId).eq('type', 'supplier').then(res => res.data || [])
       ]);
 
-      if (customersResult.data) setCustomers(customersResult.data);
-      if (suppliersResult.data) setSuppliers(suppliersResult.data);
+      setCustomers(customersResult);
+      setSuppliers(suppliersResult);
     } catch (error) {
       // Error handled silently
     }
@@ -245,7 +281,7 @@ const AccountsReceivablePayable: React.FC = () => {
           total_amount, 
           created_at, 
           customer_id,
-          customers!customer_id(name)
+          customer_name
         `).eq('tenant_id', tenantId).eq('status', 'completed'),
         supabase.from('purchases').select(`
           id, 
@@ -260,7 +296,7 @@ const AccountsReceivablePayable: React.FC = () => {
       if (salesResult.data) {
         setSales(salesResult.data.map(sale => ({
           ...sale,
-          customer_name: (sale.customers as any)?.[0]?.name || 'Walk-in Customer'
+          customer_name: sale.customer_name || 'Walk-in Customer'
         })));
       }
 

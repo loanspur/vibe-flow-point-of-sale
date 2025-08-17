@@ -19,8 +19,14 @@ export default function LandingPage() {
     return { isMainDevDomain: isMainDev, shouldRedirect: redirect, isApexShop: apexShop, isApexOnline: apexOnline };
   }, []);
 
+  // Prevent infinite redirects by tracking if redirect has been attempted
+  const [redirectAttempted, setRedirectAttempted] = useState(false);
+
   useEffect(() => {
-    if (!loading && user) {
+    // Only redirect once per user session
+    if (!loading && user && !redirectAttempted) {
+      setRedirectAttempted(true);
+      
       const handleRedirect = async () => {
         // On apex domains, send authenticated users to their tenant's primary domain
         if (isApexShop || isApexOnline) {
@@ -87,7 +93,7 @@ export default function LandingPage() {
       };
       handleRedirect();
     }
-  }, [user, loading, tenantId, userRole, navigate, shouldRedirect, isApexShop, isApexOnline]);
+  }, [user, loading]); // Reduced dependencies to prevent loops
 
   // Show landing page while loading
   if (loading) {

@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
+
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
@@ -61,9 +62,11 @@ interface Product {
   category_id: string;
   subcategory_id: string;
   unit_id?: string;
+  location_id?: string;
   product_categories?: { name: string };
   product_subcategories?: { name: string };
   product_units?: { name: string; abbreviation: string };
+  store_locations?: { name: string };
   variants?: any[];
   product_variants?: any[];
 }
@@ -84,6 +87,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
   const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
   const [hasLoaded, setHasLoaded] = useState(false);
   const didMountRef = useRef(false);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
  
    useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -114,13 +118,14 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     async () => {
       if (!tenantId) return { data: [], error: null };
       
-        const { data, error } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select(`
           *,
           product_categories(name),
           product_subcategories(name),
           product_units(name, abbreviation),
+          store_locations(name),
           product_variants(
             id,
             name,
@@ -139,8 +144,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     [tenantId, refreshSignal],
     {
       enabled: !!tenantId,
-      staleTime: 0, // No cache for real-time updates
-      cacheKey: `products-list-${tenantId}-${Date.now()}`
+      staleTime: 0, // Always fetch fresh data
+      cacheKey: `products-list-${tenantId}-${refreshSignal || 0}`
     }
   );
 
@@ -148,15 +153,28 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     if (!loading) setHasLoaded(true);
   }, [loading]);
 
+  // Remove aggressive refresh signal - use debounced approach instead
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
       return;
     }
     if (typeof refreshSignal !== 'undefined') {
-      refetchProducts();
+      // Debounce refresh calls to prevent excessive re-renders
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      refreshTimeoutRef.current = setTimeout(() => {
+        refetchProducts();
+      }, 500);
     }
-  }, [refreshSignal, refetchProducts]);
+    
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [refreshSignal]);
 
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
@@ -265,7 +283,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           <TableHeader>
             <TableRow>
               <TableHead className="min-w-[200px]">Product</TableHead>
-              <TableHead className="hidden sm:table-cell">Type</TableHead>
+              <TableHead className="hidden sm:table-cell">Location</TableHead>
               <TableHead className="hidden md:table-cell">SKU</TableHead>
               <TableHead className="hidden lg:table-cell">Category</TableHead>
               <TableHead className="hidden lg:table-cell">Unit</TableHead>
@@ -294,36 +312,35 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm sm:text-base truncate">{product.name}</div>
-                     {(() => {
-                       // Calculate if product is low stock based on variants or main stock
-                      
-                      let isLowStock = false;
-                      let currentStock = product.stock_quantity || 0;
-                      
-                      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                        currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                          return total + (variant.stock_quantity || 0);
-                        }, 0);
-                      }
-                      
-                      isLowStock = currentStock <= (product.min_stock_level || 0);
-                      
-                      return isLowStock ? (
-                        <Badge variant="destructive" className="text-xs mt-1">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Low Stock</span>
-                          <span className="sm:hidden">Low</span>
-                        </Badge>
-                      ) : null;
-                    })()}
+                     {useMemo(() => {
+                       // Memoize expensive stock calculations
+                       let isLowStock = false;
+                       let currentStock = product.stock_quantity || 0;
+                       
+                       if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                         currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+                           return total + (variant.stock_quantity || 0);
+                         }, 0);
+                       }
+                       
+                       isLowStock = currentStock <= (product.min_stock_level || 0);
+                       
+                       return isLowStock ? (
+                         <Badge variant="destructive" className="text-xs mt-1">
+                           <AlertTriangle className="h-3 w-3 mr-1" />
+                           <span className="hidden sm:inline">Low Stock</span>
+                           <span className="sm:hidden">Low</span>
+                         </Badge>
+                       ) : null;
+                     }, [product.stock_quantity, product.min_stock_level, (product as any).product_variants])}
                   </div>
                 </div>
               </TableCell>
                <TableCell className="hidden sm:table-cell">
-                 <Badge variant="secondary" className="text-xs">
-                   Product
-                 </Badge>
-               </TableCell>
+                  <span className="text-sm text-muted-foreground">
+                    {(product as any).store_locations?.name || 'Main Location'}
+                  </span>
+                </TableCell>
                <TableCell className="hidden md:table-cell text-sm">{product.sku || 'N/A'}</TableCell>
                <TableCell className="hidden lg:table-cell text-sm">
                  {product.product_categories?.name || 'None'}
@@ -375,29 +392,29 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               </TableCell>
                <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedProduct(product);
-                      setShowProductForm(true);
-                    }}
-                    className="h-8 w-8 sm:w-auto px-2 hover:bg-primary hover:text-primary-foreground transition-colors duration-150"
-                  >
-                    <Edit className="h-3 w-3 sm:mr-1" />
-                    <span className="hidden sm:inline text-xs">Edit</span>
-                  </Button>
+                   <Button 
+                     variant="outline" 
+                     size="sm"
+                     onClick={() => {
+                       setSelectedProduct(product);
+                       setShowProductForm(true);
+                     }}
+                     className="h-8 w-8 sm:w-auto px-2"
+                   >
+                     <Edit className="h-3 w-3 sm:mr-1" />
+                     <span className="hidden sm:inline text-xs">Edit</span>
+                   </Button>
                   
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-8 w-8 px-2 hover:bg-muted transition-colors duration-150"
-                        title="View variants"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
+                       <Button 
+                         variant="ghost" 
+                         size="sm"
+                         className="h-8 w-8 px-2"
+                         title="View variants"
+                       >
+                         <Eye className="h-3 w-3" />
+                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
@@ -410,14 +427,14 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        title="View history"
-                        className="h-8 w-8 px-2 hover:bg-muted transition-colors duration-150"
-                      >
-                        <History className="h-3 w-3" />
-                      </Button>
+                       <Button 
+                         variant="ghost" 
+                         size="sm" 
+                         title="View history"
+                         className="h-8 w-8 px-2"
+                       >
+                         <History className="h-3 w-3" />
+                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
                       <DialogHeader>
@@ -430,15 +447,15 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 px-2 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors duration-150"
-                        disabled={!canDelete('product')}
-                        title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                       <Button 
+                         variant="ghost" 
+                         size="sm" 
+                         className="h-8 w-8 px-2 text-destructive"
+                         disabled={!canDelete('product')}
+                         title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
+                       >
+                         <Trash2 className="h-3 w-3" />
+                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -623,7 +640,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             onSuccess={() => {
               setShowProductForm(false);
               setSelectedProduct(null);
-              refetchProducts();
+              // Debounced refresh to prevent rapid re-renders
+              if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
+              }
+              refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
             }}
             onCancel={() => {
               setShowProductForm(false);

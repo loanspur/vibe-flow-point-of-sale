@@ -161,18 +161,19 @@ export const useOptimizedDashboard = () => {
 
   const { data: dashboardData, loading, error, refetch } = queryResult;
 
-  // Auto refresh every 30 seconds
+  // Disabled auto refresh to improve performance
   const refresh = useCallback(() => {
     setRefreshKey(prev => prev + 1);
     refetch();
   }, [refetch]);
 
-  useAutoRefresh({
-    interval: 30000, // 30 seconds
-    enabled: true,
-    onRefresh: refresh,
-    visibilityBased: true
-  });
+  // Manual refresh only to prevent performance issues
+  // useAutoRefresh({
+  //   interval: 60000, // 60 seconds  
+  //   enabled: false, // Disabled by default
+  //   onRefresh: refresh,
+  //   visibilityBased: true
+  // });
 
   // Calculate percentage changes
   const percentageChanges = useMemo(() => {

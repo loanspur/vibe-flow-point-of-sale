@@ -47,13 +47,14 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Processing email for:", emailData.to);
 
     // Queue the email in database
+    // Updated parameter order: required params first, then optional with defaults
     const { data: queueData, error: queueError } = await supabase.rpc('queue_email', {
       tenant_id_param: emailData.tenantId,
-      template_id_param: emailData.templateId || null,
       to_email_param: emailData.to,
-      to_name_param: emailData.toName || null,
       subject_param: emailData.subject,
       html_content_param: emailData.htmlContent,
+      template_id_param: emailData.templateId || null,
+      to_name_param: emailData.toName || null,
       text_content_param: emailData.textContent || null,
       variables_param: emailData.variables || {},
       priority_param: emailData.priority || 'medium',

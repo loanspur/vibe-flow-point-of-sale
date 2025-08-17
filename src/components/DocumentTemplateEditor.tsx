@@ -82,12 +82,12 @@ Name               Qty   Price    Total
 ─────────────────────────────────────────
 {{items}}
 
-                           ─────────────
-Subtotal:                    {{subtotal}}
-Tax:                       {{tax_amount}}
-Discount:                {{discount_amount}}
-                           ─────────────
-TOTAL:                   {{total_amount}}
+                          ─────────────
+Subtotal:                 {{subtotal}}
+Tax:                    {{tax_amount}}
+Discount:             {{discount_amount}}
+                          ─────────────
+TOTAL:                {{total_amount}}
 
 Payment Method:       {{payment_method}}
 Amount Paid:              {{amount_paid}}
@@ -125,8 +125,12 @@ Invoice Date: {{invoice_date}}      Due: {{due_date}}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-Subtotal: {{subtotal}}    Discount: {{discount_amount}}
-Tax: {{tax_amount}}       TOTAL: {{total_amount}}
+                          ─────────────
+Subtotal:                 {{subtotal}}
+Tax:                    {{tax_amount}}
+Discount:             {{discount_amount}}
+                          ─────────────
+TOTAL:                {{total_amount}}
 
 Terms: {{terms_conditions}}
 Notes: {{notes}}
@@ -160,8 +164,12 @@ Quote Date: {{quote_date}}    Valid Until: {{valid_until}}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {{items}}
 
-Subtotal: {{subtotal}}    Discount: {{discount_amount}}
-Tax: {{tax_amount}}       TOTAL: {{total_amount}}
+                          ─────────────
+Subtotal:                 {{subtotal}}
+Tax:                    {{tax_amount}}
+Discount:             {{discount_amount}}
+                          ─────────────
+TOTAL:                {{total_amount}}
 
 Terms: {{terms_conditions}}
 Notes: {{notes}}
@@ -205,7 +213,7 @@ Powered by VibePOS | 0727638940
 
 const SAMPLE_DATA: Record<string, string> = {
   '{{company_name}}': 'Sample Company Ltd.',
-  '{{company_address}}': '123 Business Street, City, State 12345',
+  '{{company_address}}': '123 Business Street\nSuite 456\nBusiness City, State 12345\nUnited States',
   '{{company_phone}}': '+1 (555) 123-4567',
   '{{company_email}}': 'info@samplecompany.com',
   '{{company_logo}}': '[COMPANY LOGO]',
