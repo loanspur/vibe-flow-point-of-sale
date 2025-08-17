@@ -62,9 +62,9 @@ interface Quote {
   valid_until: string | null;
   created_at: string;
   updated_at: string;
-  customer_id?: string;
+  contact_id?: string;
   cashier_id: string;
-  customers?: {
+  contacts?: {
     name: string;
     email?: string;
     phone?: string;
@@ -217,8 +217,8 @@ export function LegacyQuoteManagement() {
 
   const filteredQuotes = quotes.filter(quote => {
     const matchesSearch = quote.quote_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         quote.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         quote.customers?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+                         quote.contacts?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         quote.contacts?.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === "all" || quote.status === filterStatus;
     
@@ -410,7 +410,7 @@ export function LegacyQuoteManagement() {
         .from("sales")
         .insert({
           cashier_id: user.id,
-          customer_id: quote.customer_id,
+          customer_id: quote.contact_id,
           payment_method: "cash",
           receipt_number: receiptNumber,
           total_amount: quote.total_amount,
@@ -491,7 +491,7 @@ export function LegacyQuoteManagement() {
         .from("sales")
         .insert({
           cashier_id: user.id,
-          customer_id: quote.customer_id,
+          customer_id: quote.contact_id,
           payment_method: "credit",
           receipt_number: invoiceNumber,
           total_amount: quote.total_amount,
@@ -533,7 +533,7 @@ export function LegacyQuoteManagement() {
       if (itemsInsertError) throw itemsInsertError;
 
       // Create accounts receivable record for the invoice with due date based on terms
-      if (quote.customer_id) {
+      if (quote.contact_id) {
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + netDays);
         const dueDateStr = dueDate.toISOString().split('T')[0];
@@ -541,7 +541,7 @@ export function LegacyQuoteManagement() {
         const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
           tenant_id_param: tenantData,
           sale_id_param: sale.id,
-          customer_id_param: quote.customer_id,
+          customer_id_param: quote.contact_id,
           total_amount_param: quote.total_amount,
           due_date_param: dueDateStr
         });
@@ -594,7 +594,7 @@ export function LegacyQuoteManagement() {
         .from("quotes")
         .insert({
           quote_number: quoteNumber,
-          customer_id: quote.customer_id,
+          contact_id: quote.contact_id,
           cashier_id: user.id,
           tenant_id: tenantData,
           total_amount: quote.total_amount,
@@ -648,7 +648,7 @@ export function LegacyQuoteManagement() {
       const html = `
         <div>
           <h2 style="margin:0 0 8px 0;">Quote ${selectedQuote.quote_number}</h2>
-          <p>Dear ${selectedQuote.customers?.name || 'Customer'},</p>
+          <p>Dear ${selectedQuote.contacts?.name || 'Customer'},</p>
           <p>${emailContent.message || 'Please find your quote details below.'}</p>
           <p><strong>Total:</strong> ${formatCurrency(selectedQuote.total_amount)}</p>
           ${selectedQuote.valid_until ? `<p><strong>Valid Until:</strong> ${formatDate(selectedQuote.valid_until)}</p>` : ''}
@@ -677,7 +677,7 @@ export function LegacyQuoteManagement() {
     const csvContent = [
       'Quote Number,Customer,Amount,Status,Created Date,Valid Until',
       ...filteredQuotes.map(quote => 
-        `${quote.quote_number},"${quote.customers?.name || 'Walk-in'}",${quote.total_amount},${quote.status},${formatDate(quote.created_at)},${quote.valid_until ? formatDate(quote.valid_until) : ''}`
+        `${quote.quote_number},"${quote.contacts?.name || 'Walk-in'}",${quote.total_amount},${quote.status},${formatDate(quote.created_at)},${quote.valid_until ? formatDate(quote.valid_until) : ''}`
       )
     ].join('\n');
 
@@ -877,13 +877,13 @@ export function LegacyQuoteManagement() {
                         </div>
                         <div>
                           <p className="text-sm font-medium">
-                            {quote.customers?.name || "Walk-in Customer"}
+                            {quote.contacts?.name || "Walk-in Customer"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {quote.customers?.email && (
+                            {quote.contacts?.email && (
                               <span className="flex items-center gap-1">
                                 <Mail className="h-3 w-3" />
-                                {quote.customers.email}
+                                {quote.contacts.email}
                               </span>
                             )}
                           </p>
@@ -931,7 +931,7 @@ export function LegacyQuoteManagement() {
                             onClick={() => {
                               setSelectedQuote(quote);
                               setEmailContent({
-                                to: quote.customers?.email || '',
+                                to: quote.contacts?.email || '',
                                 subject: `Quote ${quote.quote_number}`,
                                 message: `Please find attached quote ${quote.quote_number} for your review.`
                               });
@@ -1048,24 +1048,24 @@ export function LegacyQuoteManagement() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Name</Label>
-                      <p className="text-sm">{selectedQuote.customers?.name || "Walk-in Customer"}</p>
+                      <p className="text-sm">{selectedQuote.contacts?.name || "Walk-in Customer"}</p>
                     </div>
-                    {selectedQuote.customers?.email && (
+                    {selectedQuote.contacts?.email && (
                       <div>
                         <Label className="text-sm font-medium">Email</Label>
-                        <p className="text-sm">{selectedQuote.customers.email}</p>
+                        <p className="text-sm">{selectedQuote.contacts.email}</p>
                       </div>
                     )}
-                    {selectedQuote.customers?.phone && (
+                    {selectedQuote.contacts?.phone && (
                       <div>
                         <Label className="text-sm font-medium">Phone</Label>
-                        <p className="text-sm">{selectedQuote.customers.phone}</p>
+                        <p className="text-sm">{selectedQuote.contacts.phone}</p>
                       </div>
                     )}
-                    {selectedQuote.customers?.address && (
+                    {selectedQuote.contacts?.address && (
                       <div>
                         <Label className="text-sm font-medium">Address</Label>
-                        <p className="text-sm">{selectedQuote.customers.address}</p>
+                        <p className="text-sm">{selectedQuote.contacts.address}</p>
                       </div>
                     )}
                   </div>
