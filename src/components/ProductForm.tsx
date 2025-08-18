@@ -1446,7 +1446,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             )}
           </Button>
 
-          {currentStep < STEPS.length - 1 ? (
+          {currentStep < STEPS.length - 1 && !(currentStep === 2 && formState.data.has_variants) ? (
             <Button 
               type="button" 
               onClick={nextStep}
@@ -1457,10 +1457,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             </Button>
           ) : (
             <Button 
-              type="submit" 
+              type={currentStep === 2 && formState.data.has_variants ? "submit" : currentStep === STEPS.length - 1 ? "submit" : "button"}
+              onClick={currentStep === 2 && formState.data.has_variants ? undefined : nextStep}
               disabled={loading || !canProceed()}
             >
-              {loading ? 'Saving...' : product ? 'Update Product' : 'Create Product'}
+              {loading ? 'Saving...' : (currentStep === 2 && formState.data.has_variants) || currentStep === STEPS.length - 1 ? (product ? 'Update Product' : 'Create Product') : 'Next'}
+              {!(currentStep === 2 && formState.data.has_variants) && currentStep !== STEPS.length - 1 && <ArrowRight className="w-4 h-4 ml-2" />}
             </Button>
           )}
         </div>
