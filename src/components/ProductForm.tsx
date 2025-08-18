@@ -1060,7 +1060,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                       <p className="text-sm">Add variants to offer different options for this product</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                     <div className="space-y-4">
                       {variants.map((variant, index) => (
                         <div key={index} className="border rounded-lg p-4 space-y-4">
                           <div className="flex items-center justify-between">
@@ -1076,24 +1076,120 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                             </Button>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Variant Name *</Label>
-                              <Input
-                                value={variant.name}
-                                onChange={(e) => updateVariant(index, 'name', e.target.value)}
-                                placeholder="e.g., Size, Color"
-                                required
-                              />
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                  <Label>Variant Name *</Label>
+                                  <Input
+                                    value={variant.name}
+                                    onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                                    placeholder="e.g., Size, Color"
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Variant Value *</Label>
+                                  <Input
+                                    value={variant.value}
+                                    onChange={(e) => updateVariant(index, 'value', e.target.value)}
+                                    placeholder="e.g., Large, Red"
+                                    required
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>Variant Price *</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={variant.sale_price}
+                                  onChange={(e) => updateVariant(index, 'sale_price', e.target.value)}
+                                  placeholder="0.00"
+                                  required
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>Stock Quantity</Label>
+                                <Input
+                                  type="number"
+                                  value={variant.stock_quantity}
+                                  onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label>Variant Value *</Label>
-                              <Input
-                                value={variant.value}
-                                onChange={(e) => updateVariant(index, 'value', e.target.value)}
-                                placeholder="e.g., Large, Red"
-                                required
-                              />
+                            
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label>Variant Image</Label>
+                                <div className="flex items-center gap-4">
+                                  {variantImages[index]?.preview || variant.image_url ? (
+                                    <div className="relative">
+                                      <img
+                                        src={variantImages[index]?.preview || variant.image_url}
+                                        alt="Variant preview"
+                                        className="w-20 h-20 object-cover rounded-lg border"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        className="absolute -top-2 -right-2 w-5 h-5 rounded-full p-0"
+                                        onClick={() => {
+                                          handleVariantImageSelect(index, null);
+                                          updateVariant(index, 'image_url', '');
+                                        }}
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="w-20 h-20 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center">
+                                      <Package className="w-6 h-6 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex-1">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          handleVariantImageSelect(index, file);
+                                        }
+                                      }}
+                                      className="hidden"
+                                      id={`variant-image-${index}`}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => document.getElementById(`variant-image-${index}`)?.click()}
+                                    >
+                                      <Upload className="w-4 h-4 mr-2" />
+                                      {variantImages[index]?.preview || variant.image_url ? 'Change' : 'Upload'}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>SKU</Label>
+                                <Input
+                                  value={variant.sku}
+                                  onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                                  placeholder="Auto-generated"
+                                  className="text-sm"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Auto-generated from product SKU and variant value
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
