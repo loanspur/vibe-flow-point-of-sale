@@ -898,6 +898,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       });
 
       // Trigger receipt automation
+      console.log('About to call triggerReceiptAutomation with:', { saleId: sale.id, tenantId, customerId: values.customer_id, receiptNumber });
       await triggerReceiptAutomation(sale.id, tenantId!, values.customer_id, receiptNumber);
 
       toast({
