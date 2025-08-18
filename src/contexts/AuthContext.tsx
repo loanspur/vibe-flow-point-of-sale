@@ -42,58 +42,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Fetch user role and tenant info with domain context support
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
-    console.log(`🔐 fetchUserInfo called for ${userId} from ${source}, fetchInProgress: ${fetchInProgress}, profileFetched: ${profileFetched}`);
-    
     // Prevent concurrent calls
     if (fetchInProgress) {
-      console.log(`🔐 fetchUserInfo already in progress, skipping`);
       return;
     }
     
     // Check if already fetched for this user
     if (profileFetched === userId) {
-      console.log(`🔐 Profile already fetched for ${userId}, skipping`);
       return;
     }
     
     setFetchInProgress(true);
-    console.log(`🔐 Starting profile fetch for user ${userId}`);
     
     try {
-      console.log(`🔐 FETCHING: About to query profiles table for user ${userId}`);
-      
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid errors
-
-      console.log(`🔐 FETCHING: Query completed. Profile:`, profile, 'Error:', error);
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
-        console.warn('Error fetching user profile:', error);
         setUserRole('user');
-        // Use domain tenant if available, otherwise null
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
-        console.log(`🔐 FETCHING: Set fallback values due to error`);
         return;
       }
 
       if (profile) {
-        // Check if we're setting the same data repeatedly BEFORE logging
+        // Check if we're setting the same data repeatedly
         if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
-          return; // Skip update and logging if data hasn't changed
+          return; // Skip update if data hasn't changed
         }
         
-        console.log(`User profile loaded:`, profile);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
         setRequirePasswordChange(profile.require_password_change || false);
       } else {
-        console.log(`🔐 No profile found, using defaults`);
         // Fallback if no profile found
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
@@ -101,7 +87,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setRequirePasswordChange(false);
       }
     } catch (error) {
-      console.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
@@ -317,11 +302,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Check if invitation was already processed to prevent loops
       const inviteProcessedKey = `invite_processed_${uid}`;
       if (sessionStorage.getItem(inviteProcessedKey)) {
-        console.log('🎯 Invitation already processed for user:', uid);
         return;
       }
-
-      console.log('🎯 Marking invitation as accepted for user:', uid);
 
       // First, update profile invite status
       const { error: profileError } = await supabase
@@ -334,8 +316,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (profileError) {
         console.warn('Failed to update profile invitation status:', profileError);
-      } else {
-        console.log('✅ Profile invitation status updated successfully');
       }
 
       // Get tenant ID from domain context first
@@ -346,7 +326,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const metaTenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
         if (metaTenantId) {
           tenantId = metaTenantId;
-          console.log('📋 Found tenant ID in user metadata:', tenantId);
+          
         }
       }
       
@@ -358,12 +338,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .eq('user_id', uid)
           .maybeSingle();
         tenantId = profile?.tenant_id;
-        console.log('📋 Found tenant ID in profile:', tenantId);
+        
       }
       
       if (tenantId) {
-        console.log('🏢 Updating tenant_users for tenant:', tenantId);
-        
         // Update all tenant_users records for this user in this tenant
         const { error: tenantUserError } = await supabase
           .from('tenant_users')
@@ -377,11 +355,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (tenantUserError) {
           console.warn('Failed to update tenant_users invitation status:', tenantUserError);
-        } else {
-          console.log('✅ Tenant_users invitation status updated successfully');
         }
-      } else {
-        console.warn('⚠️ No tenant ID found for user, skipping tenant_users update');
       }
 
       // Mark as processed to prevent future runs
@@ -435,10 +409,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (loading) {
       const timer = setTimeout(() => {
-        console.warn('Auth loading timeout reached, forcing render');
         setLoading(false);
         setAuthTimeout(true);
-      }, 10000); // 10 second timeout
+      }, 5000); // Reduced timeout to 5 seconds
       
       return () => clearTimeout(timer);
     }
