@@ -118,28 +118,56 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     async () => {
       if (!tenantId) return { data: [], error: null };
       
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          product_categories(name),
-          product_subcategories(name),
-          product_units(name, abbreviation),
-          store_locations(name),
-          product_variants(
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select(`
             id,
             name,
-            value,
+            sku,
+            description,
+            price,
+            default_profit_margin,
+            barcode,
+            category_id,
+            subcategory_id,
+            revenue_account_id,
+            unit_id,
             stock_quantity,
-            price_adjustment,
-            is_active
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
+            min_stock_level,
+            is_active,
+            image_url,
+            has_expiry_date,
+            location_id,
+            tenant_id,
+            created_at,
+            updated_at,
+            product_categories(name),
+            product_subcategories(name),
+            product_units(name, abbreviation),
+            store_locations(name),
+            product_variants(
+              id,
+              name,
+              value,
+              stock_quantity,
+              min_stock_level,
+              price_adjustment,
+              is_active
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return { data: data || [], error: null };
+        if (error) {
+          console.error('Products query error:', error);
+          throw error;
+        }
+        return { data: data || [], error: null };
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+        throw err;
+      }
     },
     [tenantId, refreshSignal],
     {
