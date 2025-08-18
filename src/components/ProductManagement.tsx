@@ -142,7 +142,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             tenant_id,
             created_at,
             updated_at,
-            product_categories!inner(name),
+            product_categories(name),
             product_subcategories(name),
             product_units(name, abbreviation),
             store_locations(name),
