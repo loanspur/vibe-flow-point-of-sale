@@ -604,7 +604,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             sku: variant.sku || null,
             price_adjustment: parseFloat(variant.price_adjustment) || 0,
             stock_quantity: parseInt(variant.stock_quantity) || 0,
-            min_stock_level: parseInt(variant.min_stock_level) || 0,
             default_profit_margin: variant.default_profit_margin ? parseFloat(variant.default_profit_margin) : null,
             sale_price: parseFloat(variant.sale_price) || 0,
             image_url: imageUrl || null,
