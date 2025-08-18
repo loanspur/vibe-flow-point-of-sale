@@ -5,11 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmailTemplateManager } from '@/components/EmailTemplateManager';
 
 import { CommunicationSettings } from '@/components/CommunicationSettings';
+import UnifiedCommunicationCenter from '@/components/UnifiedCommunicationCenter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 const Communications = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  // Use unified communication center for consistent experience
+  return <UnifiedCommunicationCenter userRole="superadmin" />;
 
   const communicationStats = [
     {
