@@ -34,6 +34,7 @@ interface ProductVariant {
   sku: string;
   price_adjustment: string;
   stock_quantity: string;
+  min_stock_level: string;
   default_profit_margin: string;
   sale_price: string;
   image_url?: string;
@@ -384,6 +385,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         sku: variant.sku || '',
         price_adjustment: variant.price_adjustment?.toString() || '0',
         stock_quantity: variant.stock_quantity?.toString() || '0',
+        min_stock_level: (variant as any).min_stock_level?.toString() || '0',
         default_profit_margin: variant.default_profit_margin?.toString() || '',
         sale_price: variant.sale_price?.toString() || '0',
         image_url: variant.image_url || '',
@@ -481,6 +483,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       sku: '',
       price_adjustment: '0',
       stock_quantity: '0',
+      min_stock_level: '0',
       default_profit_margin: '',
       sale_price: '0',
       image_url: '',
@@ -601,6 +604,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             sku: variant.sku || null,
             price_adjustment: parseFloat(variant.price_adjustment) || 0,
             stock_quantity: parseInt(variant.stock_quantity) || 0,
+            min_stock_level: parseInt(variant.min_stock_level) || 0,
             default_profit_margin: variant.default_profit_margin ? parseFloat(variant.default_profit_margin) : null,
             sale_price: parseFloat(variant.sale_price) || 0,
             image_url: imageUrl || null,
@@ -787,6 +791,13 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         description: "Fix the errors before proceeding to the next step",
         variant: "destructive",
       });
+      return;
+    }
+    
+    // Skip pricing/inventory/image step for variable products
+    if (currentStep === 2 && formState.data.has_variants) {
+      // For variable products, complete the form submission
+      handleSubmit(new Event('submit') as any);
       return;
     }
     
@@ -1117,6 +1128,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                                   type="number"
                                   value={variant.stock_quantity}
                                   onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>Minimum Stock Alert</Label>
+                                <Input
+                                  type="number"
+                                  value={variant.min_stock_level}
+                                  onChange={(e) => updateVariant(index, 'min_stock_level', e.target.value)}
                                   placeholder="0"
                                 />
                               </div>
