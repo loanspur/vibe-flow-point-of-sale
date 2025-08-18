@@ -6966,6 +6966,10 @@ export type Database = {
           user_tenant_id_result: string
         }[]
       }
+      ensure_all_tenants_have_admin_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       ensure_tenant_subdomain: {
         Args: { tenant_id_param: string }
         Returns: string
