@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Send, Loader2, FileText, Download, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useEmailService } from "@/hooks/useEmailService";
+import { useUnifiedCommunication } from "@/hooks/useUnifiedCommunication";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 
@@ -47,7 +47,7 @@ export function InvoiceEmailDialog({ invoice, open, onOpenChange }: InvoiceEmail
   const [publicDownloadUrl, setPublicDownloadUrl] = useState("");
   
   const { toast } = useToast();
-  const { sendInvoiceNotificationEmail } = useEmailService();
+  const { sendTemplateEmail } = useUnifiedCommunication();
 
   useEffect(() => {
     if (invoice && open) {
@@ -141,14 +141,20 @@ ${publicDownloadUrl}
 This invoice can be accessed without login. Please save these links for your records.`;
 
       // Send email using unified service
-      await sendInvoiceNotificationEmail(
+      await sendTemplateEmail(
+        'invoice_notification',
         emailData.to,
-        invoice.contacts?.name || "Valued Customer",
         {
-          invoiceNumber: invoice.receipt_number,
-          totalAmount: formatCurrency(invoice.total_amount),
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-          invoiceUrl: publicViewUrl,
+          customer_name: invoice.contacts?.name || "Valued Customer",
+          invoice_number: invoice.receipt_number,
+          total_amount: formatCurrency(invoice.total_amount),
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+          invoice_url: publicViewUrl,
+        },
+        {
+          recipientName: invoice.contacts?.name || "Valued Customer",
+          subjectOverride: emailData.subject,
+          priority: emailData.priority
         }
       );
 

@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Send, TestTube } from 'lucide-react';
-import { useWhatsAppService } from '@/hooks/useWhatsAppService';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 
 export const WhatsAppTester = () => {
   const [testData, setTestData] = useState({
@@ -15,22 +15,28 @@ export const WhatsAppTester = () => {
     message: 'Hello! This is a test message from your WhatsApp integration.',
     useGlobal: true
   });
+  const [loading, setLoading] = useState(false);
   
-  const { sendWhatsAppMessage, loading } = useWhatsAppService();
+  const { sendWhatsApp } = useUnifiedCommunication();
 
   const handleTest = async () => {
     if (!testData.phone || !testData.message) {
       return;
     }
 
+    setLoading(true);
     try {
-      await sendWhatsAppMessage({
-        recipient_phone: testData.phone,
-        message: testData.message,
-        use_global: testData.useGlobal
-      });
+      await sendWhatsApp(
+        testData.phone,
+        testData.message,
+        {
+          useGlobal: testData.useGlobal
+        }
+      );
     } catch (error) {
       console.error('Test failed:', error);
+    } finally {
+      setLoading(false);
     }
   };
 

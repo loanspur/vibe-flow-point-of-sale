@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { useUnifiedCommunicationService } from './unifiedCommunicationService';
 
 interface AutomationTriggerParams {
   tenantId: string;
@@ -11,6 +10,11 @@ interface AutomationTriggerParams {
   referenceType?: string;
 }
 
+/**
+ * @deprecated This function is kept for backward compatibility only.
+ * New implementations should use the unified communication system.
+ * Use useUnifiedCommunication hook and its methods instead.
+ */
 export async function triggerWhatsAppAutomation({
   tenantId,
   eventType,
@@ -20,6 +24,8 @@ export async function triggerWhatsAppAutomation({
   referenceId,
   referenceType
 }: AutomationTriggerParams) {
+  console.warn('triggerWhatsAppAutomation is deprecated. Use unified communication system instead.');
+  
   try {
     console.log('triggerWhatsAppAutomation called with:', { tenantId, eventType, recipientPhone, recipientName, variables, referenceId, referenceType });
     
@@ -49,7 +55,7 @@ export async function triggerWhatsAppAutomation({
         .select('phone, name')
         .eq('id', referenceId)
         .single();
-      
+
       if (contact) {
         phone = contact.phone;
         name = contact.name;
@@ -57,57 +63,69 @@ export async function triggerWhatsAppAutomation({
     }
 
     if (!phone) {
-      console.log(`No phone number available for ${eventType} automation`);
+      console.log('No phone number available for WhatsApp automation');
       return;
     }
 
-    // Prepare enhanced variables
-    const enhancedVariables = {
-      customer_name: name || 'Customer',
+    // Get template for this automation
+    const { data: template } = await supabase
+      .from('whatsapp_templates')
+      .select('*')
+      .eq('id', automation.template_id)
+      .single();
+
+    if (!template) {
+      console.log('No template found for automation');
+      return;
+    }
+
+    // Process message with variables
+    let message = template.message_body;
+    
+    // Replace common variables
+    const allVariables = {
+      recipient_name: name || 'Customer',
       ...variables
     };
 
-    // Send WhatsApp message with delay if specified
-    const sendMessage = async () => {
-      await supabase.functions.invoke('send-whatsapp-message', {
-        body: {
-          tenant_id: tenantId,
-          recipient_phone: phone,
-          template_id: automation.template_id || undefined,
-          variables: enhancedVariables,
-          message: `Notification: ${eventType.replace('_', ' ')} - ${enhancedVariables.customer_name}`
-        }
-      });
-    };
+    Object.entries(allVariables).forEach(([key, value]) => {
+      message = message.replace(new RegExp(`{${key}}`, 'g'), String(value));
+    });
 
-    if (automation.delay_minutes > 0) {
-      // Schedule the message (in a real implementation, you'd use a job queue)
-      setTimeout(sendMessage, automation.delay_minutes * 60 * 1000);
-    } else {
-      await sendMessage();
+    console.log('Processed message:', message);
+
+    // Send WhatsApp message using edge function
+    const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
+      body: {
+        tenant_id: tenantId,
+        recipient_phone: phone,
+        message: message,
+        template_id: template.id,
+        automation_type: eventType
+      }
+    });
+
+    if (error) {
+      console.error('Error sending WhatsApp message:', error);
+      throw error;
     }
 
-    console.log(`WhatsApp automation triggered for ${eventType}`);
+    console.log('WhatsApp message sent successfully:', data);
   } catch (error) {
-    console.error(`WhatsApp automation failed for ${eventType}:`, error);
+    console.error('Error in triggerWhatsAppAutomation:', error);
+    throw error;
   }
 }
 
-// Specific trigger functions for each event type
+/**
+ * @deprecated Use unified communication system instead
+ * Legacy function for receipt automation
+ */
 export async function triggerReceiptAutomation(saleId: string, tenantId: string, customerId: string, receiptNumber: string) {
-  console.log('triggerReceiptAutomation called with:', { saleId, tenantId, customerId, receiptNumber });
-  
-  // Skip automation if no customer ID or it's a walk-in customer
-  if (!customerId || customerId === 'walk-in') {
-    console.log('Skipping WhatsApp automation - no customer phone number available');
-    return;
-  }
-
-  console.log('Proceeding with WhatsApp automation for customer:', customerId);
-  
+  console.warn('triggerReceiptAutomation is deprecated. Use unified communication system instead.');
   await triggerWhatsAppAutomation({
     tenantId,
-    eventType: 'receipt_created',
+    eventType: 'receipt_notification',
     referenceId: customerId,
     referenceType: 'contact',
     variables: {
@@ -117,11 +135,15 @@ export async function triggerReceiptAutomation(saleId: string, tenantId: string,
   });
 }
 
+/**
+ * @deprecated Use unified communication system instead
+ */
 export async function triggerQuoteAutomation(quoteId: string, tenantId: string, customerId: string, quoteNumber: string) {
+  console.warn('triggerQuoteAutomation is deprecated. Use unified communication system instead.');
   await triggerWhatsAppAutomation({
     tenantId,
-    eventType: 'quote_created',
-    referenceId: customerId !== 'walk-in' ? customerId : undefined,
+    eventType: 'quote_notification',
+    referenceId: customerId,
     referenceType: 'contact',
     variables: {
       quote_number: quoteNumber,
@@ -130,11 +152,15 @@ export async function triggerQuoteAutomation(quoteId: string, tenantId: string, 
   });
 }
 
+/**
+ * @deprecated Use unified communication system instead
+ */
 export async function triggerInvoiceAutomation(invoiceId: string, tenantId: string, customerId: string, invoiceNumber: string) {
+  console.warn('triggerInvoiceAutomation is deprecated. Use unified communication system instead.');
   await triggerWhatsAppAutomation({
     tenantId,
-    eventType: 'invoice_created',
-    referenceId: customerId !== 'walk-in' ? customerId : undefined,
+    eventType: 'invoice_notification',
+    referenceId: customerId,
     referenceType: 'contact',
     variables: {
       invoice_number: invoiceNumber,
@@ -143,7 +169,11 @@ export async function triggerInvoiceAutomation(invoiceId: string, tenantId: stri
   });
 }
 
+/**
+ * @deprecated Use unified communication system instead
+ */
 export async function triggerPaymentReceivedAutomation(paymentId: string, tenantId: string, customerId: string, amount: number, paymentMethod: string) {
+  console.warn('triggerPaymentReceivedAutomation is deprecated. Use unified communication system instead.');
   await triggerWhatsAppAutomation({
     tenantId,
     eventType: 'payment_received',
@@ -157,8 +187,13 @@ export async function triggerPaymentReceivedAutomation(paymentId: string, tenant
   });
 }
 
-export async function triggerLowStockAlert(tenantId: string, productName: string, currentStock: number, minStock: number) {
-  // This would typically go to business owner/manager
+/**
+ * @deprecated Use unified communication system instead
+ */
+export async function sendLowStockAlert(tenantId: string, productName: string, currentStock: number, minStock: number) {
+  console.warn('sendLowStockAlert is deprecated. Use unified communication system instead.');
+  
+  // Get business settings to find admin phone number
   const { data: businessSettings } = await supabase
     .from('business_settings')
     .select('phone')

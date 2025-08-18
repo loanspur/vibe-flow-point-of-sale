@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useWhatsAppService } from '@/hooks/useWhatsAppService';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 import { format } from 'date-fns';
 import { 
   Send, 
@@ -72,7 +72,7 @@ const WhatsAppBulkMessaging: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [filterType, setFilterType] = useState('all');
-  const { sendWhatsAppMessage } = useWhatsAppService();
+  const { sendWhatsApp } = useUnifiedCommunication();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -282,10 +282,13 @@ const WhatsAppBulkMessaging: React.FC = () => {
 
       for (const message of messages || []) {
         try {
-          await sendWhatsAppMessage({
-            recipient_phone: message.phone_number,
-            message: message.message_content,
-          });
+          await sendWhatsApp(
+            message.phone_number,
+            message.message_content,
+            {
+              recipientName: message.contact_name
+            }
+          );
 
           await supabase
             .from('whatsapp_bulk_campaign_messages')
