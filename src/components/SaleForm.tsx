@@ -29,7 +29,8 @@ import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
 
-import { triggerReceiptAutomation, triggerQuoteAutomation } from '@/lib/whatsappAutomation';
+import { triggerReceiptAutomation, triggerQuoteAutomation, triggerReceiptAutomationUnified } from '@/lib/whatsappAutomation';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
@@ -64,6 +65,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
+  const { sendReceiptNotification } = useUnifiedCommunication();
   
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -898,9 +900,38 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         payments: hasCreditPayment ? [] : payments,
       });
 
-      // Trigger receipt automation
-      console.log('About to call triggerReceiptAutomation with:', { saleId: sale.id, tenantId, customerId: values.customer_id, receiptNumber });
-      await triggerReceiptAutomation(sale.id, tenantId!, values.customer_id, receiptNumber);
+      // Trigger receipt automation using unified communication system
+      console.log('About to send receipt notification with unified system:', { saleId: sale.id, tenantId, customerId: values.customer_id, receiptNumber });
+      
+      // Get customer details for communication
+      const customer = customers.find(c => c.id === values.customer_id);
+      
+      try {
+        await sendReceiptNotification(
+          sale.id,
+          {
+            id: sale.id,
+            receipt_number: receiptNumber,
+            customer_id: values.customer_id,
+            customer_name: customer?.name || 'Customer',
+            total_amount: totalAmount,
+            items: saleItems.map(item => ({
+              product_name: item.product_name,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              subtotal: item.quantity * item.unit_price
+            })),
+            created_at: new Date().toISOString()
+          },
+          customer?.phone || undefined,
+          customer?.email || undefined
+        );
+        console.log('Receipt notification sent successfully via unified system');
+      } catch (error) {
+        console.error('Failed to send receipt notification via unified system, falling back to legacy:', error);
+        // Fallback to legacy system
+        await triggerReceiptAutomation(sale.id, tenantId!, values.customer_id, receiptNumber);
+      }
 
       toast({
         title: "Sale Completed", 

@@ -322,9 +322,9 @@ export class UnifiedCommunicationService {
       default:
         result = {
           success: false,
-          error: `Unsupported communication channel: ${options.channel}`,
-          channel: options.channel as CommunicationChannel,
-          recipient: options.recipient
+          error: `Unsupported communication channel: ${(options as any).channel}`,
+          channel: (options as any).channel as CommunicationChannel,
+          recipient: (options as any).recipient
         };
     }
 

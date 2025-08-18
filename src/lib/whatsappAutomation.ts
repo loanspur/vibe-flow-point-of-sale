@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { useUnifiedCommunicationService } from './unifiedCommunicationService';
 
 interface AutomationTriggerParams {
   tenantId: string;
@@ -176,5 +177,64 @@ export async function triggerLowStockAlert(tenantId: string, productName: string
         min_stock: minStock.toString()
       }
     });
+  }
+}
+
+// Legacy wrapper functions for unified communication system integration
+// These preserve existing business logic while using the new unified system
+
+/**
+ * Legacy function that uses unified communication service for new implementations
+ * while maintaining backward compatibility
+ */
+export async function triggerReceiptAutomationUnified(tenantId: string, saleData: any, customerPhone?: string, customerEmail?: string) {
+  try {
+    // Import and use unified communication service
+    const { UnifiedCommunicationService } = await import('./unifiedCommunicationService');
+    const service = new UnifiedCommunicationService(tenantId, 'tenant_admin');
+    
+    return await service.sendReceiptNotification(saleData, customerPhone, customerEmail);
+  } catch (error) {
+    console.error('Failed to send receipt notification via unified service:', error);
+    // Fallback to existing automation
+    if (customerPhone && saleData.customer_id) {
+      await triggerReceiptAutomation(saleData.id, tenantId, saleData.customer_id, saleData.receipt_number);
+    }
+  }
+}
+
+/**
+ * Legacy function that uses unified communication service for invoice notifications
+ */
+export async function triggerInvoiceAutomationUnified(tenantId: string, invoiceData: any, customerPhone?: string, customerEmail?: string) {
+  try {
+    const { UnifiedCommunicationService } = await import('./unifiedCommunicationService');
+    const service = new UnifiedCommunicationService(tenantId, 'tenant_admin');
+    
+    return await service.sendInvoiceNotification(invoiceData, customerPhone, customerEmail);
+  } catch (error) {
+    console.error('Failed to send invoice notification via unified service:', error);
+    // Fallback to existing automation
+    if (customerPhone && invoiceData.customer_id) {
+      await triggerInvoiceAutomation(invoiceData.id, tenantId, invoiceData.customer_id, invoiceData.invoice_number);
+    }
+  }
+}
+
+/**
+ * Legacy function that uses unified communication service for quote notifications
+ */
+export async function triggerQuoteAutomationUnified(tenantId: string, quoteData: any, customerPhone?: string, customerEmail?: string) {
+  try {
+    const { UnifiedCommunicationService } = await import('./unifiedCommunicationService');
+    const service = new UnifiedCommunicationService(tenantId, 'tenant_admin');
+    
+    return await service.sendQuoteNotification(quoteData, customerPhone, customerEmail);
+  } catch (error) {
+    console.error('Failed to send quote notification via unified service:', error);
+    // Fallback to existing automation
+    if (customerPhone && quoteData.customer_id) {
+      await triggerQuoteAutomation(quoteData.id, tenantId, quoteData.customer_id, quoteData.quote_number);
+    }
   }
 }
