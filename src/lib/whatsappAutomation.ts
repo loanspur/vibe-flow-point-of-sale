@@ -20,6 +20,8 @@ export async function triggerWhatsAppAutomation({
   referenceType
 }: AutomationTriggerParams) {
   try {
+    console.log('triggerWhatsAppAutomation called with:', { tenantId, eventType, recipientPhone, recipientName, variables, referenceId, referenceType });
+    
     // Check if automation is enabled for this event type
     const { data: automation } = await supabase
       .from('whatsapp_automation_settings')
@@ -28,6 +30,8 @@ export async function triggerWhatsAppAutomation({
       .eq('event_type', eventType)
       .eq('is_enabled', true)
       .single();
+
+    console.log('Automation settings found:', automation);
 
     if (!automation) {
       console.log(`No automation enabled for event: ${eventType}`);
@@ -90,12 +94,16 @@ export async function triggerWhatsAppAutomation({
 
 // Specific trigger functions for each event type
 export async function triggerReceiptAutomation(saleId: string, tenantId: string, customerId: string, receiptNumber: string) {
+  console.log('triggerReceiptAutomation called with:', { saleId, tenantId, customerId, receiptNumber });
+  
   // Skip automation if no customer ID or it's a walk-in customer
   if (!customerId || customerId === 'walk-in') {
     console.log('Skipping WhatsApp automation - no customer phone number available');
     return;
   }
 
+  console.log('Proceeding with WhatsApp automation for customer:', customerId);
+  
   await triggerWhatsAppAutomation({
     tenantId,
     eventType: 'receipt_created',

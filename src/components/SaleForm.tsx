@@ -898,7 +898,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       });
 
       // Trigger receipt automation
-      await triggerReceiptAutomation(sale.id, tenantData, values.customer_id, receiptNumber);
+      await triggerReceiptAutomation(sale.id, tenantId!, values.customer_id, receiptNumber);
 
       toast({
         title: "Sale Completed", 
