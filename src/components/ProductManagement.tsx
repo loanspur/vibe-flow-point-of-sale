@@ -151,7 +151,6 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               name,
               value,
               stock_quantity,
-              min_stock_level,
               price_adjustment,
               is_active
             )

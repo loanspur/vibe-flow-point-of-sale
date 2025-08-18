@@ -717,7 +717,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         name: formState.data.name,
         sku: finalSKU || null,
         description: formState.data.description || null,
-        price: parseFloat(formState.data.price),
+        price: formState.data.has_variants ? 0 : parseFloat(formState.data.price || '0'),
         default_profit_margin: formState.data.default_profit_margin ? parseFloat(formState.data.default_profit_margin) : null,
         barcode: formState.data.barcode || null,
         category_id: formState.data.category_id || null,
