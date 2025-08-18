@@ -322,12 +322,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       fetchRevenueAccounts();
       fetchUnits();
       fetchLocations();
-      
-      if (!product && !formState.data.location_id) {
-        setDefaultLocation();
-      }
     }
-  }, [tenantId, product, formState.data.location_id, fetchCategories, fetchRevenueAccounts, fetchUnits, fetchLocations, setDefaultLocation]);
+  }, [tenantId, fetchCategories, fetchRevenueAccounts, fetchUnits, fetchLocations]);
+
+  useEffect(() => {
+    if (tenantId && !product && !formState.data.location_id) {
+      setDefaultLocation();
+    }
+  }, [tenantId, product, setDefaultLocation]);
 
   useEffect(() => {
     if (product) {
