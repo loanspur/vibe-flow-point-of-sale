@@ -166,7 +166,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       }
       refreshTimeoutRef.current = setTimeout(() => {
         refetchProducts();
-      }, 500);
+      }, 300);
     }
     
     return () => {
@@ -644,7 +644,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               if (refreshTimeoutRef.current) {
                 clearTimeout(refreshTimeoutRef.current);
               }
-              refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
+              refreshTimeoutRef.current = setTimeout(refetchProducts, 300);
             }}
             onCancel={() => {
               setShowProductForm(false);

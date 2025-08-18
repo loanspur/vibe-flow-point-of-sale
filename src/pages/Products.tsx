@@ -18,7 +18,7 @@ const Products = () => {
   const realtimeTimerRef = useRef<NodeJS.Timeout>();
   const handleRealtimeRefresh = useCallback(() => {
     if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
-    realtimeTimerRef.current = setTimeout(() => setRefreshKey((k) => k + 1), 1000);
+    realtimeTimerRef.current = setTimeout(() => setRefreshKey((k) => k + 1), 300);
   }, []);
   // Periodic refresh when visible
   useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });

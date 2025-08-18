@@ -252,7 +252,7 @@ export class CurrencyConversionDebugger {
       });
       const request1Time = Date.now() - request1Start;
 
-      await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const request2Start = Date.now();
       const { data: data2 } = await supabase.functions.invoke('currency-conversion', {

@@ -312,7 +312,7 @@ const WhatsAppBulkMessaging: React.FC = () => {
         }
 
         // Add delay between messages to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       // Update campaign with final status

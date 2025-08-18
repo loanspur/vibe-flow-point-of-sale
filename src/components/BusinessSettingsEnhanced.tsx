@@ -536,7 +536,7 @@ export function BusinessSettingsEnhanced() {
           .single();
 
         if (profile?.tenant_id) {
-          console.log('🔄 useEffect: Loading locations for tenant:', profile.tenant_id);
+          // Loading locations for tenant
           fetchLocations(profile.tenant_id);
         }
       }
@@ -558,7 +558,7 @@ export function BusinessSettingsEnhanced() {
             .single();
 
           if (profile?.tenant_id) {
-            console.log('🏢 Locations tab activated: Loading locations for tenant:', profile.tenant_id);
+            // Locations tab activated, loading locations
             await fetchLocations(profile.tenant_id);
           }
         }
@@ -569,9 +569,7 @@ export function BusinessSettingsEnhanced() {
   }, [activeTab]);
 
   const handleAddLocation = () => {
-    console.log('🏪 handleAddLocation called!');
-    console.log('🏪 Current locations:', locations);
-    console.log('🏪 Current activeTab:', activeTab);
+    // Add location handler called
     
     setEditingLocation(null);
     setLocationFormData({
@@ -590,7 +588,7 @@ export function BusinessSettingsEnhanced() {
     });
     setIsLocationDialogOpen(true);
     
-    console.log('🏪 Location dialog should be opening...');
+    // Opening location dialog
   };
 
   const handleEditLocation = (location: StoreLocation) => {
@@ -842,7 +840,7 @@ export function BusinessSettingsEnhanced() {
   const countryOptions = COUNTRY_LIST;
 
   if (isLoading) {
-    console.log('⏳ BusinessSettingsEnhanced is still loading...');
+    // Settings component still loading
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">

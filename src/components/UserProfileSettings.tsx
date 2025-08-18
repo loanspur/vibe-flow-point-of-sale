@@ -273,8 +273,8 @@ export default function UserProfileSettings() {
         }
       }
 
-      // Wait a bit for the auth update to propagate
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for auth update to propagate
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       toast.success('Profile updated successfully');
       await fetchUserProfile();

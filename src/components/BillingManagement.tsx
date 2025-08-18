@@ -102,13 +102,7 @@ export default function BillingManagement() {
   const { toast } = useToast();
   const { formatPrice, currencySymbol, currencyCode, updateCounter } = useCurrencyUpdate();
   
-  // Debug logging to check currency values
-  console.log('BillingManagement - Currency Debug:', { 
-    currencySymbol, 
-    currencyCode, 
-    updateCounter,
-    sampleFormat: formatPrice(120)
-  });
+  // Currency settings available
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [convertedPlans, setConvertedPlans] = useState<BillingPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
@@ -122,13 +116,7 @@ export default function BillingManagement() {
     currentSubscription?.billing_plan_id
   );
   
-  // Debug logging
-  console.log('BillingManagement Debug:', {
-    tenantId,
-    billingPlanId: currentSubscription?.billing_plan_id,
-    effectivePricing,
-    pricingLoading
-  });
+  // Component state tracking
 
   useEffect(() => {
     fetchBillingPlans();
@@ -275,20 +263,12 @@ export default function BillingManagement() {
     setUpgrading(planId);
     
     try {
-      console.log('Calling create-paystack-checkout with planId:', planId);
-      console.log('User:', user);
-      console.log('Tenant ID:', tenantId);
-      
       // Get the current session to ensure we have a valid JWT token
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      console.log('Current session:', sessionData);
-      console.log('Session error:', sessionError);
       
       if (!sessionData?.session?.access_token) {
         throw new Error('No valid session found. Please log out and log back in.');
       }
-      
-      console.log('Making function call...');
       
       // Try direct fetch approach instead of supabase.functions.invoke
       const response = await fetch(`https://qwtybhvdbbkbcelisuek.supabase.co/functions/v1/create-paystack-checkout`, {
@@ -304,11 +284,7 @@ export default function BillingManagement() {
         })
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
       const data = await response.json();
-      console.log('Response data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
@@ -354,7 +330,7 @@ export default function BillingManagement() {
 
   const verifyPayment = async (reference: string) => {
     try {
-      console.log("Verifying payment with reference:", reference);
+      // Verifying payment with reference
       
       // Use the edge function which has access to the secure Paystack secret key
       const { data, error } = await supabase.functions.invoke('verify-paystack-payment', {
@@ -362,12 +338,12 @@ export default function BillingManagement() {
       });
 
       if (error) {
-        console.error("Edge function error:", error);
+        // Edge function error logged
         throw error;
       }
 
       if (data?.success) {
-        console.log("Payment verification successful:", data);
+        // Payment verification successful
         toast({
           title: "Payment Verified!",
           description: "Your subscription has been activated successfully"
@@ -375,7 +351,7 @@ export default function BillingManagement() {
         fetchCurrentSubscription();
         fetchPaymentHistory();
       } else {
-        console.error("Payment verification failed:", data);
+        // Payment verification failed
         throw new Error(data?.error || "Payment verification failed");
       }
     } catch (error: any) {

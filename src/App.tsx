@@ -75,7 +75,7 @@ const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Redirect only when tenant context is resolved to avoid loops
     if (user && isSubdomain() && domainConfig?.tenantId) {
-      console.log('👤 User authenticated, tenant resolved; redirecting to dashboard');
+      // User authenticated, redirecting to dashboard
       window.location.replace('/dashboard');
     }
   }, [user, domainConfig?.tenantId]);
@@ -131,64 +131,45 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Block Firebase network requests and feature warnings at the console level
-const originalLog = console.error;
-const originalWarn = console.warn;
-const originalConsoleLog = console.log;
-const originalInfo = console.info;
+// Suppress Firebase and other noisy logs in production
+if (process.env.NODE_ENV !== 'development') {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  console.error = function(...args) {
+    const message = args.join(' ').toLowerCase();
+    if (message.includes('firebase') || 
+        message.includes('firestore') || 
+        message.includes('googleapis') ||
+        message.includes('webchannelconnection') ||
+        message.includes('unrecognized feature') ||
+        message.includes('iframe') ||
+        message.includes('message channel closed') ||
+        message.includes('sandbox')) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
 
-console.error = function(...args) {
-  const message = args.join(' ').toLowerCase();
-  if (message.includes('firebase') || 
-      message.includes('firestore') || 
-      message.includes('googleapis') ||
-      message.includes('webchannelconnection') ||
-      message.includes('unrecognized feature') ||
-      message.includes('iframe') ||
-      message.includes('message channel closed') ||
-      message.includes('listener indicated an asynchronous response') ||
-      message.includes('sandbox') ||
-      message.includes('feature_collector')) {
-    return; // Suppress these error logs
-  }
-  originalLog.apply(console, args);
-};
-
-console.warn = function(...args) {
-  const message = args.join(' ').toLowerCase();
-  if (message.includes('firebase') || 
-      message.includes('firestore') || 
-      message.includes('googleapis') ||
-      message.includes('unrecognized feature') ||
-      message.includes('iframe') ||
-      message.includes('multiple gotrueclient') ||
-      message.includes('sandbox') ||
-      message.includes('feature_collector') ||
-      message.includes('deprecated parameters')) {
-    return; // Suppress these warnings
-  }
-  originalWarn.apply(console, args);
-};
-
-// Suppress noisy debug logs (auth/route guards)
-console.log = function(...args) {
-  const msg = args.map(a => (typeof a === 'string' ? a : '')).join(' ');
-  const lower = msg.toLowerCase();
-  if (/[🔐🛡️✅🚫👁️🚀🎯]/u.test(msg) ||
-      lower.includes('protectedroute') ||
-      lower.includes('auth state change') ||
-      lower.includes('user profile loaded')) {
-    return;
-  }
-  originalConsoleLog.apply(console, args);
-};
+  console.warn = function(...args) {
+    const message = args.join(' ').toLowerCase();
+    if (message.includes('firebase') || 
+        message.includes('firestore') || 
+        message.includes('googleapis') ||
+        message.includes('multiple gotrueclient') ||
+        message.includes('sandbox')) {
+      return;
+    }
+    originalWarn.apply(console, args);
+  };
+}
 
 // Optimized query client configuration for better performance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 2 * 60 * 1000, // 2 minutes - shorter for fresher data
-      gcTime: 5 * 60 * 1000, // 5 minutes - shorter to free memory faster
+      staleTime: 120000, // 2 minutes
+      gcTime: 300000, // 5 minutes
       retry: 1,
       refetchOnWindowFocus: false, // Disabled to prevent performance issues
       refetchOnMount: false, // Disabled to prevent unnecessary refetches
@@ -240,7 +221,7 @@ const DomainRouter = () => {
     useEffect(() => {
       const timer = setTimeout(() => {
         setTimeoutReached(true);
-      }, 5000); // Reduced to 5 seconds to improve UX
+      }, 5000);
       
       return () => clearTimeout(timer);
     }, []);

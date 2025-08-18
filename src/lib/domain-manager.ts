@@ -143,7 +143,7 @@ class DomainManager {
       // Wait for ongoing resolution to complete with shorter timeout
       let attempts = 0;
       while (this.resolving.has(currentDomain) && attempts < 30) { // 3 second timeout
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
         attempts++;
       }
       
