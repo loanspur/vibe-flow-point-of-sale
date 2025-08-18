@@ -90,10 +90,16 @@ export async function triggerWhatsAppAutomation({
 
 // Specific trigger functions for each event type
 export async function triggerReceiptAutomation(saleId: string, tenantId: string, customerId: string, receiptNumber: string) {
+  // Skip automation if no customer ID or it's a walk-in customer
+  if (!customerId || customerId === 'walk-in') {
+    console.log('Skipping WhatsApp automation - no customer phone number available');
+    return;
+  }
+
   await triggerWhatsAppAutomation({
     tenantId,
     eventType: 'receipt_created',
-    referenceId: customerId !== 'walk-in' ? customerId : undefined,
+    referenceId: customerId,
     referenceType: 'contact',
     variables: {
       receipt_number: receiptNumber,
