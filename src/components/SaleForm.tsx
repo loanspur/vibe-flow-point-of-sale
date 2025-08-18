@@ -739,6 +739,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const completeSale = async () => {
+    console.log('completeSale function called');
     const values = form.getValues();
     const hasCreditPayment = payments.some(p => p.method === 'credit');
 
