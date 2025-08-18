@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
+import { useOptimizedQuery, clearQueryCache } from '@/hooks/useOptimizedQuery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -534,14 +534,16 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           <Button 
             variant="outline"
             onClick={() => {
+              // Clear all caches to eliminate malformed requests
+              clearQueryCache();
               setHasLoaded(false);
               refetchProducts();
             }}
             disabled={loading}
-            title="Refresh product data"
+            title="Clear cache and refresh product data"
           >
             <RotateCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            Clear Cache & Refresh
           </Button>
           <Button 
             onClick={() => {

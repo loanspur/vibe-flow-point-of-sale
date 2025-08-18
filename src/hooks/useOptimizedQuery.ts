@@ -150,9 +150,19 @@ export function useOptimizedQuery<T>(
   return { data, loading, error, refetch };
 }
 
-// Clear all cached queries
+// Clear all cached queries - including any malformed ones
 export const clearQueryCache = () => {
   queryCache.clear();
+  // Also clear any browser cached requests
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => {
+        if (name.includes('supabase') || name.includes('products')) {
+          caches.delete(name);
+        }
+      });
+    });
+  }
 };
 
 // Clear specific cache entry
