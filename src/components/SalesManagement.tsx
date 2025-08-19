@@ -57,7 +57,16 @@ interface SalesStats {
 
 export default function SalesManagement() {
   const { tenantId, user } = useAuth();
-  const { setOpen } = useSidebar();
+  
+  // Safely use sidebar context with error handling
+  let setSidebarOpen: ((open: boolean) => void) | undefined;
+  try {
+    const sidebar = useSidebar();
+    setSidebarOpen = sidebar?.setOpen;
+  } catch (error) {
+    console.log('Sidebar context not available:', error);
+    setSidebarOpen = undefined;
+  }
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sales, setSales] = useState<Sale[]>([]);
