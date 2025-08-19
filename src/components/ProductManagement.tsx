@@ -52,6 +52,7 @@ interface Product {
   name: string;
   sku: string;
   price: number;
+  purchase_price?: number;
   default_profit_margin?: number;
   stock_quantity: number;
   min_stock_level: number;
@@ -88,6 +89,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
   const [hasLoaded, setHasLoaded] = useState(false);
   const didMountRef = useRef(false);
   const refreshTimeoutRef = useRef<NodeJS.Timeout>();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
  
    useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -111,7 +114,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           setExpiringIds(new Set((data || []).map((d: any) => d.product_id)));
         }
       });
-  }, [activeFilter, tenantId]);
+   }, [activeFilter, tenantId]);
 
   // Optimized product fetching with minimal fields and caching
   const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
@@ -127,6 +130,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             sku,
             description,
             price,
+            purchase_price,
             default_profit_margin,
             barcode,
             category_id,
@@ -238,6 +242,18 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     return filtered;
   }, [products, debouncedSearchTerm, activeFilter, expiringIds]);
 
+  // Pagination calculations
+  const totalItems = filteredProducts.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, activeFilter, productTypeFilter]);
+
   // Memoized low stock calculation
   const lowStockProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
@@ -314,6 +330,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               <TableHead className="hidden md:table-cell">SKU</TableHead>
               <TableHead className="hidden lg:table-cell">Category</TableHead>
               <TableHead className="hidden lg:table-cell">Unit</TableHead>
+              <TableHead className="hidden lg:table-cell">Purchase Price</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
@@ -322,7 +339,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             </TableRow>
           </TableHeader>
         <TableBody>
-          {filteredProducts.map((product) => (
+          {paginatedProducts.map((product) => (
             <TableRow key={product.id}>
               <TableCell>
                 <div className="flex items-center space-x-2 sm:space-x-3">
@@ -372,10 +389,13 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                <TableCell className="hidden lg:table-cell text-sm">
                  {product.product_categories?.name || 'None'}
                </TableCell>
-               <TableCell className="hidden lg:table-cell text-sm">
-                 {product.product_units?.abbreviation || 'N/A'}
-               </TableCell>
-               <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
+                <TableCell className="hidden lg:table-cell text-sm">
+                  {product.product_units?.abbreviation || 'N/A'}
+                </TableCell>
+                <TableCell className="hidden lg:table-cell text-sm">
+                  {formatCurrency(product.purchase_price || 0)}
+                </TableCell>
+                <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
                <TableCell className="text-sm">
                  {(() => {
                    // Show total stock including variants
@@ -644,7 +664,51 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               </CardContent>
             </Card>
           ) : (
-            <ProductTable />
+            <>
+              <ProductTable />
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-2">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} products
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pageNumber = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                        if (pageNumber > totalPages) return null;
+                        return (
+                          <Button
+                            key={pageNumber}
+                            variant={currentPage === pageNumber ? "default" : "outline"}
+                            size="sm"
+                            className="w-8 h-8 p-0"
+                            onClick={() => setCurrentPage(pageNumber)}
+                          >
+                            {pageNumber}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
