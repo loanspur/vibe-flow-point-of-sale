@@ -36,26 +36,31 @@ import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
-// StockBadge component for async stock display
-const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, getActualStock }: {
+// Enhanced StockBadge component that persists after selection
+const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, getActualStock, locationName }: {
   productId: string;
   variantId?: string;
   locationId?: string;
+  locationName?: string;
   getLocationSpecificStock: (productId: string, variantId?: string, locationId?: string) => Promise<number>;
   getActualStock: (productId: string, variantId?: string) => number;
 }) => {
   const [stock, setStock] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStock = async () => {
       if (locationId) {
         setLoading(true);
+        setError(null);
         try {
           const stockAmount = await getLocationSpecificStock(productId, variantId, locationId);
           setStock(stockAmount);
         } catch (error) {
-          console.error('Error fetching stock:', error);
+          console.error('Error fetching location stock:', error);
+          setError('Failed to load stock');
+          // Fallback to basic stock
           setStock(getActualStock(productId, variantId));
         } finally {
           setLoading(false);
@@ -69,13 +74,25 @@ const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock
   }, [productId, variantId, locationId, getLocationSpecificStock, getActualStock]);
 
   if (loading) {
-    return <Badge variant="outline">Loading...</Badge>;
+    return <Badge variant="outline" className="text-xs">Loading stock...</Badge>;
+  }
+
+  if (error) {
+    return <Badge variant="destructive" className="text-xs">Stock error</Badge>;
   }
 
   const stockAmount = stock ?? 0;
+  const displayText = locationId && locationName 
+    ? `Stock at ${locationName}: ${stockAmount}`
+    : `Stock: ${stockAmount}`;
+
   return (
-    <Badge variant={stockAmount > 0 ? "default" : "destructive"}>
-      {stockAmount}
+    <Badge 
+      variant={stockAmount > 0 ? "default" : "destructive"}
+      className="text-xs"
+      title={displayText}
+    >
+      {displayText}
     </Badge>
   );
 };
@@ -503,8 +520,18 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const addItemToSale = async () => {
+    console.log('addItemToSale called with:', {
+      selectedProduct,
+      selectedVariant,
+      selectedLocation,
+      quantity,
+      customPrice,
+      saleItemsLength: saleItems.length
+    });
+
     const product = products.find(p => p.id === selectedProduct);
     if (!product) {
+      console.error('Product not found:', selectedProduct);
       toast({
         title: "Error",
         description: "Please select a valid product",
@@ -514,6 +541,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     if (quantity <= 0) {
+      console.error('Invalid quantity:', quantity);
       toast({
         title: "Invalid Quantity",
         description: "Please enter a valid quantity greater than 0",
@@ -523,6 +551,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     if (!selectedLocation) {
+      console.error('No location selected');
       toast({
         title: "Location Required",
         description: "Please select a location before adding products to the sale",
@@ -532,13 +561,24 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     // Check location-specific stock availability
-    const currentStock = await getLocationSpecificStock(
-      selectedProduct, 
-      selectedVariant !== "no-variant" ? selectedVariant : undefined,
-      selectedLocation
-    );
+    let currentStock;
+    try {
+      currentStock = await getLocationSpecificStock(
+        selectedProduct, 
+        selectedVariant !== "no-variant" ? selectedVariant : undefined,
+        selectedLocation
+      );
+      console.log('Stock check result:', { currentStock, quantity, selectedLocation });
+    } catch (error) {
+      console.error('Error getting stock:', error);
+      currentStock = getActualStock(selectedProduct, selectedVariant !== "no-variant" ? selectedVariant : undefined);
+    }
     
-    if (!inventorySettings.enableNegativeStock && currentStock < quantity) {
+    // Check business settings for negative stock - use both inventory and product settings  
+    const allowNegativeStock = inventorySettings.enableNegativeStock || false;
+    console.log('Negative stock settings:', { allowNegativeStock, currentStock, quantity });
+    
+    if (!allowNegativeStock && currentStock < quantity) {
       const locationName = locations.find(loc => loc.id === selectedLocation)?.name || 'selected location';
       toast({
         title: "Insufficient Stock at Location",
@@ -573,12 +613,22 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       (item.variant_id === currentVariantId || (!item.variant_id && !currentVariantId))
     );
 
+    console.log('Adding item with details:', {
+      productName,
+      unitPrice,
+      quantity,
+      currentVariantId,
+      existingItemIndex
+    });
+
     if (existingItemIndex !== -1) {
       // Update existing item quantity
       const updatedItems = [...saleItems];
       updatedItems[existingItemIndex].quantity += quantity;
       updatedItems[existingItemIndex].total_price = updatedItems[existingItemIndex].unit_price * updatedItems[existingItemIndex].quantity;
       setSaleItems(updatedItems);
+      
+      console.log('Updated existing item:', updatedItems[existingItemIndex]);
       
       toast({
         title: "Item Updated",
@@ -596,7 +646,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         unit_price: unitPrice,
         total_price: totalPrice,
       };
-      setSaleItems([...saleItems, newItem]);
+      
+      console.log('Adding new item:', newItem);
+      
+      const newSaleItems = [...saleItems, newItem];
+      setSaleItems(newSaleItems);
+      
+      console.log('New sale items array:', newSaleItems);
       
       toast({
         title: "Item Added",
@@ -609,6 +665,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     setSearchTerm("");
     setQuantity(1);
     setCustomPrice(null);
+    
+    console.log('addItemToSale completed, final saleItems length:', saleItems.length + 1);
   };
 
   const removeItem = (index: number) => {
@@ -1283,12 +1341,14 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                      Stock {selectedLocation && locations.find(loc => loc.id === selectedLocation)?.name ? 
                                        `at ${locations.find(loc => loc.id === selectedLocation)?.name}` : ''}
                                    </p>
-                                   <StockBadge 
-                                     productId={product.id} 
-                                     locationId={selectedLocation}
-                                     getLocationSpecificStock={getLocationSpecificStock}
-                                     getActualStock={getActualStock}
-                                   />
+                                    <StockBadge 
+                                      productId={product.id} 
+                                      variantId={undefined}
+                                      locationId={selectedLocation}
+                                      locationName={locations.find(loc => loc.id === selectedLocation)?.name}
+                                      getLocationSpecificStock={getLocationSpecificStock}
+                                      getActualStock={getActualStock}
+                                    />
                                  </div>
                              </div>
                            </div>
@@ -1313,20 +1373,21 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                    <Package className="h-4 w-4" />
                                    <span className="font-medium">{product.name}</span>
                                     <Badge variant="secondary">{formatAmount(product.price)}</Badge>
-                                    {selectedLocation && (
-                                      <StockBadge 
-                                        productId={product.id}
-                                        variantId={selectedVariant && selectedVariant !== "no-variant" ? selectedVariant : undefined}
-                                        locationId={selectedLocation}
-                                        getLocationSpecificStock={getLocationSpecificStock}
-                                        getActualStock={getActualStock}
-                                      />
-                                    )}
-                                    {!selectedLocation && (
-                                      <Badge variant={getActualStock(product.id) > 0 ? "outline" : "destructive"} className="text-xs">
-                                        Stock: {getActualStock(product.id)}
-                                      </Badge>
-                                    )}
+                                     {selectedLocation && (
+                                       <StockBadge 
+                                         productId={product.id}
+                                         variantId={selectedVariant && selectedVariant !== "no-variant" ? selectedVariant : undefined}
+                                         locationId={selectedLocation}
+                                         locationName={locations.find(loc => loc.id === selectedLocation)?.name}
+                                         getLocationSpecificStock={getLocationSpecificStock}
+                                         getActualStock={getActualStock}
+                                       />
+                                     )}
+                                     {!selectedLocation && (
+                                       <Badge variant={getActualStock(product.id) > 0 ? "outline" : "destructive"} className="text-xs">
+                                         Stock: {getActualStock(product.id)}
+                                       </Badge>
+                                     )}
                                  </div>
 
                                  {product.product_variants && product.product_variants.length > 0 && (
