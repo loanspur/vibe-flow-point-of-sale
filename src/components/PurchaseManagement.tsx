@@ -588,6 +588,45 @@ const PurchaseManagement = () => {
     setSelectedItems([...selectedItems, { product_id: null, variant_id: null, quantity: 1, unit_cost: 0 }]);
   };
 
+  const addOrUpdateItem = (productId: string, variantId?: string | null) => {
+    // Check if item already exists in purchase order
+    const currentVariantId = variantId && variantId !== "no-variant" ? variantId : null;
+    const existingItemIndex = selectedItems.findIndex(item => 
+      item.product_id === productId && 
+      (item.variant_id === currentVariantId || (!item.variant_id && !currentVariantId))
+    );
+
+    if (existingItemIndex !== -1) {
+      // Update existing item quantity
+      const newItems = [...selectedItems];
+      newItems[existingItemIndex].quantity += 1;
+      setSelectedItems(newItems);
+      
+      toast({
+        title: "Item Updated",
+        description: "Increased quantity of existing product in purchase order",
+      });
+    } else {
+      // Add new item
+      const product = products.find(p => p.id === productId);
+      const unitCost = variantId && variantId !== "no-variant" 
+        ? product?.product_variants?.find(v => v.id === variantId)?.default_profit_margin || 0
+        : product?.default_profit_margin || 0;
+      
+      setSelectedItems([...selectedItems, { 
+        product_id: productId, 
+        variant_id: currentVariantId, 
+        quantity: 1, 
+        unit_cost: unitCost 
+      }]);
+      
+      toast({
+        title: "Item Added",
+        description: "Added new product to purchase order",
+      });
+    }
+  };
+
   const removeItem = (index: number) => {
     const newItems = (selectedItems || []).filter((_, i) => i !== index);
     setSelectedItems(newItems);
@@ -1051,26 +1090,55 @@ const PurchaseManagement = () => {
                           </div>
                         )}
 
-                        <div className={selectedProduct?.product_variants && selectedProduct.product_variants.length > 0 ? "col-span-2" : "col-span-4"}>
-                          <Label>Quantity *</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                          />
-                        </div>
+                         <div className={selectedProduct?.product_variants && selectedProduct.product_variants.length > 0 ? "col-span-2" : "col-span-4"}>
+                           <Label>Quantity *</Label>
+                           <Input
+                             type="number"
+                             min="0"
+                             step="1"
+                             value={item.quantity}
+                             onChange={(e) => {
+                               const value = e.target.value;
+                               if (value === '') {
+                                 updateItem(index, 'quantity', 0);
+                               } else {
+                                 const num = parseInt(value);
+                                 updateItem(index, 'quantity', isNaN(num) || num < 0 ? 0 : num);
+                               }
+                             }}
+                             onBlur={(e) => {
+                               if (item.quantity === 0) {
+                                 updateItem(index, 'quantity', 1);
+                               }
+                             }}
+                             placeholder="Enter quantity"
+                           />
+                         </div>
 
-                        <div className="col-span-2">
-                          <Label>Unit Cost *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.unit_cost}
-                            onChange={(e) => updateItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
-                          />
-                        </div>
+                         <div className="col-span-2">
+                           <Label>Unit Cost *</Label>
+                           <Input
+                             type="number"
+                             step="0.01"
+                             min="0"
+                             value={item.unit_cost}
+                             onChange={(e) => {
+                               const value = e.target.value;
+                               if (value === '') {
+                                 updateItem(index, 'unit_cost', 0);
+                               } else {
+                                 const num = parseFloat(value);
+                                 updateItem(index, 'unit_cost', isNaN(num) || num < 0 ? 0 : num);
+                               }
+                             }}
+                             onBlur={(e) => {
+                               if (item.unit_cost === 0) {
+                                 // Don't auto-fill on blur for unit cost, allow 0 values
+                               }
+                             }}
+                             placeholder="Enter unit cost"
+                           />
+                         </div>
 
                         {hasExpiry && (
                           <div className="col-span-2">
