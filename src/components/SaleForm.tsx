@@ -447,21 +447,64 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     try {
-      // Simplified stock calculation for better performance
-      const { data: stockLevels } = await supabase
-        .from('stock_levels')
-        .select('current_quantity')
-        .eq('product_id', productId)
+      // Get base product stock for the specific location
+      const { data: product } = await supabase
+        .from('products')
+        .select('stock_quantity')
+        .eq('id', productId)
         .eq('location_id', locationId)
-        .eq('variant_id', variantId || null)
+        .eq('tenant_id', tenantId)
         .maybeSingle();
 
-      let locationStock = stockLevels?.current_quantity ?? 0;
+      let baseStock = product?.stock_quantity ?? 0;
       
-      // If no stock levels record, fallback to base stock divided by number of locations
-      if (!stockLevels) {
-        locationStock = Math.floor(getActualStock(productId, variantId) / Math.max(locations.length, 1));
+      // Calculate stock adjustments for this product at this location
+      const { data: adjustments } = await supabase
+        .from('stock_adjustment_items')
+        .select(`
+          adjustment_quantity,
+          stock_adjustments!inner(tenant_id, status)
+        `)
+        .eq('product_id', productId)
+        .eq('location_id', locationId)
+        .eq('stock_adjustments.tenant_id', tenantId)
+        .eq('stock_adjustments.status', 'approved');
+      
+      let adjustmentTotal = 0;
+      if (adjustments) {
+        adjustmentTotal = adjustments.reduce((total, adj) => {
+          return total + adj.adjustment_quantity;
+        }, 0);
       }
+      
+      // Calculate recent sales that might not be reflected in base stock
+      const { data: recentSales } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          sales!inner(tenant_id, location_id, created_at)
+        `)
+        .eq('product_id', productId)
+        .eq('sales.tenant_id', tenantId)
+        .eq('sales.location_id', locationId)
+        .gte('sales.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+      
+      let recentSalesTotal = 0;
+      if (recentSales) {
+        recentSalesTotal = recentSales.reduce((total, sale) => total + sale.quantity, 0);
+      }
+
+      let locationStock = baseStock + adjustmentTotal - recentSalesTotal;
+      
+      console.log(`Stock calculation for product ${productId} at location ${locationId}:`, {
+        baseStock,
+        adjustmentTotal,
+        recentSalesTotal,
+        finalLocationStock: locationStock
+      });
+      
+      // Apply minimum stock threshold
+      locationStock = Math.max(0, locationStock);
 
       // Cache the result
       locationStockCache.set(cacheKey, locationStock);
