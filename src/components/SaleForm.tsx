@@ -30,7 +30,7 @@ import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
 
-import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
+
 import { sendCommunicationWithSettings } from '@/lib/communicationSettingsIntegration';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 // Remove unused imports related to old inventory system
@@ -127,7 +127,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
-  const { sendReceiptNotification, sendQuoteNotification } = useUnifiedCommunication();
+  
   const { pos: posSettings, tax: taxSettings, inventory: inventorySettings } = useBusinessSettings();
   
   const [businessSettings, setBusinessSettings] = useState<any>(null);
@@ -883,11 +883,37 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       if (itemsError) throw itemsError;
 
-        // Send quote notification
-        await sendQuoteNotification(
-          quote.id,
-          { id: quote.id, quote_number: quoteNumber, customer_id: values.customer_id }
-        );
+        // Send quote notification using direct service import to avoid hook context issues
+        try {
+          const customer = customers.find(c => c.id === values.customer_id);
+          if (customer?.phone || customer?.email) {
+            const { UnifiedCommunicationService } = await import('@/lib/unifiedCommunicationService');
+            const service = new UnifiedCommunicationService(tenantId || '', 'user', false);
+            
+            await service.sendQuoteNotification(
+              {
+                id: quote.id,
+                quote_number: quoteNumber,
+                customer_id: values.customer_id,
+                customer_name: customer?.name || 'Customer',
+                total_amount: totalAmount,
+                created_at: new Date().toISOString(),
+                valid_until: values.valid_until?.toISOString(),
+                items: saleItems.map(item => ({
+                  product_name: item.product_name,
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                  subtotal: item.quantity * item.unit_price
+                }))
+              },
+              customer?.phone || undefined,
+              customer?.email || undefined
+            );
+          }
+        } catch (error) {
+          console.error('Quote notification failed:', error);
+          // Don't fail the quote creation if notification fails
+        }
 
         toast({
           title: "Quote Created",
