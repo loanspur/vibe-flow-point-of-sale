@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 import { processEmailContent, generateTenantEmailUrls, fetchBusinessDetailsForEmail } from '@/utils/emailHelpers';
 import { EMAIL_TEMPLATES } from './systemConstants';
 
@@ -66,22 +65,13 @@ export class EmailService {
   }
 
   /**
-   * Handles success/error toasts
+   * Handles success/error logging (toasts removed to prevent React context issues)
    */
   private handleResult(success: boolean, message?: string) {
-    if (!this.showToasts) return;
-    
     if (success) {
-      toast({
-        title: "Success",
-        description: message || "Email sent successfully",
-      });
+      console.log('Email sent successfully:', message);
     } else {
-      toast({
-        title: "Error",
-        description: message || "Failed to send email",
-        variant: "destructive",
-      });
+      console.error('Failed to send email:', message);
     }
   }
 

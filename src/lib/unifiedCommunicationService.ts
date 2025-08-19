@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 import { EmailService, TemplateEmailOptions, BaseEmailOptions } from './emailService';
 import { processEmailContent, generateTenantEmailUrls, fetchBusinessDetailsForEmail } from '@/utils/emailHelpers';
 import { getEnhancedTemplate } from './whatsappTemplateUtils';
@@ -89,24 +88,15 @@ export class UnifiedCommunicationService {
   }
 
   /**
-   * Handles success/error notifications
+   * Handles success/error logging (toasts removed to prevent React context issues)
    */
   private handleResult(success: boolean, channel: CommunicationChannel, message?: string) {
-    if (!this.showToasts) return;
-    
     const channelName = channel.charAt(0).toUpperCase() + channel.slice(1);
     
     if (success) {
-      toast({
-        title: "Success",
-        description: message || `${channelName} sent successfully`,
-      });
+      console.log(`${channelName} sent successfully:`, message);
     } else {
-      toast({
-        title: "Error",
-        description: message || `Failed to send ${channel}`,
-        variant: "destructive",
-      });
+      console.error(`Failed to send ${channel}:`, message);
     }
   }
 
