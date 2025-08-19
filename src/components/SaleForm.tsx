@@ -381,7 +381,23 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
   const addItemToSale = () => {
     const product = products.find(p => p.id === selectedProduct);
-    if (!product) return;
+    if (!product) {
+      toast({
+        title: "Error",
+        description: "Please select a valid product",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (quantity <= 0) {
+      toast({
+        title: "Invalid Quantity",
+        description: "Please enter a valid quantity greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Check stock availability based on business settings
     const { inventory: inventorySettings } = useBusinessSettings();
@@ -413,10 +429,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       unitPrice = customPrice;
     }
 
-    // Check if item already exists in sale
+    // Check if item already exists in sale (including proper variant handling)
+    const currentVariantId = selectedVariant && selectedVariant !== "no-variant" ? selectedVariant : undefined;
     const existingItemIndex = saleItems.findIndex(item => 
       item.product_id === selectedProduct && 
-      item.variant_id === (selectedVariant !== "no-variant" ? selectedVariant : undefined)
+      (item.variant_id === currentVariantId || (!item.variant_id && !currentVariantId))
     );
 
     if (existingItemIndex !== -1) {
@@ -425,19 +442,29 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       updatedItems[existingItemIndex].quantity += quantity;
       updatedItems[existingItemIndex].total_price = updatedItems[existingItemIndex].unit_price * updatedItems[existingItemIndex].quantity;
       setSaleItems(updatedItems);
+      
+      toast({
+        title: "Item Updated",
+        description: `Increased quantity of ${productName} to ${updatedItems[existingItemIndex].quantity}`,
+      });
     } else {
       // Add new item
       const totalPrice = unitPrice * quantity;
       const newItem: SaleItem = {
         product_id: selectedProduct,
         product_name: productName,
-        variant_id: selectedVariant !== "no-variant" ? selectedVariant : undefined,
+        variant_id: currentVariantId,
         variant_name: variant?.name,
         quantity,
         unit_price: unitPrice,
         total_price: totalPrice,
       };
       setSaleItems([...saleItems, newItem]);
+      
+      toast({
+        title: "Item Added",
+        description: `Added ${productName} to sale`,
+      });
     }
 
     setSelectedProduct("");
@@ -1174,12 +1201,27 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                       <label className="text-sm font-medium">
                                         Quantity {product.product_units ? `(${product.product_units.abbreviation})` : '(pcs)'}
                                       </label>
-                                      <Input
-                                        type="number"
-                                        min="1"
-                                        value={quantity}
-                                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                                      />
+                                       <Input
+                                         type="number"
+                                         min="0"
+                                         step="1"
+                                         value={quantity}
+                                         onChange={(e) => {
+                                           const value = e.target.value;
+                                           if (value === '') {
+                                             setQuantity(0);
+                                           } else {
+                                             const num = parseInt(value);
+                                             setQuantity(isNaN(num) || num < 0 ? 0 : num);
+                                           }
+                                         }}
+                                         onBlur={(e) => {
+                                           if (quantity === 0) {
+                                             setQuantity(1);
+                                           }
+                                         }}
+                                         placeholder="Enter quantity"
+                                       />
                                     </div>
                                    <Button onClick={addItemToSale} className="mt-6">
                                      <Plus className="h-4 w-4 mr-2" />
