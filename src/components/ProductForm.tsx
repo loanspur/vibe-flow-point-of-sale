@@ -203,6 +203,11 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   }, [tenantId, toast]);
 
   const fetchSubcategories = useCallback(async (categoryId: string) => {
+    if (!categoryId || !tenantId) {
+      setSubcategories([]);
+      return;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('product_subcategories')
@@ -214,11 +219,13 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       if (error) throw error;
       setSubcategories(data || []);
     } catch (error: any) {
+      console.error('Subcategories fetch error:', error);
       toast({
         title: "Error fetching subcategories",
         description: error.message,
         variant: "destructive",
       });
+      setSubcategories([]); // Ensure we have a fallback
     }
   }, [tenantId, toast]);
 
@@ -335,9 +342,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }, [tenantId, product, formState.data.location_id, setDefaultLocation]);
 
+  // Initialize form with product data (only run once per product)
   useEffect(() => {
-    if (product) {
-      formActions.setData({
+    if (product && product.id) {
+      const productData = {
         name: product.name || '',
         sku: product.sku || '',
         description: product.description || '',
@@ -354,24 +362,40 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         is_active: product.is_active ?? true,
         location_id: product.location_id || '',
         has_variants: false,
-      });
+      };
+      
+      // Set form data without triggering re-renders
+      formActions.setData(productData);
+      
       if (product.image_url) {
         setImagePreview(product.image_url);
       }
+      
+      // Fetch subcategories if category is set
+      if (product.category_id) {
+        fetchSubcategories(product.category_id);
+      }
+      
+      // Fetch variants for existing product
       fetchProductVariants(product.id);
     }
-  }, [product?.id, formActions]);
+  }, [product?.id]);
 
+  // Handle subcategory fetching with stable reference
   useEffect(() => {
     if (formState.data.category_id) {
       fetchSubcategories(formState.data.category_id);
     } else {
       setSubcategories([]);
-      formActions.setFieldValue('subcategory_id', undefined);
+      if (formState.data.subcategory_id) {
+        formActions.setFieldValue('subcategory_id', undefined);
+      }
     }
-  }, [formState.data.category_id, fetchSubcategories, formActions]);
+  }, [formState.data.category_id, fetchSubcategories]);
 
-  const fetchProductVariants = async (productId: string) => {
+  const fetchProductVariants = useCallback(async (productId: string) => {
+    if (!productId) return;
+    
     try {
       const { data, error } = await supabase
         .from('product_variants')
@@ -400,13 +424,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         formActions.setFieldValue('has_variants', true);
       }
     } catch (error: any) {
+      console.error('Variants fetch error:', error);
       toast({
         title: "Error fetching variants",
-        description: error.message,
+        description: error.message || "Failed to load product variants",
         variant: "destructive",
       });
     }
-  };
+  }, [formActions, toast]);
 
   const handleInputChange = async (field: keyof ProductFormData, value: string | boolean) => {
     formActions.setFieldValue(field, value);

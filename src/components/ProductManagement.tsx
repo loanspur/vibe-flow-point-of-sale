@@ -180,7 +180,12 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     if (debouncedSearchTerm !== searchTerm) {
       setSearchTerm(debouncedSearchTerm);
     }
-  }, [debouncedSearchTerm]);
+  }, [debouncedSearchTerm, searchTerm]);
+
+  // Memoized refresh function to prevent loops
+  const refetch = useMemo(() => {
+    return refetchProducts;
+  }, [refetchProducts]);
 
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
@@ -490,7 +495,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
         <div className="flex gap-2">
           <Button 
             variant="outline"
-            onClick={refetchProducts}
+            onClick={refetch}
             disabled={loading}
             title="Refresh product data"
             className="shrink-0"
