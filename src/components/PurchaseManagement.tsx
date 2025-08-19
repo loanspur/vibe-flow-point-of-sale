@@ -1198,51 +1198,147 @@ const PurchaseManagement = () => {
               <CardDescription>Manage all your purchase orders</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Search by order number or supplier..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+              <div className="space-y-4">
+                {/* Search and Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        placeholder="Search purchase orders..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="ordered">Ordered</SelectItem>
+                        <SelectItem value="received">Received</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {PURCHASE_STATUSES.map((status) => (
-                      <SelectItem key={status.value} value={status.value}>
-                        {status.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Order Date</TableHead>
-                    <TableHead>Expected Date</TableHead>
-                    <TableHead>Total Amount</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPurchases.map((purchase) => (
-                    <TableRow key={purchase.id}>
-                      <TableCell className="font-medium">{purchase.purchase_number}</TableCell>
-                      <TableCell>{purchase.supplier_name}</TableCell>
-                      <TableCell>{getStatusBadge(purchase.status)}</TableCell>
-                      <TableCell>{new Date(purchase.order_date).toLocaleDateString()}</TableCell>
-                      <TableCell>{new Date(purchase.expected_date).toLocaleDateString()}</TableCell>
-                      <TableCell>{formatCurrency(purchase.total_amount || 0)}</TableCell>
-                      <TableCell>
+                {/* Enhanced Purchase Orders Table */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold">Order #</TableHead>
+                          <TableHead className="font-semibold">Supplier</TableHead>
+                          <TableHead className="font-semibold">Status</TableHead>
+                          <TableHead className="font-semibold text-right">Total Amount</TableHead>
+                          <TableHead className="font-semibold">Order Date</TableHead>
+                          <TableHead className="font-semibold">Expected Date</TableHead>
+                          <TableHead className="font-semibold">Items</TableHead>
+                          <TableHead className="font-semibold text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(filteredPurchases || []).map((purchase) => (
+                          <TableRow key={purchase.id} className="hover:bg-muted/30 transition-colors">
+                            <TableCell className="font-medium">{purchase.purchase_number}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                  <Truck className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <span className="font-medium">{purchase.supplier_name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(purchase.status)}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(purchase.total_amount || 0)}
+                            </TableCell>
+                            <TableCell>{new Date(purchase.order_date).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              {purchase.expected_date ? (
+                                <span className={
+                                  new Date(purchase.expected_date) < new Date() && purchase.status !== 'received' 
+                                    ? 'text-destructive font-medium' 
+                                    : ''
+                                }>
+                                  {new Date(purchase.expected_date).toLocaleDateString()}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">Not set</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {/* Show item count - can be enhanced to show actual count */}
+                                Items
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                {purchase.status === 'draft' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updatePurchaseStatus(purchase.id, 'ordered')}
+                                  >
+                                    Send Order
+                                  </Button>
+                                )}
+                                {purchase.status === 'ordered' && (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openReceiveDialog(purchase)}
+                                    >
+                                      <Package className="h-4 w-4 mr-1" />
+                                      Receive
+                                    </Button>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => autoReceivePurchase(purchase)}
+                                      className="ml-2"
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Auto Receive
+                                    </Button>
+                                  </>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openPaymentDialog(purchase)}
+                                >
+                                  <CreditCard className="h-4 w-4 mr-1" />
+                                  Payments
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Add Pagination Here */}
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={onPageChange}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
                         <div className="flex items-center gap-2">
                           {purchase.status === 'draft' && (
                             <Button

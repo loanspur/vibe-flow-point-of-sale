@@ -263,10 +263,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               <TableHead className="hidden md:table-cell">SKU</TableHead>
               <TableHead className="hidden lg:table-cell">Category</TableHead>
               <TableHead className="hidden lg:table-cell">Unit</TableHead>
-               <TableHead>Price</TableHead>
+              <TableHead>Sale Price</TableHead>
+              <TableHead className="hidden md:table-cell">Purchase Price</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
-              <TableHead className="hidden xl:table-cell">Variants</TableHead>
+              <TableHead className="hidden lg:table-cell">Variants</TableHead>
               <TableHead className="text-right min-w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -325,25 +326,28 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   {product.product_units?.abbreviation || 'N/A'}
                 </TableCell>
                  <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
+                <TableCell className="hidden md:table-cell text-sm font-medium">
+                  {formatCurrency(product.purchase_price || 0)}
+                </TableCell>
                <TableCell className="text-sm">
-                 {(() => {
-                   // Show total stock including variants
-                   if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                     const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                       return total + (variant.stock_quantity || 0);
-                     }, 0);
-                     const mainStock = product.stock_quantity || 0;
-                     return mainStock + totalVariantStock;
-                   }
-                   return product.stock_quantity || 0;
-                 })()}
-               </TableCell>
+                  {(() => {
+                    // Show total stock including variants
+                    if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                      const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+                        return total + (variant.stock_quantity || 0);
+                      }, 0);
+                      const mainStock = product.stock_quantity || 0;
+                      return mainStock + totalVariantStock;
+                    }
+                    return product.stock_quantity || 0;
+                  })()}
+                </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <Badge variant={product.is_active ? "secondary" : "outline"} className="text-xs">
                   {product.is_active ? "Active" : "Inactive"}
                 </Badge>
               </TableCell>
-               <TableCell className="hidden xl:table-cell">
+               <TableCell className="hidden lg:table-cell">
                 {product.product_variants && product.product_variants.length > 0 ? (
                   <div className="space-y-1 max-w-xs">
                     {product.product_variants
