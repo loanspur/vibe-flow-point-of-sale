@@ -561,7 +561,7 @@ export const StockTransfers: React.FC = () => {
   };
 
   return (
-    <FeatureGuard featureName="enable_multi_location">
+    <FeatureGuard featureName="advanced_inventory">
       <div className="space-y-6">
       {/* Header with Create Button */}
       <div className="flex justify-between items-center">
@@ -1062,3 +1062,5 @@ export const StockTransfers: React.FC = () => {
     </FeatureGuard>
   );
 };
+
+export default StockTransfers;
