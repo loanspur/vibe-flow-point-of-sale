@@ -45,23 +45,8 @@ const ProtectedRoute = ({
 
   const mappedRole = authUserRole ? mapRole(authUserRole) : null;
 
-  console.log('🛡️ ProtectedRoute SIMPLIFIED debug:', {
-    user: !!user,
-    userEmail: user?.email,
-    loading,
-    originalRole: authUserRole,
-    mappedRole,
-    allowedRoles,
-    hasAccess:
-      allowedRoles.length === 0 ||
-      (mappedRole && allowedRoles.includes(mappedRole)) ||
-      (authUserRole && allowedRoles.includes(authUserRole)),
-    pathname: window.location.pathname
-  });
-
   // Show loading while auth is being determined
   if (loading) {
-    console.log('🛡️ ProtectedRoute loading auth...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -70,20 +55,17 @@ const ProtectedRoute = ({
   }
 
   if (requireAuth && !user) {
-    console.log('🚫 Redirecting to auth - no user');
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   if (allowedRoles.length > 0) {
     // If user is not authenticated
     if (!user) {
-      console.log('🚫 Redirecting to auth - no user');
       return <Navigate to="/auth" state={{ from: location }} replace />;
     }
 
     // If user exists but role hasn't loaded yet, show a loading state instead of redirecting
     if (user && !authUserRole) {
-      console.log('⏳ Waiting for role to load...');
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -93,7 +75,6 @@ const ProtectedRoute = ({
 
     // On tenant subdomains, be more permissive to avoid redirect loops
     if (isSubdomain()) {
-      console.log('🧩 Subdomain detected - allowing access if user exists');
       return <>{children}</>;
     }
 
@@ -104,14 +85,11 @@ const ProtectedRoute = ({
 
     const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || (authLower && allowedNormalized.includes(authLower));
     if (!roleMatch) {
-      console.log('🚫 Access denied - role mismatch');
       const redirectPath = isSubdomain() ? '/auth' : '/';
       return <Navigate to={redirectPath} state={{ from: location }} replace />;
     }
   }
 
-  console.log('✅ ProtectedRoute allowing access');
-  console.log('🎯 About to render ProtectedRoute children');
   return <>{children}</>;
 };
 

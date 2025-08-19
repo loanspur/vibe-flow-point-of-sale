@@ -18,6 +18,7 @@ import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
 import { PasswordChangeModal } from "./components/PasswordChangeModal";
 import { AuthSessionFix } from "./components/AuthSessionFix";
+import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
 import { SimplifiedTenantRoutes } from "@/components/SimplifiedTenantRoutes";
 
@@ -793,6 +794,7 @@ const App = () => {
               <Toaster />
               <Sonner />
               <PerformanceMonitor />
+              <AppOptimizer />
               <CookieConsent />
               <PasswordChangeModal />
               <BrowserRouter>

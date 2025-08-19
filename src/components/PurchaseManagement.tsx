@@ -155,7 +155,7 @@ const PurchaseManagement = () => {
     async () => {
       if (!tenantId) return { data: [], error: null };
       
-      console.log('Auto-loading purchases list for tenant:', tenantId);
+      // Auto-loading purchases list
       
       try {
         const { data, error } = await supabase
