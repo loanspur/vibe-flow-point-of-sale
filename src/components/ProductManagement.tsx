@@ -175,9 +175,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     if (!loading) setHasLoaded(true);
   }, [loading]);
 
-  // Update search term state when pagination search changes
+  // Sync debounced search term with state (prevent loops)
   useEffect(() => {
-    setSearchTerm(debouncedSearchTerm);
+    if (debouncedSearchTerm !== searchTerm) {
+      setSearchTerm(debouncedSearchTerm);
+    }
   }, [debouncedSearchTerm]);
 
   const filteredProducts = useMemo(() => {

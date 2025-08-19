@@ -111,16 +111,23 @@ export function usePaginatedQuery<T>(
     orderBy.column,
     orderBy.ascending,
     pagination.page,
-    pagination.pageSize,
-    getSupabaseRange,
-    updatePagination
+    pagination.pageSize
   ]);
 
   // Execute query when dependencies change
   useEffect(() => {
-    executeQuery();
+    let isMounted = true;
+    
+    const runQuery = async () => {
+      if (isMounted) {
+        await executeQuery();
+      }
+    };
+    
+    runQuery();
     
     return () => {
+      isMounted = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -132,7 +139,7 @@ export function usePaginatedQuery<T>(
     if (pagination.page > 1) {
       handlePageChange(1);
     }
-  }, [searchTerm, JSON.stringify(filters)]);
+  }, [searchTerm, JSON.stringify(filters), handlePageChange]);
 
   const refetch = useCallback(async () => {
     await executeQuery();

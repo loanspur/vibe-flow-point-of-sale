@@ -291,7 +291,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
   const setDefaultLocation = useCallback(async () => {
     try {
-      if (!tenantId) return;
+      if (!tenantId || formState.data.location_id) return;
       
       const { data, error } = await supabase.rpc('get_user_default_location', {
         user_tenant_id: tenantId
@@ -304,6 +304,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         localStorage.setItem('selected_location', data);
       }
     } catch (error: any) {
+      console.warn('Failed to get default location, using fallback:', error);
       const { data: locations } = await supabase
         .from('store_locations')
         .select('id')
@@ -317,7 +318,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         localStorage.setItem('selected_location', locations[0].id);
       }
     }
-  }, [tenantId, formActions]);
+  }, [tenantId, formActions, formState.data.location_id]);
 
   useEffect(() => {
     if (tenantId) {
@@ -332,7 +333,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     if (tenantId && !product && !formState.data.location_id) {
       setDefaultLocation();
     }
-  }, [tenantId, product, setDefaultLocation]);
+  }, [tenantId, product, formState.data.location_id, setDefaultLocation]);
 
   useEffect(() => {
     if (product) {
