@@ -488,14 +488,17 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
         <div className="flex gap-2">
           <Button 
             variant="outline"
-            onClick={() => {
-              refetchProducts();
-            }}
+            onClick={refetchProducts}
             disabled={loading}
             title="Refresh product data"
+            className="shrink-0"
           >
-            <RotateCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RotateCcw 
+              className={`h-4 w-4 mr-2 transition-transform duration-300 ${
+                loading ? 'animate-spin' : ''
+              }`} 
+            />
+            <span className="whitespace-nowrap">Refresh</span>
           </Button>
           <Button 
             onClick={() => {
