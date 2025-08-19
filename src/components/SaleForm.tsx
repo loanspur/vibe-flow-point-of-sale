@@ -132,6 +132,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
   }, [tenantId]);
 
+  // Refetch products when location changes
+  useEffect(() => {
+    if (tenantId) {
+      fetchProducts();
+    }
+  }, [selectedLocation, tenantId]);
+
   const fetchBusinessSettings = async () => {
     if (!tenantId) return;
 
@@ -362,6 +369,56 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
   };
 
+  const getLocationSpecificStock = async (productId: string, variantId?: string, locationId?: string) => {
+    if (!locationId || !tenantId) {
+      return getActualStock(productId, variantId);
+    }
+
+    try {
+      // Get stock adjustments for this product at this location
+      const { data: adjustments } = await supabase
+        .from('stock_adjustment_items')
+        .select('adjustment_quantity')
+        .eq('product_id', productId)
+        .eq('location_id', locationId);
+
+      if (variantId) {
+        await supabase
+          .from('stock_adjustment_items')
+          .select('adjustment_quantity')
+          .eq('product_id', productId)
+          .eq('variant_id', variantId)
+          .eq('location_id', locationId);
+      }
+
+      // Get stock transfers OUT from this location
+      const { data: transfersOut } = await supabase
+        .from('stock_transfer_items')
+        .select('quantity_shipped, stock_transfers!inner(from_location_id)')
+        .eq('product_id', productId)
+        .eq('stock_transfers.from_location_id', locationId)
+        .eq('stock_transfers.status', 'completed');
+
+      // Get stock transfers IN to this location
+      const { data: transfersIn } = await supabase
+        .from('stock_transfer_items')
+        .select('quantity_received, stock_transfers!inner(to_location_id)')
+        .eq('product_id', productId)
+        .eq('stock_transfers.to_location_id', locationId)
+        .eq('stock_transfers.status', 'completed');
+
+      const baseStock = getActualStock(productId, variantId);
+      const adjustedStock = (adjustments || []).reduce((sum, adj) => sum + (adj.adjustment_quantity || 0), 0);
+      const transferredOut = (transfersOut || []).reduce((sum, transfer) => sum + (transfer.quantity_shipped || 0), 0);
+      const transferredIn = (transfersIn || []).reduce((sum, transfer) => sum + (transfer.quantity_received || 0), 0);
+
+      return Math.max(0, baseStock + adjustedStock - transferredOut + transferredIn);
+    } catch (error) {
+      console.error('Error calculating location-specific stock:', error);
+      return getActualStock(productId, variantId);
+    }
+  };
+
   const getActualStock = (productId: string, variantId?: string) => {
     const productInventory = actualInventory[productId];
     if (!productInventory) {
@@ -379,7 +436,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     return productInventory.stock;
   };
 
-  const addItemToSale = () => {
+  const addItemToSale = async () => {
     const product = products.find(p => p.id === selectedProduct);
     if (!product) {
       toast({
@@ -399,13 +456,28 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return;
     }
 
-    // Check stock availability based on business settings
-    const { inventory: inventorySettings } = useBusinessSettings();
-    const currentStock = getActualStock(selectedProduct, selectedVariant !== "no-variant" ? selectedVariant : undefined);
-    if (!inventorySettings.enableNegativeStock && currentStock < quantity) {
+    if (!selectedLocation) {
       toast({
-        title: "Insufficient Stock",
-        description: `Only ${currentStock} units available. Enable negative stock in business settings to oversell.`,
+        title: "Location Required",
+        description: "Please select a location before adding products to the sale",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check location-specific stock availability
+    const { inventory: inventorySettings } = useBusinessSettings();
+    const currentStock = await getLocationSpecificStock(
+      selectedProduct, 
+      selectedVariant !== "no-variant" ? selectedVariant : undefined,
+      selectedLocation
+    );
+    
+    if (!inventorySettings.enableNegativeStock && currentStock < quantity) {
+      const locationName = locations.find(loc => loc.id === selectedLocation)?.name || 'selected location';
+      toast({
+        title: "Insufficient Stock at Location",
+        description: `Only ${currentStock} units available at ${locationName}. Enable negative stock in business settings to oversell.`,
         variant: "destructive",
       });
       return;
@@ -1095,9 +1167,25 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                        onChange={(e) => setSearchTerm(e.target.value)}
                        className="pl-9"
                      />
-                   </div>
+                    </div>
 
-                  {searchTerm && (
+                    {!selectedLocation && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <p className="text-sm text-yellow-800">
+                          <strong>Notice:</strong> Please select a location to view available products and their stock levels.
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedLocation && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-2">
+                        <p className="text-xs text-blue-800">
+                          Showing products available at {locations.find(loc => loc.id === selectedLocation)?.name || 'selected location'}
+                        </p>
+                      </div>
+                    )}
+
+                   {searchTerm && (
                     <div className="grid grid-cols-1 gap-4 max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => (
                        <Card 
@@ -1125,12 +1213,15 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                     {formatAmount(product.price)}
                                   </p>
                                 </div>
-                               <div className="text-right">
-                                 <p className="text-xs text-muted-foreground">Stock</p>
-                                 <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
-                                   {getActualStock(product.id)}
-                                 </Badge>
-                               </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-muted-foreground">
+                                    Stock {selectedLocation && locations.find(loc => loc.id === selectedLocation)?.name ? 
+                                      `at ${locations.find(loc => loc.id === selectedLocation)?.name}` : ''}
+                                  </p>
+                                  <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
+                                    {getActualStock(product.id)}
+                                  </Badge>
+                                </div>
                              </div>
                            </div>
                          </CardContent>
@@ -1150,11 +1241,16 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                             
                             return (
                               <div className="space-y-4">
-                                <div className="flex items-center gap-2">
-                                  <Package className="h-4 w-4" />
-                                  <span className="font-medium">{product.name}</span>
-                                  <Badge variant="secondary">{formatAmount(product.price)}</Badge>
-                                </div>
+                                 <div className="flex items-center gap-2">
+                                   <Package className="h-4 w-4" />
+                                   <span className="font-medium">{product.name}</span>
+                                   <Badge variant="secondary">{formatAmount(product.price)}</Badge>
+                                   {selectedLocation && (
+                                     <Badge variant={getActualStock(product.id) > 0 ? "outline" : "destructive"} className="text-xs">
+                                       Stock: {getActualStock(product.id)}
+                                     </Badge>
+                                   )}
+                                 </div>
 
                                  {product.product_variants && product.product_variants.length > 0 && (
                                    <div>
@@ -1223,10 +1319,14 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                          placeholder="Enter quantity"
                                        />
                                     </div>
-                                   <Button onClick={addItemToSale} className="mt-6">
-                                     <Plus className="h-4 w-4 mr-2" />
-                                     Add
-                                   </Button>
+                                    <Button 
+                                      onClick={async () => await addItemToSale()} 
+                                      className="mt-6"
+                                      disabled={!selectedProduct || !selectedLocation}
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add
+                                    </Button>
                                  </div>
                               </div>
                             );
