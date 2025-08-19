@@ -25,6 +25,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
 const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const CurrencyDebug = lazy(() => import("./pages/CurrencyDebug"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));

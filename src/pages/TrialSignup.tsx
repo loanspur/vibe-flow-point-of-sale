@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { Check, Building2, Users, Zap, ArrowLeft, Shield, Clock, CreditCard, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { TenantDataCollection } from '@/components/TenantDataCollection';
 
 interface BillingPlan {
   id: string;
@@ -31,8 +34,13 @@ export default function TrialSignup() {
   const [selectedPlan, setSelectedPlan] = useState(searchParams.get('plan') || '');
   const [loading, setLoading] = useState(false);
   const [plansLoading, setPlansLoading] = useState(true);
-  const [step, setStep] = useState(1); // 1: Account creation, 2: Payment setup
+  const [step, setStep] = useState(1); // 1: Account creation, 2: Payment setup, 3: Tenant data collection
   const { toast } = useToast();
+
+  // Check if this is Google SSO flow or tenant data collection
+  const isGoogleFlow = searchParams.get('google') === 'true';
+  const stepParam = searchParams.get('step');
+  const showTenantData = stepParam === 'tenant-data';
 
   const [formData, setFormData] = useState({
     businessName: '',
@@ -89,11 +97,17 @@ export default function TrialSignup() {
   }, []);
 
   useEffect(() => {
-    // If user is already authenticated, go to step 2
+    // Handle different scenarios based on user state and URL params
     if (user) {
-      setStep(2);
+      if (showTenantData) {
+        setStep(3); // Show tenant data collection
+      } else {
+        setStep(2); // Show trial activation
+      }
+    } else if (isGoogleFlow) {
+      setStep(1); // Show account creation with Google option
     }
-  }, [user]);
+  }, [user, showTenantData, isGoogleFlow]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -215,6 +229,16 @@ export default function TrialSignup() {
   };
 
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
+
+  // Show tenant data collection for Google users
+  if (step === 3 && showTenantData) {
+    return (
+      <TenantDataCollection 
+        isGoogleUser={isGoogleFlow}
+        onSuccess={() => navigate('/dashboard')}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 py-12">
@@ -351,78 +375,106 @@ export default function TrialSignup() {
                     Step 1 of 2: Set up your business account
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="businessName">Business Name *</Label>
-                    <Input
-                      id="businessName"
-                      value={formData.businessName}
-                      onChange={(e) => handleInputChange('businessName', e.target.value)}
-                      placeholder="Your Business Name"
+                <CardContent className="space-y-6">
+                  {/* Google Sign In Option */}
+                  <div className="space-y-4">
+                    <GoogleSignInButton 
+                      buttonText="Continue with Google"
+                      onSuccess={(user) => {
+                        console.log('Google sign-in successful:', user);
+                        // OAuth flow will handle redirection
+                      }}
+                      onError={(error) => {
+                        console.error('Google sign-in error:', error);
+                      }}
                     />
+                    
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <Separator className="w-full" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">
+                          Or continue with email
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="ownerName">Your Full Name *</Label>
-                    <Input
-                      id="ownerName"
-                      value={formData.ownerName}
-                      onChange={(e) => handleInputChange('ownerName', e.target.value)}
-                      placeholder="John Doe"
-                    />
+
+                  {/* Traditional Email/Password Form */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="businessName">Business Name *</Label>
+                      <Input
+                        id="businessName"
+                        value={formData.businessName}
+                        onChange={(e) => handleInputChange('businessName', e.target.value)}
+                        placeholder="Your Business Name"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="ownerName">Your Full Name *</Label>
+                      <Input
+                        id="ownerName"
+                        value={formData.ownerName}
+                        onChange={(e) => handleInputChange('ownerName', e.target.value)}
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        placeholder="john@example.com"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password *</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => handleInputChange('password', e.target.value)}
+                        placeholder="Choose a strong password"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={formData.confirmPassword}
+                        onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                        placeholder="Confirm your password"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={handleCreateAccount} 
+                      disabled={loading}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Creating Account...
+                        </>
+                      ) : (
+                        <>
+                          Create Account
+                          <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      placeholder="john@example.com"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => handleInputChange('password', e.target.value)}
-                      placeholder="Choose a strong password"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm Password *</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                      placeholder="Confirm your password"
-                    />
-                  </div>
-                  
-                  <Button 
-                    onClick={handleCreateAccount} 
-                    disabled={loading}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Creating Account...
-                      </>
-                    ) : (
-                      <>
-                        Create Account
-                        <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
-                      </>
-                    )}
-                  </Button>
                 </CardContent>
               </Card>
             ) : (

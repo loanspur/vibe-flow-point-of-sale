@@ -5,12 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDomainContext } from '@/lib/domain-manager';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 const Auth = () => {
   const navigate = useNavigate();
   const AUTH_DEBUG = false;
@@ -229,6 +231,31 @@ const Auth = () => {
             
             {!showForgotPassword ? (
               <div className="w-full">
+                {/* Google Sign In Option */}
+                <div className="space-y-4 mb-6">
+                  <GoogleSignInButton 
+                    buttonText="Sign in with Google"
+                    onSuccess={(user) => {
+                      console.log('Google sign-in successful:', user);
+                      // OAuth flow will handle redirection
+                    }}
+                    onError={(error) => {
+                      console.error('Google sign-in error:', error);
+                    }}
+                  />
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <Separator className="w-full" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or sign in with email
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email">Email</Label>

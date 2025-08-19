@@ -3329,15 +3329,19 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auth_method: string | null
           avatar_url: string | null
           created_at: string
           email_verified: boolean | null
           email_verified_at: string | null
           full_name: string | null
+          google_id: string | null
+          google_profile_data: Json | null
           id: string
           invitation_accepted_at: string | null
           invitation_status: string | null
           invited_at: string | null
+          otp_required_always: boolean | null
           require_password_change: boolean | null
           role: Database["public"]["Enums"]["user_role"] | null
           tenant_id: string | null
@@ -3345,15 +3349,19 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auth_method?: string | null
           avatar_url?: string | null
           created_at?: string
           email_verified?: boolean | null
           email_verified_at?: string | null
           full_name?: string | null
+          google_id?: string | null
+          google_profile_data?: Json | null
           id?: string
           invitation_accepted_at?: string | null
           invitation_status?: string | null
           invited_at?: string | null
+          otp_required_always?: boolean | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           tenant_id?: string | null
@@ -3361,15 +3369,19 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auth_method?: string | null
           avatar_url?: string | null
           created_at?: string
           email_verified?: boolean | null
           email_verified_at?: string | null
           full_name?: string | null
+          google_id?: string | null
+          google_profile_data?: Json | null
           id?: string
           invitation_accepted_at?: string | null
           invitation_status?: string | null
           invited_at?: string | null
+          otp_required_always?: boolean | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           tenant_id?: string | null
@@ -6933,7 +6945,7 @@ export type Database = {
       create_otp_verification: {
         Args: {
           email_param: string
-          otp_type_param: string
+          otp_type_param?: string
           user_id_param: string
         }
         Returns: {
@@ -7358,11 +7370,18 @@ export type Database = {
         Returns: boolean
       }
       verify_otp_code: {
-        Args: {
-          otp_code_param: string
-          otp_type_param: string
-          user_id_param: string
-        }
+        Args:
+          | {
+              email_param: string
+              otp_code_param: string
+              otp_type_param?: string
+              user_id_param: string
+            }
+          | {
+              otp_code_param: string
+              otp_type_param: string
+              user_id_param: string
+            }
         Returns: boolean
       }
     }
