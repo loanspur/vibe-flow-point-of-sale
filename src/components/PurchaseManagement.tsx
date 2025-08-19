@@ -1496,8 +1496,8 @@ const PurchaseManagement = () => {
                          <span className="text-muted-foreground">-</span>
                        )}
                      </TableCell>
-                     <TableCell>${item.unit_cost.toFixed(2)}</TableCell>
-                     <TableCell>${(item.quantity_received * item.unit_cost).toFixed(2)}</TableCell>
+                     <TableCell>{formatCurrency(item.unit_cost)}</TableCell>
+                     <TableCell>{formatCurrency(item.quantity_received * item.unit_cost)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
