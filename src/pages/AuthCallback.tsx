@@ -45,6 +45,13 @@ export default function AuthCallback() {
       setUserId(user.id);
       setUserEmail(user.email || '');
 
+      // Check if we're on a main domain (centralized auth flow)
+      const currentDomain = window.location.hostname;
+      const isMainDomain = currentDomain === 'vibenet.shop' || 
+                          currentDomain === 'vibenet.online' ||
+                          currentDomain === 'www.vibenet.shop' || 
+                          currentDomain === 'www.vibenet.online';
+
       // Check if this is a Google user and if they exist in our system
       const isGoogleAuth = searchParams.get('type') === 'google' || 
                           user.app_metadata?.provider === 'google';
@@ -68,16 +75,73 @@ export default function AuthCallback() {
           setIsNewUser(true);
           await createGoogleUserProfile(user);
         } else {
-          // Existing Google user - require OTP for login verification
+          // Existing Google user - check for tenant redirection
+          if (isMainDomain && profile.tenant_id) {
+            // User has a tenant, redirect to their subdomain
+            try {
+              const { data: tenantData } = await supabase
+                .from('tenants')
+                .select('subdomain, name')
+                .eq('id', profile.tenant_id)
+                .single();
+
+              if (tenantData?.subdomain) {
+                const tenantDomain = currentDomain.includes('vibenet.shop') 
+                  ? `${tenantData.subdomain}.vibenet.shop`
+                  : `${tenantData.subdomain}.vibenet.online`;
+                
+                // Add auth tokens to the redirect to maintain session
+                const authParams = new URLSearchParams();
+                if (session.access_token) authParams.set('access_token', session.access_token);
+                if (session.refresh_token) authParams.set('refresh_token', session.refresh_token);
+                authParams.set('google_auth', 'true');
+                
+                window.location.href = `https://${tenantDomain}/auth/callback?${authParams.toString()}`;
+                return;
+              }
+            } catch (tenantError) {
+              console.error('Tenant lookup error:', tenantError);
+              // Continue with normal flow if tenant lookup fails
+            }
+          }
+          
+          // Update existing user profile
           await updateGoogleUserProfile(user, profile);
         }
 
-        // Always require OTP verification for Google users
+        // Always require OTP verification for Google users (unless redirected)
         setShowOTPModal(true);
         setLoading(false);
       } else {
-        // Regular email/password auth - redirect to dashboard
+        // Regular email/password auth
         await refreshUserInfo();
+        
+        if (isMainDomain) {
+          // Check if user has a tenant for redirection
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('user_id', user.id)
+            .single();
+
+          if (profile?.tenant_id) {
+            const { data: tenantData } = await supabase
+              .from('tenants')
+              .select('subdomain')
+              .eq('id', profile.tenant_id)
+              .single();
+
+            if (tenantData?.subdomain) {
+              const tenantDomain = currentDomain.includes('vibenet.shop') 
+                ? `${tenantData.subdomain}.vibenet.shop`
+                : `${tenantData.subdomain}.vibenet.online`;
+              
+              window.location.href = `https://${tenantDomain}/dashboard`;
+              return;
+            }
+          }
+        }
+        
         navigate('/dashboard');
       }
     } catch (error: any) {
@@ -157,15 +221,61 @@ export default function AuthCallback() {
     try {
       await refreshUserInfo();
       
+      // Check if we're on a main domain for potential redirection
+      const currentDomain = window.location.hostname;
+      const isMainDomain = currentDomain === 'vibenet.shop' || 
+                          currentDomain === 'vibenet.online' ||
+                          currentDomain === 'www.vibenet.shop' || 
+                          currentDomain === 'www.vibenet.online';
+      
       if (isNewUser) {
-        // New Google user - redirect to tenant data collection
+        // New Google user - redirect to tenant data collection (stay on main domain)
         toast({
           title: "Welcome!",
           description: "Please complete your business information to get started.",
         });
         navigate('/trial-signup?google=true&step=tenant-data');
       } else {
-        // Existing user - redirect to dashboard
+        // Existing user - check for tenant redirection
+        if (isMainDomain) {
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('tenant_id')
+              .eq('user_id', userId)
+              .single();
+
+            if (profile?.tenant_id) {
+              const { data: tenantData } = await supabase
+                .from('tenants')
+                .select('subdomain, name')
+                .eq('id', profile.tenant_id)
+                .single();
+
+              if (tenantData?.subdomain) {
+                const tenantDomain = currentDomain.includes('vibenet.shop') 
+                  ? `${tenantData.subdomain}.vibenet.shop`
+                  : `${tenantData.subdomain}.vibenet.online`;
+                
+                toast({
+                  title: "Welcome back!",
+                  description: `Redirecting you to ${tenantData.name}...`,
+                });
+                
+                // Small delay to show the toast
+                setTimeout(() => {
+                  window.location.href = `https://${tenantDomain}/dashboard`;
+                }, 1000);
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('Tenant lookup error:', error);
+            // Continue with normal flow if tenant lookup fails
+          }
+        }
+        
+        // Default behavior - redirect to dashboard
         toast({
           title: "Welcome back!",
           description: "You have successfully signed in.",

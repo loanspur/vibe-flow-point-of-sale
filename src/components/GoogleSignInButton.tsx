@@ -24,10 +24,17 @@ export function GoogleSignInButton({
     setLoading(true);
     
     try {
+      // Use centralized auth approach - always redirect to main domain
+      const mainDomain = window.location.hostname.includes('vibenet.shop') 
+        ? 'https://vibenet.shop' 
+        : window.location.hostname.includes('vibenet.online')
+        ? 'https://vibenet.online'
+        : window.location.origin;
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?type=google`,
+          redirectTo: `${mainDomain}/auth/callback?type=google`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
