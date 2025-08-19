@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDomainContext } from '@/lib/domain-manager';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { GoogleAuthTest } from '@/components/GoogleAuthTest';
 const Auth = () => {
   const navigate = useNavigate();
   const AUTH_DEBUG = false;
@@ -180,6 +181,11 @@ const Auth = () => {
 
     setResetLoading(false);
   };
+
+  // Show Google Auth Test in development
+  if (window.location.search.includes('test=google')) {
+    return <GoogleAuthTest />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center p-4">
