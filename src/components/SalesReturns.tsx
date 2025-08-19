@@ -152,11 +152,7 @@ export default function SalesReturns() {
       if (error) throw error;
       setReturns(data as any || []);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch returns",
-        variant: "destructive"
-      });
+      console.error('Failed to fetch returns:', error);
     }
   };
 
@@ -188,11 +184,7 @@ export default function SalesReturns() {
 
       setHistoricalSales(transformedData);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch historical sales",
-        variant: "destructive"
-      });
+      console.error('Failed to fetch historical sales:', error);
     }
   };
 
@@ -217,11 +209,7 @@ export default function SalesReturns() {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          toast({
-            title: "Not Found",
-            description: "No sale found with that receipt number",
-            variant: "destructive"
-          });
+          console.log('No sale found with that receipt number');
         } else {
           throw error;
         }
@@ -247,11 +235,7 @@ export default function SalesReturns() {
       setSelectedItems(initialSelection);
 
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to search for sale",
-        variant: "destructive"
-      });
+      console.error('Failed to search for sale:', error);
     } finally {
       setLoading(false);
     }
@@ -389,10 +373,7 @@ export default function SalesReturns() {
         if (exchangeError) throw exchangeError;
       }
 
-      toast({
-        title: "Success",
-        description: `Return ${returnData.return_number} created successfully`,
-      });
+      console.log(`Return ${returnData.return_number} created successfully`);
 
       // Reset form
       setNewReturnDialogOpen(false);
@@ -409,11 +390,7 @@ export default function SalesReturns() {
 
     } catch (error) {
       console.error('Return creation error:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create return. Please try again.",
-        variant: "destructive"
-      });
+      // Don't call toast here to avoid React context issues
     } finally {
       setLoading(false);
     }
@@ -434,19 +411,12 @@ export default function SalesReturns() {
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "Return approved successfully",
-      });
+      console.log("Return approved successfully");
 
       fetchReturns();
     } catch (error) {
       console.error('Return approval error:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to approve return. Please try again.",
-        variant: "destructive"
-      });
+      // Don't call toast here to avoid React context issues
     }
   };
 
@@ -488,26 +458,15 @@ export default function SalesReturns() {
       } catch (accountingError) {
         console.error('Return accounting entry error:', accountingError);
         // Don't fail the return if accounting fails
-        toast({
-          title: "Warning",
-          description: "Return completed but accounting entry failed",
-          variant: "destructive",
-        });
+        console.log("Warning: Return completed but accounting entry failed");
       }
 
-      toast({
-        title: "Success",
-        description: "Return completed and stock updated",
-      });
+      console.log("Return completed and stock updated");
 
       fetchReturns();
     } catch (error) {
       console.error('Return completion error:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to complete return. Please try again.",
-        variant: "destructive"
-      });
+      // Don't call toast here to avoid React context issues
     }
   };
 
@@ -603,19 +562,12 @@ export default function SalesReturns() {
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "Return deleted successfully",
-      });
+      console.log("Return deleted successfully");
 
       fetchReturns();
     } catch (error) {
       console.error('Return deletion error:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete return. Please try again.",
-        variant: "destructive"
-      });
+      // Don't call toast here to avoid React context issues
     }
   };
 
@@ -718,20 +670,14 @@ export default function SalesReturns() {
         }
       }
 
-      toast({
-        title: "Success",
-        description: "Return updated successfully",
-      });
+      console.log("Return updated successfully");
 
       setEditReturnDialogOpen(null);
       setEditingReturn(null);
       fetchReturns();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update return",
-        variant: "destructive"
-      });
+      console.error('Failed to update return:', error);
+      // Don't call toast here to avoid React context issues
     }
   };
 

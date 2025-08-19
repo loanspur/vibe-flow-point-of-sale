@@ -462,11 +462,7 @@ export default function SalesManagement() {
 
     } catch (error) {
       console.error('Error preparing return:', error);
-      toast({
-        title: "Error",
-        description: "Failed to prepare return",
-        variant: "destructive",
-      });
+      // Don't call toast here to avoid React context issues
     }
   };
 
