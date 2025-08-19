@@ -37,6 +37,9 @@ import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES, WARNING_MESSAGES } from '@/utils/errorMessages';
+import { generateReceiptNumber, calculateSaleTotal, validateSaleData, prepareSaleItemsData, updateCashDrawer } from '@/utils/saleHelpers';
+import type { SaleItem as SaleItemType, PaymentRecord } from '@/utils/saleHelpers';
 
 // Enhanced StockBadge component with stable state management
 const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, locationName }: {
@@ -1003,10 +1006,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
-      if (!tenantData) throw new Error("User not assigned to a tenant");
+      if (!user) throw new Error(ERROR_MESSAGES.USER_NOT_AUTHENTICATED);
+      if (!tenantId) throw new Error(ERROR_MESSAGES.NO_TENANT_ASSIGNED);
 
       const receiptNumber = generateReceiptNumber();
       const totalAmount = calculateTotal();
@@ -1017,7 +1018,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           receipt_number: receiptNumber,
           customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
           cashier_id: user.id,
-          tenant_id: tenantData,
+          tenant_id: tenantId,
           location_id: selectedLocation || null,
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
@@ -1031,19 +1032,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       if (saleError) throw saleError;
 
-      // Add sale items
-      const saleItemsData = saleItems.map(item => {
-        const prod = products.find(p => p.id === item.product_id);
-        return {
-          sale_id: sale.id,
-          product_id: item.product_id,
-          variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          unit_id: prod?.unit_id || null,
-        };
-      });
+      // Add sale items using centralized helper
+      const saleItemsData = prepareSaleItemsData(sale.id, saleItems, products);
 
       const { error: itemsError } = await supabase
         .from("sale_items")
@@ -1058,7 +1048,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           amount: payment.amount,
           payment_method: payment.method,
           reference_number: payment.reference || '',
-          tenant_id: tenantData,
+          tenant_id: tenantId,
         }));
 
         const { error: paymentError } = await supabase
@@ -1067,49 +1057,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
         if (paymentError) throw paymentError;
 
-        // Update cash drawer for cash payments
+        // Update cash drawer for cash payments using helper
         const cashPayments = payments.filter(p => p.method === 'cash');
-        for (const cashPayment of cashPayments) {
-          try {
-            // Get current user's active cash drawer
-            const { data: drawer } = await supabase
-              .from("cash_drawers")
-              .select("*")
-              .eq("tenant_id", tenantData)
-              .eq("user_id", user.id)
-              .eq("status", "open")
-              .eq("is_active", true)
-              .maybeSingle();
-
-            if (drawer) {
-              // Update drawer balance
-              await supabase
-                .from("cash_drawers")
-                .update({ 
-                  current_balance: drawer.current_balance + cashPayment.amount 
-                })
-                .eq("id", drawer.id);
-
-              // Record cash transaction
-              await supabase
-                .from("cash_transactions")
-                .insert({
-                  tenant_id: tenantData,
-                  cash_drawer_id: drawer.id,
-                  transaction_type: "sale_payment",
-                  amount: cashPayment.amount,
-                  balance_after: drawer.current_balance + cashPayment.amount,
-                  description: `Sale payment - Receipt: ${receiptNumber}`,
-                  reference_id: sale.id,
-                  reference_type: "sale",
-                  performed_by: user.id,
-                });
-            }
-          } catch (drawerError) {
-            console.error('Error updating cash drawer:', drawerError);
-            // Don't fail the sale if cash drawer update fails
-          }
-        }
+        await updateCashDrawer(tenantId, user.id, cashPayments, receiptNumber, sale.id);
       }
 
       // Process inventory adjustments
@@ -1119,79 +1069,107 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         quantity: item.quantity,
         unitCost: item.unit_price
       }));
-      await processSaleInventory(sale.id, tenantData, inventoryItems);
+      await processSaleInventory(sale.id, tenantId, inventoryItems);
+
+      // Process all post-sale operations in parallel for better performance
+      const postSaleOperations = [];
 
       // Create AR entry for credit sales
       if (hasCreditPayment && values.customer_id && values.customer_id !== "walk-in") {
-        const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
-          tenant_id_param: tenantData,
-          sale_id_param: sale.id,
-          customer_id_param: values.customer_id,
-          total_amount_param: totalAmount,
-          due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        });
-
-        if (arError) {
-          console.error('AR creation error:', arError);
-          toast({
-            title: "Warning",
-            description: "Sale completed but AR entry failed",
-            variant: "destructive",
-          });
-        }
+        postSaleOperations.push(
+          (async () => {
+            try {
+              await supabase.rpc('create_accounts_receivable_record', {
+                tenant_id_param: tenantId,
+                sale_id_param: sale.id,
+                customer_id_param: values.customer_id,
+                total_amount_param: totalAmount,
+                due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+              });
+            } catch (error) {
+              console.error('AR creation error:', error);
+              toast({
+                title: "Warning",
+                description: WARNING_MESSAGES.AR_ENTRY_FAILED,
+                variant: "destructive",
+              });
+            }
+          })()
+        );
       }
 
       // Create accounting entries
-      await createEnhancedSalesJournalEntry(tenantData, {
-        saleId: sale.id,
-        cashierId: user.id,
-        customerId: values.customer_id === "walk-in" ? null : values.customer_id,
-        totalAmount,
-        discountAmount: values.discount_amount,
-        taxAmount: values.tax_amount,
-        shippingAmount: values.shipping_amount,
-        payments: hasCreditPayment ? [] : payments,
-      });
+      postSaleOperations.push(
+        (async () => {
+          try {
+            await createEnhancedSalesJournalEntry(tenantId, {
+              saleId: sale.id,
+              cashierId: user.id,
+              customerId: values.customer_id === "walk-in" ? null : values.customer_id,
+              totalAmount,
+              discountAmount: values.discount_amount,
+              taxAmount: values.tax_amount,
+              shippingAmount: values.shipping_amount,
+              payments: hasCreditPayment ? [] : payments,
+            });
+          } catch (error) {
+            console.error('Accounting entry error:', error);
+            toast({
+              title: "Warning",
+              description: WARNING_MESSAGES.ACCOUNTING_ENTRY_FAILED,
+              variant: "destructive",
+            });
+          }
+        })()
+      );
 
-      // Trigger receipt automation using unified communication system
-      console.log('About to send receipt notification with unified system:', { saleId: sale.id, tenantId, customerId: values.customer_id, receiptNumber });
-      
-      // Get customer details for communication
+      // Enhanced receipt notification with proper error boundaries
       const customer = customers.find(c => c.id === values.customer_id);
-      
-      try {
-        await sendReceiptNotification(
-          sale.id,
-          {
-            id: sale.id,
-            receipt_number: receiptNumber,
-            customer_id: values.customer_id,
-            customer_name: customer?.name || 'Customer',
-            total_amount: totalAmount,
-            items: saleItems.map(item => ({
-              product_name: item.product_name,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              subtotal: item.quantity * item.unit_price
-            })),
-            created_at: new Date().toISOString()
-          },
-          customer?.phone || undefined,
-          customer?.email || undefined
+      if (customer?.phone || customer?.email) {
+        postSaleOperations.push(
+          (async () => {
+            try {
+              console.log('Sending receipt notification:', { 
+                saleId: sale.id, 
+                tenantId, 
+                customerPhone: customer?.phone,
+                customerEmail: customer?.email 
+              });
+              
+              await sendReceiptNotification(
+                sale.id,
+                {
+                  id: sale.id,
+                  receipt_number: receiptNumber,
+                  customer_id: values.customer_id,
+                  customer_name: customer?.name || 'Customer',
+                  total_amount: totalAmount,
+                  items: saleItems.map(item => ({
+                    product_name: item.product_name,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    subtotal: item.quantity * item.unit_price
+                  })),
+                  created_at: new Date().toISOString()
+                },
+                customer?.phone || undefined,
+                customer?.email || undefined
+              );
+              console.log('Receipt notification sent successfully');
+            } catch (error) {
+              console.error('Receipt notification failed:', error);
+              // Don't show toast here as it might be a settings issue
+            }
+          })()
         );
-        console.log('Receipt notification sent successfully via unified system');
-      } catch (error) {
-        console.error('Failed to send receipt notification via unified system:', error);
-        toast({
-          title: "Notification Warning",
-          description: "Sale completed but notification failed to send",
-          variant: "destructive",
-        });
       }
+
+      // Execute all post-sale operations in parallel
+      await Promise.allSettled(postSaleOperations);
 
       toast({
         title: "Sale Completed", 
-        description: `Sale #${receiptNumber} completed successfully`,
+        description: `${SUCCESS_MESSAGES.SALE_COMPLETED} Receipt #${receiptNumber}`,
       });
 
       form.reset();
@@ -1203,9 +1181,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       onSaleCompleted?.();
 
     } catch (error: any) {
+      console.error('Sale completion error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to complete sale",
+        description: error.message || ERROR_MESSAGES.SALE_COMPLETION_FAILED,
         variant: "destructive",
       });
     } finally {
