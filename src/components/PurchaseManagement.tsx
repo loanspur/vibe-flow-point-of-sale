@@ -143,6 +143,8 @@ const PurchaseManagement = () => {
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [purchasePayments, setPurchasePayments] = useState<PurchasePayment[]>([]);
   const [selectedItems, setSelectedItems] = useState<any[]>([{ product_id: null, variant_id: null, quantity: 1, unit_cost: 0 }]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Form states
   const [formData, setFormData] = useState({
@@ -191,6 +193,10 @@ const PurchaseManagement = () => {
       cacheKey: `purchases-${tenantId}`
     }
   );
+
+  // Pagination calculations
+  const totalPages = Math.ceil((purchases?.length || 0) / itemsPerPage);
+  const onPageChange = (page: number) => setCurrentPage(page);
 
   useEffect(() => {
     if (tenantId) {
@@ -1156,7 +1162,6 @@ const PurchaseManagement = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-
           <Card>
             <CardHeader>
               <CardTitle>Recent Purchase Orders</CardTitle>
@@ -1276,7 +1281,6 @@ const PurchaseManagement = () => {
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-xs">
-                                {/* Show item count - can be enhanced to show actual count */}
                                 Items
                               </Badge>
                             </TableCell>
@@ -1336,101 +1340,6 @@ const PurchaseManagement = () => {
                   onPageChange={onPageChange}
                 />
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-                          {purchase.status === 'draft' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updatePurchaseStatus(purchase.id, 'ordered')}
-                            >
-                              Send Order
-                            </Button>
-                          )}
-                          {purchase.status === 'ordered' && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openReceiveDialog(purchase)}
-                              >
-                                <Package className="h-4 w-4 mr-1" />
-                                Receive
-                              </Button>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => autoReceivePurchase(purchase)}
-                                className="ml-2"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Auto Receive
-                              </Button>
-                            </>
-                          )}
-                          {(purchase.status === 'ordered' || purchase.status === 'received') && (
-                            <>
-                              {(() => {
-                                const totalPaid = (purchasePayments || [])
-                                  .filter(p => p.purchase_id === purchase.id)
-                                  .reduce((sum, payment) => sum + payment.amount, 0);
-                                const isPaid = totalPaid >= purchase.total_amount;
-                                const isPartiallyPaid = totalPaid > 0 && totalPaid < purchase.total_amount;
-                                
-                                if (isPaid) {
-                                  return (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      disabled
-                                      className="bg-green-50 text-green-700 border-green-200"
-                                    >
-                                      <CheckCircle className="h-4 w-4 mr-1" />
-                                      Fully Paid
-                                    </Button>
-                                  );
-                                } else if (isPartiallyPaid) {
-                                  return (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => openPaymentDialog(purchase)}
-                                      className="bg-yellow-50 text-yellow-700 border-yellow-200"
-                                    >
-                                      <CreditCard className="h-4 w-4 mr-1" />
-                                      Partially Paid
-                                    </Button>
-                                  );
-                                } else {
-                                  return (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => openPaymentDialog(purchase)}
-                                    >
-                                      <CreditCard className="h-4 w-4 mr-1" />
-                                      Pay
-                                    </Button>
-                                  );
-                                }
-                              })()}
-                            </>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updatePurchaseStatus(purchase.id, 'cancelled')}
-                            disabled={purchase.status === 'received'}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1530,7 +1439,6 @@ const PurchaseManagement = () => {
             </Card>
           </div>
         </TabsContent>
-      </Tabs>
       </Tabs>
 
       {/* Receive Purchase Dialog */}
