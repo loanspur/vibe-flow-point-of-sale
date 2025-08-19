@@ -11,6 +11,85 @@ export interface InventoryTransaction {
   notes?: string;
 }
 
+// Cost calculation using different inventory methods
+export const calculateInventoryCost = async (
+  tenantId: string,
+  productId: string,
+  quantity: number,
+  method: 'FIFO' | 'LIFO' | 'WAC' | 'SPECIFIC' = 'FIFO'
+): Promise<{ totalCost: number; averageCost: number; remainingCost: number }> => {
+  try {
+    // Get business settings for stock accounting method
+    const { data: businessSettings } = await supabase
+      .from('business_settings')
+      .select('stock_accounting_method')
+      .eq('tenant_id', tenantId)
+      .single();
+
+    const stockMethod = businessSettings?.stock_accounting_method || 'FIFO';
+
+    // Get purchase history for cost calculation
+    const { data: purchaseItems } = await supabase
+      .from('purchase_items')
+      .select('quantity_received, unit_cost, created_at')
+      .eq('product_id', productId)
+      .gt('quantity_received', 0)
+      .order('created_at', { ascending: stockMethod === 'FIFO' });
+
+    if (!purchaseItems || purchaseItems.length === 0) {
+      // No purchase history, use current product cost
+      const { data: product } = await supabase
+        .from('products')
+        .select('cost_price')
+        .eq('id', productId)
+        .single();
+      
+      const cost = product?.cost_price || 0;
+      return {
+        totalCost: cost * quantity,
+        averageCost: cost,
+        remainingCost: cost
+      };
+    }
+
+    if (stockMethod === 'WAC') {
+      // Weighted Average Cost
+      const totalValue = purchaseItems.reduce((sum, item) => sum + (item.quantity_received * item.unit_cost), 0);
+      const totalQuantity = purchaseItems.reduce((sum, item) => sum + item.quantity_received, 0);
+      const avgCost = totalQuantity > 0 ? totalValue / totalQuantity : 0;
+      
+      return {
+        totalCost: avgCost * quantity,
+        averageCost: avgCost,
+        remainingCost: avgCost
+      };
+    }
+
+    // FIFO/LIFO calculation
+    let remainingQty = quantity;
+    let totalCost = 0;
+    let lastCost = 0;
+
+    for (const item of purchaseItems) {
+      if (remainingQty <= 0) break;
+      
+      const qtyToUse = Math.min(remainingQty, item.quantity_received);
+      totalCost += qtyToUse * item.unit_cost;
+      lastCost = item.unit_cost;
+      remainingQty -= qtyToUse;
+    }
+
+    return {
+      totalCost,
+      averageCost: quantity > 0 ? totalCost / quantity : 0,
+      remainingCost: lastCost
+    };
+  } catch (error) {
+    console.error('Error calculating inventory cost:', error);
+    return { totalCost: 0, averageCost: 0, remainingCost: 0 };
+  }
+};
+
 // Update product inventory levels
 export const updateProductInventory = async (
   tenantId: string,
@@ -31,13 +110,24 @@ export const updateProductInventory = async (
           continue;
         }
 
+        // Get business settings for negative stock control
+        const { data: businessSettings } = await supabase
+          .from('business_settings')
+          .select('enable_negative_stock')
+          .eq('tenant_id', tenantId)
+          .single();
+
+        const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+
         const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
           ? (variant.stock_quantity || 0) + transaction.quantity
           : (variant.stock_quantity || 0) - transaction.quantity;
 
         const { error: updateVariantError } = await supabase
           .from('product_variants')
-          .update({ stock_quantity: Math.max(0, newQuantity) })
+          .update({ 
+            stock_quantity: allowNegativeStock ? newQuantity : Math.max(0, newQuantity) 
+          })
           .eq('id', transaction.variantId);
 
         if (updateVariantError) {
@@ -56,13 +146,24 @@ export const updateProductInventory = async (
           continue;
         }
 
+        // Get business settings for negative stock control
+        const { data: businessSettings } = await supabase
+          .from('business_settings')
+          .select('enable_negative_stock')
+          .eq('tenant_id', tenantId)
+          .single();
+
+        const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+
         const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
           ? (product.stock_quantity || 0) + transaction.quantity
           : (product.stock_quantity || 0) - transaction.quantity;
 
         const { error: updateProductError } = await supabase
           .from('products')
-          .update({ stock_quantity: Math.max(0, newQuantity) })
+          .update({ 
+            stock_quantity: allowNegativeStock ? newQuantity : Math.max(0, newQuantity) 
+          })
           .eq('id', transaction.productId);
 
         if (updateProductError) {

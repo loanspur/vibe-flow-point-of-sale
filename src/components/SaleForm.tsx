@@ -31,6 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 import { triggerReceiptAutomation, triggerQuoteAutomation, triggerReceiptAutomationUnified } from '@/lib/whatsappAutomation';
 import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
+import { sendCommunicationWithSettings } from '@/lib/communicationSettingsIntegration';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
