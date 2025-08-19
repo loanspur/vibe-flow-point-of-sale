@@ -85,7 +85,7 @@ export const CommunicationSettings = () => {
           whatsapp_api_url: data.whatsapp_api_url || '',
           whatsapp_api_key: data.whatsapp_api_key || '',
           whatsapp_phone_number: data.whatsapp_phone_number || '',
-          use_global_whatsapp: data.use_global_whatsapp || false
+          use_global_whatsapp: (data as any).use_global_whatsapp || false
         });
       }
     } catch (error) {

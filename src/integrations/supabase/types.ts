@@ -695,6 +695,7 @@ export type Database = {
           tenant_id: string
           timezone: string | null
           updated_at: string
+          use_global_whatsapp: boolean | null
           website: string | null
           whatsapp_api_key: string | null
           whatsapp_api_url: string | null
@@ -790,6 +791,7 @@ export type Database = {
           tenant_id: string
           timezone?: string | null
           updated_at?: string
+          use_global_whatsapp?: boolean | null
           website?: string | null
           whatsapp_api_key?: string | null
           whatsapp_api_url?: string | null
@@ -885,6 +887,7 @@ export type Database = {
           tenant_id?: string
           timezone?: string | null
           updated_at?: string
+          use_global_whatsapp?: boolean | null
           website?: string | null
           whatsapp_api_key?: string | null
           whatsapp_api_url?: string | null
