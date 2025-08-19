@@ -14,6 +14,7 @@ import { useFormState } from '@/hooks/useFormState';
 import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 import QuickCreateUnitDialog from './QuickCreateUnitDialog';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 
 interface Category {
   id: string;
@@ -78,6 +79,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { product: productSettings } = useBusinessSettings();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -875,12 +877,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="sku">SKU {!product && <span className="text-muted-foreground text-sm">(Auto-generated)</span>}</Label>
+                <Label htmlFor="sku">
+                  SKU {!product && productSettings.autoGenerateSku && <span className="text-muted-foreground text-sm">(Auto-generated)</span>}
+                </Label>
                 <Input
                   id="sku"
                   value={formState.data.sku}
                   onChange={(e) => handleInputChange('sku', e.target.value)}
-                  placeholder={product ? "Product SKU" : "Will be auto-generated from product name"}
+                  placeholder={product ? "Product SKU" : productSettings.autoGenerateSku ? "Will be auto-generated from product name" : "Enter product SKU"}
+                  disabled={!product && productSettings.autoGenerateSku}
                 />
               </div>
               
@@ -954,15 +959,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="barcode">Barcode</Label>
-                  <Input
-                    id="barcode"
-                    value={formState.data.barcode}
-                    onChange={(e) => handleInputChange('barcode', e.target.value)}
-                    placeholder="Product barcode"
-                  />
-                </div>
+                {productSettings.enableBarcodeScanning && (
+                  <div className="space-y-2">
+                    <Label htmlFor="barcode">Barcode</Label>
+                    <Input
+                      id="barcode"
+                      value={formState.data.barcode}
+                      onChange={(e) => handleInputChange('barcode', e.target.value)}
+                      placeholder="Product barcode"
+                    />
+                  </div>
+                )}
                 
                 <div className="space-y-2">
                   <Label htmlFor="revenue_account">Revenue Account</Label>

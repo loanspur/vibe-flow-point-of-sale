@@ -34,6 +34,7 @@ import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
 
 const saleSchema = z.object({
@@ -66,6 +67,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   const { sendReceiptNotification } = useUnifiedCommunication();
+  const { pos: posSettings, tax: taxSettings } = useBusinessSettings();
   
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -694,6 +696,30 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return;
     }
 
+    // Validate discount against business settings
+    if (values.discount_amount > 0 && !posSettings.enableDiscounts) {
+      toast({
+        title: "Discounts Disabled",
+        description: "Discounts are disabled in your business settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate discount percentage limit
+    if (values.discount_amount > 0 && posSettings.enableDiscounts) {
+      const subtotal = calculateSubtotal();
+      const discountPercent = (values.discount_amount / subtotal) * 100;
+      if (discountPercent > posSettings.maxDiscountPercent) {
+        toast({
+          title: "Discount Limit Exceeded", 
+          description: `Maximum discount allowed is ${posSettings.maxDiscountPercent}%`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!selectedLocation) {
       toast({
         title: "Location Required",
@@ -1296,38 +1322,40 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                       <span>Subtotal</span>
                       <span className="font-bold">{formatAmount(calculateSubtotal())}</span>
                     </div>
-                    {form.watch("discount_amount") > 0 && (
-                      <div className="flex justify-between text-red-600">
-                        <span>Discount</span>
-                        <span className="font-semibold">-{formatAmount(form.watch("discount_amount"))}</span>
-                      </div>
-                    )}
+                     {posSettings.enableDiscounts && form.watch("discount_amount") > 0 && (
+                       <div className="flex justify-between text-red-600">
+                         <span>Discount</span>
+                         <span className="font-semibold">-{formatAmount(form.watch("discount_amount"))}</span>
+                       </div>
+                     )}
                   </div>
 
                    {/* Discount, Tax and Shipping - two columns before payment */}
                    <div className="grid grid-cols-2 gap-4 pt-2">
-                     <FormField
-                       control={form.control}
-                       name="discount_amount"
-                       render={({ field }) => (
-                         <FormItem>
-                           <FormLabel className="flex items-center gap-1 text-sm">
-                             <Banknote className="h-3 w-3" />
-                             Discount
-                           </FormLabel>
-                           <FormControl>
-                             <Input
-                               type="number"
-                               min="0"
-                               step="0.01"
-                               {...field}
-                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                             />
-                           </FormControl>
-                           <FormMessage />
-                         </FormItem>
-                       )}
-                     />
+                     {posSettings.enableDiscounts && (
+                       <FormField
+                         control={form.control}
+                         name="discount_amount"
+                         render={({ field }) => (
+                           <FormItem>
+                             <FormLabel className="flex items-center gap-1 text-sm">
+                               <Banknote className="h-3 w-3" />
+                               Discount (max {posSettings.maxDiscountPercent}%)
+                             </FormLabel>
+                             <FormControl>
+                               <Input
+                                 type="number"
+                                 min="0"
+                                 step="0.01"
+                                 {...field}
+                                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                               />
+                             </FormControl>
+                             <FormMessage />
+                           </FormItem>
+                         )}
+                       />
+                     )}
 
                      <FormField
                        control={form.control}
