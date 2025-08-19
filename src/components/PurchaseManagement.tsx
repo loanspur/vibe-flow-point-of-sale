@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 import { createEnhancedPurchaseJournalEntry, createPaymentJournalEntry, getPaymentMethodAccount } from '@/lib/accounting-integration';
 import { processPurchaseReceipt } from '@/lib/inventory-integration';

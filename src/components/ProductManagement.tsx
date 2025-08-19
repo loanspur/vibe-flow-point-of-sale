@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useOptimizedQuery, clearQueryCache } from '@/hooks/useOptimizedQuery';
+import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,13 +20,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
-
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
@@ -116,66 +116,58 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       });
    }, [activeFilter, tenantId]);
 
-  // Optimized product fetching with minimal fields and caching
-  const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
-    async () => {
-      if (!tenantId) return { data: [], error: null };
-      
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select(`
-             id,
-             name,
-             sku,
-             description,
-             price,
-             default_profit_margin,
-            barcode,
-            category_id,
-            subcategory_id,
-            revenue_account_id,
-            unit_id,
-            stock_quantity,
-            min_stock_level,
-            is_active,
-            image_url,
-            has_expiry_date,
-            location_id,
-            tenant_id,
-            created_at,
-            updated_at,
-            product_categories(name),
-            product_subcategories(name),
-            product_units(name, abbreviation),
-            store_locations(name),
-            product_variants(
-              id,
-              name,
-              value,
-              stock_quantity,
-              price_adjustment,
-              is_active
-            )
-          `)
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Products query error:', error);
-          throw error;
-        }
-        return { data: data || [], error: null };
-      } catch (err) {
-        console.error('Failed to fetch products:', err);
-        throw err;
-      }
-    },
-    [tenantId, refreshSignal],
+  // Pagination and data fetching with optimized query
+  const {
+    data: products = [],
+    loading,
+    pagination,
+    handlePageChange,
+    handlePageSizeChange,
+    refetch: refetchProducts
+  } = usePaginatedQuery<any>(
+    'products',
+    `
+      id,
+      name,
+      sku,
+      description,
+      price,
+      purchase_price,
+      default_profit_margin,
+      barcode,
+      category_id,
+      subcategory_id,
+      revenue_account_id,
+      unit_id,
+      stock_quantity,
+      min_stock_level,
+      is_active,
+      image_url,
+      brand_id,
+      is_combo_product,
+      allow_negative_stock,
+      cost_price,
+      created_at,
+      updated_at,
+      product_categories(name),
+      product_subcategories(name),
+      product_units(name, abbreviation),
+      store_locations(name),
+      brands(name),
+      product_variants(
+        id,
+        name,
+        value,
+        stock_quantity,
+        is_active
+      )
+    `,
     {
       enabled: !!tenantId,
-      staleTime: 0, // Always fetch fresh data
-      cacheKey: `products-list-${tenantId}-${refreshSignal || 0}`
+      searchTerm: searchTerm,
+      filters: { tenant_id: tenantId },
+      orderBy: { column: 'created_at', ascending: false },
+      initialPageSize: 50
     }
   );
 
@@ -183,75 +175,17 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     if (!loading) setHasLoaded(true);
   }, [loading]);
 
-  // Remove aggressive refresh signal - use debounced approach instead
+  // Update search term state when pagination search changes
   useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-    if (typeof refreshSignal !== 'undefined') {
-      // Debounce refresh calls to prevent excessive re-renders
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      refreshTimeoutRef.current = setTimeout(() => {
-        refetchProducts();
-      }, 300);
-    }
-    
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, [refreshSignal]);
+    setSearchTerm(debouncedSearchTerm);
+  }, [debouncedSearchTerm]);
 
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
     
-    const getTotalStock = (product: any) => {
-      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-        const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-          return total + (variant.stock_quantity || 0);
-        }, 0);
-        return (product.stock_quantity || 0) + totalVariantStock;
-      }
-      return product.stock_quantity || 0;
-    };
-    
-    let filtered = products as any[];
-    
-    // Apply active filter from URL
-    if (activeFilter === 'low-stock') {
-      filtered = filtered.filter((product: any) => getTotalStock(product) <= (product.min_stock_level || 0));
-    } else if (activeFilter === 'out-of-stock') {
-      filtered = filtered.filter((product: any) => getTotalStock(product) === 0);
-    } else if (activeFilter === 'expiring') {
-      filtered = filtered.filter((product: any) => expiringIds.has(product.id));
-    }
-    
-    // Filter by search term
-    if (debouncedSearchTerm) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-      );
-    }
-    
-    return filtered;
-  }, [products, debouncedSearchTerm, activeFilter, expiringIds]);
-
-  // Pagination calculations
-  const totalItems = filteredProducts.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchTerm, activeFilter, productTypeFilter]);
+    // No additional filtering needed as search is handled by pagination
+    return products;
+  }, [products]);
 
   // Memoized low stock calculation
   const lowStockProducts = useMemo(() => {
@@ -337,7 +271,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             </TableRow>
           </TableHeader>
         <TableBody>
-          {paginatedProducts.map((product) => (
+           {products.map((product) => (
             <TableRow key={product.id}>
               <TableCell>
                 <div className="flex items-center space-x-2 sm:space-x-3">
@@ -411,20 +345,23 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               </TableCell>
                <TableCell className="hidden xl:table-cell">
                 {product.product_variants && product.product_variants.length > 0 ? (
-                  <div className="space-y-1">
-                    {product.product_variants.slice(0, 2).map((variant: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between gap-2">
-                        <Badge variant="outline" className="text-xs px-2 py-1">
-                          {variant.name}: {variant.value}
+                  <div className="space-y-1 max-w-xs">
+                    {product.product_variants
+                      .filter((variant: any) => variant.is_active)
+                      .slice(0, 4)
+                      .map((variant: any) => (
+                      <div key={variant.id} className="flex items-center justify-between gap-2 p-1 bg-muted/30 rounded-sm">
+                        <Badge variant="outline" className="text-xs px-1 py-0.5 flex-1 min-w-0">
+                          <span className="truncate">{variant.name}: {variant.value}</span>
                         </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Stock: {variant.stock_quantity || 0}
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {variant.stock_quantity || 0}
                         </span>
                       </div>
                     ))}
-                    {product.product_variants.length > 2 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{product.product_variants.length - 2} more variants
+                    {product.product_variants.filter((v: any) => v.is_active).length > 4 && (
+                      <div className="text-xs text-muted-foreground text-center py-1">
+                        +{product.product_variants.filter((v: any) => v.is_active).length - 4} more
                       </div>
                     )}
                   </div>
@@ -548,16 +485,13 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           <Button 
             variant="outline"
             onClick={() => {
-              // Clear all caches to eliminate malformed requests
-              clearQueryCache();
-              setHasLoaded(false);
               refetchProducts();
             }}
             disabled={loading}
-            title="Clear cache and refresh product data"
+            title="Refresh product data"
           >
             <RotateCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Clear Cache & Refresh
+            Refresh
           </Button>
           <Button 
             onClick={() => {
@@ -638,8 +572,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             </Button>
           </div>
 
-          {/* Products Grid */}
-          {filteredProducts.length === 0 ? (
+           {/* Products Table */}
+           {filteredProducts.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground mb-4" />
@@ -658,53 +592,19 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 </Button>
               </CardContent>
             </Card>
-          ) : (
-            <>
-              <ProductTable />
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-2">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} products
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const pageNumber = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
-                        if (pageNumber > totalPages) return null;
-                        return (
-                          <Button
-                            key={pageNumber}
-                            variant={currentPage === pageNumber ? "default" : "outline"}
-                            size="sm"
-                            className="w-8 h-8 p-0"
-                            onClick={() => setCurrentPage(pageNumber)}
-                          >
-                            {pageNumber}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+           ) : (
+             <>
+               <ProductTable />
+               
+               {/* Pagination Controls */}
+               <PaginationControls
+                 pagination={pagination}
+                 onPageChange={handlePageChange}
+                 onPageSizeChange={handlePageSizeChange}
+                 isLoading={loading}
+               />
+             </>
+           )}
         </TabsContent>
 
         <TabsContent value="categories">
@@ -728,11 +628,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             onSuccess={() => {
               setShowProductForm(false);
               setSelectedProduct(null);
-              // Debounced refresh to prevent rapid re-renders
+              // Refresh products after successful form submission
               if (refreshTimeoutRef.current) {
                 clearTimeout(refreshTimeoutRef.current);
               }
-              refreshTimeoutRef.current = setTimeout(refetchProducts, 300);
+              refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
             }}
             onCancel={() => {
               setShowProductForm(false);
