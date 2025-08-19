@@ -1339,7 +1339,6 @@ const PurchaseManagement = () => {
             </CardContent>
           </Card>
         </TabsContent>
-                        <div className="flex items-center gap-2">
                           {purchase.status === 'draft' && (
                             <Button
                               variant="outline"
@@ -1531,6 +1530,7 @@ const PurchaseManagement = () => {
             </Card>
           </div>
         </TabsContent>
+      </Tabs>
       </Tabs>
 
       {/* Receive Purchase Dialog */}
