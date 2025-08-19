@@ -115,8 +115,7 @@ const Reports = () => {
       const drawerMap: Record<string, string | null> = {};
       (drawersData || []).forEach((d: any) => { drawerMap[d.user_id] = d.location_name; });
 
-      // Compute COGS per sale using FIFO or WAC based on business settings
-      const useFifo = (((businessSettings as any)?.stock_accounting_method) || 'FIFO') === 'FIFO';
+      // Compute COGS per sale using unified inventory cost calculation
       const saleIds: string[] = (salesData || []).map((s: any) => s.id);
       const costBySale: Record<string, number> = {};
 
@@ -127,39 +126,6 @@ const Reports = () => {
           .select('sale_id, product_id, variant_id, quantity')
           .in('sale_id', saleIds);
 
-        const productIds = Array.from(new Set((allSaleItems || []).map((i: any) => i.product_id)));
-
-        // Fetch purchase layers for these products (join purchases for order_date and tenant)
-        let purchaseLayers: any[] = [];
-        if (productIds.length > 0) {
-          const { data: plData } = await supabase
-            .from('purchase_items')
-            .select(`
-              product_id,
-              variant_id,
-              quantity_received,
-              unit_cost,
-              created_at,
-              purchases:purchase_id (
-                order_date,
-                tenant_id
-              )
-            `)
-            .in('product_id', productIds);
-          purchaseLayers = (plData || []).filter((l: any) => l?.purchases?.tenant_id === tenantId);
-        }
-
-        // Group purchase layers by product+variant and sort by date (FIFO order)
-        const layersByKey: Record<string, { qty: number; cost: number; date: number }[]> = {};
-        (purchaseLayers || []).forEach((l: any) => {
-          const key = `${l.product_id}:${l.variant_id || 'no'}`;
-          const orderDateStr = l?.purchases?.order_date || l?.created_at;
-          const date = new Date(orderDateStr).getTime();
-          if (!layersByKey[key]) layersByKey[key] = [];
-          layersByKey[key].push({ qty: Number(l.quantity_received || 0), cost: Number(l.unit_cost || 0), date });
-        });
-        Object.values(layersByKey).forEach(arr => arr.sort((a, b) => a.date - b.date));
-
         // Group sale items by sale
         const itemsBySale = new Map<string, any[]>();
         (allSaleItems || []).forEach((it: any) => {
@@ -168,44 +134,28 @@ const Reports = () => {
           itemsBySale.set(it.sale_id, arr);
         });
 
-        // Compute cost per sale
-        (salesData || []).forEach((s: any) => {
-          const saleItems = itemsBySale.get(s.id) || [];
+        // Compute cost per sale using unified inventory cost calculation
+        for (const sale of (salesData || [])) {
+          const saleItems = itemsBySale.get(sale.id) || [];
           let saleCost = 0;
-          const saleTime = new Date(s.created_at).getTime();
 
-          saleItems.forEach((it: any) => {
-            const key = `${it.product_id}:${it.variant_id || 'no'}`;
-            const layers = (layersByKey[key] || []).filter(l => l.date <= saleTime);
-
-            if (layers.length === 0) {
-              return; // no cost info yet
+          for (const item of saleItems) {
+            try {
+              const { calculateInventoryCost } = await import('@/lib/inventory-integration');
+              const costResult = await calculateInventoryCost(
+                tenantId,
+                item.product_id,
+                Number(item.quantity || 0)
+              );
+              saleCost += costResult.totalCost;
+            } catch (error) {
+              console.error('Error calculating cost for item:', error);
+              // Fallback to zero cost if calculation fails
             }
+          }
 
-            if (useFifo) {
-              // FIFO consumption
-              let remaining = Number(it.quantity || 0);
-              for (const layer of layers) {
-                if (remaining <= 0) break;
-                const take = Math.min(remaining, layer.qty);
-                saleCost += take * layer.cost;
-                remaining -= take;
-              }
-              if (remaining > 0) {
-                const lastCost = layers[layers.length - 1].cost || 0;
-                saleCost += remaining * lastCost;
-              }
-            } else {
-              // Weighted Average Cost up to sale date
-              const sumQty = layers.reduce((sum, l) => sum + l.qty, 0);
-              const sumCost = layers.reduce((sum, l) => sum + l.qty * l.cost, 0);
-              const wac = sumQty > 0 ? (sumCost / sumQty) : 0;
-              saleCost += Number(it.quantity || 0) * wac;
-            }
-          });
-
-          costBySale[s.id] = saleCost;
-        });
+          costBySale[sale.id] = saleCost;
+        }
       }
 
 

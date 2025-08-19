@@ -33,7 +33,7 @@ export const useUnifiedCommunication = () => {
    * Send communication through any channel
    */
   const sendCommunication = async (options: CommunicationOptions): Promise<CommunicationResult> => {
-    return await communicationService.sendCommunication(options);
+    return await communicationService.sendCommunication({ ...options, tenantId: options.tenantId || tenantId });
   };
 
   /**

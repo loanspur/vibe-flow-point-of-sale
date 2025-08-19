@@ -28,6 +28,7 @@ export interface BaseCommunicationOptions {
   priority?: CommunicationPriority;
   scheduledFor?: Date;
   useGlobal?: boolean;
+  tenantId?: string;
 }
 
 /**
@@ -307,6 +308,21 @@ export class UnifiedCommunicationService {
    * Main communication sending method
    */
   async sendCommunication(options: CommunicationOptions): Promise<CommunicationResult> {
+    // Check if communication channel is enabled in business settings
+    if (options.tenantId) {
+      const { checkCommunicationSettings } = await import('@/lib/communicationSettingsIntegration');
+      const isChannelEnabled = await checkCommunicationSettings(options.tenantId, options.channel);
+      
+      if (!isChannelEnabled) {
+        return {
+          success: false,
+          channel: options.channel,
+          recipient: options.recipient,
+          error: `${options.channel} communication is disabled in business settings`
+        };
+      }
+    }
+
     let result: CommunicationResult;
 
     switch (options.channel) {
