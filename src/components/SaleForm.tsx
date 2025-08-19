@@ -961,10 +961,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         form.trigger("customer_id");
         toast({
           title: "Customer Auto-Selected",
-          description: `Selected ${firstCustomer.name} for credit sale`,
+          description: `Selected ${firstCustomer.name} for credit sale. Please submit again.`,
         });
-        // Re-validate with auto-selected customer
-        return validateAndPrepareSubmit({ ...values, customer_id: firstCustomer.id });
+        // Don't recursively call - let user resubmit with auto-selected customer
+        return;
       } else {
         toast({
           title: "Customer Required",
