@@ -125,13 +125,12 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
         const { data, error } = await supabase
           .from('products')
           .select(`
-            id,
-            name,
-            sku,
-            description,
-            price,
-            purchase_price,
-            default_profit_margin,
+             id,
+             name,
+             sku,
+             description,
+             price,
+             default_profit_margin,
             barcode,
             category_id,
             subcategory_id,
@@ -330,8 +329,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               <TableHead className="hidden md:table-cell">SKU</TableHead>
               <TableHead className="hidden lg:table-cell">Category</TableHead>
               <TableHead className="hidden lg:table-cell">Unit</TableHead>
-              <TableHead className="hidden lg:table-cell">Purchase Price</TableHead>
-              <TableHead>Price</TableHead>
+               <TableHead>Price</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
               <TableHead className="hidden xl:table-cell">Variants</TableHead>
@@ -392,10 +390,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 <TableCell className="hidden lg:table-cell text-sm">
                   {product.product_units?.abbreviation || 'N/A'}
                 </TableCell>
-                <TableCell className="hidden lg:table-cell text-sm">
-                  {formatCurrency(product.purchase_price || 0)}
-                </TableCell>
-                <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
+                 <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
                <TableCell className="text-sm">
                  {(() => {
                    // Show total stock including variants
