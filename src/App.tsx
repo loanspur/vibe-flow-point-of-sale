@@ -218,6 +218,7 @@ const DomainRouter = () => {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<Navigate to="/auth" replace />} />
         </Routes>
       </Suspense>
@@ -237,6 +238,7 @@ const DomainRouter = () => {
                 : (<Auth />)
             } 
           />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="*" element={<Navigate to="/auth" replace />} />
@@ -272,6 +274,7 @@ const DomainRouter = () => {
               </AuthPageWrapper>
             } 
           />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           
