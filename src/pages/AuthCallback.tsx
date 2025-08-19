@@ -55,6 +55,10 @@ export default function AuthCallback() {
       // Check if this is a Google user and if they exist in our system
       const isGoogleAuth = searchParams.get('type') === 'google' || 
                           user.app_metadata?.provider === 'google';
+      
+      // Check if this is from trial signup
+      const isFromTrial = searchParams.get('from') === 'trial' || 
+                         sessionStorage.getItem('google-trial-signup') === 'true';
 
       if (isGoogleAuth) {
         // Check if profile exists
@@ -73,7 +77,8 @@ export default function AuthCallback() {
         if (!profile) {
           // New Google user - create profile and require OTP verification
           setIsNewUser(true);
-          await createGoogleUserProfile(user);
+          // Mark as trial user if coming from trial signup
+          await createGoogleUserProfile(user, isFromTrial);
         } else {
           // Existing Google user - check for tenant redirection
           if (isMainDomain && profile.tenant_id) {
@@ -150,7 +155,7 @@ export default function AuthCallback() {
     }
   };
 
-  const createGoogleUserProfile = async (user: any) => {
+  const createGoogleUserProfile = async (user: any, isFromTrial: boolean = false) => {
     try {
       const googleData = {
         google_id: user.user_metadata?.iss + '/' + user.user_metadata?.sub,
@@ -229,6 +234,9 @@ export default function AuthCallback() {
                           currentDomain === 'www.vibenet.online';
       
       if (isNewUser) {
+        // Clear trial signup flag
+        sessionStorage.removeItem('google-trial-signup');
+        
         // New Google user - redirect to tenant data collection (stay on main domain)
         toast({
           title: "Welcome!",

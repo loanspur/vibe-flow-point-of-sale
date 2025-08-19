@@ -31,10 +31,26 @@ export function GoogleSignInButton({
         ? 'https://vibenet.online'
         : window.location.origin;
       
+      // Check if this is from trial signup to preserve context
+      const isFromTrialSignup = window.location.pathname.includes('trial') || 
+                               sessionStorage.getItem('trial-signup') === 'true';
+      
+      // Set trial context for later use
+      if (isFromTrialSignup) {
+        sessionStorage.setItem('google-trial-signup', 'true');
+      }
+      
+      const redirectUrl = `${mainDomain}/auth/callback`;
+      const params = new URLSearchParams();
+      params.set('type', 'google');
+      if (isFromTrialSignup) {
+        params.set('from', 'trial');
+      }
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${mainDomain}/auth/callback?type=google`,
+          redirectTo: `${redirectUrl}?${params.toString()}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
