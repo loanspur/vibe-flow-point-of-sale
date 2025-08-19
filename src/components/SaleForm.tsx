@@ -36,6 +36,50 @@ import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
+// StockBadge component for async stock display
+const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, getActualStock }: {
+  productId: string;
+  variantId?: string;
+  locationId?: string;
+  getLocationSpecificStock: (productId: string, variantId?: string, locationId?: string) => Promise<number>;
+  getActualStock: (productId: string, variantId?: string) => number;
+}) => {
+  const [stock, setStock] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchStock = async () => {
+      if (locationId) {
+        setLoading(true);
+        try {
+          const stockAmount = await getLocationSpecificStock(productId, variantId, locationId);
+          setStock(stockAmount);
+        } catch (error) {
+          console.error('Error fetching stock:', error);
+          setStock(getActualStock(productId, variantId));
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setStock(getActualStock(productId, variantId));
+      }
+    };
+
+    fetchStock();
+  }, [productId, variantId, locationId, getLocationSpecificStock, getActualStock]);
+
+  if (loading) {
+    return <Badge variant="outline">Loading...</Badge>;
+  }
+
+  const stockAmount = stock ?? 0;
+  return (
+    <Badge variant={stockAmount > 0 ? "default" : "destructive"}>
+      {stockAmount}
+    </Badge>
+  );
+};
+
 
 const saleSchema = z.object({
   customer_id: z.string().optional(),
@@ -67,7 +111,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   const { sendReceiptNotification, sendQuoteNotification } = useUnifiedCommunication();
-  const { pos: posSettings, tax: taxSettings } = useBusinessSettings();
+  const { pos: posSettings, tax: taxSettings, inventory: inventorySettings } = useBusinessSettings();
   
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -376,43 +420,65 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
     try {
       // Get stock adjustments for this product at this location
-      const { data: adjustments } = await supabase
+      let adjustmentsQuery = supabase
         .from('stock_adjustment_items')
         .select('adjustment_quantity')
         .eq('product_id', productId)
         .eq('location_id', locationId);
 
       if (variantId) {
-        await supabase
-          .from('stock_adjustment_items')
-          .select('adjustment_quantity')
-          .eq('product_id', productId)
-          .eq('variant_id', variantId)
-          .eq('location_id', locationId);
+        adjustmentsQuery = adjustmentsQuery.eq('variant_id', variantId);
       }
 
+      const { data: adjustments } = await adjustmentsQuery;
+
       // Get stock transfers OUT from this location
-      const { data: transfersOut } = await supabase
+      let transfersOutQuery = supabase
         .from('stock_transfer_items')
         .select('quantity_shipped, stock_transfers!inner(from_location_id)')
         .eq('product_id', productId)
         .eq('stock_transfers.from_location_id', locationId)
         .eq('stock_transfers.status', 'completed');
 
+      if (variantId) {
+        transfersOutQuery = transfersOutQuery.eq('variant_id', variantId);
+      }
+
+      const { data: transfersOut } = await transfersOutQuery;
+
       // Get stock transfers IN to this location
-      const { data: transfersIn } = await supabase
+      let transfersInQuery = supabase
         .from('stock_transfer_items')
         .select('quantity_received, stock_transfers!inner(to_location_id)')
         .eq('product_id', productId)
         .eq('stock_transfers.to_location_id', locationId)
         .eq('stock_transfers.status', 'completed');
 
+      if (variantId) {
+        transfersInQuery = transfersInQuery.eq('variant_id', variantId);
+      }
+
+      const { data: transfersIn } = await transfersInQuery;
+
       const baseStock = getActualStock(productId, variantId);
       const adjustedStock = (adjustments || []).reduce((sum, adj) => sum + (adj.adjustment_quantity || 0), 0);
       const transferredOut = (transfersOut || []).reduce((sum, transfer) => sum + (transfer.quantity_shipped || 0), 0);
       const transferredIn = (transfersIn || []).reduce((sum, transfer) => sum + (transfer.quantity_received || 0), 0);
 
-      return Math.max(0, baseStock + adjustedStock - transferredOut + transferredIn);
+      const finalStock = Math.max(0, baseStock + adjustedStock - transferredOut + transferredIn);
+      
+      console.log('Stock calculation:', {
+        productId,
+        variantId,
+        locationId,
+        baseStock,
+        adjustedStock,
+        transferredOut,
+        transferredIn,
+        finalStock
+      });
+
+      return finalStock;
     } catch (error) {
       console.error('Error calculating location-specific stock:', error);
       return getActualStock(productId, variantId);
@@ -466,7 +532,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     // Check location-specific stock availability
-    const { inventory: inventorySettings } = useBusinessSettings();
     const currentStock = await getLocationSpecificStock(
       selectedProduct, 
       selectedVariant !== "no-variant" ? selectedVariant : undefined,
@@ -1213,15 +1278,18 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                     {formatAmount(product.price)}
                                   </p>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-xs text-muted-foreground">
-                                    Stock {selectedLocation && locations.find(loc => loc.id === selectedLocation)?.name ? 
-                                      `at ${locations.find(loc => loc.id === selectedLocation)?.name}` : ''}
-                                  </p>
-                                  <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
-                                    {getActualStock(product.id)}
-                                  </Badge>
-                                </div>
+                                 <div className="text-right">
+                                   <p className="text-xs text-muted-foreground">
+                                     Stock {selectedLocation && locations.find(loc => loc.id === selectedLocation)?.name ? 
+                                       `at ${locations.find(loc => loc.id === selectedLocation)?.name}` : ''}
+                                   </p>
+                                   <StockBadge 
+                                     productId={product.id} 
+                                     locationId={selectedLocation}
+                                     getLocationSpecificStock={getLocationSpecificStock}
+                                     getActualStock={getActualStock}
+                                   />
+                                 </div>
                              </div>
                            </div>
                          </CardContent>
@@ -1244,12 +1312,21 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                  <div className="flex items-center gap-2">
                                    <Package className="h-4 w-4" />
                                    <span className="font-medium">{product.name}</span>
-                                   <Badge variant="secondary">{formatAmount(product.price)}</Badge>
-                                   {selectedLocation && (
-                                     <Badge variant={getActualStock(product.id) > 0 ? "outline" : "destructive"} className="text-xs">
-                                       Stock: {getActualStock(product.id)}
-                                     </Badge>
-                                   )}
+                                    <Badge variant="secondary">{formatAmount(product.price)}</Badge>
+                                    {selectedLocation && (
+                                      <StockBadge 
+                                        productId={product.id}
+                                        variantId={selectedVariant && selectedVariant !== "no-variant" ? selectedVariant : undefined}
+                                        locationId={selectedLocation}
+                                        getLocationSpecificStock={getLocationSpecificStock}
+                                        getActualStock={getActualStock}
+                                      />
+                                    )}
+                                    {!selectedLocation && (
+                                      <Badge variant={getActualStock(product.id) > 0 ? "outline" : "destructive"} className="text-xs">
+                                        Stock: {getActualStock(product.id)}
+                                      </Badge>
+                                    )}
                                  </div>
 
                                  {product.product_variants && product.product_variants.length > 0 && (
