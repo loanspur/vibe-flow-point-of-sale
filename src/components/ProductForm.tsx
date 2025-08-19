@@ -492,22 +492,33 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     if (!imageFile || !tenantId) return null;
 
     try {
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${tenantId}/${fileName}`;
+      // Add timeout wrapper
+      const uploadPromise = (async () => {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${tenantId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, imageFile);
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, imageFile);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
+        const { data } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
 
-      return data.publicUrl;
+        return data.publicUrl;
+      })();
+
+      // 30-second timeout for image upload
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Image upload timeout')), 30000)
+      );
+
+      return await Promise.race([uploadPromise, timeoutPromise]);
     } catch (error: any) {
+      console.error('Image upload error:', error);
       toast({
         title: "Error uploading image",
         description: error.message,
@@ -593,22 +604,33 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     if (!tenantId) return null;
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `variant_${Date.now()}.${fileExt}`;
-      const filePath = `${tenantId}/${fileName}`;
+      // Add timeout wrapper
+      const uploadPromise = (async () => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `variant_${Date.now()}.${fileExt}`;
+        const filePath = `${tenantId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
+        const { data } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
 
-      return data.publicUrl;
+        return data.publicUrl;
+      })();
+
+      // 30-second timeout for variant image upload
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Variant image upload timeout')), 30000)
+      );
+
+      return await Promise.race([uploadPromise, timeoutPromise]);
     } catch (error: any) {
+      console.error('Variant image upload error:', error);
       toast({
         title: "Error uploading variant image",
         description: error.message,
@@ -620,19 +642,46 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
   const saveVariants = async (productId: string) => {
     try {
-      if (variants.length > 0) {
-        const { data: existingVariants, error: fetchError } = await supabase
-          .from('product_variants')
-          .select('*')
-          .eq('product_id', productId);
+      console.log('Starting variant save process for product:', productId);
+      
+      if (variants.length === 0) {
+        console.log('No variants to save');
+        return;
+      }
 
-        if (fetchError) throw fetchError;
+      // Fetch existing variants with timeout
+      const fetchPromise = supabase
+        .from('product_variants')
+        .select('*')
+        .eq('product_id', productId);
 
-        const variantDataPromises = variants.map(async (variant, index) => {
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 15000)
+      );
+
+      const { data: existingVariants, error: fetchError } = await Promise.race([
+        fetchPromise, 
+        timeoutPromise
+      ]);
+
+      if (fetchError) throw fetchError;
+
+      console.log('Processing variants with image uploads...');
+      
+      // Process variants with limited concurrency to prevent timeout
+      const variantData = [];
+      const batchSize = 3; // Process 3 variants at a time
+      
+      for (let i = 0; i < variants.length; i += batchSize) {
+        const batch = variants.slice(i, i + batchSize);
+        
+        const batchPromises = batch.map(async (variant, batchIndex) => {
+          const originalIndex = i + batchIndex;
           let imageUrl = variant.image_url;
           
-          if (variantImages[index]?.file) {
-            const uploadedUrl = await uploadVariantImage(variantImages[index].file);
+          if (variantImages[originalIndex]?.file) {
+            console.log(`Uploading image for variant ${originalIndex + 1}`);
+            const uploadedUrl = await uploadVariantImage(variantImages[originalIndex].file);
             if (uploadedUrl) {
               imageUrl = uploadedUrl;
             }
@@ -654,11 +703,19 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           };
         });
 
-        const variantData = await Promise.all(variantDataPromises);
+        const batchResults = await Promise.all(batchPromises);
+        variantData.push(...batchResults);
+      }
 
-        const toUpdate = variantData.filter(v => v.id && existingVariants?.some(ev => ev.id === v.id));
-        const toInsert = variantData.filter(v => !v.id);
+      console.log('All variant data processed, saving to database...');
 
+      // Separate operations for better error handling
+      const toUpdate = variantData.filter(v => v.id && existingVariants?.some(ev => ev.id === v.id));
+      const toInsert = variantData.filter(v => !v.id);
+
+      // Update existing variants
+      if (toUpdate.length > 0) {
+        console.log(`Updating ${toUpdate.length} existing variants`);
         for (const variant of toUpdate) {
           const { id, ...updateData } = variant;
           const { error: updateError } = await supabase
@@ -666,51 +723,54 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             .update(updateData)
             .eq('id', id);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Error updating variant:', updateError);
+            throw updateError;
+          }
         }
+      }
 
-        if (toInsert.length > 0) {
-          const insertData = toInsert.map(({ id, ...variantWithoutId }) => variantWithoutId);
+      // Insert new variants
+      if (toInsert.length > 0) {
+        console.log(`Inserting ${toInsert.length} new variants`);
+        const insertData = toInsert.map(({ id, ...variantWithoutId }) => variantWithoutId);
+        
+        const { error: insertError } = await supabase
+          .from('product_variants')
+          .insert(insertData);
+
+        if (insertError) {
+          console.error('Error inserting variants:', insertError);
+          throw insertError;
+        }
+      }
+
+      // Handle variant deletion (simplified)
+      if (existingVariants && existingVariants.length > 0) {
+        const variantIdsToKeep = variantData.map(v => v.id).filter(Boolean);
+        const variantsToDelete = existingVariants.filter(ev => !variantIdsToKeep.includes(ev.id));
+
+        if (variantsToDelete.length > 0) {
+          console.log(`Deactivating ${variantsToDelete.length} removed variants`);
           
-          const { error: insertError } = await supabase
-            .from('product_variants')
-            .insert(insertData);
-
-          if (insertError) throw insertError;
-        }
-
-        if (existingVariants && existingVariants.length > 0) {
-          const variantIdsToKeep = variantData.map(v => v.id).filter(Boolean);
-          const variantsToDelete = existingVariants.filter(ev => !variantIdsToKeep.includes(ev.id));
-
+          // Simplified: just deactivate variants instead of complex deletion logic
           for (const variantToDelete of variantsToDelete) {
-            const { data: purchaseRefs, error: purchaseError } = await supabase
-              .from('purchase_items')
-              .select('id')
-              .eq('variant_id', variantToDelete.id)
-              .limit(1);
+            const { error: deactivateError } = await supabase
+              .from('product_variants')
+              .update({ is_active: false })
+              .eq('id', variantToDelete.id);
 
-            if (purchaseError) throw purchaseError;
-
-            if (!purchaseRefs?.length) {
-              const { error: deleteError } = await supabase
-                .from('product_variants')
-                .delete()
-                .eq('id', variantToDelete.id);
-
-              if (deleteError) throw deleteError;
-            } else {
-              const { error: deactivateError } = await supabase
-                .from('product_variants')
-                .update({ is_active: false })
-                .eq('id', variantToDelete.id);
-
-              if (deactivateError) throw deactivateError;
+            if (deactivateError) {
+              console.error('Error deactivating variant:', deactivateError);
+              // Continue with other variants instead of failing completely
             }
           }
         }
       }
+
+      console.log('Variant save process completed successfully');
     } catch (error: any) {
+      console.error('Error in saveVariants:', error);
       throw new Error(`Error saving variants: ${error.message}`);
     }
   };
@@ -728,21 +788,27 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
 
     setLoading(true);
+    console.log('Starting product save process...');
 
     try {
       let imageUrl = product?.image_url || '';
       
+      // Handle main product image upload
       if (imageFile) {
+        console.log('Uploading main product image...');
         const uploadedUrl = await uploadImage();
         if (uploadedUrl) {
           imageUrl = uploadedUrl;
         }
       }
 
+      // Handle SKU generation for new products
       let finalSKU = formState.data.sku;
       if (!product && (!finalSKU || finalSKU.trim() === '')) {
+        console.log('Generating new SKU...');
         finalSKU = await generateSKU(formState.data.name);
       } else if (!product && finalSKU) {
+        // Check for SKU conflicts for new products
         const { data: existingProduct } = await supabase
           .from('products')
           .select('id')
@@ -751,6 +817,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           .maybeSingle();
         
         if (existingProduct) {
+          console.log('SKU conflict detected, generating new SKU...');
           finalSKU = await generateSKU(formState.data.name);
         }
       }
@@ -775,15 +842,19 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         tenant_id: tenantId,
       };
 
+      console.log('Saving product data:', product ? 'update' : 'create');
+      
       let error;
       let productId = product?.id;
       
       if (product) {
+        // Update existing product
         ({ error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', product.id));
       } else {
+        // Create new product
         const { data, error: insertError } = await supabase
           .from('products')
           .insert([productData])
@@ -794,17 +865,25 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         if (data) productId = data.id;
       }
 
-      if (error) throw error;
+      if (error) {
+        console.error('Product save error:', error);
+        throw error;
+      }
 
+      // Handle variants if they exist
       if (productId && formState.data.has_variants && variants.length > 0) {
+        console.log('Saving product variants...');
         await saveVariants(productId);
       }
 
+      console.log('Product save completed successfully');
+      
       toast({
         title: product ? "Product updated" : "Product created",
         description: `${formState.data.name} has been ${product ? 'updated' : 'created'} successfully.`,
       });
 
+      // Reset form for new products
       if (!product) {
         formActions.reset();
         setImagePreview('');
@@ -816,13 +895,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       
       onSuccess();
     } catch (error: any) {
+      console.error('Product save error:', error);
       toast({
         title: `Error ${product ? 'updating' : 'creating'} product`,
-        description: error.message,
+        description: error.message || 'An unexpected error occurred. Please try again.',
         variant: "destructive",
       });
     } finally {
       setLoading(false);
+      console.log('Product save process finished');
     }
   };
 
