@@ -20,7 +20,7 @@ import { PasswordChangeModal } from "./components/PasswordChangeModal";
 import { AuthSessionFix } from "./components/AuthSessionFix";
 import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
-import { SimplifiedTenantRoutes } from "@/components/SimplifiedTenantRoutes";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -189,57 +189,38 @@ const DomainRouter = () => {
   
   // Removed excessive logging that caused tab switching reload issues
   
-  // Redirect auth callbacks to reset-password flow - optimized to prevent reloads
+  // Handle auth callbacks with React Router to prevent hydration issues
   useEffect(() => {
-    const checkAuthCallback = () => {
-      if (typeof window !== 'undefined' && window.location.hash &&
-          /access_token|token_hash|type=invite|type=recovery/i.test(window.location.hash) &&
-          location.pathname !== '/reset-password') {
-        const search = new URLSearchParams(location.search || '');
-        if (!search.get('from')) search.set('from', 'invite');
-        const qs = search.toString();
-        const newUrl = `/reset-password${qs ? `?${qs}` : ''}${window.location.hash}`;
-        // Use navigate instead of window.location.replace to prevent full page reload
-        window.history.replaceState(null, '', newUrl);
-      }
-    };
+    if (typeof window === 'undefined') return;
     
-    // Only check once on mount
-    let hasChecked = false;
-    if (!hasChecked) {
-      checkAuthCallback();
-      hasChecked = true;
+    const hash = window.location.hash;
+    const isAuthCallback = hash && /access_token|token_hash|type=invite|type=recovery/i.test(hash);
+    
+    if (isAuthCallback && location.pathname !== '/reset-password') {
+      const search = new URLSearchParams(location.search || '');
+      if (!search.get('from')) search.set('from', 'invite');
+      const qs = search.toString();
+      
+      // Use setTimeout to avoid hydration mismatch
+      setTimeout(() => {
+        window.location.href = `/reset-password${qs ? `?${qs}` : ''}${hash}`;
+      }, 0);
     }
-  }, []); // No dependencies to prevent re-runs
+  }, [location.pathname, location.search]);
   
   // Simplified auth session check - removed to prevent excessive API calls
   const [showAuthFix, setShowAuthFix] = useState(false);
   
+  // Handle subdomain without tenant ID
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    // Show loading with timeout to prevent infinite loading
-    const [timeoutReached, setTimeoutReached] = useState(false);
-    
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        setTimeoutReached(true);
-      }, 5000);
-      
-      return () => clearTimeout(timer);
-    }, []);
-    
-    if (timeoutReached) {
-      // After timeout, show auth page instead of infinite loading
-      return (
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<Navigate to="/auth" replace />} />
-          </Routes>
-        </Suspense>
-      );
-    }
-    
-    return <PageLoader />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="*" element={<Navigate to="/auth" replace />} />
+        </Routes>
+      </Suspense>
+    );
   }
 
   const currentPath = location.pathname;
@@ -786,25 +767,27 @@ const DomainRouter = () => {
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppProvider>
-          <TooltipProvider>
-            <>
-              <Toaster />
-              <Sonner />
-              <PerformanceMonitor />
-              <AppOptimizer />
-              <CookieConsent />
-              <PasswordChangeModal />
-              <BrowserRouter>
-                <DomainRouter />
-              </BrowserRouter>
-            </>
-          </TooltipProvider>
-        </AppProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AppProvider>
+            <TooltipProvider>
+              <>
+                <Toaster />
+                <Sonner />
+                <PerformanceMonitor />
+                <AppOptimizer />
+                <CookieConsent />
+                <PasswordChangeModal />
+                <BrowserRouter>
+                  <DomainRouter />
+                </BrowserRouter>
+              </>
+            </TooltipProvider>
+          </AppProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 
