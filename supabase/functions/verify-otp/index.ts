@@ -10,7 +10,7 @@ interface VerifyOTPRequest {
   userId?: string;
   email?: string;
   otpCode: string;
-  otpType: 'email_verification' | 'password_reset';
+  otpType: 'email_verification' | 'password_reset' | 'login_verification';
   newPassword?: string; // Required for password_reset
 }
 
@@ -238,6 +238,38 @@ const handler = async (req: Request): Promise<Response> => {
         JSON.stringify({ 
           success: true, 
           message: 'OTP verified successfully. You can now set your new password.' 
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    // Handle login verification
+    if (otpType === 'login_verification') {
+      // Log the login verification
+      await supabaseAdmin
+        .from('communication_logs')
+        .insert({
+          type: 'system',
+          channel: 'system',
+          recipient: targetUserId,
+          subject: 'Login Verification Completed',
+          content: 'User login was successfully verified using OTP',
+          status: 'completed',
+          user_id: targetUserId,
+          sent_at: new Date().toISOString(),
+          metadata: {
+            action: 'login_verification_completed'
+          }
+        });
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Login verified successfully',
+          userId: targetUserId
         }),
         {
           status: 200,
