@@ -420,9 +420,22 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         is_active: variant.is_active ?? true,
       }));
       
+      console.log('Fetched product variants:', { 
+        productId, 
+        variantCount: formattedVariants.length,
+        hasVariants: formattedVariants.length > 0 
+      });
+      
       setVariants(formattedVariants);
+      
+      // Only set has_variants to true if there are actually variants
+      // For editing existing products, this should reflect the actual state
       if (formattedVariants.length > 0) {
+        console.log('Setting has_variants to true for existing product with variants');
         formActions.setFieldValue('has_variants', true);
+      } else {
+        console.log('No variants found, ensuring has_variants is false');
+        formActions.setFieldValue('has_variants', false);
       }
     } catch (error: any) {
       console.error('Variants fetch error:', error);
@@ -814,6 +827,13 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   };
 
   const nextStep = () => {
+    console.log('nextStep called:', { 
+      currentStep, 
+      hasVariants: formState.data.has_variants, 
+      variantsLength: variants.length,
+      stepTitle: STEPS[currentStep]?.title 
+    });
+    
     if (!formActions.validate()) {
       toast({
         title: "Please complete all required fields",
@@ -823,14 +843,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       return;
     }
     
-    // Skip pricing/inventory/image step for variable products
-    if (currentStep === 2 && formState.data.has_variants) {
-      // For variable products, complete the form submission
+    // Only skip pricing step if user has actually selected "Variable Product" AND has variants
+    if (currentStep === 2 && formState.data.has_variants && variants.length > 0) {
+      console.log('Skipping to submission for variable product with variants');
+      // For variable products with variants, complete the form submission
       handleSubmit(new Event('submit') as any);
       return;
     }
     
+    // For all other cases (including products being edited without variants), proceed to next step
     if (currentStep < STEPS.length - 1) {
+      console.log('Proceeding to next step:', STEPS[currentStep + 1]?.title);
       setCurrentStep(currentStep + 1);
     }
   };
@@ -1480,7 +1503,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             )}
           </Button>
 
-          {currentStep < STEPS.length - 1 && !(currentStep === 2 && formState.data.has_variants) ? (
+          {currentStep < STEPS.length - 1 && !(currentStep === 2 && formState.data.has_variants && variants.length > 0) ? (
             <Button 
               type="button" 
               onClick={nextStep}
@@ -1491,12 +1514,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             </Button>
           ) : (
             <Button 
-              type={currentStep === 2 && formState.data.has_variants ? "submit" : currentStep === STEPS.length - 1 ? "submit" : "button"}
-              onClick={currentStep === 2 && formState.data.has_variants ? undefined : nextStep}
+              type={currentStep === 2 && formState.data.has_variants && variants.length > 0 ? "submit" : currentStep === STEPS.length - 1 ? "submit" : "button"}
+              onClick={currentStep === 2 && formState.data.has_variants && variants.length > 0 ? undefined : nextStep}
               disabled={loading || !canProceed()}
             >
-              {loading ? 'Saving...' : (currentStep === 2 && formState.data.has_variants) || currentStep === STEPS.length - 1 ? (product ? 'Update Product' : 'Create Product') : 'Next'}
-              {!(currentStep === 2 && formState.data.has_variants) && currentStep !== STEPS.length - 1 && <ArrowRight className="w-4 h-4 ml-2" />}
+              {loading ? 'Saving...' : (currentStep === 2 && formState.data.has_variants && variants.length > 0) || currentStep === STEPS.length - 1 ? (product ? 'Update Product' : 'Create Product') : 'Next'}
+              {!(currentStep === 2 && formState.data.has_variants && variants.length > 0) && currentStep !== STEPS.length - 1 && <ArrowRight className="w-4 w-4 ml-2" />}
             </Button>
           )}
         </div>
