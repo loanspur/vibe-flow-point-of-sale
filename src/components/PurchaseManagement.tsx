@@ -1335,9 +1335,14 @@ const PurchaseManagement = () => {
 
                 {/* Add Pagination Here */}
                 <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
+                  pagination={{
+                    page: currentPage,
+                    pageSize: itemsPerPage,
+                    total: totalPurchases
+                  }}
                   onPageChange={onPageChange}
+                  onPageSizeChange={(size) => {}}
+                  isLoading={loading}
                 />
               </div>
             </CardContent>
