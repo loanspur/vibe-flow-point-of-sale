@@ -194,26 +194,40 @@ const UnifiedCommunicationCenter = ({ userRole = 'user' }: UnifiedCommunicationC
     </div>
   );
 
-  // Determine available tabs based on user role
+  // Determine available tabs based on user role - organized by communication type
   const getAvailableTabs = () => {
     const baseTabs = [
-      { value: 'overview', label: 'Overview', icon: BarChart3 },
-      { value: 'email-templates', label: 'Email Templates', icon: Mail },
-      { value: 'whatsapp-templates', label: 'WhatsApp Templates', icon: MessageSquare },
-      { value: 'whatsapp-automation', label: 'Automation', icon: Bot },
-      { value: 'whatsapp-history', label: 'Message History', icon: History },
-      { value: 'settings', label: 'Settings', icon: Settings }
+      { 
+        value: 'overview', 
+        label: 'Overview', 
+        icon: BarChart3,
+        group: 'main'
+      },
+      { 
+        value: 'email-communications', 
+        label: 'Email', 
+        icon: Mail,
+        group: 'channels' 
+      },
+      { 
+        value: 'whatsapp-communications', 
+        label: 'WhatsApp', 
+        icon: MessageSquare,
+        group: 'channels' 
+      },
+      { 
+        value: 'sms-communications', 
+        label: 'SMS', 
+        icon: Smartphone,
+        group: 'channels' 
+      },
+      { 
+        value: 'automation-settings', 
+        label: 'Automation', 
+        icon: Bot,
+        group: 'settings' 
+      }
     ];
-
-    const adminTabs = [
-      { value: 'whatsapp-config', label: 'WhatsApp Config', icon: Phone },
-      { value: 'whatsapp-bulk', label: 'Bulk Messaging', icon: Users },
-      { value: 'whatsapp-test', label: 'Test WhatsApp', icon: TestTube }
-    ];
-
-    if (userRole === 'superadmin' || userRole === 'tenant_admin') {
-      return [...baseTabs.slice(0, 3), ...adminTabs, ...baseTabs.slice(3)];
-    }
 
     return baseTabs;
   };
@@ -230,7 +244,7 @@ const UnifiedCommunicationCenter = ({ userRole = 'user' }: UnifiedCommunicationC
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${Math.min(availableTabs.length, 8)}, 1fr)` }}>
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-5">
           {availableTabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -246,120 +260,295 @@ const UnifiedCommunicationCenter = ({ userRole = 'user' }: UnifiedCommunicationC
           {renderOverview()}
         </TabsContent>
 
-        <TabsContent value="email-templates">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Templates</CardTitle>
-              <CardDescription>
-                Create and manage email templates for automated communications
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EmailTemplateManager />
-            </CardContent>
-          </Card>
+        <TabsContent value="email-communications">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Email Communications
+                </CardTitle>
+                <CardDescription>
+                  Manage email templates and email-specific settings
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Tabs defaultValue="email-templates" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="email-templates" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Templates
+                </TabsTrigger>
+                <TabsTrigger value="email-settings" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="email-templates">
+                <Card>
+                  <CardContent className="pt-6">
+                    <EmailTemplateManager />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="email-settings">
+                <Card>
+                  <CardContent className="pt-6">
+                    <CommunicationSettings />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </TabsContent>
 
-        <TabsContent value="whatsapp-templates">
-          <Card>
-            <CardHeader>
-              <CardTitle>WhatsApp Templates</CardTitle>
-              <CardDescription>
-                Create and manage WhatsApp message templates
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WhatsAppTemplateManager />
-            </CardContent>
-          </Card>
+        <TabsContent value="whatsapp-communications">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  WhatsApp Communications
+                </CardTitle>
+                <CardDescription>
+                  Complete WhatsApp management - templates, configuration, testing, and history
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Tabs defaultValue="whatsapp-templates" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+                <TabsTrigger value="whatsapp-templates" className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="hidden sm:inline">Templates</span>
+                </TabsTrigger>
+                {(userRole === 'superadmin' || userRole === 'tenant_admin') && (
+                  <TabsTrigger value="whatsapp-config" className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    <span className="hidden sm:inline">Config</span>
+                  </TabsTrigger>
+                )}
+                {(userRole === 'superadmin' || userRole === 'tenant_admin') && (
+                  <TabsTrigger value="whatsapp-bulk" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span className="hidden sm:inline">Bulk</span>
+                  </TabsTrigger>
+                )}
+                <TabsTrigger value="whatsapp-history" className="flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  <span className="hidden sm:inline">History</span>
+                </TabsTrigger>
+                {(userRole === 'superadmin' || userRole === 'tenant_admin') && (
+                  <TabsTrigger value="whatsapp-test" className="flex items-center gap-2">
+                    <TestTube className="h-4 w-4" />
+                    <span className="hidden sm:inline">Test</span>
+                  </TabsTrigger>
+                )}
+                <TabsTrigger value="whatsapp-settings" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Settings</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="whatsapp-templates">
+                <Card>
+                  <CardContent className="pt-6">
+                    <WhatsAppTemplateManager />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {(userRole === 'superadmin' || userRole === 'tenant_admin') && (
+                <TabsContent value="whatsapp-config">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>WhatsApp API Configuration</CardTitle>
+                      <CardDescription>
+                        Configure your 360Messenger API credentials and phone numbers
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <WhatsAppConfigManager />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
+
+              {(userRole === 'superadmin' || userRole === 'tenant_admin') && (
+                <TabsContent value="whatsapp-bulk">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Bulk WhatsApp Messaging</CardTitle>
+                      <CardDescription>
+                        Send WhatsApp messages to multiple recipients at once
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <WhatsAppBulkMessaging />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
+
+              <TabsContent value="whatsapp-history">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>WhatsApp Message History</CardTitle>
+                    <CardDescription>
+                      View all WhatsApp messages sent and their delivery status
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <WhatsAppMessageHistory />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {(userRole === 'superadmin' || userRole === 'tenant_admin') && (
+                <TabsContent value="whatsapp-test">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Test WhatsApp Configuration</CardTitle>
+                      <CardDescription>
+                        Test your WhatsApp API setup and message delivery
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <WhatsAppTester />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
+
+              <TabsContent value="whatsapp-settings">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>WhatsApp Notification Settings</CardTitle>
+                    <CardDescription>
+                      Enable/disable WhatsApp notifications for different business events
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CommunicationSettings />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </TabsContent>
 
-        {(userRole === 'superadmin' || userRole === 'tenant_admin') && (
-          <>
-            <TabsContent value="whatsapp-config">
-              <Card>
-                <CardHeader>
-                  <CardTitle>WhatsApp Configuration</CardTitle>
-                  <CardDescription>
-                    Configure WhatsApp API settings and phone numbers
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <WhatsAppConfigManager />
-                </CardContent>
-              </Card>
-            </TabsContent>
+        <TabsContent value="sms-communications">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Smartphone className="h-5 w-5" />
+                  SMS Communications
+                </CardTitle>
+                <CardDescription>
+                  Manage SMS settings and bulk messaging capabilities
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-            <TabsContent value="whatsapp-bulk">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Bulk Messaging</CardTitle>
-                  <CardDescription>
-                    Send messages to multiple recipients at once
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <WhatsAppBulkMessaging />
-                </CardContent>
-              </Card>
-            </TabsContent>
+            <Tabs defaultValue="sms-settings" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="sms-settings" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  SMS Settings
+                </TabsTrigger>
+                <TabsTrigger value="sms-bulk" className="flex items-center gap-2">
+                  <Send className="h-4 w-4" />
+                  Bulk SMS
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="whatsapp-test">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Test WhatsApp</CardTitle>
-                  <CardDescription>
-                    Test your WhatsApp configuration and templates
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <WhatsAppTester />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </>
-        )}
+              <TabsContent value="sms-settings">
+                <Card>
+                  <CardContent className="pt-6">
+                    <CommunicationSettings />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-        <TabsContent value="whatsapp-automation">
-          <Card>
-            <CardHeader>
-              <CardTitle>Communication Automation</CardTitle>
-              <CardDescription>
-                Configure automated messages for business events
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CommunicationSettings />
-            </CardContent>
-          </Card>
+              <TabsContent value="sms-bulk">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Bulk SMS Messaging</CardTitle>
+                    <CardDescription>
+                      Send SMS messages to multiple recipients
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Smartphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Bulk SMS functionality coming soon</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </TabsContent>
 
-        <TabsContent value="whatsapp-history">
-          <Card>
-            <CardHeader>
-              <CardTitle>Communication History</CardTitle>
-              <CardDescription>
-                View history of all sent communications
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WhatsAppMessageHistory />
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <TabsContent value="automation-settings">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="h-5 w-5" />
+                  Communication Automation & Settings
+                </CardTitle>
+                <CardDescription>
+                  Configure automated notifications and global communication preferences
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-        <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Communication Settings</CardTitle>
-              <CardDescription>
-                Configure global communication preferences and API settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CommunicationSettings />
-            </CardContent>
-          </Card>
+            <Tabs defaultValue="automation" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="automation" className="flex items-center gap-2">
+                  <Bot className="h-4 w-4" />
+                  Automation Rules
+                </TabsTrigger>
+                <TabsTrigger value="global-settings" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Global Settings
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="automation">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Communication Automation</CardTitle>
+                    <CardDescription>
+                      Set up automated messages for sales, receipts, invoices, and other business events
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CommunicationSettings />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="global-settings">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Global Communication Settings</CardTitle>
+                    <CardDescription>
+                      Configure API keys, providers, and general communication preferences
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CommunicationSettings />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
