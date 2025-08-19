@@ -90,7 +90,7 @@ export const calculateInventoryCost = async (
   }
 };
 
-// Update product inventory levels
+// Update product inventory levels and purchase prices
 export const updateProductInventory = async (
   tenantId: string,
   transactions: InventoryTransaction[]
@@ -113,7 +113,7 @@ export const updateProductInventory = async (
         // Get business settings for negative stock control
         const { data: businessSettings } = await supabase
           .from('business_settings')
-          .select('enable_negative_stock')
+          .select('enable_negative_stock, stock_accounting_method')
           .eq('tenant_id', tenantId)
           .single();
 
@@ -134,10 +134,10 @@ export const updateProductInventory = async (
           console.error('Error updating variant inventory:', updateVariantError);
         }
       } else {
-        // Update main product inventory
+        // Update main product inventory and purchase price
         const { data: product, error: getProductError } = await supabase
           .from('products')
-          .select('stock_quantity')
+          .select('stock_quantity, purchase_price, cost_price')
           .eq('id', transaction.productId)
           .single();
 
@@ -146,24 +146,47 @@ export const updateProductInventory = async (
           continue;
         }
 
-        // Get business settings for negative stock control
+        // Get business settings for negative stock control and costing method
         const { data: businessSettings } = await supabase
           .from('business_settings')
-          .select('enable_negative_stock')
+          .select('enable_negative_stock, stock_accounting_method')
           .eq('tenant_id', tenantId)
           .single();
 
         const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+        const stockMethod = businessSettings?.stock_accounting_method || 'FIFO';
 
         const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
           ? (product.stock_quantity || 0) + transaction.quantity
           : (product.stock_quantity || 0) - transaction.quantity;
 
+        // Prepare update data
+        const updateData: any = { 
+          stock_quantity: allowNegativeStock ? newQuantity : Math.max(0, newQuantity) 
+        };
+
+        // Update purchase price for purchase transactions
+        if ((transaction.type === 'purchase' || transaction.type === 'return') && transaction.unitCost && transaction.unitCost > 0) {
+          if (stockMethod === 'WAC') {
+            // Weighted Average Cost - calculate new average
+            const currentValue = (product.stock_quantity || 0) * (product.purchase_price || 0);
+            const newValue = transaction.quantity * transaction.unitCost;
+            const totalQuantity = (product.stock_quantity || 0) + transaction.quantity;
+            
+            if (totalQuantity > 0) {
+              updateData.purchase_price = (currentValue + newValue) / totalQuantity;
+              updateData.cost_price = updateData.purchase_price; // Keep cost_price in sync
+            }
+          } else {
+            // FIFO/LIFO - use latest purchase price
+            updateData.purchase_price = transaction.unitCost;
+            updateData.cost_price = transaction.unitCost; // Keep cost_price in sync
+          }
+        }
+
         const { error: updateProductError } = await supabase
           .from('products')
-          .update({ 
-            stock_quantity: allowNegativeStock ? newQuantity : Math.max(0, newQuantity) 
-          })
+          .update(updateData)
           .eq('id', transaction.productId);
 
         if (updateProductError) {
@@ -172,7 +195,7 @@ export const updateProductInventory = async (
       }
     }
 
-    console.log('Inventory updated successfully for', transactions.length, 'transactions');
+    console.log('Inventory and purchase prices updated successfully for', transactions.length, 'transactions');
   } catch (error) {
     console.error('Error updating inventory:', error);
     throw error;
@@ -455,7 +478,7 @@ export const getLowStockItems = async (tenantId: string) => {
   }
 };
 
-// Recalculate and fix all inventory levels for a tenant
+// Recalculate and fix all inventory levels and purchase prices for a tenant
 export const recalculateInventoryLevels = async (tenantId: string) => {
   try {
     console.log('Starting inventory recalculation for tenant:', tenantId);
@@ -463,11 +486,20 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
     // Get all active products for the tenant
     const { data: products, error } = await supabase
       .from('products')
-      .select('id, name, sku, stock_quantity, created_at')
+      .select('id, name, sku, stock_quantity, purchase_price, cost_price, created_at')
       .eq('tenant_id', tenantId)
       .eq('is_active', true);
 
     if (error) throw error;
+
+    // Get business settings for stock accounting method
+    const { data: businessSettings } = await supabase
+      .from('business_settings')
+      .select('stock_accounting_method')
+      .eq('tenant_id', tenantId)
+      .single();
+
+    const stockMethod = businessSettings?.stock_accounting_method || 'FIFO';
 
     const results = [];
 
@@ -475,8 +507,10 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
       // Get purchase receipts (received items)
       const { data: purchaseItems } = await supabase
         .from('purchase_items')
-        .select('quantity_received')
-        .eq('product_id', product.id);
+        .select('quantity_received, unit_cost, created_at')
+        .eq('product_id', product.id)
+        .gt('quantity_received', 0)
+        .order('created_at', { ascending: stockMethod === 'FIFO' });
 
       // Get sales
       const { data: saleItems } = await supabase
@@ -503,26 +537,55 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
       const hasTransactions = totalReceived > 0 || totalSold > 0 || totalReturned > 0;
       const calculatedStock = hasTransactions ? transactionBasedStock : (product.stock_quantity || 0);
 
-      // Update the product stock_quantity in the database only if it's different
-      const needsUpdate = calculatedStock !== (product.stock_quantity || 0);
+      // Calculate purchase price based on purchase history
+      let calculatedPurchasePrice = product.purchase_price || 0;
       
+      if (purchaseItems && purchaseItems.length > 0 && (product.purchase_price === 0 || product.purchase_price === null)) {
+        if (stockMethod === 'WAC') {
+          // Weighted Average Cost
+          const totalValue = purchaseItems.reduce((sum, item) => sum + (item.quantity_received * item.unit_cost), 0);
+          const totalQuantity = purchaseItems.reduce((sum, item) => sum + item.quantity_received, 0);
+          calculatedPurchasePrice = totalQuantity > 0 ? totalValue / totalQuantity : 0;
+        } else {
+          // FIFO/LIFO - use latest purchase price
+          calculatedPurchasePrice = purchaseItems[purchaseItems.length - 1]?.unit_cost || 0;
+        }
+      }
+
+      // Update the product stock_quantity and purchase price in the database only if they're different
+      const needsStockUpdate = calculatedStock !== (product.stock_quantity || 0);
+      const needsPriceUpdate = Math.abs(calculatedPurchasePrice - (product.purchase_price || 0)) > 0.01;
       
       let updateError = null;
-      if (needsUpdate) {
+      if (needsStockUpdate || needsPriceUpdate) {
+        const updateData: any = {};
+        
+        if (needsStockUpdate) {
+          updateData.stock_quantity = Math.max(0, calculatedStock);
+        }
+        
+        if (needsPriceUpdate) {
+          updateData.purchase_price = calculatedPurchasePrice;
+          updateData.cost_price = calculatedPurchasePrice; // Keep cost_price in sync
+        }
+
         const result = await supabase
           .from('products')
-          .update({ stock_quantity: Math.max(0, calculatedStock) })
+          .update(updateData)
           .eq('id', product.id);
         
         updateError = result.error;
 
         if (updateError) {
-          console.error(`Error updating stock for product ${product.name}:`, updateError);
+          console.error(`Error updating product ${product.name}:`, updateError);
         } else {
-          console.log(`Updated ${product.name}: ${calculatedStock} units (${hasTransactions ? 'calculated' : 'preserved'})`);
+          const updates = [];
+          if (needsStockUpdate) updates.push(`stock: ${calculatedStock} units`);
+          if (needsPriceUpdate) updates.push(`price: ${calculatedPurchasePrice.toFixed(2)}`);
+          console.log(`Updated ${product.name}: ${updates.join(', ')} (${hasTransactions ? 'calculated' : 'preserved'})`);
         }
       } else {
-        console.log(`${product.name}: Stock unchanged at ${calculatedStock} units`);
+        console.log(`${product.name}: No changes needed (stock: ${calculatedStock}, price: ${calculatedPurchasePrice.toFixed(2)})`);
       }
 
       results.push({
@@ -533,11 +596,12 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
         totalSold,
         totalReturned,
         calculatedStock,
+        calculatedPurchasePrice,
         success: !updateError
       });
     }
 
-    console.log('Inventory recalculation completed:', results.length, 'products processed');
+    console.log('Inventory and purchase price recalculation completed:', results.length, 'products processed');
     return results;
   } catch (error) {
     console.error('Error recalculating inventory levels:', error);
