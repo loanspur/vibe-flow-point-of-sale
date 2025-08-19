@@ -3135,6 +3135,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          min_stock_level: number | null
           name: string
           price_adjustment: number | null
           product_id: string
@@ -3150,6 +3151,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          min_stock_level?: number | null
           name: string
           price_adjustment?: number | null
           product_id: string
@@ -3165,6 +3167,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          min_stock_level?: number | null
           name?: string
           price_adjustment?: number | null
           product_id?: string
@@ -3204,6 +3207,7 @@ export type Database = {
           min_stock_level: number | null
           name: string
           price: number
+          purchase_price: number | null
           revenue_account_id: string | null
           sku: string | null
           stock_quantity: number | null
@@ -3231,6 +3235,7 @@ export type Database = {
           min_stock_level?: number | null
           name: string
           price: number
+          purchase_price?: number | null
           revenue_account_id?: string | null
           sku?: string | null
           stock_quantity?: number | null
@@ -3258,6 +3263,7 @@ export type Database = {
           min_stock_level?: number | null
           name?: string
           price?: number
+          purchase_price?: number | null
           revenue_account_id?: string | null
           sku?: string | null
           stock_quantity?: number | null
