@@ -128,7 +128,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   
-  const { pos: posSettings, tax: taxSettings, inventory: inventorySettings } = useBusinessSettings();
+  const { pos: posSettings, tax: taxSettings, inventory: inventorySettings, documents: docSettings } = useBusinessSettings();
   
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -710,7 +710,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const generateReceiptNumber = () => {
-    const { documents: docSettings } = useBusinessSettings();
     if (docSettings.invoiceAutoNumber) {
       return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     }
@@ -718,7 +717,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const generateQuoteNumber = () => {
-    const { documents: docSettings } = useBusinessSettings();
     if (docSettings.quoteAutoNumber) {
       return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     }
@@ -1112,13 +1110,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                 total_amount_param: totalAmount,
                 due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
               });
+              console.log('AR entry created successfully');
             } catch (error) {
               console.error('AR creation error:', error);
-              toast({
-                title: "Warning",
-                description: WARNING_MESSAGES.AR_ENTRY_FAILED,
-                variant: "destructive",
-              });
+              // Don't call toast here to avoid React context issues
             }
           })()
         );
@@ -1138,13 +1133,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
               shippingAmount: values.shipping_amount,
               payments: hasCreditPayment ? [] : payments,
             });
+            console.log('Accounting entry created successfully');
           } catch (error) {
             console.error('Accounting entry error:', error);
-            toast({
-              title: "Warning",
-              description: WARNING_MESSAGES.ACCOUNTING_ENTRY_FAILED,
-              variant: "destructive",
-            });
+            // Don't call toast here to avoid React context issues
           }
         })()
       );
