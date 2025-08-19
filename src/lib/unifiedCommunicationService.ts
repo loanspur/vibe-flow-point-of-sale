@@ -229,7 +229,7 @@ export class UnifiedCommunicationService {
   }
 
   /**
-   * Sends WhatsApp communication
+   * Sends WhatsApp communication with global fallback
    */
   private async sendWhatsApp(options: WhatsAppOptions): Promise<CommunicationResult> {
     try {
@@ -238,6 +238,19 @@ export class UnifiedCommunicationService {
       if (!settings.whatsapp_enable_notifications) {
         throw new Error('WhatsApp notifications are disabled');
       }
+
+      // Check if tenant has WhatsApp config
+      const { data: tenantConfig } = await supabase
+        .from('tenant_whatsapp_configs')
+        .select('*')
+        .eq('tenant_id', this.tenantId)
+        .eq('is_active', true)
+        .single();
+
+      // Determine if we should use global config
+      const useGlobal = options.useGlobal || 
+                       settings.use_global_whatsapp || 
+                       !tenantConfig;
 
       let finalMessage = options.message || '';
 
@@ -263,6 +276,8 @@ export class UnifiedCommunicationService {
         );
       }
 
+      console.log(`Sending WhatsApp message using ${useGlobal ? 'global' : 'tenant'} configuration`);
+
       // Call WhatsApp sending edge function
       const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
         body: {
@@ -270,7 +285,7 @@ export class UnifiedCommunicationService {
           recipient_phone: options.recipient,
           message: finalMessage,
           template_id: options.templateId,
-          use_global: options.useGlobal || false
+          use_global: useGlobal
         }
       });
 
