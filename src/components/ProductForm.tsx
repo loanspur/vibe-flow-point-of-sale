@@ -345,6 +345,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   // Initialize form with product data (only run once per product)
   useEffect(() => {
     if (product && product.id) {
+      const savedLocation = localStorage.getItem('selected_location');
       const productData = {
         name: product.name || '',
         sku: product.sku || '',
@@ -360,7 +361,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         min_stock_level: product.min_stock_level?.toString() || '',
         has_expiry_date: product.has_expiry_date || false,
         is_active: product.is_active ?? true,
-        location_id: product.location_id || '',
+        location_id: savedLocation || product.location_id || '',
         has_variants: false,
       };
       

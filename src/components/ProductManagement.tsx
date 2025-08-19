@@ -27,7 +27,6 @@ import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
-import InventoryRecalculator from './InventoryRecalculator';
 import {
   Dialog,
   DialogContent,
@@ -555,10 +554,9 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="inventory-fix">Fix Purchase Prices</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-6">
@@ -625,10 +623,6 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
 
         <TabsContent value="categories">
           <CategoryManagement onUpdate={refetchProducts} />
-        </TabsContent>
-
-        <TabsContent value="inventory-fix" className="space-y-4">
-          <InventoryRecalculator />
         </TabsContent>
       </Tabs>
 
