@@ -11,7 +11,17 @@ import {
  * Provides a single interface for email, SMS, and WhatsApp communications
  */
 export const useUnifiedCommunication = () => {
-  const { tenantId, user } = useAuth();
+  let tenantId: string | null = null;
+  let user: any = null;
+  
+  try {
+    const authContext = useAuth();
+    tenantId = authContext.tenantId;
+    user = authContext.user;
+  } catch (error) {
+    // If context is not available (e.g., called outside provider), use fallback
+    console.warn('Auth context not available in useUnifiedCommunication, using fallback');
+  }
   
   // Determine user role for service configuration
   const getUserRole = (): 'superadmin' | 'tenant_admin' | 'user' => {

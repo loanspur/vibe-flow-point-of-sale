@@ -1136,21 +1136,25 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                 customerEmail: customer?.email 
               });
               
-              await sendReceiptNotification(
-                sale.id,
+              // Call receipt notification directly with context data to avoid hook context issues
+              const { UnifiedCommunicationService } = await import('@/lib/unifiedCommunicationService');
+              const service = new UnifiedCommunicationService(tenantId || '', 'user', false);
+              
+              await service.sendReceiptNotification(
                 {
                   id: sale.id,
                   receipt_number: receiptNumber,
                   customer_id: values.customer_id,
                   customer_name: customer?.name || 'Customer',
                   total_amount: totalAmount,
+                  created_at: new Date().toISOString(),
+                  payment_method: payments.length > 0 ? payments[0].method : 'cash',
                   items: saleItems.map(item => ({
                     product_name: item.product_name,
                     quantity: item.quantity,
                     unit_price: item.unit_price,
                     subtotal: item.quantity * item.unit_price
-                  })),
-                  created_at: new Date().toISOString()
+                  }))
                 },
                 customer?.phone || undefined,
                 customer?.email || undefined
