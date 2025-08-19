@@ -237,9 +237,9 @@ const UnifiedCommunicationCenter = ({ userRole = 'user' }: UnifiedCommunicationC
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Unified Communications</h1>
+        <h1 className="text-3xl font-bold text-foreground">Communications Center</h1>
         <p className="text-muted-foreground">
-          Manage all your communication channels from one unified interface
+          Manage all your communication channels through our organized 5-section interface
         </p>
       </div>
 
