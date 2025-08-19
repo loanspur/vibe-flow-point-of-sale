@@ -383,6 +383,18 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     const product = products.find(p => p.id === selectedProduct);
     if (!product) return;
 
+    // Check stock availability based on business settings
+    const { inventory: inventorySettings } = useBusinessSettings();
+    const currentStock = getActualStock(selectedProduct, selectedVariant !== "no-variant" ? selectedVariant : undefined);
+    if (!inventorySettings.enableNegativeStock && currentStock < quantity) {
+      toast({
+        title: "Insufficient Stock",
+        description: `Only ${currentStock} units available. Enable negative stock in business settings to oversell.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     let variant = null;
     let unitPrice = product.price;
     let productName = product.name;
@@ -491,11 +503,19 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const generateReceiptNumber = () => {
-    return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    const { documents: docSettings } = useBusinessSettings();
+    if (docSettings.invoiceAutoNumber) {
+      return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    }
+    return `MANUAL-${Date.now()}`;
   };
 
   const generateQuoteNumber = () => {
-    return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    const { documents: docSettings } = useBusinessSettings();
+    if (docSettings.quoteAutoNumber) {
+      return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    }
+    return `MANUAL-QUO-${Date.now()}`;
   };
 
   const handlePaymentsChange = (newPayments: any[], newRemainingBalance: number) => {

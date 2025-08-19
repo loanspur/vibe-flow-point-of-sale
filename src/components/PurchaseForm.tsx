@@ -14,6 +14,7 @@ import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { supabase } from '@/integrations/supabase/client';
 import { PaymentForm } from './PaymentForm';
 import { createEnhancedPurchaseJournalEntry } from '@/lib/accounting-integration';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 
 interface PurchaseFormProps {
   onPurchaseCompleted?: () => void;
@@ -33,6 +34,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   useEnsureBaseUnitPcs();
   const { formatLocalCurrency } = useApp();
   const { toast } = useToast();
+  const { purchase: purchaseSettings, tax: taxSettings } = useBusinessSettings();
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -53,6 +55,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   const [quantity, setQuantity] = useState(1);
   const [unitCost, setUnitCost] = useState(0);
   const [shippingAmount, setShippingAmount] = useState(0);
+  const [taxAmount, setTaxAmount] = useState(0);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -315,7 +318,12 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   };
 
   const calculateTotal = () => {
-    return calculateSubtotal() + shippingAmount;
+    const subtotal = calculateSubtotal() + shippingAmount;
+    // Auto-calculate tax if not manually set and purchase default tax rate exists
+    const autoTax = purchaseSettings.defaultTaxRate > 0 && taxAmount === 0 
+      ? subtotal * (purchaseSettings.defaultTaxRate / 100) 
+      : taxAmount;
+    return subtotal + autoTax;
   };
 
   const handlePaymentsChange = (newPayments: any[], newRemainingBalance: number) => {
@@ -369,9 +377,10 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
           location_id: selectedLocation || null,
           total_amount: totalAmount,
           shipping_amount: shippingAmount,
-          status: 'completed',
+          tax_amount: taxAmount || (purchaseSettings.defaultTaxRate > 0 ? (calculateSubtotal() + shippingAmount) * (purchaseSettings.defaultTaxRate / 100) : 0),
+          status: purchaseSettings.autoReceive ? 'received' : 'completed',
           order_date: new Date().toISOString().split('T')[0],
-          received_date: new Date().toISOString().split('T')[0],
+          received_date: purchaseSettings.autoReceive ? new Date().toISOString().split('T')[0] : null,
           notes,
           created_by: user.id,
           tenant_id: tenantId,
@@ -529,6 +538,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       setQuantity(1);
       setUnitCost(0);
       setShippingAmount(0);
+      setTaxAmount(0);
       setNotes('');
       onPurchaseCompleted?.();
 
@@ -730,6 +740,19 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                 />
               </div>
 
+              {/* Tax */}
+              <div className="space-y-2">
+                <Label>Tax {purchaseSettings.defaultTaxRate > 0 && `(Default: ${purchaseSettings.defaultTaxRate}%)`}</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder={purchaseSettings.defaultTaxRate > 0 ? "Auto-calculated" : "0.00"}
+                  value={taxAmount || ''}
+                  onChange={(e) => setTaxAmount(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
               {/* Notes */}
               <div className="space-y-2">
                 <Label>Notes</Label>
@@ -748,12 +771,18 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                     <span>Subtotal:</span>
                     <span className="font-medium">{formatLocalCurrency(calculateSubtotal())}</span>
                   </div>
-                  {shippingAmount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span>Shipping:</span>
-                      <span className="font-medium">{formatLocalCurrency(shippingAmount)}</span>
-                    </div>
-                  )}
+                   {shippingAmount > 0 && (
+                     <div className="flex justify-between text-sm">
+                       <span>Shipping:</span>
+                       <span className="font-medium">{formatLocalCurrency(shippingAmount)}</span>
+                     </div>
+                   )}
+                   {(taxAmount > 0 || purchaseSettings.defaultTaxRate > 0) && (
+                     <div className="flex justify-between text-sm">
+                       <span>Tax:</span>
+                       <span className="font-medium">{formatLocalCurrency(taxAmount || (purchaseSettings.defaultTaxRate > 0 ? (calculateSubtotal() + shippingAmount) * (purchaseSettings.defaultTaxRate / 100) : 0))}</span>
+                     </div>
+                   )}
                   <div className="border-t pt-2">
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total:</span>

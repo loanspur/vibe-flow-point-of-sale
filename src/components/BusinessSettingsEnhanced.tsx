@@ -1325,7 +1325,7 @@ export function BusinessSettingsEnhanced() {
                         <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
                           <ShoppingCart className="h-6 w-6 text-primary" />
                         </div>
-                        Sales Configuration
+                        Product Settings
                       </CardTitle>
                       <CardDescription className="text-base">
                         Configure sales processes and customer interactions
@@ -1429,7 +1429,7 @@ export function BusinessSettingsEnhanced() {
                         <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
                           <Package className="h-6 w-6 text-primary" />
                         </div>
-                        Product Management
+                        Product Settings
                       </CardTitle>
                       <CardDescription className="text-base">
                         Configure product features and inventory settings

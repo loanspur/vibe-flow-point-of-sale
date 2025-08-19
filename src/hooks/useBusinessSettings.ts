@@ -46,6 +46,7 @@ export const useBusinessSettings = () => {
       lowStockThreshold: (businessSettings as any)?.low_stock_threshold ?? 10,
       lowStockAlerts: (businessSettings as any)?.low_stock_alerts ?? true,
       enableOverselling: (businessSettings as any)?.enable_overselling ?? false,
+      enableNegativeStock: (businessSettings as any)?.enable_negative_stock ?? false,
       enableMultiLocation: (businessSettings as any)?.enable_multi_location ?? false,
     },
     
