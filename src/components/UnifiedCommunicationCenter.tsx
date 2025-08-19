@@ -9,7 +9,7 @@ import { WhatsAppTemplateManager } from "@/components/WhatsAppTemplateManager";
 import { WhatsAppConfigManager } from "@/components/WhatsAppConfigManager";
 import { WhatsAppTester } from "@/components/WhatsAppTester";
 import WhatsAppMessageHistory from "@/components/WhatsAppMessageHistory";
-import WhatsAppAutomationSettings from "@/components/WhatsAppAutomationSettings";
+// WhatsAppAutomationSettings is now part of unified communication system
 import WhatsAppBulkMessaging from "@/components/WhatsAppBulkMessaging";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -329,7 +329,7 @@ const UnifiedCommunicationCenter = ({ userRole = 'user' }: UnifiedCommunicationC
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <WhatsAppAutomationSettings />
+              <CommunicationSettings />
             </CardContent>
           </Card>
         </TabsContent>

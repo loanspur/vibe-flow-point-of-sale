@@ -41,7 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { triggerQuoteAutomation, triggerInvoiceAutomation } from '@/lib/whatsappAutomation';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 
 interface Quote {
   id: string;
@@ -144,6 +144,7 @@ export function EnhancedQuoteManagement() {
   const { toast } = useToast();
   const { formatCurrency } = useApp();
   const { tenantId } = useAuth();
+  const { sendQuoteNotification, sendInvoiceNotification } = useUnifiedCommunication();
 
   useEffect(() => {
     fetchQuotes();
@@ -320,8 +321,11 @@ export function EnhancedQuoteManagement() {
         if (itemsError) throw itemsError;
       }
 
-      // Trigger quote automation
-      await triggerQuoteAutomation(quote.id, tenantId || '', quoteForm.contact_id, quoteNumber);
+      // Send quote notification
+      await sendQuoteNotification(
+        quote.id,
+        { id: quote.id, quote_number: quoteNumber, contact_id: quoteForm.contact_id }
+      );
 
       toast({
         title: "Quote Created",
@@ -430,8 +434,11 @@ export function EnhancedQuoteManagement() {
         }
       }
 
-      // Trigger invoice automation
-      await triggerInvoiceAutomation(sale.id, tenantId || '', quote.contact_id, invoiceNumber);
+      // Send invoice notification
+      await sendInvoiceNotification(
+        sale.id,
+        { id: sale.id, invoice_number: invoiceNumber, customer_id: quote.contact_id }
+      );
 
       toast({
         title: "Quote Converted to Invoice",

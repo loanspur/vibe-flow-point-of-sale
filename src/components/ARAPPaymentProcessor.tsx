@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { format } from 'date-fns';
-import { triggerPaymentReceivedAutomation } from '@/lib/whatsappAutomation';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 
 interface ARAPItem {
   id: string;
@@ -35,6 +35,7 @@ interface ARAPPaymentProcessorProps {
 export function ARAPPaymentProcessor({ type }: ARAPPaymentProcessorProps) {
   const { tenantId } = useAuth();
   const { toast } = useToast();
+  const { sendPaymentReceivedNotification } = useUnifiedCommunication();
   
   const [items, setItems] = useState<ARAPItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ARAPItem | null>(null);
@@ -245,12 +246,9 @@ export function ARAPPaymentProcessor({ type }: ARAPPaymentProcessorProps) {
       if (type === 'receivable') {
         const customerId = (selectedItem as any).customer_id;
         if (customerId) {
-          await triggerPaymentReceivedAutomation(
-            selectedItem.id, 
-            tenantId || '', 
-            customerId, 
-            amount, 
-            paymentMethod
+          await sendPaymentReceivedNotification(
+            selectedItem.id,
+            { id: selectedItem.id, amount, payment_method: paymentMethod, customer_id: customerId }
           );
         }
       }

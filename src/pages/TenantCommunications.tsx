@@ -7,7 +7,7 @@ import { WhatsAppTemplateManager } from "@/components/WhatsAppTemplateManager";
 import { WhatsAppConfigManager } from "@/components/WhatsAppConfigManager";
 import { WhatsAppTester } from "@/components/WhatsAppTester";
 import WhatsAppMessageHistory from "@/components/WhatsAppMessageHistory";
-import WhatsAppAutomationSettings from "@/components/WhatsAppAutomationSettings";
+// WhatsAppAutomationSettings is now part of unified communication system
 import WhatsAppBulkMessaging from "@/components/WhatsAppBulkMessaging";
 import { Mail, Settings, MessageSquare, Phone, TestTube, History, Bot, Users } from "lucide-react";
 
@@ -84,7 +84,7 @@ const TenantCommunications = () => {
         <TabsContent value="whatsapp-automation">
           <Card>
             <CardContent>
-              <WhatsAppAutomationSettings />
+              <CommunicationSettings />
             </CardContent>
           </Card>
         </TabsContent>

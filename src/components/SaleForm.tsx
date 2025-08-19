@@ -29,7 +29,6 @@ import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
 
-import { triggerReceiptAutomation, triggerQuoteAutomation, triggerReceiptAutomationUnified } from '@/lib/whatsappAutomation';
 import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 import { sendCommunicationWithSettings } from '@/lib/communicationSettingsIntegration';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
@@ -67,7 +66,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
-  const { sendReceiptNotification } = useUnifiedCommunication();
+  const { sendReceiptNotification, sendQuoteNotification } = useUnifiedCommunication();
   const { pos: posSettings, tax: taxSettings } = useBusinessSettings();
   
   const [businessSettings, setBusinessSettings] = useState<any>(null);
@@ -677,8 +676,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       if (itemsError) throw itemsError;
 
-        // Trigger quote automation
-        await triggerQuoteAutomation(quote.id, tenantData, values.customer_id, quoteNumber);
+        // Send quote notification
+        await sendQuoteNotification(
+          quote.id,
+          { id: quote.id, quote_number: quoteNumber, customer_id: values.customer_id }
+        );
 
         toast({
           title: "Quote Created",
@@ -975,9 +977,12 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         );
         console.log('Receipt notification sent successfully via unified system');
       } catch (error) {
-        console.error('Failed to send receipt notification via unified system, falling back to legacy:', error);
-        // Fallback to legacy system
-        await triggerReceiptAutomation(sale.id, tenantId!, values.customer_id, receiptNumber);
+        console.error('Failed to send receipt notification via unified system:', error);
+        toast({
+          title: "Notification Warning",
+          description: "Sale completed but notification failed to send",
+          variant: "destructive",
+        });
       }
 
       toast({
