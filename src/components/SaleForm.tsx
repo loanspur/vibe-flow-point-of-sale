@@ -33,18 +33,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 import { sendCommunicationWithSettings } from '@/lib/communicationSettingsIntegration';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
+// Remove unused imports related to old inventory system
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
 // Enhanced StockBadge component with stable state management
-const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, getActualStock, locationName }: {
+const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, locationName }: {
   productId: string;
   variantId?: string;
   locationId?: string;
   locationName?: string;
   getLocationSpecificStock: (productId: string, variantId?: string, locationId?: string) => Promise<number>;
-  getActualStock: (productId: string, variantId?: string) => number;
 }) => {
   const [stock, setStock] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,17 +57,12 @@ const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock
     
     setLoading(true);
     try {
-      let stockAmount;
-      if (locationId) {
-        stockAmount = await getLocationSpecificStock(productId, variantId, locationId);
-      } else {
-        stockAmount = getActualStock(productId, variantId);
-      }
+      let stockAmount = await getLocationSpecificStock(productId, variantId, locationId);
       setStock(stockAmount);
     } catch (error) {
       console.error('Error fetching stock:', error);
-      // Fallback to basic stock on error
-      setStock(getActualStock(productId, variantId));
+      // Set to 0 on error to show unavailable
+      setStock(0);
     } finally {
       setLoading(false);
     }
@@ -135,7 +130,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [actualInventory, setActualInventory] = useState<Record<string, { stock: number; variants: Record<string, number> }>>({});
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -181,7 +175,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       fetchProducts();
       fetchCustomers();
       fetchLocations();
-      fetchActualInventory();
       checkMpesaConfig();
       fetchBusinessSettings();
     } else {
@@ -189,7 +182,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       setFilteredProducts([]);
       setCustomers([]);
       setLocations([]);
-      setActualInventory({});
       setMpesaEnabled(false);
       setBusinessSettings(null);
     }
@@ -378,40 +370,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
   };
 
-  const fetchActualInventory = async () => {
-    if (!tenantId) {
-      setActualInventory({});
-      return;
-    }
-    
-    try {
-      const inventoryData = await getInventoryLevels(tenantId);
-      
-      const inventoryLookup: Record<string, { stock: number; variants: Record<string, number> }> = {};
-      
-      inventoryData.forEach((product) => {
-        inventoryLookup[product.id] = {
-          stock: product.calculated_stock || 0,
-          variants: {}
-        };
-        
-        if (product.product_variants) {
-          product.product_variants.forEach((variant: any) => {
-            inventoryLookup[product.id].variants[variant.id] = variant.stock_quantity || 0;
-          });
-        }
-      });
-      
-      setActualInventory(inventoryLookup);
-    } catch (error) {
-      console.error('Error fetching actual inventory:', error);
-      toast({
-        title: "Warning",
-        description: "Could not fetch current stock levels. Showing database values.",
-        variant: "destructive",
-      });
-    }
-  };
+// Remove redundant inventory fetching - now using direct stock calculation
 
   const checkMpesaConfig = async () => {
     if (!tenantId) return;
@@ -436,7 +395,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   
   const getLocationSpecificStock = useStableCallback(async (productId: string, variantId?: string, locationId?: string) => {
     if (!locationId || !tenantId) {
-      return getActualStock(productId, variantId);
+      // For non-location specific requests, get basic stock from products
+      const product = products.find(p => p.id === productId);
+      if (variantId && product?.product_variants) {
+        const variant = product.product_variants.find((v: any) => v.id === variantId);
+        return variant?.stock_quantity || 0;
+      }
+      return product?.stock_quantity || 0;
     }
 
     const cacheKey = `${productId}_${variantId || 'main'}_${locationId}`;
@@ -517,13 +482,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return locationStock;
     } catch (error) {
       console.error('Error calculating location-specific stock:', error);
-      return getActualStock(productId, variantId);
-    }
-  });
-
-  const getActualStock = (productId: string, variantId?: string) => {
-    const productInventory = actualInventory[productId];
-    if (!productInventory) {
+      // Fallback to basic product stock on error
       const product = products.find(p => p.id === productId);
       if (variantId && product?.product_variants) {
         const variant = product.product_variants.find((v: any) => v.id === variantId);
@@ -531,12 +490,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       }
       return product?.stock_quantity || 0;
     }
-    
-    if (variantId) {
-      return productInventory.variants[variantId] || 0;
-    }
-    return productInventory.stock;
-  };
+  });
+
+// Remove redundant getActualStock function - using unified stock calculation
 
   const addItemToSale = async () => {
     console.log('addItemToSale called with:', {
@@ -590,7 +546,14 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       console.log('Stock check result:', { currentStock, quantity, selectedLocation });
     } catch (error) {
       console.error('Error getting stock:', error);
-      currentStock = getActualStock(selectedProduct, selectedVariant !== "no-variant" ? selectedVariant : undefined);
+      // Fallback to basic product stock on error
+      const product = products.find(p => p.id === selectedProduct);
+      if (selectedVariant !== "no-variant" && product?.product_variants) {
+        const variant = product.product_variants.find((v: any) => v.id === selectedVariant);
+        currentStock = variant?.stock_quantity || 0;
+      } else {
+        currentStock = product?.stock_quantity || 0;
+      }
     }
     
     // Check business settings for negative stock - use both inventory and product settings  
@@ -1365,8 +1328,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                       variantId={undefined}
                                       locationId={selectedLocation}
                                       locationName={locations.find(loc => loc.id === selectedLocation)?.name}
-                                      getLocationSpecificStock={getLocationSpecificStock}
-                                      getActualStock={getActualStock}
+                                        getLocationSpecificStock={getLocationSpecificStock}
                                     />
                                  </div>
                              </div>
@@ -1398,15 +1360,23 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                          variantId={selectedVariant && selectedVariant !== "no-variant" ? selectedVariant : undefined}
                                          locationId={selectedLocation}
                                          locationName={locations.find(loc => loc.id === selectedLocation)?.name}
-                                         getLocationSpecificStock={getLocationSpecificStock}
-                                         getActualStock={getActualStock}
+                                          getLocationSpecificStock={getLocationSpecificStock}
                                        />
-                                     )}
-                                     {!selectedLocation && (
-                                       <Badge variant={getActualStock(product.id) > 0 ? "outline" : "destructive"} className="text-xs">
-                                         Stock: {getActualStock(product.id)}
-                                       </Badge>
-                                     )}
+                                      )}
+                                      {!selectedLocation && (
+                                        <Badge variant={
+                                          (() => {
+                                            const product = products.find(p => p.id === product.id);
+                                            const stock = product?.stock_quantity || 0;
+                                            return stock > 0 ? "outline" : "destructive";
+                                          })()
+                                        } className="text-xs">
+                                          Stock: {(() => {
+                                            const foundProduct = products.find(p => p.id === product.id);
+                                            return foundProduct?.stock_quantity || 0;
+                                          })()}
+                                        </Badge>
+                                      )}
                                  </div>
 
                                  {product.product_variants && product.product_variants.length > 0 && (
