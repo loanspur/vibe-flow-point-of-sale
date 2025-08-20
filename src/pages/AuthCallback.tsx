@@ -86,6 +86,7 @@ export default function AuthCallback() {
         if (!profile) {
           // New Google user - show unified OTP form with business fields
           console.log('New Google user detected - showing unified OTP form with business fields');
+          console.log('Setting isNewUser to true and showing OTP modal');
           setIsNewUser(true);
           setShowOTPModal(true);
           

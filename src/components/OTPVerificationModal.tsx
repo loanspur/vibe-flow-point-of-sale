@@ -35,6 +35,15 @@ export function OTPVerificationModal({
   isNewUser = false,
   userFullName = ""
 }: OTPVerificationModalProps) {
+  // Debug logging
+  console.log('OTPVerificationModal props:', { 
+    isOpen, 
+    isNewUser, 
+    email, 
+    userId, 
+    otpType,
+    userFullName
+  });
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
