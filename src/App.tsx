@@ -477,9 +477,12 @@ const DomainRouter = () => {
         <Route path="/" element={<LandingPage />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/tenant-redirect" element={<TenantRedirect />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        
+        <Route path="/trial-signup" element={<TrialSignup />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         
         <Route path="/signup" element={<Navigate to="/" replace />} />
         <Route path="/success" element={<Success />} />
