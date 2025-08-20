@@ -142,14 +142,51 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false }: Tenant
         
         toast({
           title: "Welcome to VibePOS!",
-          description: "Your business account has been created successfully. You have full access to all features!",
+          description: "Your business account has been created successfully. Redirecting to your workspace...",
           variant: "default"
         });
 
-        // Redirect to dashboard
-        setTimeout(() => {
-          onSuccess?.();
-          navigate('/dashboard');
+        // Fetch the newly created tenant's subdomain and redirect
+        setTimeout(async () => {
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('tenant_id')
+              .eq('user_id', user.id)
+              .single();
+
+            if (profile?.tenant_id) {
+              const { data: tenantData } = await supabase
+                .from('tenants')
+                .select('subdomain, name')
+                .eq('id', profile.tenant_id)
+                .single();
+
+              if (tenantData?.subdomain) {
+                // Determine the current domain to use the same TLD
+                const currentDomain = window.location.hostname;
+                const tenantDomain = currentDomain.includes('vibenet.shop') 
+                  ? `${tenantData.subdomain}.vibenet.shop`
+                  : `${tenantData.subdomain}.vibenet.online`;
+                
+                console.log('Redirecting to tenant domain:', tenantDomain);
+                
+                // Redirect to the tenant's subdomain dashboard
+                window.location.href = `https://${tenantDomain}/dashboard`;
+                return;
+              }
+            }
+            
+            // Fallback - if tenant data lookup fails, just redirect to dashboard
+            console.warn('Could not find tenant subdomain, using fallback redirect');
+            onSuccess?.();
+            navigate('/dashboard');
+          } catch (error) {
+            console.error('Failed to fetch tenant data for redirect:', error);
+            // Fallback redirect
+            onSuccess?.();
+            navigate('/dashboard');
+          }
         }, 1500);
       } else {
         throw new Error('Tenant creation failed');
