@@ -376,7 +376,7 @@ export function OTPVerificationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={isNewUser ? "sm:max-w-2xl max-h-[90vh] overflow-y-auto" : "sm:max-w-md"}>
+      <DialogContent className={isNewUser ? "sm:max-w-2xl max-h-[90vh] overflow-y-auto !mt-4 !mb-auto" : "sm:max-w-md !mt-4 !mb-auto"}>
         <DialogHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             {isNewUser ? <Building2 className="h-6 w-6 text-primary" /> : <Shield className="h-6 w-6 text-primary" />}
