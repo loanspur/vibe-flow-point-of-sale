@@ -166,12 +166,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
+    let isTabSwitching = false;
+    
+    // Listen for tab switching to prevent auth refreshes during visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        isTabSwitching = true;
+        // Clear the flag after a delay to allow legitimate auth changes
+        setTimeout(() => {
+          isTabSwitching = false;
+        }, 2000);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         
         if (!mounted) return;
+        
+        // Ignore auth state changes during tab switching to prevent refresh loops
+        if (isTabSwitching && event !== 'SIGNED_OUT') {
+          console.log('Ignoring auth state change during tab switch:', event);
+          return;
+        }
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -261,6 +281,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       mounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       subscription.unsubscribe();
     };
   }, []); // Remove user.id dependency to prevent infinite loops
