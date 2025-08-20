@@ -204,57 +204,54 @@ export default function AuthCallback() {
                           currentDomain === 'www.vibenet.shop' || 
                           currentDomain === 'www.vibenet.online';
       
+      // Check if user already has a tenant (whether new or existing user)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profile?.tenant_id) {
+        // User has a tenant - redirect to their subdomain
+        const { data: tenantData } = await supabase
+          .from('tenants')
+          .select('subdomain, name')
+          .eq('id', profile.tenant_id)
+          .single();
+
+        if (tenantData?.subdomain) {
+          const tenantDomain = currentDomain.includes('vibenet.shop') 
+            ? `${tenantData.subdomain}.vibenet.shop`
+            : `${tenantData.subdomain}.vibenet.online`;
+          
+          toast({
+            title: isNewUser ? "Welcome!" : "Welcome back!",
+            description: `Redirecting you to ${tenantData.name}...`,
+          });
+          
+          // Clear trial signup flag
+          sessionStorage.removeItem('google-trial-signup');
+          
+          // Small delay to show the toast
+          setTimeout(() => {
+            window.location.href = `https://${tenantDomain}/dashboard`;
+          }, 1000);
+          return;
+        }
+      }
+      
       if (isNewUser) {
         // Clear trial signup flag
         sessionStorage.removeItem('google-trial-signup');
         
-        // New Google user - redirect to tenant data collection (stay on main domain)
+        // New Google user without tenant - redirect to tenant data collection
         toast({
           title: "Welcome!",
           description: "Please complete your business information to get started.",
         });
         navigate('/trial-signup?google=true&step=tenant-data');
       } else {
-        // Existing user - check for tenant redirection
-        if (isMainDomain) {
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('tenant_id')
-              .eq('user_id', userId)
-              .single();
-
-            if (profile?.tenant_id) {
-              const { data: tenantData } = await supabase
-                .from('tenants')
-                .select('subdomain, name')
-                .eq('id', profile.tenant_id)
-                .single();
-
-              if (tenantData?.subdomain) {
-                const tenantDomain = currentDomain.includes('vibenet.shop') 
-                  ? `${tenantData.subdomain}.vibenet.shop`
-                  : `${tenantData.subdomain}.vibenet.online`;
-                
-                toast({
-                  title: "Welcome back!",
-                  description: `Redirecting you to ${tenantData.name}...`,
-                });
-                
-                // Small delay to show the toast
-                setTimeout(() => {
-                  window.location.href = `https://${tenantDomain}/dashboard`;
-                }, 1000);
-                return;
-              }
-            }
-          } catch (error) {
-            console.error('Tenant lookup error:', error);
-            // Continue with normal flow if tenant lookup fails
-          }
-        }
-        
-        // Default behavior - redirect to dashboard
+        // Existing user without tenant - redirect to dashboard
         toast({
           title: "Welcome back!",
           description: "You have successfully signed in.",
