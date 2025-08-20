@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
@@ -76,19 +76,16 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const { domainConfig } = useDomainContext();
+  const navigate = useNavigate();
   
   useEffect(() => {
     // Redirect only when tenant context is resolved to avoid loops
     // Also check tab stability to prevent redirect loops during tab switching
     if (user && isSubdomain() && domainConfig?.tenantId && !tabStabilityManager.isCurrentlyTabSwitching()) {
-      // User authenticated, redirecting to dashboard
-      setTimeout(() => {
-        if (!tabStabilityManager.isCurrentlyTabSwitching()) {
-          window.location.replace('/dashboard');
-        }
-      }, 100);
+      // User authenticated, redirecting to dashboard using React Router
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, domainConfig?.tenantId]);
+  }, [user, domainConfig?.tenantId, navigate]);
   
   return <>{children}</>;
 };
