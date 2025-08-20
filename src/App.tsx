@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDomainContext, isDevelopmentDomain, isSubdomain, getBaseDomain } from "@/lib/domain-manager";
+import { tabStabilityManager } from "@/lib/tab-stability-manager";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { FeatureGuard } from "./components/FeatureGuard";
@@ -21,6 +22,7 @@ import { AuthSessionFix } from "./components/AuthSessionFix";
 import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { TabStabilityProvider } from "./components/TabStabilityProvider";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -76,9 +78,14 @@ const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
   
   useEffect(() => {
     // Redirect only when tenant context is resolved to avoid loops
-    if (user && isSubdomain() && domainConfig?.tenantId) {
+    // Also check tab stability to prevent redirect loops during tab switching
+    if (user && isSubdomain() && domainConfig?.tenantId && !tabStabilityManager.isCurrentlyTabSwitching()) {
       // User authenticated, redirecting to dashboard
-      window.location.replace('/dashboard');
+      setTimeout(() => {
+        if (!tabStabilityManager.isCurrentlyTabSwitching()) {
+          window.location.replace('/dashboard');
+        }
+      }, 100);
     }
   }, [user, domainConfig?.tenantId]);
   
@@ -166,7 +173,7 @@ if (process.env.NODE_ENV !== 'development') {
   };
 }
 
-// Optimized query client configuration for better performance
+// Optimized query client configuration for better performance with tab stability
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -176,6 +183,8 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false, // Disabled to prevent performance issues
       refetchOnMount: false, // Disabled to prevent unnecessary refetches
       refetchOnReconnect: false, // Disabled to prevent network spam
+      // Custom refetch condition that respects tab stability
+      queryFn: undefined, // Will be set per query
     },
     mutations: {
       retry: 1, // Limit mutation retries
@@ -779,25 +788,27 @@ const DomainRouter = () => {
 const App = () => {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <AppProvider>
-            <TooltipProvider>
-              <>
-                <Toaster />
-                <Sonner />
-                <PerformanceMonitor />
-                <AppOptimizer />
-                <CookieConsent />
-                <PasswordChangeModal />
-                <BrowserRouter>
-                  <DomainRouter />
-                </BrowserRouter>
-              </>
-            </TooltipProvider>
-          </AppProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <TabStabilityProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <AppProvider>
+              <TooltipProvider>
+                <>
+                  <Toaster />
+                  <Sonner />
+                  <PerformanceMonitor />
+                  <AppOptimizer />
+                  <CookieConsent />
+                  <PasswordChangeModal />
+                  <BrowserRouter>
+                    <DomainRouter />
+                  </BrowserRouter>
+                </>
+              </TooltipProvider>
+            </AppProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </TabStabilityProvider>
     </ErrorBoundary>
   );
 };

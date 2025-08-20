@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { PERFORMANCE_CONFIG } from '@/lib/performance-config';
+import { tabStabilityManager } from '@/lib/tab-stability-manager';
 
 /**
  * Global app optimizer component to handle performance issues
@@ -7,31 +8,10 @@ import { PERFORMANCE_CONFIG } from '@/lib/performance-config';
  */
 export function AppOptimizer() {
   useEffect(() => {
-    // Prevent excessive window focus events that cause reloads
-    let focusTimeout: NodeJS.Timeout;
-    let lastFocus = 0;
-
-    const handleVisibilityChange = () => {
-      const now = Date.now();
-      
-      // Ignore rapid visibility changes (browser switching)
-      if (now - lastFocus < PERFORMANCE_CONFIG.TAB_SWITCH_DELAY) {
-        return;
-      }
-
-      if (focusTimeout) {
-        clearTimeout(focusTimeout);
-      }
-
-      // Debounce visibility change handling with longer delay to prevent refresh loops
-      focusTimeout = setTimeout(() => {
-        if (document.visibilityState === 'visible') {
-          lastFocus = Date.now();
-          // Prevent any auth state refreshes that could trigger OTP sends
-          console.log('Tab focus detected, ignoring to prevent refresh loops');
-        }
-      }, PERFORMANCE_CONFIG.TAB_SWITCH_DELAY * 2); // Double the delay
-    };
+    // Initialize the global tab stability manager
+    tabStabilityManager.initialize();
+    
+    console.log('AppOptimizer initialized with tab stability manager');
 
     // Prevent aggressive scroll restoration that causes layout shifts
     if ('scrollRestoration' in history) {
@@ -48,18 +28,10 @@ export function AppOptimizer() {
       window.history.replaceState(null, '', url);
     };
 
-    // Add optimized event listeners
-    document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
-    window.addEventListener('popstate', handlePopState);
-
-    // Cleanup function
+    // The tab stability manager handles all visibility and navigation events
+    // No need for additional event listeners here
+    
     return () => {
-      if (focusTimeout) {
-        clearTimeout(focusTimeout);
-      }
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('popstate', handlePopState);
-      
       // Restore default scroll restoration
       if ('scrollRestoration' in history) {
         history.scrollRestoration = 'auto';
