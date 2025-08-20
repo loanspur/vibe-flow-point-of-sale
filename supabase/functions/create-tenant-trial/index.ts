@@ -37,6 +37,7 @@ const handler = async (req: Request): Promise<Response> => {
         name: businessData.businessName,
         subdomain: businessData.businessName.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 30),
         status: 'trial',
+        billing_plan_id: highestPlan.id,
         created_by: userId
       })
       .select()
