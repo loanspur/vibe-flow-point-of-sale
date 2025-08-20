@@ -14,9 +14,11 @@ import { Loader2, Building2, User, MapPin, Phone, Mail } from 'lucide-react';
 interface TenantDataCollectionProps {
   onSuccess?: () => void;
   isGoogleUser?: boolean;
+  mode?: 'create' | 'update';
+  existingData?: any;
 }
 
-export function TenantDataCollection({ onSuccess, isGoogleUser = false }: TenantDataCollectionProps) {
+export function TenantDataCollection({ onSuccess, isGoogleUser = false, mode = 'create', existingData }: TenantDataCollectionProps) {
   const navigate = useNavigate();
   const { user, refreshUserInfo } = useAuth();
   const { toast } = useToast();
@@ -24,31 +26,31 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false }: Tenant
 
   const [formData, setFormData] = useState({
     // Business Information
-    businessName: '',
-    businessType: '',
-    industry: '',
-    businessDescription: '',
+    businessName: existingData?.businessName || '',
+    businessType: existingData?.businessType || '',
+    industry: existingData?.industry || '',
+    businessDescription: existingData?.businessDescription || '',
     
     // Contact Information  
-    businessPhone: '',
-    businessEmail: user?.email || '',
+    businessPhone: existingData?.businessPhone || '',
+    businessEmail: existingData?.businessEmail || user?.email || '',
     
     // Address Information
-    country: 'Kenya',
-    state: '',
-    city: '',
-    address: '',
-    postalCode: '',
+    country: existingData?.country || 'Kenya',
+    state: existingData?.state || '',
+    city: existingData?.city || '',
+    address: existingData?.address || '',
+    postalCode: existingData?.postalCode || '',
     
     // Additional Information
-    website: '',
-    taxNumber: '',
-    registrationNumber: '',
+    website: existingData?.website || '',
+    taxNumber: existingData?.taxNumber || '',
+    registrationNumber: existingData?.registrationNumber || '',
     
     // Owner Information (pre-filled from Google if available)
-    ownerName: user?.user_metadata?.full_name || '',
-    ownerPhone: '',
-    ownerEmail: user?.email || ''
+    ownerName: existingData?.ownerName || user?.user_metadata?.full_name || '',
+    ownerPhone: existingData?.ownerPhone || '',
+    ownerEmail: existingData?.ownerEmail || user?.email || ''
   });
 
   const businessTypes = [
@@ -121,76 +123,140 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false }: Tenant
     setLoading(true);
 
     try {
-      // Create tenant and business setup with highest plan
-      const { data, error } = await supabase.functions.invoke('create-tenant-trial', {
-        body: {
-          userId: user.id,
-          businessData: formData,
-          planType: 'highest', // Always assign highest plan for trials
-          isGoogleUser
+      if (mode === 'create') {
+        // Create tenant and business setup with highest plan
+        const { data, error } = await supabase.functions.invoke('create-tenant-trial', {
+          body: {
+            userId: user.id,
+            businessData: formData,
+            planType: 'highest', // Always assign highest plan for trials
+            isGoogleUser
+          }
+        });
+
+        if (error) {
+          console.error('Tenant creation error:', error);
+          throw new Error(error.message || 'Failed to create business account');
         }
-      });
 
-      if (error) {
-        console.error('Tenant creation error:', error);
-        throw new Error(error.message || 'Failed to create business account');
-      }
+        if (data?.success) {
+          // Refresh user info to get updated tenant data
+          await refreshUserInfo();
+          
+          toast({
+            title: "Welcome to VibePOS!",
+            description: "Your business account has been created successfully. Redirecting to your workspace...",
+            variant: "default"
+          });
 
-      if (data?.success) {
-        // Refresh user info to get updated tenant data
-        await refreshUserInfo();
-        
+          // After successful tenant creation, redirect to tenant subdomain
+          setTimeout(async () => {
+            try {
+              // Fetch the newly created tenant's subdomain from the user's profile
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('tenant_id')
+                .eq('user_id', user.id)
+                .single();
+
+              if (profile?.tenant_id) {
+                const { data: tenantData } = await supabase
+                  .from('tenants')
+                  .select('subdomain, name')
+                  .eq('id', profile.tenant_id)
+                  .single();
+
+                if (tenantData?.subdomain) {
+                  // Determine the current domain to use the same TLD
+                  const currentDomain = window.location.hostname;
+                  const tenantDomain = currentDomain.includes('vibenet.shop') 
+                    ? `${tenantData.subdomain}.vibenet.shop`
+                    : `${tenantData.subdomain}.vibenet.online`;
+                  
+                  console.log('Redirecting to tenant domain:', tenantDomain);
+                  
+                  // Redirect to the tenant's subdomain dashboard
+                  window.location.href = `https://${tenantDomain}/dashboard`;
+                  return;
+                }
+              }
+              
+              // Fallback - if tenant data lookup fails, just redirect to dashboard
+              console.warn('Could not find tenant subdomain, using fallback redirect');
+              onSuccess?.();
+              navigate('/dashboard');
+            } catch (error) {
+              console.error('Failed to fetch tenant data for redirect:', error);
+              // Fallback redirect
+              onSuccess?.();
+              navigate('/dashboard');
+            }
+          }, 1500);
+        } else {
+          throw new Error('Tenant creation failed');
+        }
+      } else {
+        // Update existing tenant information
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!profile?.tenant_id) {
+          throw new Error('No tenant found for user');
+        }
+
+        // Update tenant information (only available fields)
+        const { error: tenantError } = await supabase
+          .from('tenants')
+          .update({
+            name: formData.businessName,
+            contact_phone: formData.businessPhone,
+            contact_email: formData.businessEmail,
+            address: formData.address,
+            country: formData.country,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', profile.tenant_id);
+
+        if (tenantError) {
+          throw tenantError;
+        }
+
+        // Update business settings
+        const { error: settingsError } = await supabase
+          .from('business_settings')
+          .upsert({
+            tenant_id: profile.tenant_id,
+            company_name: formData.businessName,
+            email: formData.businessEmail,
+            phone: formData.businessPhone,
+            website: formData.website,
+            address_line_1: formData.address,
+            city: formData.city,
+            country: formData.country,
+            postal_code: formData.postalCode,
+            tax_identification_number: formData.taxNumber,
+            business_registration_number: formData.registrationNumber,
+            updated_at: new Date().toISOString()
+          });
+
+        if (settingsError) {
+          throw settingsError;
+        }
+
         toast({
-          title: "Welcome to VibePOS!",
-          description: "Your business account has been created successfully. Redirecting to your workspace...",
+          title: "Setup Complete!",
+          description: "Your business information has been updated successfully.",
           variant: "default"
         });
 
-        // After successful tenant creation, redirect to tenant subdomain
-        setTimeout(async () => {
-          try {
-            // Fetch the newly created tenant's subdomain from the user's profile
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('tenant_id')
-              .eq('user_id', user.id)
-              .single();
-
-            if (profile?.tenant_id) {
-              const { data: tenantData } = await supabase
-                .from('tenants')
-                .select('subdomain, name')
-                .eq('id', profile.tenant_id)
-                .single();
-
-              if (tenantData?.subdomain) {
-                // Determine the current domain to use the same TLD
-                const currentDomain = window.location.hostname;
-                const tenantDomain = currentDomain.includes('vibenet.shop') 
-                  ? `${tenantData.subdomain}.vibenet.shop`
-                  : `${tenantData.subdomain}.vibenet.online`;
-                
-                console.log('Redirecting to tenant domain:', tenantDomain);
-                
-                // Redirect to the tenant's subdomain dashboard
-                window.location.href = `https://${tenantDomain}/dashboard`;
-                return;
-              }
-            }
-            
-            // Fallback - if tenant data lookup fails, just redirect to dashboard
-            console.warn('Could not find tenant subdomain, using fallback redirect');
-            onSuccess?.();
-            navigate('/dashboard');
-          } catch (error) {
-            console.error('Failed to fetch tenant data for redirect:', error);
-            // Fallback redirect
-            onSuccess?.();
-            navigate('/dashboard');
-          }
-        }, 1500);
-      } else {
-        throw new Error('Tenant creation failed');
+        // Redirect to dashboard after successful update
+        setTimeout(() => {
+          onSuccess?.();
+          navigate('/dashboard');
+        }, 1000);
       }
 
     } catch (error: any) {
@@ -218,11 +284,15 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false }: Tenant
             </span>
           </div>
           
-          <h1 className="text-3xl font-bold mb-2">Complete Your Business Setup</h1>
+          <h1 className="text-3xl font-bold mb-2">
+            {mode === 'create' ? 'Complete Your Business Setup' : 'Complete Your Business Information'}
+          </h1>
           <p className="text-muted-foreground">
-            {isGoogleUser 
-              ? "We've created your account! Now let's set up your business details to get started."
-              : "Please provide your business information to activate your account."
+            {mode === 'create' 
+              ? (isGoogleUser 
+                  ? "We've created your account! Now let's set up your business details to get started."
+                  : "Please provide your business information to activate your account.")
+              : "Please complete your business information to start using VibePOS."
             }
           </p>
         </div>
@@ -460,18 +530,18 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false }: Tenant
                   Back to Sign In
                 </Button>
                 
-                <Button 
+                <Button
                   type="submit"
-                  disabled={loading}
                   className="flex-1"
+                  disabled={loading}
                 >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Setting Up...
+                      {mode === 'create' ? 'Creating Account...' : 'Updating Information...'}
                     </>
                   ) : (
-                    'Complete Setup & Start Trial'
+                    mode === 'create' ? 'Complete Setup' : 'Update Information'
                   )}
                 </Button>
               </div>
