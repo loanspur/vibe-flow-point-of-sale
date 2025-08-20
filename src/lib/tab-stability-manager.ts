@@ -3,6 +3,8 @@
  * when switching between browser tabs or windows
  */
 
+import { useState, useEffect } from 'react';
+
 interface TabState {
   isTabSwitching: boolean;
   lastVisibilityChange: number;
@@ -49,19 +51,16 @@ class TabStabilityManager {
         
         console.log('Tab switching detected - preventing refreshes');
       } else if (document.visibilityState === 'visible') {
-        // Tab is becoming visible
-        if (this.state.isTabSwitching && timeSinceLastChange < 5000) {
-          // If we were tab switching and it's been less than 5 seconds, maintain prevention
-          console.log('Tab returned within 5 seconds - maintaining stability');
-          
-          // Gradually restore normal operation after a delay
-          this.stabilityTimeout = setTimeout(() => {
-            this.restoreNormalOperation();
-          }, 3000); // 3 second grace period
-        } else {
-          // Been away longer or first load - restore normal operation
+        // Tab is becoming visible - always prevent refreshes initially
+        console.log('Tab returned - maintaining stability regardless of time away');
+        
+        // Always maintain prevention when returning to tab
+        this.state.isTabSwitching = false; // Not switching anymore, but keep protections
+        
+        // Extended grace period - only restore after user interaction or longer delay
+        this.stabilityTimeout = setTimeout(() => {
           this.restoreNormalOperation();
-        }
+        }, 10000); // 10 second grace period instead of 3
         
         this.state.lastVisibilityChange = now;
       }
@@ -88,6 +87,21 @@ class TabStabilityManager {
     };
 
     window.addEventListener('popstate', handlePopState);
+    
+    // Also listen for user interactions to restore normal operation
+    const handleUserInteraction = () => {
+      // User is actively interacting - safe to restore normal operation
+      if (this.state.isTabSwitching || this.state.preventAuthRefresh) {
+        console.log('User interaction detected - restoring normal operation');
+        setTimeout(() => {
+          this.restoreNormalOperation();
+        }, 2000); // Small delay after interaction
+      }
+    };
+    
+    // Listen for clicks and key presses as signs of active use
+    document.addEventListener('click', handleUserInteraction, { passive: true });
+    document.addEventListener('keydown', handleUserInteraction, { passive: true });
   }
 
   private restoreNormalOperation() {
@@ -184,5 +198,3 @@ export function useTabStability() {
     getState: tabStabilityManager.getState,
   };
 }
-
-import { useState, useEffect } from 'react';
