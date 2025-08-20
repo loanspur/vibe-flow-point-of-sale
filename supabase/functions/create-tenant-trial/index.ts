@@ -117,9 +117,70 @@ const handler = async (req: Request): Promise<Response> => {
     }
     
     console.log('Subscription created successfully');
+
+    // Generate temporary password for new user
+    console.log('Generating temporary password...');
+    const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+    
+    // Update user with temporary password and require password change
+    console.log('Setting temporary password and password change requirement...');
+    const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: tempPassword
+    });
+
+    if (passwordError) {
+      console.error('Password update error:', passwordError);
+      // Don't fail the whole process, just log the error
+    }
+
+    // Update profile to require password change
+    const { error: passwordFlagError } = await supabaseAdmin
+      .from('profiles')
+      .update({ 
+        require_password_change: true,
+        temp_password_created_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (passwordFlagError) {
+      console.error('Password flag update error:', passwordFlagError);
+      // Don't fail the whole process, just log the error
+    }
+
+    // Send welcome email with credentials
+    console.log('Sending welcome email with credentials...');
+    try {
+      const { error: emailError } = await supabaseAdmin.functions.invoke('send-welcome-email', {
+        body: {
+          tenantName: businessData.businessName,
+          contactEmail: businessData.businessEmail || businessData.ownerEmail,
+          tenantId: tenant.id,
+          ownerName: businessData.ownerName,
+          tempPassword: tempPassword,
+          subdomain: tenant.subdomain,
+          planName: highestPlan.name
+        }
+      });
+
+      if (emailError) {
+        console.error('Welcome email error:', emailError);
+        // Don't fail the whole process, just log the error
+      } else {
+        console.log('Welcome email sent successfully');
+      }
+    } catch (emailErr) {
+      console.error('Welcome email function error:', emailErr);
+      // Don't fail the whole process, just log the error
+    }
+
     console.log('=== CREATE TENANT TRIAL COMPLETED ===');
 
-    return new Response(JSON.stringify({ success: true, tenant_id: tenant.id, subdomain: tenant.subdomain }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      tenant_id: tenant.id, 
+      subdomain: tenant.subdomain,
+      message: 'Account created successfully. Check your email for login credentials.'
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });

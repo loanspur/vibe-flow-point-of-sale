@@ -123,11 +123,15 @@ export default function AuthCallback() {
               .single();
 
             if (tenantData?.subdomain) {
-              const tenantDomain = currentDomain.includes('vibenet.shop') 
-                ? `${tenantData.subdomain}.vibenet.shop`
-                : `${tenantData.subdomain}.vibenet.online`;
+              // Show instructions instead of redirect
+              toast({
+                title: "Login Successful!",
+                description: `Please bookmark and visit: ${tenantData.subdomain}.vibenet.shop`,
+              });
               
-              window.location.href = `https://${tenantDomain}/dashboard`;
+              setTimeout(() => {
+                navigate('/?login=success&subdomain=' + tenantData.subdomain);
+              }, 2000);
               return;
             }
           }
@@ -210,18 +214,15 @@ export default function AuthCallback() {
           .single();
 
         if (tenantData?.subdomain) {
-          const tenantDomain = currentDomain.includes('vibenet.shop') 
-            ? `${tenantData.subdomain}.vibenet.shop`
-            : `${tenantData.subdomain}.vibenet.online`;
-          
           toast({
             title: "Welcome back!",
-            description: `Redirecting you to ${tenantData.name}...`,
+            description: `Please visit your business dashboard at ${tenantData.subdomain}.vibenet.shop`,
           });
           
+          // Show message with instructions instead of redirect
           setTimeout(() => {
-            window.location.href = `https://${tenantDomain}/dashboard`;
-          }, 1000);
+            navigate('/?login=success&subdomain=' + tenantData.subdomain);
+          }, 2000);
           return;
         }
       }
@@ -281,22 +282,17 @@ export default function AuthCallback() {
           .eq('id', profile.tenant_id)
           .single();
 
-        if (tenantData?.subdomain) {
-          const currentDomain = window.location.hostname;
-          const tenantDomain = currentDomain.includes('vibenet.shop') 
-            ? `${tenantData.subdomain}.vibenet.shop`
-            : `${tenantData.subdomain}.vibenet.online`;
-          
-          toast({
-            title: "Welcome to VibePOS!",
-            description: `Redirecting you to ${tenantData.name}...`,
-          });
-          
-          setTimeout(() => {
-            window.location.href = `https://${tenantDomain}/dashboard`;
-          }, 1500);
-          return;
-        }
+            if (tenantData?.subdomain) {
+              toast({
+                title: "Welcome to VibePOS!",
+                description: `Check your email for login credentials to access ${tenantData.name} at ${tenantData.subdomain}.vibenet.shop`,
+              });
+              
+              setTimeout(() => {
+                navigate('/?signup=success&subdomain=' + tenantData.subdomain);
+              }, 2000);
+              return;
+            }
       }
 
       throw new Error('Failed to get tenant information');

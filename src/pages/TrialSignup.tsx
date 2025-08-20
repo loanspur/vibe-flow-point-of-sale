@@ -152,9 +152,12 @@ export default function TrialSignup() {
         
         toast({
           title: "Account Created Successfully!",
-          description: "Your account has been created. Please contact support for business setup.",
+          description: "Check your email for login credentials and instructions to access your business dashboard.",
           variant: "default"
         });
+        
+        // Move to step 2 to show success message
+        setStep(2);
       }
 
     } catch (error: any) {
@@ -460,7 +463,7 @@ export default function TrialSignup() {
                   </div>
                 </CardContent>
               </Card>
-            ) : (
+            ) : user ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

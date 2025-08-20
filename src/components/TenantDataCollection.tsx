@@ -149,48 +149,17 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false, mode = '
             variant: "default"
           });
 
-          // After successful tenant creation, redirect to tenant subdomain
-          setTimeout(async () => {
-            try {
-              // Fetch the newly created tenant's subdomain from the user's profile
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('tenant_id')
-                .eq('user_id', user.id)
-                .single();
-
-              if (profile?.tenant_id) {
-                const { data: tenantData } = await supabase
-                  .from('tenants')
-                  .select('subdomain, name')
-                  .eq('id', profile.tenant_id)
-                  .single();
-
-                if (tenantData?.subdomain) {
-                  // Determine the current domain to use the same TLD
-                  const currentDomain = window.location.hostname;
-                  const tenantDomain = currentDomain.includes('vibenet.shop') 
-                    ? `${tenantData.subdomain}.vibenet.shop`
-                    : `${tenantData.subdomain}.vibenet.online`;
-                  
-                  console.log('Redirecting to tenant domain:', tenantDomain);
-                  
-                  // Redirect to the tenant's subdomain dashboard
-                  window.location.href = `https://${tenantDomain}/dashboard`;
-                  return;
-                }
-              }
-              
-              // Fallback - if tenant data lookup fails, just redirect to dashboard
-              console.warn('Could not find tenant subdomain, using fallback redirect');
-              onSuccess?.();
-              navigate('/dashboard');
-            } catch (error) {
-              console.error('Failed to fetch tenant data for redirect:', error);
-              // Fallback redirect
-              onSuccess?.();
-              navigate('/dashboard');
-            }
+          // Show success message and wait for email check
+          setTimeout(() => {
+            toast({
+              title: "🎉 Setup Complete!",
+              description: "Check your email for login credentials and your business dashboard link.",
+              variant: "default"
+            });
+            
+            // Instead of redirecting, show success message and navigate to main page
+            onSuccess?.();
+            navigate('/?signup=success');
           }, 1500);
         } else {
           throw new Error('Tenant creation failed');
