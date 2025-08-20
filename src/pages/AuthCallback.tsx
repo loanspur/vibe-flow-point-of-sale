@@ -79,11 +79,11 @@ export default function AuthCallback() {
         }
 
         if (!profile) {
-          // New Google user - show business form instead of just OTP
+          // New Google user - show business form FIRST without creating profile yet
           setIsNewUser(true);
-          await createGoogleUserProfile(user, isFromTrial);
           setShowBusinessForm(true);
           setLoading(false);
+          // Profile will be created after business form is completed
         } else {
           // Existing Google user - update profile and show OTP
           await updateGoogleUserProfile(user, profile);

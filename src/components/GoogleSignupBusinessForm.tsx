@@ -133,6 +133,41 @@ export function GoogleSignupBusinessForm({
     setLoading(true);
     
     try {
+      // First, create the user profile if this is a new Google user
+      try {
+        const { data: authUser } = await supabase.auth.getUser();
+        if (authUser.user) {
+          const googleData = {
+            google_id: authUser.user.user_metadata?.iss + '/' + authUser.user.user_metadata?.sub,
+            email: authUser.user.email,
+            full_name: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.name,
+            avatar_url: authUser.user.user_metadata?.avatar_url || authUser.user.user_metadata?.picture,
+            provider_data: authUser.user.user_metadata
+          };
+
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: authUser.user.id,
+              full_name: googleData.full_name,
+              avatar_url: googleData.avatar_url,
+              google_id: googleData.google_id,
+              auth_method: 'google',
+              otp_required_always: true,
+              google_profile_data: googleData.provider_data,
+              role: 'user'
+            });
+
+          if (profileError && !profileError.message.includes('duplicate')) {
+            console.error('Profile creation error:', profileError);
+            throw profileError;
+          }
+        }
+      } catch (profileCreationError) {
+        console.error('Profile creation failed:', profileCreationError);
+        // Continue with the flow - profile might already exist
+      }
+
       // Store the business data
       const businessInfo = {
         businessName: formData.businessName,
