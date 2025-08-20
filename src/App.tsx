@@ -17,7 +17,6 @@ import { SuperAdminLayout } from "./components/SuperAdminLayout";
 import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
-import { PasswordChangeModal } from "./components/PasswordChangeModal";
 import { AuthSessionFix } from "./components/AuthSessionFix";
 import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
@@ -787,21 +786,20 @@ const App = () => {
       <TabStabilityProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <AppProvider>
-              <TooltipProvider>
-                <>
-                  <Toaster />
-                  <Sonner />
-                  <PerformanceMonitor />
-                  <AppOptimizer />
-                  <CookieConsent />
-                  <PasswordChangeModal />
-                  <BrowserRouter>
-                    <DomainRouter />
-                  </BrowserRouter>
-                </>
-              </TooltipProvider>
-            </AppProvider>
+             <AppProvider>
+               <TooltipProvider>
+                 <>
+                   <Toaster />
+                   <Sonner />
+                   <PerformanceMonitor />
+                   <AppOptimizer />
+                   <CookieConsent />
+                   <BrowserRouter>
+                     <DomainRouter />
+                   </BrowserRouter>
+                 </>
+               </TooltipProvider>
+             </AppProvider>
           </AuthProvider>
         </QueryClientProvider>
       </TabStabilityProvider>

@@ -179,6 +179,10 @@ export default function AuthCallback() {
   };
 
   const handleOTPSuccess = async (businessData?: any) => {
+    console.log('=== OTP SUCCESS HANDLER CALLED ===');
+    console.log('isNewUser:', isNewUser);
+    console.log('businessData received:', businessData);
+    
     setShowOTPModal(false);
     
     try {
@@ -241,13 +245,17 @@ export default function AuthCallback() {
 
   const createTenantForNewUser = async (businessData: any) => {
     try {
+      console.log('=== STARTING TENANT CREATION ===');
       console.log('Creating tenant with business data:', businessData);
+      console.log('User ID:', userId);
       
       toast({
         title: "Creating your workspace...",
         description: "Setting up your business account.",
       });
 
+      console.log('About to call create-tenant-trial function...');
+      
       // Create tenant with the complete business data
       const { data, error } = await supabase.functions.invoke('create-tenant-trial', {
         body: {
@@ -257,6 +265,8 @@ export default function AuthCallback() {
           isGoogleUser: true
         }
       });
+
+      console.log('Function call completed. Response:', { data, error });
 
       if (error) {
         console.error('Tenant creation error:', error);
