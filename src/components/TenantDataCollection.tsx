@@ -374,7 +374,14 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false, mode = '
                       value={formData.businessEmail}
                       onChange={(e) => handleInputChange('businessEmail', e.target.value)}
                       placeholder="business@example.com"
+                      disabled={mode === 'update'}
+                      className={mode === 'update' ? 'bg-muted cursor-not-allowed' : ''}
                     />
+                    {mode === 'update' && (
+                      <p className="text-xs text-muted-foreground">
+                        Email cannot be changed as it has been verified
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
