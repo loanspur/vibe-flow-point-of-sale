@@ -230,7 +230,7 @@ const DomainRouter = () => {
   }
 
   const currentPath = location.pathname;
-  if (currentPath === '/auth' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
+  if (currentPath === '/auth' || currentPath === '/auth/callback' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
