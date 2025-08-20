@@ -195,9 +195,13 @@ const DomainRouter = () => {
     if (typeof window === 'undefined') return;
     
     const hash = window.location.hash;
-    const isAuthCallback = hash && /access_token|token_hash|type=invite|type=recovery/i.test(hash);
+    const searchParams = new URLSearchParams(location.search || '');
     
-    if (isAuthCallback && location.pathname !== '/reset-password') {
+    // Only redirect to reset-password for specific invite/recovery types, not Google OAuth
+    const isInviteCallback = hash && /type=invite|type=recovery/i.test(hash);
+    const isGoogleOAuth = searchParams.get('type') === 'google' || location.pathname === '/auth/callback';
+    
+    if (isInviteCallback && !isGoogleOAuth && location.pathname !== '/reset-password') {
       const search = new URLSearchParams(location.search || '');
       if (!search.get('from')) search.set('from', 'invite');
       const qs = search.toString();
