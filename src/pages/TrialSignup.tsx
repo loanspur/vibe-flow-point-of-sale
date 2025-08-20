@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Check, Building2, Users, Zap, ArrowLeft, Shield, Clock, CreditCard, Star } from 'lucide-react';
+import { Check, Building2, Users, Zap, ArrowLeft, Shield, Clock, CreditCard, Star, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -463,6 +463,27 @@ export default function TrialSignup() {
                   </div>
                 </CardContent>
               </Card>
+            ) : step === 2 ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                <div className="mb-4">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-green-900 mb-2">Account Created Successfully!</h3>
+                <p className="text-green-700 mb-4">
+                  Check your email for login credentials and instructions to access your business dashboard.
+                </p>
+                <div className="bg-green-100 rounded-lg p-4">
+                  <p className="text-sm text-green-800">
+                    <strong>Next Steps:</strong><br/>
+                    1. Check your email for login credentials<br/>
+                    2. Visit your business subdomain link<br/>
+                    3. Log in and change your password<br/>
+                    4. Start exploring your {selectedPlanData?.name} trial!
+                  </p>
+                </div>
+              </div>
             ) : user ? (
               <Card>
                 <CardHeader>
@@ -532,7 +553,7 @@ export default function TrialSignup() {
                   </p>
                 </CardContent>
               </Card>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

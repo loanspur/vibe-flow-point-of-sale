@@ -4,6 +4,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
 import { tabStabilityManager } from '@/lib/tab-stability-manager';
+import { PasswordChangeModal } from '@/components/PasswordChangeModal';
 
 // User roles are now dynamically managed via user_roles table
 type UserRole = string; // Dynamic role from database
@@ -40,6 +41,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [profileFetched, setProfileFetched] = useState<string | null>(null);
   const [fetchInProgress, setFetchInProgress] = useState<boolean>(false); // Prevent concurrent calls
 
@@ -81,7 +83,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
-        setRequirePasswordChange(profile.require_password_change || false);
+        const passwordChangeRequired = profile.require_password_change || false;
+        setRequirePasswordChange(passwordChangeRequired);
+        
+        // Show password change modal if required
+        if (passwordChangeRequired && !showPasswordChangeModal) {
+          setShowPasswordChangeModal(true);
+        }
       } else {
         // Fallback if no profile found
         setUserRole('user');
@@ -389,10 +397,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (user) {
         await supabase
           .from('profiles')
-          .update({ require_password_change: false })
+          .update({ 
+            require_password_change: false,
+            temp_password_created_at: null
+          })
           .eq('user_id', user.id);
         
         setRequirePasswordChange(false);
+        setShowPasswordChangeModal(false);
       }
 
       return { error: null };
@@ -411,7 +423,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     refreshUserInfo,
     signIn,
     signOut,
-    updatePassword
+    updatePassword,
+    showPasswordChangeModal,
+    setShowPasswordChangeModal,
   };
 
   // Don't render children until we've checked for an existing session
@@ -440,6 +454,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthContext.Provider value={value}>
       {children}
+      
+      {/* Password Change Modal */}
+      <PasswordChangeModal
+        isOpen={showPasswordChangeModal}
+        onClose={() => setShowPasswordChangeModal(false)}
+        onSuccess={() => {
+          setShowPasswordChangeModal(false);
+          setRequirePasswordChange(false);
+        }}
+        isRequired={requirePasswordChange}
+      />
     </AuthContext.Provider>
   );
 };

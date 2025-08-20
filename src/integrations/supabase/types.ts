@@ -3344,6 +3344,7 @@ export type Database = {
           otp_required_always: boolean | null
           require_password_change: boolean | null
           role: Database["public"]["Enums"]["user_role"] | null
+          temp_password_created_at: string | null
           tenant_id: string | null
           updated_at: string
           user_id: string
@@ -3364,6 +3365,7 @@ export type Database = {
           otp_required_always?: boolean | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          temp_password_created_at?: string | null
           tenant_id?: string | null
           updated_at?: string
           user_id: string
@@ -3384,6 +3386,7 @@ export type Database = {
           otp_required_always?: boolean | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          temp_password_created_at?: string | null
           tenant_id?: string | null
           updated_at?: string
           user_id?: string
