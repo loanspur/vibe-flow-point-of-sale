@@ -80,41 +80,12 @@ export default function AuthCallback() {
           // Mark as trial user if coming from trial signup
           await createGoogleUserProfile(user, isFromTrial);
         } else {
-          // Existing Google user - check for tenant redirection
-          if (isMainDomain && profile.tenant_id) {
-            // User has a tenant, redirect to their subdomain
-            try {
-              const { data: tenantData } = await supabase
-                .from('tenants')
-                .select('subdomain, name')
-                .eq('id', profile.tenant_id)
-                .single();
-
-              if (tenantData?.subdomain) {
-                const tenantDomain = currentDomain.includes('vibenet.shop') 
-                  ? `${tenantData.subdomain}.vibenet.shop`
-                  : `${tenantData.subdomain}.vibenet.online`;
-                
-                // Add auth tokens to the redirect to maintain session
-                const authParams = new URLSearchParams();
-                if (session.access_token) authParams.set('access_token', session.access_token);
-                if (session.refresh_token) authParams.set('refresh_token', session.refresh_token);
-                authParams.set('google_auth', 'true');
-                
-                window.location.href = `https://${tenantDomain}/auth/callback?${authParams.toString()}`;
-                return;
-              }
-            } catch (tenantError) {
-              console.error('Tenant lookup error:', tenantError);
-              // Continue with normal flow if tenant lookup fails
-            }
-          }
-          
-          // Update existing user profile
+          // Existing Google user - update profile
           await updateGoogleUserProfile(user, profile);
         }
 
-        // Always require OTP verification for Google users (unless redirected)
+        // Always require OTP verification for Google users FIRST
+        // Tenant redirection will happen AFTER successful OTP verification
         setShowOTPModal(true);
         setLoading(false);
       } else {
