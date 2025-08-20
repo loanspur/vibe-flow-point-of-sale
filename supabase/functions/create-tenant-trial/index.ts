@@ -12,7 +12,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('=== CREATE TENANT TRIAL STARTED ===');
     const { userId, businessData, planType, isGoogleUser } = await req.json();
+    console.log('Request data:', { userId, businessData: JSON.stringify(businessData), planType, isGoogleUser });
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -30,6 +32,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Plans query result:', { plans, plansError });
     
+    if (plansError) {
+      console.error('Error fetching billing plans:', plansError);
+      throw new Error(`Failed to fetch billing plans: ${plansError.message}`);
+    }
+    
     const highestPlan = plans?.[0];
     if (!highestPlan) {
       console.error('No active billing plan found');
@@ -39,47 +46,80 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Using highest plan:', { id: highestPlan.id, name: highestPlan.name, price: highestPlan.price });
 
     // Create tenant
+    console.log('Creating tenant...');
+    const tenantData = {
+      name: businessData.businessName,
+      subdomain: businessData.businessName.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 30),
+      status: 'trial',
+      billing_plan_id: highestPlan.id,
+      created_by: userId
+    };
+    console.log('Tenant data to insert:', tenantData);
+    
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
-      .insert({
-        name: businessData.businessName,
-        subdomain: businessData.businessName.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 30),
-        status: 'trial',
-        billing_plan_id: highestPlan.id,
-        created_by: userId
-      })
+      .insert(tenantData)
       .select()
       .single();
 
-    if (tenantError) throw tenantError;
+    console.log('Tenant creation result:', { tenant, tenantError });
+    if (tenantError) {
+      console.error('Tenant creation error:', tenantError);
+      throw new Error(`Failed to create tenant: ${tenantError.message}`);
+    }
+
+    console.log('Tenant created successfully:', tenant);
 
     // Update profile
-    await supabaseAdmin
+    console.log('Updating user profile...');
+    const profileData = {
+      tenant_id: tenant.id,
+      role: 'admin',
+      full_name: businessData.ownerName,
+      auth_method: isGoogleUser ? 'google' : 'email',
+      otp_required_always: isGoogleUser || false
+    };
+    console.log('Profile data to update:', profileData);
+    
+    const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .update({
-        tenant_id: tenant.id,
-        role: 'admin',
-        full_name: businessData.ownerName,
-        auth_method: isGoogleUser ? 'google' : 'email',
-        otp_required_always: isGoogleUser || false
-      })
+      .update(profileData)
       .eq('user_id', userId);
 
+    if (profileError) {
+      console.error('Profile update error:', profileError);
+      throw new Error(`Failed to update profile: ${profileError.message}`);
+    }
+    
+    console.log('Profile updated successfully');
+
     // Create subscription with 14-day trial
+    console.log('Creating trial subscription...');
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + 14);
 
-    await supabaseAdmin
-      .from('tenant_subscription_details')
-      .insert({
-        tenant_id: tenant.id,
-        billing_plan_id: highestPlan.id,
-        status: 'trial',
-        trial_end_date: trialEndDate.toISOString(),
-        created_by: userId
-      });
+    const subscriptionData = {
+      tenant_id: tenant.id,
+      billing_plan_id: highestPlan.id,
+      status: 'trial',
+      trial_end_date: trialEndDate.toISOString(),
+      created_by: userId
+    };
+    console.log('Subscription data to insert:', subscriptionData);
 
-    return new Response(JSON.stringify({ success: true, tenant_id: tenant.id }), {
+    const { error: subscriptionError } = await supabaseAdmin
+      .from('tenant_subscription_details')
+      .insert(subscriptionData);
+
+    if (subscriptionError) {
+      console.error('Subscription creation error:', subscriptionError);
+      throw new Error(`Failed to create subscription: ${subscriptionError.message}`);
+    }
+    
+    console.log('Subscription created successfully');
+    console.log('=== CREATE TENANT TRIAL COMPLETED ===');
+
+    return new Response(JSON.stringify({ success: true, tenant_id: tenant.id, subdomain: tenant.subdomain }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
