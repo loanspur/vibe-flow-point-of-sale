@@ -35,15 +35,6 @@ export function OTPVerificationModal({
   isNewUser = false,
   userFullName = ""
 }: OTPVerificationModalProps) {
-  // Debug logging
-  console.log('OTPVerificationModal props:', { 
-    isOpen, 
-    isNewUser, 
-    email, 
-    userId, 
-    otpType,
-    userFullName
-  });
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -111,8 +102,6 @@ export function OTPVerificationModal({
 
   const sendInitialOTP = async () => {
     try {
-      console.log('Sending initial OTP to:', email, 'for user:', userId, 'type:', otpType);
-      
       const { error } = await supabase.functions.invoke('send-otp-verification', {
         body: {
           email,
@@ -122,13 +111,9 @@ export function OTPVerificationModal({
       });
 
       if (error) {
-        console.error('Failed to send initial OTP:', error);
         setError('Failed to send verification code. Please try again.');
-      } else {
-        console.log('Initial OTP sent successfully');
       }
     } catch (error) {
-      console.error('Error sending initial OTP:', error);
       setError('Failed to send verification code. Please try again.');
     }
   };
@@ -188,7 +173,7 @@ export function OTPVerificationModal({
     if (!formData.lastName.trim()) errors.push('Last name is required');
     if (!formData.phone.trim()) errors.push('Phone number is required');
     if (!formData.country.trim()) errors.push('Country is required');
-    if (subdomainAvailable === false) errors.push('Subdomain is not available');
+    if (formData.subdomain && subdomainAvailable === false) errors.push('Subdomain is not available');
     
     return errors;
   };
@@ -348,7 +333,7 @@ export function OTPVerificationModal({
         throw profileError;
       }
 
-      console.log('Google user profile created successfully');
+      // Profile created successfully
     } catch (error) {
       console.error('Failed to create Google user profile:', error);
       throw error;
@@ -632,16 +617,16 @@ export function OTPVerificationModal({
           <div className="space-y-2">
             <Button
               onClick={handleVerifyOTP}
-              disabled={loading || otp.length !== 6 || (isNewUser && subdomainAvailable === false)}
+              disabled={loading || otp.length !== 6}
               className="w-full"
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isNewUser ? 'Creating Account...' : 'Verifying...'}
+                  {isNewUser ? 'Verifying & Creating Account...' : 'Verifying...'}
                 </>
               ) : (
-                isNewUser ? 'Create Account & Verify' : 'Verify Code'
+                isNewUser ? 'Verify Email & Create Account' : 'Verify Code'
               )}
             </Button>
 
