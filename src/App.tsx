@@ -46,6 +46,7 @@ const AccountsReceivablePayable = lazy(() => import("./components/AccountsReceiv
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
 import TenantAdminDashboard from "./pages/TenantAdminDashboard";
+import { TenantSetupCompletion } from "./components/TenantSetupCompletion";
 
 // Admin Pages
 const TenantManagement = lazy(() => import("./pages/TenantManagement"));
@@ -305,15 +306,13 @@ const DomainRouter = () => {
             } 
           />
           
-          {/* Dashboard route - same as root for subdomains */}
+          {/* Dashboard route - check for setup completion first */}
           <Route 
             path="/dashboard" 
             element={
               <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
-                  <TenantAdminLayout>
-                    <TenantAdminDashboard />
-                  </TenantAdminLayout>
+                  <TenantSetupCompletion />
                 </SubscriptionGuard>
               </ProtectedRoute>
             } 

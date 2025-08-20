@@ -244,12 +244,8 @@ export default function AuthCallback() {
         // Clear trial signup flag
         sessionStorage.removeItem('google-trial-signup');
         
-        // New Google user without tenant - redirect to tenant data collection
-        toast({
-          title: "Welcome!",
-          description: "Please complete your business information to get started.",
-        });
-        navigate('/trial-signup?google=true&step=tenant-data');
+        // New Google user without tenant - create tenant immediately after OTP verification
+        await createTenantForNewUser();
       } else {
         // Existing user without tenant - redirect to dashboard
         toast({
@@ -261,6 +257,88 @@ export default function AuthCallback() {
     } catch (error) {
       console.error('Navigation error:', error);
       setError('Login successful but navigation failed. Please refresh the page.');
+    }
+  };
+
+  const createTenantForNewUser = async () => {
+    try {
+      toast({
+        title: "Creating your workspace...",
+        description: "Setting up your business account.",
+      });
+
+      // Create tenant with minimal info - user can complete setup later
+      const { data, error } = await supabase.functions.invoke('create-tenant-trial', {
+        body: {
+          userId: userId,
+          businessData: {
+            businessName: userEmail.split('@')[0] + "'s Business", // Temporary name
+            businessEmail: userEmail,
+            businessPhone: '',
+            address: '',
+            country: 'Kenya'
+          },
+          planType: 'starter', // Default plan
+          isGoogleUser: true
+        }
+      });
+
+      if (error) {
+        console.error('Tenant creation error:', error);
+        throw error;
+      }
+
+      console.log('Tenant created:', data);
+
+      // Refresh user info to get the new tenant
+      await refreshUserInfo();
+
+      // Now get the tenant info and redirect to subdomain
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profile?.tenant_id) {
+        const { data: tenantData } = await supabase
+          .from('tenants')
+          .select('subdomain, name')
+          .eq('id', profile.tenant_id)
+          .single();
+
+        if (tenantData?.subdomain) {
+          const currentDomain = window.location.hostname;
+          const tenantDomain = currentDomain.includes('vibenet.shop') 
+            ? `${tenantData.subdomain}.vibenet.shop`
+            : `${tenantData.subdomain}.vibenet.online`;
+          
+          toast({
+            title: "Welcome to VibePOS!",
+            description: "Redirecting you to your workspace to complete setup...",
+          });
+          
+          // Redirect to tenant subdomain - the TenantSetupCompletion component will handle the rest
+          setTimeout(() => {
+            window.location.href = `https://${tenantDomain}/dashboard`;
+          }, 1000);
+          return;
+        }
+      }
+
+      // Fallback if something goes wrong
+      throw new Error('Failed to get tenant information');
+
+    } catch (error) {
+      console.error('Tenant creation failed:', error);
+      toast({
+        title: "Setup Error",
+        description: "Failed to create your workspace. Please try again.",
+        variant: "destructive"
+      });
+      
+      // Fallback to manual tenant creation
+      navigate('/trial-signup?google=true&step=tenant-data');
     }
   };
 
