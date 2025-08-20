@@ -84,10 +84,10 @@ export default function AuthCallback() {
         }
 
         if (!profile) {
-          // New Google user - show business form
-          console.log('New Google user detected - showing business form');
+          // New Google user - show unified OTP form with business fields
+          console.log('New Google user detected - showing unified OTP form with business fields');
           setIsNewUser(true);
-          setShowBusinessForm(true);
+          setShowOTPModal(true);
           
           // Clear any trial signup flags
           sessionStorage.removeItem('google-trial-signup');
@@ -170,11 +170,18 @@ export default function AuthCallback() {
     }
   };
 
-  const handleOTPSuccess = async () => {
+  const handleOTPSuccess = async (businessData?: any) => {
     setShowOTPModal(false);
     
     try {
       await refreshUserInfo();
+      
+      // If this is a new user with business data, create tenant
+      if (isNewUser && businessData) {
+        console.log('New user OTP verified, creating tenant with business data:', businessData);
+        await createTenantForNewUser(businessData);
+        return;
+      }
       
       // Check if we're on a main domain for potential redirection
       const currentDomain = window.location.hostname;
@@ -381,17 +388,7 @@ export default function AuthCallback() {
         </CardHeader>
       </Card>
 
-      {/* Business Data Collection Form for New Google Users */}
-      <GoogleSignupBusinessForm
-        isOpen={showBusinessForm}
-        onClose={handleBusinessFormClose}
-        onSuccess={handleBusinessFormSuccess}
-        email={userEmail}
-        userId={userId}
-        userFullName={userFullName}
-      />
-
-      {/* OTP Verification Modal for Existing Users */}
+      {/* Unified OTP Verification Modal for Both New and Existing Users */}
       <OTPVerificationModal
         isOpen={showOTPModal}
         onClose={handleOTPClose}
@@ -399,8 +396,13 @@ export default function AuthCallback() {
         email={userEmail}
         userId={userId}
         title="Verify Your Email"
-        description="For security, we need to verify your email address before you can continue."
-        otpType="login_verification"
+        description={isNewUser 
+          ? "Please complete your business information and verify your email to create your account."
+          : "For security, we need to verify your email address before you can continue."
+        }
+        otpType={isNewUser ? "email_verification" : "login_verification"}
+        isNewUser={isNewUser}
+        userFullName={userFullName}
       />
     </div>
   );
