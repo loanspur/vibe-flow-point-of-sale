@@ -316,21 +316,19 @@ export function OTPVerificationModal({
 
       const user = userData.user;
       
-      // Create profile with business-related information
+      // Create profile with only fields that exist in the database schema
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
           user_id: user.id,
-          email: user.email,
           full_name: `${formData.firstName} ${formData.lastName}`.trim(),
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-          role: 'admin',
+          role: 'admin' as any, // Cast to user_role enum
           auth_method: 'google',
           google_id: user.user_metadata?.iss + '/' + user.user_metadata?.sub,
           google_profile_data: user.user_metadata,
-          otp_required_always: true
+          otp_required_always: true,
+          invitation_status: 'accepted',
+          invitation_accepted_at: new Date().toISOString()
         });
 
       if (profileError) {
@@ -338,7 +336,7 @@ export function OTPVerificationModal({
         throw profileError;
       }
 
-      // Profile created successfully
+      console.log('Profile created successfully for user:', user.id);
     } catch (error) {
       console.error('Failed to create Google user profile:', error);
       throw error;
