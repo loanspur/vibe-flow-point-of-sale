@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,7 +47,6 @@ export function OTPVerificationModal({
   const [formData, setFormData] = useState({
     businessName: '',
     businessType: 'retail',
-    businessDescription: '',
     subdomain: '',
     firstName: userFullName.split(' ')[0] || '',
     lastName: userFullName.split(' ').slice(1).join(' ') || '',
@@ -284,10 +282,17 @@ export function OTPVerificationModal({
           description: "Your email has been successfully verified.",
         });
         
-        // For new users, create profile and pass business data
+        // For new users, verify first then create profile and tenant
         if (isNewUser) {
-          await createGoogleUserProfile();
-          onSuccess(formData);
+          try {
+            await createGoogleUserProfile();
+            // Pass business data to trigger tenant creation
+            onSuccess(formData);
+          } catch (error) {
+            console.error('Profile creation failed:', error);
+            setError('Failed to create profile. Please try again.');
+            return;
+          }
         } else {
           onSuccess();
         }
@@ -432,17 +437,6 @@ export function OTPVerificationModal({
                     </Select>
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="businessDescription">Business Description</Label>
-                    <Textarea
-                      id="businessDescription"
-                      placeholder="Briefly describe your business"
-                      value={formData.businessDescription}
-                      onChange={(e) => handleInputChange('businessDescription', e.target.value)}
-                      className="bg-background resize-none"
-                      rows={2}
-                    />
-                  </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="subdomain">Your Store URL *</Label>
