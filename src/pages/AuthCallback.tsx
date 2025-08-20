@@ -84,12 +84,14 @@ export default function AuthCallback() {
         if (!profile) {
           // New Google user - show unified OTP form with business fields
           console.log('New Google user detected - showing unified OTP form with business fields');
-          console.log('Setting isNewUser to true and showing OTP modal');
-          console.log('Before setting isNewUser - current value:', isNewUser);
+          
+          // Set both states together to avoid timing issues
           setIsNewUser(true);
-          console.log('After setting isNewUser to true');
-          setShowOTPModal(true);
-          console.log('OTP modal should now be visible with business fields');
+          // Use setTimeout to ensure state update is processed before opening modal
+          setTimeout(() => {
+            setShowOTPModal(true);
+            console.log('OTP modal opened for new user with business fields');
+          }, 0);
           
           // Clear any trial signup flags
           sessionStorage.removeItem('google-trial-signup');
