@@ -90,7 +90,7 @@ export const DataMigration: React.FC = () => {
 
   const validateProductsData = (headers: string[]) => {
     const requiredFields = ['name', 'price'];
-    const optionalFields = ['description', 'sku', 'barcode', 'cost_price', 'stock_quantity', 'category', 'brand'];
+    const optionalFields = ['description', 'sku', 'barcode', 'cost_price', 'stock_quantity', 'category', 'brand', 'location', 'unit'];
     return validateHeaders(headers, requiredFields, optionalFields);
   };
 
@@ -649,11 +649,11 @@ export const DataMigration: React.FC = () => {
         ]
       },
       products: {
-        headers: ['name', 'description', 'price', 'cost_price', 'sku', 'barcode', 'stock_quantity', 'category'],
+        headers: ['name', 'location', 'sku', 'category', 'unit', 'price', 'cost_price', 'stock_quantity'],
         samples: [
-          ['Wireless Headphones', 'High-quality bluetooth headphones', '99.99', '45.00', 'WH001', '1234567890123', '50', 'Electronics'],
-          ['Cotton T-Shirt', 'Comfortable cotton t-shirt', '19.99', '8.50', 'TS001', '2345678901234', '100', 'Clothing'],
-          ['Coffee Beans', 'Premium arabica coffee beans', '12.99', '6.00', 'CB001', '3456789012345', '25', 'Food & Beverages']
+          ['Wireless Headphones', 'Main Store', 'WH001', 'Electronics', 'pcs', '99.99', '45.00', '50'],
+          ['Cotton T-Shirt', 'Warehouse A', 'TS001', 'Clothing', 'pcs', '19.99', '8.50', '100'],
+          ['Coffee Beans', 'Store Front', 'CB001', 'Food & Beverages', 'kg', '12.99', '6.00', '25']
         ]
       },
     };
