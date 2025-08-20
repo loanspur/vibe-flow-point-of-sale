@@ -54,6 +54,9 @@ export function OTPVerificationModal({
     return () => clearInterval(timer);
   }, [isOpen]);
 
+  // Track if we've sent initial OTP for this modal session
+  const initialOtpSentRef = useRef(false);
+
   // Send initial OTP when modal opens and reset state
   useEffect(() => {
     if (isOpen) {
@@ -61,13 +64,18 @@ export function OTPVerificationModal({
       setError('');
       setTimeLeft(300);
       setCanResend(false);
+      initialOtpSentRef.current = false; // Reset for new session
+      
       // Focus first input
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
       
-      // Send initial OTP
-      sendInitialOTP();
+      // Send initial OTP only once per modal session
+      if (!initialOtpSentRef.current) {
+        sendInitialOTP();
+        initialOtpSentRef.current = true;
+      }
     }
-  }, [isOpen, email, userId, otpType]);
+  }, [isOpen]); // Only depend on isOpen, not the other values
 
   const sendInitialOTP = async () => {
     try {

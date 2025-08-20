@@ -23,13 +23,14 @@ export function AppOptimizer() {
         clearTimeout(focusTimeout);
       }
 
-      // Debounce visibility change handling
+      // Debounce visibility change handling with longer delay to prevent refresh loops
       focusTimeout = setTimeout(() => {
         if (document.visibilityState === 'visible') {
           lastFocus = Date.now();
-          // Only trigger minimal updates, no full page refreshes
+          // Prevent any auth state refreshes that could trigger OTP sends
+          console.log('Tab focus detected, ignoring to prevent refresh loops');
         }
-      }, PERFORMANCE_CONFIG.TAB_SWITCH_DELAY);
+      }, PERFORMANCE_CONFIG.TAB_SWITCH_DELAY * 2); // Double the delay
     };
 
     // Prevent aggressive scroll restoration that causes layout shifts
