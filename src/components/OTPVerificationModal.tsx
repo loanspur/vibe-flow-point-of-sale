@@ -54,7 +54,7 @@ export function OTPVerificationModal({
     return () => clearInterval(timer);
   }, [isOpen]);
 
-  // Reset state when modal opens
+  // Send initial OTP when modal opens and reset state
   useEffect(() => {
     if (isOpen) {
       setOtp('');
@@ -63,8 +63,35 @@ export function OTPVerificationModal({
       setCanResend(false);
       // Focus first input
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      
+      // Send initial OTP
+      sendInitialOTP();
     }
-  }, [isOpen]);
+  }, [isOpen, email, userId, otpType]);
+
+  const sendInitialOTP = async () => {
+    try {
+      console.log('Sending initial OTP to:', email, 'for user:', userId, 'type:', otpType);
+      
+      const { error } = await supabase.functions.invoke('send-otp-verification', {
+        body: {
+          email,
+          userId,
+          otpType
+        }
+      });
+
+      if (error) {
+        console.error('Failed to send initial OTP:', error);
+        setError('Failed to send verification code. Please try again.');
+      } else {
+        console.log('Initial OTP sent successfully');
+      }
+    } catch (error) {
+      console.error('Error sending initial OTP:', error);
+      setError('Failed to send verification code. Please try again.');
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
