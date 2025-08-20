@@ -49,6 +49,8 @@ export default function AuthCallback() {
       setUserEmail(user.email || '');
       setUserFullName(user.user_metadata?.full_name || user.user_metadata?.name || '');
 
+      console.log('Auth callback - User ID:', user.id, 'Email:', user.email);
+
       // Check if we're on a main domain (centralized auth flow)
       const currentDomain = window.location.hostname;
       const isMainDomain = currentDomain === 'vibenet.shop' || 
@@ -56,21 +58,24 @@ export default function AuthCallback() {
                           currentDomain === 'www.vibenet.shop' || 
                           currentDomain === 'www.vibenet.online';
 
-      // Check if this is a Google user and if they exist in our system
+      // Check if this is a Google user
       const isGoogleAuth = searchParams.get('type') === 'google' || 
                           user.app_metadata?.provider === 'google';
       
-      // Check if this is from trial signup
-      const isFromTrial = searchParams.get('from') === 'trial' || 
-                         sessionStorage.getItem('google-trial-signup') === 'true';
+      console.log('Is Google Auth:', isGoogleAuth);
 
       if (isGoogleAuth) {
-        // Check if profile exists
+        // Force a small delay to ensure any profile creation is complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check if profile exists - be more thorough
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', user.id)
           .maybeSingle();
+
+        console.log('Profile check result:', { profile, profileError });
 
         if (profileError && profileError.code !== 'PGRST116') {
           console.error('Profile check error:', profileError);
@@ -79,17 +84,21 @@ export default function AuthCallback() {
         }
 
         if (!profile) {
-          // New Google user - show business form FIRST without creating profile yet
+          // New Google user - show business form
+          console.log('New Google user detected - showing business form');
           setIsNewUser(true);
           setShowBusinessForm(true);
-          setLoading(false);
-          // Profile will be created after business form is completed
+          
+          // Clear any trial signup flags
+          sessionStorage.removeItem('google-trial-signup');
         } else {
-          // Existing Google user - update profile and show OTP
+          // Existing Google user - update profile and show OTP for verification
+          console.log('Existing Google user detected - showing OTP');
           await updateGoogleUserProfile(user, profile);
           setShowOTPModal(true);
-          setLoading(false);
         }
+        
+        setLoading(false);
       } else {
         // Regular email/password auth
         await refreshUserInfo();
@@ -128,38 +137,6 @@ export default function AuthCallback() {
     }
   };
 
-  const createGoogleUserProfile = async (user: any, isFromTrial: boolean = false) => {
-    try {
-      const googleData = {
-        google_id: user.user_metadata?.iss + '/' + user.user_metadata?.sub,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name,
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-        provider_data: user.user_metadata
-      };
-
-      const { error } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: user.id,
-          full_name: googleData.full_name,
-          avatar_url: googleData.avatar_url,
-          google_id: googleData.google_id,
-          auth_method: 'google',
-          otp_required_always: true,
-          google_profile_data: googleData.provider_data,
-          role: 'user'
-        });
-
-      if (error) {
-        console.error('Profile creation error:', error);
-        throw error;
-      }
-    } catch (error) {
-      console.error('Failed to create Google profile:', error);
-      throw error;
-    }
-  };
 
   const updateGoogleUserProfile = async (user: any, existingProfile: any) => {
     try {
@@ -206,7 +183,7 @@ export default function AuthCallback() {
                           currentDomain === 'www.vibenet.shop' || 
                           currentDomain === 'www.vibenet.online';
       
-      // Check if user already has a tenant (whether new or existing user)
+      // Check if user already has a tenant
       const { data: profile } = await supabase
         .from('profiles')
         .select('tenant_id')
@@ -227,14 +204,10 @@ export default function AuthCallback() {
             : `${tenantData.subdomain}.vibenet.online`;
           
           toast({
-            title: isNewUser ? "Welcome!" : "Welcome back!",
+            title: "Welcome back!",
             description: `Redirecting you to ${tenantData.name}...`,
           });
           
-          // Clear trial signup flag
-          sessionStorage.removeItem('google-trial-signup');
-          
-          // Small delay to show the toast
           setTimeout(() => {
             window.location.href = `https://${tenantDomain}/dashboard`;
           }, 1000);
@@ -242,46 +215,33 @@ export default function AuthCallback() {
         }
       }
       
-      if (isNewUser) {
-        // This will be handled by the business form
-        // The form will call handleBusinessFormSuccess after OTP verification
-        toast({
-          title: "Welcome!",
-          description: "Please complete your business setup.",
-        });
-      } else {
-        // Existing user without tenant - redirect to dashboard
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-        });
-        navigate('/dashboard');
-      }
+      // Existing user without tenant - redirect to dashboard
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
+      navigate('/dashboard');
     } catch (error) {
       console.error('Navigation error:', error);
       setError('Login successful but navigation failed. Please refresh the page.');
     }
   };
 
-  const createTenantForNewUser = async (businessData?: any) => {
+  const createTenantForNewUser = async (businessData: any) => {
     try {
+      console.log('Creating tenant with business data:', businessData);
+      
       toast({
         title: "Creating your workspace...",
         description: "Setting up your business account.",
       });
 
-      // Create tenant with collected business data or minimal info
+      // Create tenant with the complete business data
       const { data, error } = await supabase.functions.invoke('create-tenant-trial', {
         body: {
           userId: userId,
-          businessData: businessData || {
-            businessName: userEmail.split('@')[0] + "'s Business", // Temporary name
-            businessEmail: userEmail,
-            businessPhone: '',
-            address: '',
-            country: 'Kenya'
-          },
-          planType: 'starter', // Default plan
+          businessData: businessData,
+          planType: 'starter',
           isGoogleUser: true
         }
       });
@@ -291,12 +251,12 @@ export default function AuthCallback() {
         throw error;
       }
 
-      console.log('Tenant created:', data);
+      console.log('Tenant created successfully:', data);
 
       // Refresh user info to get the new tenant
       await refreshUserInfo();
 
-      // Now get the tenant info and redirect to subdomain
+      // Get the tenant info and redirect to subdomain
       const { data: profile } = await supabase
         .from('profiles')
         .select('tenant_id')
@@ -318,20 +278,17 @@ export default function AuthCallback() {
           
           toast({
             title: "Welcome to VibePOS!",
-            description: "Redirecting you to your workspace to complete setup...",
+            description: `Redirecting you to ${tenantData.name}...`,
           });
           
-          // Redirect to tenant subdomain - the TenantSetupCompletion component will handle the rest
           setTimeout(() => {
             window.location.href = `https://${tenantDomain}/dashboard`;
-          }, 1000);
+          }, 1500);
           return;
         }
       }
 
-      // Fallback if something goes wrong
       throw new Error('Failed to get tenant information');
-
     } catch (error) {
       console.error('Tenant creation failed:', error);
       toast({
@@ -339,25 +296,19 @@ export default function AuthCallback() {
         description: "Failed to create your workspace. Please try again.",
         variant: "destructive"
       });
-      
-      // Fallback to manual tenant creation
-      navigate('/trial-signup?google=true&step=tenant-data');
+      setError('Failed to create your workspace. Please try again.');
     }
   };
 
   const handleBusinessFormSuccess = async (businessData: any) => {
+    console.log('Business form completed successfully with data:', businessData);
     setShowBusinessForm(false);
     
-    try {
-      // Clear trial signup flag
-      sessionStorage.removeItem('google-trial-signup');
-      
-      // Create tenant with the collected business data
-      await createTenantForNewUser(businessData);
-    } catch (error) {
-      console.error('Business form success error:', error);
-      setError('Failed to create your workspace. Please try again.');
-    }
+    // Clear any session flags
+    sessionStorage.removeItem('google-trial-signup');
+    
+    // Create tenant with the collected business data
+    await createTenantForNewUser(businessData);
   };
 
   const handleBusinessFormClose = () => {

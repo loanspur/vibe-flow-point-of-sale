@@ -133,42 +133,9 @@ export function GoogleSignupBusinessForm({
     setLoading(true);
     
     try {
-      // First, create the user profile if this is a new Google user
-      try {
-        const { data: authUser } = await supabase.auth.getUser();
-        if (authUser.user) {
-          const googleData = {
-            google_id: authUser.user.user_metadata?.iss + '/' + authUser.user.user_metadata?.sub,
-            email: authUser.user.email,
-            full_name: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.name,
-            avatar_url: authUser.user.user_metadata?.avatar_url || authUser.user.user_metadata?.picture,
-            provider_data: authUser.user.user_metadata
-          };
-
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              user_id: authUser.user.id,
-              full_name: googleData.full_name,
-              avatar_url: googleData.avatar_url,
-              google_id: googleData.google_id,
-              auth_method: 'google',
-              otp_required_always: true,
-              google_profile_data: googleData.provider_data,
-              role: 'user'
-            });
-
-          if (profileError && !profileError.message.includes('duplicate')) {
-            console.error('Profile creation error:', profileError);
-            throw profileError;
-          }
-        }
-      } catch (profileCreationError) {
-        console.error('Profile creation failed:', profileCreationError);
-        // Continue with the flow - profile might already exist
-      }
-
-      // Store the business data
+      console.log('Submitting business data for new Google user');
+      
+      // Store the business data for later use
       const businessInfo = {
         businessName: formData.businessName,
         businessEmail: email,
@@ -185,6 +152,8 @@ export function GoogleSignupBusinessForm({
       };
       
       setBusinessData(businessInfo);
+      
+      console.log('Sending OTP for email verification');
       
       // Send OTP for email verification
       const { error } = await supabase.functions.invoke('send-otp-verification', {
@@ -206,7 +175,7 @@ export function GoogleSignupBusinessForm({
         return;
       }
 
-      // Show OTP verification
+      // Show OTP verification within this form
       setStep('otp');
       setShowOTPModal(true);
       
@@ -227,9 +196,61 @@ export function GoogleSignupBusinessForm({
   };
 
   const handleOTPSuccess = () => {
+    console.log('OTP verification successful, creating profile and calling onSuccess');
     setShowOTPModal(false);
-    // Pass the collected business data to the parent
-    onSuccess(businessData);
+    
+    // Create the profile now that OTP is verified
+    createGoogleUserProfile().then(() => {
+      // Pass the collected business data to the parent
+      onSuccess(businessData);
+    }).catch((error) => {
+      console.error('Profile creation after OTP failed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create user profile. Please try again.",
+        variant: "destructive"
+      });
+    });
+  };
+
+  const createGoogleUserProfile = async () => {
+    try {
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser.user) {
+        const googleData = {
+          google_id: authUser.user.user_metadata?.iss + '/' + authUser.user.user_metadata?.sub,
+          email: authUser.user.email,
+          full_name: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.name,
+          avatar_url: authUser.user.user_metadata?.avatar_url || authUser.user.user_metadata?.picture,
+          provider_data: authUser.user.user_metadata
+        };
+
+        console.log('Creating Google user profile:', googleData);
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: authUser.user.id,
+            full_name: googleData.full_name,
+            avatar_url: googleData.avatar_url,
+            google_id: googleData.google_id,
+            auth_method: 'google',
+            otp_required_always: true,
+            google_profile_data: googleData.provider_data,
+            role: 'user'
+          });
+
+        if (profileError && !profileError.message.includes('duplicate')) {
+          console.error('Profile creation error:', profileError);
+          throw profileError;
+        }
+
+        console.log('Google user profile created successfully');
+      }
+    } catch (error) {
+      console.error('Failed to create Google profile:', error);
+      throw error;
+    }
   };
 
   const handleOTPClose = () => {
