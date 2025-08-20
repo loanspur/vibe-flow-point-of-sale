@@ -182,7 +182,7 @@ export function OTPVerificationModal({
         return;
       }
 
-      if (data.verified) {
+      if (data.success) {
         toast({
           title: "Email Verified!",
           description: "Your email has been successfully verified.",
