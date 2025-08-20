@@ -87,8 +87,11 @@ export default function AuthCallback() {
           // New Google user - show unified OTP form with business fields
           console.log('New Google user detected - showing unified OTP form with business fields');
           console.log('Setting isNewUser to true and showing OTP modal');
+          console.log('Before setting isNewUser - current value:', isNewUser);
           setIsNewUser(true);
+          console.log('After setting isNewUser to true');
           setShowOTPModal(true);
+          console.log('OTP modal should now be visible with business fields');
           
           // Clear any trial signup flags
           sessionStorage.removeItem('google-trial-signup');

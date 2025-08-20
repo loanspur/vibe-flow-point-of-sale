@@ -402,6 +402,10 @@ export function OTPVerificationModal({
           )}
 
           {/* Business Information Section - Only for new users */}
+          {(() => {
+            console.log('OTPVerificationModal render - isNewUser:', isNewUser);
+            return null;
+          })()}
           {isNewUser && (
             <div className="space-y-4">
               <div className="border-b pb-4">
