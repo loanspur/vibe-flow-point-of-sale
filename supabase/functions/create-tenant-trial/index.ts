@@ -20,15 +20,23 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     // Get highest billing plan
-    const { data: plans } = await supabaseAdmin
+    console.log('Fetching highest billing plan...');
+    const { data: plans, error: plansError } = await supabaseAdmin
       .from('billing_plans')
       .select('*')
       .eq('is_active', true)
       .order('price', { ascending: false })
       .limit(1);
 
+    console.log('Plans query result:', { plans, plansError });
+    
     const highestPlan = plans?.[0];
-    if (!highestPlan) throw new Error('No billing plan found');
+    if (!highestPlan) {
+      console.error('No active billing plan found');
+      throw new Error('No active billing plan found');
+    }
+    
+    console.log('Using highest plan:', { id: highestPlan.id, name: highestPlan.name, price: highestPlan.price });
 
     // Create tenant
     const { data: tenant, error: tenantError } = await supabaseAdmin
