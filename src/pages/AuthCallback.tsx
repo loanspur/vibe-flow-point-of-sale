@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { OTPVerificationModal } from '@/components/OTPVerificationModal';
+import { GoogleSignupBusinessForm } from '@/components/GoogleSignupBusinessForm';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -16,8 +17,10 @@ export default function AuthCallback() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showOTPModal, setShowOTPModal] = useState(false);
+  const [showBusinessForm, setShowBusinessForm] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [userId, setUserId] = useState('');
+  const [userFullName, setUserFullName] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
@@ -44,6 +47,7 @@ export default function AuthCallback() {
       const user = session.user;
       setUserId(user.id);
       setUserEmail(user.email || '');
+      setUserFullName(user.user_metadata?.full_name || user.user_metadata?.name || '');
 
       // Check if we're on a main domain (centralized auth flow)
       const currentDomain = window.location.hostname;
@@ -75,19 +79,17 @@ export default function AuthCallback() {
         }
 
         if (!profile) {
-          // New Google user - create profile and require OTP verification
+          // New Google user - show business form instead of just OTP
           setIsNewUser(true);
-          // Mark as trial user if coming from trial signup
           await createGoogleUserProfile(user, isFromTrial);
+          setShowBusinessForm(true);
+          setLoading(false);
         } else {
-          // Existing Google user - update profile
+          // Existing Google user - update profile and show OTP
           await updateGoogleUserProfile(user, profile);
+          setShowOTPModal(true);
+          setLoading(false);
         }
-
-        // Always require OTP verification for Google users FIRST
-        // Tenant redirection will happen AFTER successful OTP verification
-        setShowOTPModal(true);
-        setLoading(false);
       } else {
         // Regular email/password auth
         await refreshUserInfo();
@@ -241,11 +243,12 @@ export default function AuthCallback() {
       }
       
       if (isNewUser) {
-        // Clear trial signup flag
-        sessionStorage.removeItem('google-trial-signup');
-        
-        // New Google user without tenant - create tenant immediately after OTP verification
-        await createTenantForNewUser();
+        // This will be handled by the business form
+        // The form will call handleBusinessFormSuccess after OTP verification
+        toast({
+          title: "Welcome!",
+          description: "Please complete your business setup.",
+        });
       } else {
         // Existing user without tenant - redirect to dashboard
         toast({
@@ -260,18 +263,18 @@ export default function AuthCallback() {
     }
   };
 
-  const createTenantForNewUser = async () => {
+  const createTenantForNewUser = async (businessData?: any) => {
     try {
       toast({
         title: "Creating your workspace...",
         description: "Setting up your business account.",
       });
 
-      // Create tenant with minimal info - user can complete setup later
+      // Create tenant with collected business data or minimal info
       const { data, error } = await supabase.functions.invoke('create-tenant-trial', {
         body: {
           userId: userId,
-          businessData: {
+          businessData: businessData || {
             businessName: userEmail.split('@')[0] + "'s Business", // Temporary name
             businessEmail: userEmail,
             businessPhone: '',
@@ -342,6 +345,28 @@ export default function AuthCallback() {
     }
   };
 
+  const handleBusinessFormSuccess = async (businessData: any) => {
+    setShowBusinessForm(false);
+    
+    try {
+      // Clear trial signup flag
+      sessionStorage.removeItem('google-trial-signup');
+      
+      // Create tenant with the collected business data
+      await createTenantForNewUser(businessData);
+    } catch (error) {
+      console.error('Business form success error:', error);
+      setError('Failed to create your workspace. Please try again.');
+    }
+  };
+
+  const handleBusinessFormClose = () => {
+    setShowBusinessForm(false);
+    // Sign out the user since they didn't complete setup
+    supabase.auth.signOut();
+    navigate('/auth');
+  };
+
   const handleOTPClose = () => {
     setShowOTPModal(false);
     // Sign out the user since they didn't complete verification
@@ -405,7 +430,17 @@ export default function AuthCallback() {
         </CardHeader>
       </Card>
 
-      {/* OTP Verification Modal */}
+      {/* Business Data Collection Form for New Google Users */}
+      <GoogleSignupBusinessForm
+        isOpen={showBusinessForm}
+        onClose={handleBusinessFormClose}
+        onSuccess={handleBusinessFormSuccess}
+        email={userEmail}
+        userId={userId}
+        userFullName={userFullName}
+      />
+
+      {/* OTP Verification Modal for Existing Users */}
       <OTPVerificationModal
         isOpen={showOTPModal}
         onClose={handleOTPClose}
