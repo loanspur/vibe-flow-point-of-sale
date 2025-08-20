@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { OTPVerificationModal } from '@/components/OTPVerificationModal';
-import { GoogleSignupBusinessForm } from '@/components/GoogleSignupBusinessForm';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -17,7 +16,6 @@ export default function AuthCallback() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showOTPModal, setShowOTPModal] = useState(false);
-  const [showBusinessForm, setShowBusinessForm] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [userId, setUserId] = useState('');
   const [userFullName, setUserFullName] = useState('');
@@ -309,24 +307,6 @@ export default function AuthCallback() {
       });
       setError('Failed to create your workspace. Please try again.');
     }
-  };
-
-  const handleBusinessFormSuccess = async (businessData: any) => {
-    console.log('Business form completed successfully with data:', businessData);
-    setShowBusinessForm(false);
-    
-    // Clear any session flags
-    sessionStorage.removeItem('google-trial-signup');
-    
-    // Create tenant with the collected business data
-    await createTenantForNewUser(businessData);
-  };
-
-  const handleBusinessFormClose = () => {
-    setShowBusinessForm(false);
-    // Sign out the user since they didn't complete setup
-    supabase.auth.signOut();
-    navigate('/auth');
   };
 
   const handleOTPClose = () => {

@@ -11,7 +11,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
-import { TenantDataCollection } from '@/components/TenantDataCollection';
 
 interface BillingPlan {
   id: string;
@@ -34,13 +33,11 @@ export default function TrialSignup() {
   const [selectedPlan, setSelectedPlan] = useState(searchParams.get('plan') || '');
   const [loading, setLoading] = useState(false);
   const [plansLoading, setPlansLoading] = useState(true);
-  const [step, setStep] = useState(1); // 1: Account creation, 2: Payment setup, 3: Tenant data collection
+  const [step, setStep] = useState(1); // 1: Account creation, 2: Payment setup
   const { toast } = useToast();
 
-  // Check if this is Google SSO flow or tenant data collection
+  // Check if this is Google SSO flow
   const isGoogleFlow = searchParams.get('google') === 'true';
-  const stepParam = searchParams.get('step');
-  const showTenantData = stepParam === 'tenant-data';
 
   const [formData, setFormData] = useState({
     businessName: '',
@@ -79,7 +76,7 @@ export default function TrialSignup() {
   };
 
   const formatPrice = (price: number) => {
-    return `KES ${price.toLocaleString()}`;
+    return `${price.toLocaleString()}`;
   };
 
   const formatFeatures = (features: any) => {
@@ -97,17 +94,13 @@ export default function TrialSignup() {
   }, []);
 
   useEffect(() => {
-    // Handle different scenarios based on user state and URL params
+    // Handle different scenarios based on user state
     if (user) {
-      if (showTenantData) {
-        setStep(3); // Show tenant data collection
-      } else {
-        setStep(2); // Show trial activation
-      }
+      setStep(2); // Show trial activation
     } else if (isGoogleFlow) {
       setStep(1); // Show account creation with Google option
     }
-  }, [user, showTenantData, isGoogleFlow]);
+  }, [user, isGoogleFlow]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -211,9 +204,9 @@ export default function TrialSignup() {
           variant: "default"
         });
         
-        // Redirect to admin dashboard after successful trial start
+        // Redirect to dashboard after successful trial start
         setTimeout(() => {
-          navigate('/admin');
+          navigate('/dashboard');
         }, 1500);
       }
 
@@ -229,16 +222,6 @@ export default function TrialSignup() {
   };
 
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
-
-  // Show tenant data collection for Google users
-  if (step === 3 && showTenantData) {
-    return (
-      <TenantDataCollection 
-        isGoogleUser={isGoogleFlow}
-        onSuccess={() => navigate('/dashboard')}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 py-12">
@@ -278,7 +261,7 @@ export default function TrialSignup() {
             </div>
             <div className="flex items-center">
               <CreditCard className="h-4 w-4 mr-2 text-orange-500" />
-              Paystack or M-Pesa
+              Secure payments
             </div>
           </div>
         </div>
