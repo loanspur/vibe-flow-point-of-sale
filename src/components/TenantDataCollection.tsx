@@ -146,9 +146,10 @@ export function TenantDataCollection({ onSuccess, isGoogleUser = false }: Tenant
           variant: "default"
         });
 
-        // Fetch the newly created tenant's subdomain and redirect
+        // After successful tenant creation, redirect to tenant subdomain
         setTimeout(async () => {
           try {
+            // Fetch the newly created tenant's subdomain from the user's profile
             const { data: profile } = await supabase
               .from('profiles')
               .select('tenant_id')
