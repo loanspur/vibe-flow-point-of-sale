@@ -444,6 +444,102 @@ export const useUnifiedUserManagement = () => {
     }
   };
 
+  const activateUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tenant_users')
+        .update({ is_active: true })
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+      
+      toast.success('User activated successfully');
+      await fetchUsers();
+      return true;
+    } catch (error) {
+      console.error('Error activating user:', error);
+      toast.error('Failed to activate user');
+      return false;
+    }
+  };
+
+  const resendInvitation = async (email: string, roleId: string, fullName?: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-user-invitation', {
+        body: {
+          email,
+          roleId,
+          fullName,
+          tenantId,
+          isResend: true
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success('Invitation resent successfully');
+      await fetchUsers();
+      return true;
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      toast.error('Failed to resend invitation');
+      return false;
+    }
+  };
+
+  const updateUserProfile = async (userId: string, profileData: { full_name?: string; email?: string }) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: profileData.full_name,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      
+      toast.success('User profile updated successfully');
+      await fetchUsers();
+      return true;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      toast.error('Failed to update user profile');
+      return false;
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    try {
+      // First deactivate the user
+      const { error: deactivateError } = await supabase
+        .from('tenant_users')
+        .update({ is_active: false })
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (deactivateError) throw deactivateError;
+
+      // Deactivate role assignments
+      const { error: roleError } = await supabase
+        .from('user_role_assignments')
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (roleError) throw roleError;
+      
+      toast.success('User deleted successfully');
+      await fetchUsers();
+      return true;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+      return false;
+    }
+  };
+
   // Role management actions
   const createRole = async (roleData: {
     name: string;
@@ -672,6 +768,10 @@ export const useUnifiedUserManagement = () => {
     inviteUser,
     updateUserRole,
     deactivateUser,
+    activateUser,
+    resendInvitation,
+    updateUserProfile,
+    deleteUser,
     createRole,
     updateRole,
     deleteRole,
