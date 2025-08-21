@@ -491,6 +491,14 @@ const UnifiedUserManagement = () => {
                               View Details
                             </DropdownMenuItem>
 
+                            {/* Show current user's role for debugging */}
+                            {process.env.NODE_ENV === 'development' && (
+                              <DropdownMenuItem disabled>
+                                <AlertTriangle className="h-4 w-4 mr-2" />
+                                Your role: {userRole || 'No role'}
+                              </DropdownMenuItem>
+                            )}
+
                             {hasRoleAccess(['admin', 'manager']) && (
                               <>
                                 <DropdownMenuSeparator />
