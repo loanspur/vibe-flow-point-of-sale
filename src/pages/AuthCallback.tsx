@@ -87,7 +87,7 @@ export default function AuthCallback() {
         console.log('Trial signup detection:', { isTrialSignup, searchParamsFrom: searchParams.get('from') });
         
         if (!profile) {
-          // New Google user - always show business form for trial signup
+          // New Google user - show business form only for trial signup
           console.log('New Google user detected');
           setIsNewUser(isTrialSignup);
           setShowOTPModal(true);
@@ -204,7 +204,7 @@ export default function AuthCallback() {
         .from('profiles')
         .select('tenant_id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       console.log('User profile tenant check:', profile);
 
