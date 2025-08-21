@@ -262,7 +262,16 @@ export default function AuthCallback() {
         }
       }
       
-      // User without tenant - redirect to dashboard
+      // User without tenant - check where they are and redirect appropriately
+      if (isCurrentSubdomain) {
+        // User is on a subdomain but has no tenant - redirect to main domain
+        console.log('User without tenant on subdomain - redirecting to main domain');
+        window.location.href = 'https://vibenet.shop/dashboard';
+        return;
+      }
+      
+      // User without tenant on main domain - stay on main domain
+      console.log('User without tenant on main domain - staying on main domain');
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in.",
