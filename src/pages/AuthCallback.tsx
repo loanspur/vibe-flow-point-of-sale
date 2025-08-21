@@ -223,7 +223,7 @@ export default function AuthCallback() {
                           currentDomain === 'www.vibenet.online';
 
       if (profile?.tenant_id) {
-        // User has a tenant - redirect to their subdomain
+        // User has a tenant
         const { data: tenantData } = await supabase
           .from('tenants')
           .select('subdomain, name')
@@ -231,16 +231,26 @@ export default function AuthCallback() {
           .single();
 
         if (tenantData?.subdomain) {
-          toast({
-            title: "Welcome back!",
-            description: `Please visit your business dashboard at ${tenantData.subdomain}.vibenet.shop`,
-          });
-          
-          // Show message with instructions instead of redirect
-          setTimeout(() => {
-            navigate('/?login=success&subdomain=' + tenantData.subdomain);
-          }, 2000);
-          return;
+          if (isMainDomain) {
+            // User is on main domain but has tenant - show instructions
+            toast({
+              title: "Welcome back!",
+              description: `Please visit your business dashboard at ${tenantData.subdomain}.vibenet.shop`,
+            });
+            
+            setTimeout(() => {
+              navigate('/?login=success&subdomain=' + tenantData.subdomain);
+            }, 2000);
+            return;
+          } else {
+            // User is already on their subdomain - go directly to dashboard
+            toast({
+              title: "Welcome back!",
+              description: `Welcome to ${tenantData.name}`,
+            });
+            navigate('/dashboard');
+            return;
+          }
         }
       }
       
