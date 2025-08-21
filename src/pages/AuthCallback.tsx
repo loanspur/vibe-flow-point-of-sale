@@ -334,7 +334,20 @@ export default function AuthCallback() {
     setShowOTPModal(false);
     // Sign out the user since they didn't complete verification
     supabase.auth.signOut();
-    navigate('/auth');
+    
+    // Check if we're on a subdomain and preserve it
+    const currentDomain = window.location.hostname;
+    const isMainDomain = currentDomain === 'vibenet.shop' || 
+                        currentDomain === 'vibenet.online' ||
+                        currentDomain === 'www.vibenet.shop' || 
+                        currentDomain === 'www.vibenet.online';
+    
+    if (isMainDomain) {
+      navigate('/auth');
+    } else {
+      // We're on a subdomain, stay on the subdomain's auth page
+      navigate('/auth');
+    }
   };
 
   if (loading) {
