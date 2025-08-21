@@ -24,22 +24,15 @@ export function GoogleSignInButton({
     setLoading(true);
     
     try {
-      // Use centralized auth approach - always redirect to main domain
-      const mainDomain = window.location.hostname.includes('vibenet.shop') 
-        ? 'https://vibenet.shop' 
-        : window.location.hostname.includes('vibenet.online')
-        ? 'https://vibenet.online'
-        : window.location.origin;
+      // Preserve current domain (including subdomain) for OAuth flow
+      const currentOrigin = window.location.origin;
       
       // Only set trial context if explicitly from trial signup pages
       const isFromTrialSignup = window.location.pathname === '/trial-signup' || 
                                window.location.pathname === '/trial';
       
-      // No need to manage session storage - use URL params instead
-      
-      // Trial context will be passed via URL params
-      
-      const redirectUrl = `${mainDomain}/auth/callback`;
+      // Preserve subdomain by using current origin
+      const redirectUrl = `${currentOrigin}/auth/callback`;
       const params = new URLSearchParams();
       params.set('type', 'google');
       if (isFromTrialSignup) {
