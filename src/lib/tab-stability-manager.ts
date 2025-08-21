@@ -21,14 +21,12 @@ class TabStabilityManager {
   };
 
   private listeners: (() => void)[] = [];
-  private stabilityTimeout: NodeJS.Timeout | null = null;
   private initialized = false;
 
   initialize() {
     if (this.initialized) return;
     
     this.setupVisibilityListener();
-    this.setupNavigationListener();
     this.initialized = true;
   }
 
@@ -36,49 +34,34 @@ class TabStabilityManager {
     const handleVisibilityChange = () => {
       const now = Date.now();
       
-      // Only prevent refreshes for actual tab switches, not navigation-related visibility changes
       if (document.visibilityState === 'hidden') {
-        // Only set state, don't immediately prevent everything
+        // Mark tab as switching but don't prevent operations immediately
         this.state.isTabSwitching = true;
         this.state.lastVisibilityChange = now;
+        
+        // Only prevent query refreshes briefly to avoid excessive requests
+        this.state.preventQueryRefresh = true;
+        
+        // Don't interfere with auth - authentication should always work
+        this.state.preventAuthRefresh = false;
       } else if (document.visibilityState === 'visible') {
-        // Immediately restore on visibility return - no delays that cause loops
+        // When tab becomes visible again, restore normal operation quickly
         this.state.isTabSwitching = false;
         this.state.preventAuthRefresh = false;
-        this.state.preventQueryRefresh = false;
-        this.state.lastVisibilityChange = now;
         
-        // Clear any existing timeout to prevent conflicts
-        if (this.stabilityTimeout) {
-          clearTimeout(this.stabilityTimeout);
-          this.stabilityTimeout = null;
-        }
+        // Allow queries after a short delay to prevent immediate flood
+        setTimeout(() => {
+          this.state.preventQueryRefresh = false;
+          this.notifyListeners();
+        }, 100);
+        
+        this.state.lastVisibilityChange = now;
       }
 
-      // Notify listeners
       this.notifyListeners();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-  }
-
-  private setupNavigationListener() {
-    // Simplified - just handle user interactions to restore normal operation
-    const handleUserInteraction = () => {
-      // User is actively using the app - ensure normal operation
-      this.state.isTabSwitching = false;
-      this.state.preventAuthRefresh = false;
-      this.state.preventQueryRefresh = false;
-      
-      if (this.stabilityTimeout) {
-        clearTimeout(this.stabilityTimeout);
-        this.stabilityTimeout = null;
-      }
-    };
-    
-    // Listen for clicks and key presses as signs of active use
-    document.addEventListener('click', handleUserInteraction, { passive: true });
-    document.addEventListener('keydown', handleUserInteraction, { passive: true });
   }
 
   private restoreNormalOperation() {
@@ -99,12 +82,13 @@ class TabStabilityManager {
     });
   }
 
-  // Public API
+  // Public API - Never prevent auth operations for stability
   shouldPreventAuthRefresh(): boolean {
-    return this.state.preventAuthRefresh;
+    return false; // Always allow auth operations
   }
 
   shouldPreventQueryRefresh(): boolean {
+    // Only prevent queries briefly during tab switching to reduce load
     return this.state.preventQueryRefresh;
   }
 
@@ -133,11 +117,6 @@ class TabStabilityManager {
       preventAuthRefresh: false,
       preventQueryRefresh: false,
     };
-    
-    if (this.stabilityTimeout) {
-      clearTimeout(this.stabilityTimeout);
-      this.stabilityTimeout = null;
-    }
     
     this.notifyListeners();
   }

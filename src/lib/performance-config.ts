@@ -4,32 +4,34 @@
  */
 
 export const PERFORMANCE_CONFIG = {
-  // Disable aggressive auto-refresh to prevent flickering and high CPU usage
+  // More aggressive performance settings to prevent refresh loops
   DISABLE_AUTO_REFRESH: true,
-  
-  // Disable window focus refresh to prevent constant reloads when switching tabs
   DISABLE_FOCUS_REFRESH: true,
   
-  // Increased intervals for better performance
-  DASHBOARD_REFRESH_INTERVAL: 120000, // 2 minutes instead of 30 seconds
-  REALTIME_DEBOUNCE_DELAY: 2000, // 2 seconds debounce for realtime updates
+  // Longer intervals for better stability
+  DASHBOARD_REFRESH_INTERVAL: 300000, // 5 minutes - much longer for stability
+  REALTIME_DEBOUNCE_DELAY: 3000, // 3 seconds debounce for better performance
   
-  // Query optimization settings
-  QUERY_STALE_TIME: 60000, // 1 minute
-  QUERY_CACHE_TIME: 300000, // 5 minutes
+  // Optimized query settings for faster loads  
+  QUERY_STALE_TIME: 300000, // 5 minutes - longer cache for better performance
+  QUERY_CACHE_TIME: 900000, // 15 minutes cache time
   
   // Component render optimization
-  RENDER_DEBOUNCE_DELAY: 100, // 100ms debounce for renders
+  RENDER_DEBOUNCE_DELAY: 200, // 200ms debounce for renders
   
   // Network request optimization
-  REQUEST_TIMEOUT: 15000, // 15 seconds timeout
-  MAX_RETRIES: 1, // Reduced retries to prevent hanging
+  REQUEST_TIMEOUT: 10000, // Reduced to 10 seconds for faster perceived performance
+  MAX_RETRIES: 0, // No retries to prevent hanging
   
   // Browser tab optimization
-  TAB_SWITCH_DELAY: 1000, // Delay before processing tab focus events
+  TAB_SWITCH_DELAY: 500, // Shorter delay but still prevent rapid switches
   
   // Memory management
-  CLEANUP_INTERVAL: 300000, // 5 minutes cleanup interval
+  CLEANUP_INTERVAL: 600000, // 10 minutes cleanup interval
+  
+  // New performance settings
+  MAX_CONCURRENT_REQUESTS: 3, // Limit concurrent requests
+  PREFETCH_THRESHOLD: 1000, // Threshold for prefetching
 } as const;
 
 /**
@@ -47,11 +49,11 @@ export const performanceUtils = {
   shouldEnableFocusRefresh: () => !PERFORMANCE_CONFIG.DISABLE_FOCUS_REFRESH,
   
   /**
-   * Gets optimized refresh interval
+   * Gets optimized refresh interval - much longer for stability
    */
   getRefreshInterval: (defaultInterval: number = 30000) => {
     return PERFORMANCE_CONFIG.DISABLE_AUTO_REFRESH 
-      ? Number.MAX_SAFE_INTEGER // Effectively disable
+      ? Number.MAX_SAFE_INTEGER // Effectively disable all auto-refresh
       : Math.max(defaultInterval, PERFORMANCE_CONFIG.DASHBOARD_REFRESH_INTERVAL);
   },
   
@@ -61,12 +63,14 @@ export const performanceUtils = {
   getRealtimeDebounce: () => PERFORMANCE_CONFIG.REALTIME_DEBOUNCE_DELAY,
   
   /**
-   * Performance-optimized query options
+   * Performance-optimized query options with aggressive caching
    */
   getQueryOptions: () => ({
     staleTime: PERFORMANCE_CONFIG.QUERY_STALE_TIME,
     gcTime: PERFORMANCE_CONFIG.QUERY_CACHE_TIME,
     retry: PERFORMANCE_CONFIG.MAX_RETRIES,
     refetchOnWindowFocus: false, // Always disabled for performance
+    refetchOnMount: false, // Prevent excessive fetching on component mount
+    refetchOnReconnect: false, // Prevent network-triggered refreshes
   }),
 };

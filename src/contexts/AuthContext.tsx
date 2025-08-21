@@ -45,8 +45,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profileFetched, setProfileFetched] = useState<string | null>(null);
   const [fetchInProgress, setFetchInProgress] = useState<boolean>(false); // Prevent concurrent calls
 
-  // Simplified user info fetching - reduce redundant calls
+  // Optimized user info fetching with performance checks
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
+    // Performance check - don't fetch if tab is switching
+    if (tabStabilityManager.shouldPreventQueryRefresh()) {
+      return;
+    }
+    
     if (fetchInProgress || profileFetched === userId) {
       return;
     }

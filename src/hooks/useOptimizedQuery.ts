@@ -62,8 +62,8 @@ export function useOptimizedQuery<T>(
 ): QueryResult<T> {
   const {
     enabled = true,
-    refetchOnWindowFocus = false,
-    staleTime = 5 * 60 * 1000, // 5 minutes default
+    refetchOnWindowFocus = false, // Always false for performance
+    staleTime = 10 * 60 * 1000, // Increased to 10 minutes for better caching
     cacheKey
   } = options;
 
@@ -134,18 +134,8 @@ export function useOptimizedQuery<T>(
     };
   }, dependencies);
 
-  useEffect(() => {
-    if (!refetchOnWindowFocus) return;
-
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        executeQuery();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleFocus);
-    return () => document.removeEventListener('visibilitychange', handleFocus);
-  }, [executeQuery, refetchOnWindowFocus]);
+  // Window focus refresh disabled for performance optimization
+  // This was causing excessive re-fetching when switching browser tabs
 
   return { data, loading, error, refetch };
 }
