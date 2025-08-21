@@ -105,6 +105,7 @@ const businessSettingsSchema = z.object({
   enable_brands: z.boolean().default(false),
   enable_overselling: z.boolean().default(false),
   enable_product_units: z.boolean().default(true),
+  enable_product_expiry: z.boolean().default(true),
   enable_warranty: z.boolean().default(false),
   enable_fixed_pricing: z.boolean().default(false),
   auto_generate_sku: z.boolean().default(true),
@@ -296,6 +297,7 @@ export function BusinessSettingsEnhanced() {
       enable_brands: false,
       enable_overselling: false,
       enable_product_units: true,
+      enable_product_expiry: true,
       enable_warranty: false,
       enable_fixed_pricing: false,
       auto_generate_sku: true,
@@ -1466,6 +1468,27 @@ export function BusinessSettingsEnhanced() {
                               <FormLabel className="text-base">Product Units</FormLabel>
                               <FormDescription>
                                 Enable units of measure and conversions
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_product_expiry"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Product Expiry Tracking</FormLabel>
+                              <FormDescription>
+                                Track expiry dates for products across the system
                               </FormDescription>
                             </div>
                             <FormControl>

@@ -448,6 +448,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   }, [formActions, toast]);
 
   const handleInputChange = async (field: keyof ProductFormData, value: string | boolean) => {
+    // Prevent accidental immediate saves during variant type selection
+    if (field === 'has_variants') {
+      console.log('Variant type selection changed:', value);
+      // Add small delay to prevent any race conditions with form validation
+      setTimeout(() => {
+        formActions.setFieldValue(field, value);
+      }, 100);
+      return;
+    }
+    
     formActions.setFieldValue(field, value);
 
     if (field === 'location_id' && typeof value === 'string') {
