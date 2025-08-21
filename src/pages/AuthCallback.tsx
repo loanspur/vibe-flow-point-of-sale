@@ -128,12 +128,13 @@ export default function AuthCallback() {
           await updateGoogleUserProfile(user, profile);
         }
 
-        // Determine if this should be a new user flow
+        // For subdomain users: if they have a profile and are verified as tenant member, they are existing users
+        // For main domain: only show business form for trial signups without tenant
         const shouldShowBusinessForm = isTrialSignup && 
                                       !profile?.tenant_id && 
                                       !domainConfig.isSubdomain;
         
-        setIsNewUser(shouldShowBusinessForm || !profile);
+        setIsNewUser(shouldShowBusinessForm);
         setShowOTPModal(true);
       } else {
         // Regular email/password auth - proceed directly to OTP or dashboard
