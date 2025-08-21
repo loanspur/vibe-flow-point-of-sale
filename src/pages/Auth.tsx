@@ -36,36 +36,16 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Check if subdomain exists when component loads
+  // Check if subdomain exists when component loads using domain manager
   useEffect(() => {
     const checkSubdomain = async () => {
-      const currentDomain = window.location.hostname;
-      const isSubdomain = (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') ||
-                          (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online');
-      
-      if (isSubdomain) {
-        const subdomain = currentDomain.split('.')[0];
-        
-        try {
-          const { data: tenant, error } = await supabase
-            .from('tenants')
-            .select('id, name, status')
-            .eq('subdomain', subdomain)
-            .eq('status', 'active')
-            .maybeSingle();
-          
-          if (error || !tenant) {
-            setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
-          }
-        } catch (error) {
-          console.error('Error checking subdomain:', error);
-          setSubdomainError('Unable to verify business workspace. Please try again later.');
-        }
+      if (domainConfig.isSubdomain && !domainConfig.tenantId) {
+        setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
       }
     };
     
     checkSubdomain();
-  }, []);
+  }, [domainConfig]);
 
   // Redirect after login on subdomains regardless of tenant resolution; refresh domain in background
   useEffect(() => {

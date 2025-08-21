@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { OTPVerificationModal } from '@/components/OTPVerificationModal';
+import { domainManager } from '@/lib/domain-manager';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ export default function AuthCallback() {
 
   const handleAuthCallback = async () => {
     try {
+      console.log('=== UNIFIED AUTH CALLBACK STARTED ===');
+      
       // Get the session from URL params
       const { data, error } = await supabase.auth.getSession();
       
@@ -49,169 +52,166 @@ export default function AuthCallback() {
 
       console.log('Auth callback - User ID:', user.id, 'Email:', user.email);
 
-      // Check if we're on a main domain (centralized auth flow)
-      const currentDomain = window.location.hostname;
-      const isMainDomain = currentDomain === 'vibenet.shop' || 
-                          currentDomain === 'vibenet.online' ||
-                          currentDomain === 'www.vibenet.shop' || 
-                          currentDomain === 'www.vibenet.online';
+      // Use domain manager to get domain configuration
+      const domainConfig = await domainManager.getCurrentDomainConfig();
+      console.log('Domain config:', domainConfig);
 
-      const isSubdomain = (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') ||
-                         (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online');
-
-      // Check if this is a Google user
       const isGoogleAuth = searchParams.get('type') === 'google' || 
                           user.app_metadata?.provider === 'google';
+      const isTrialSignup = searchParams.get('from') === 'trial';
       
-      console.log('Is Google Auth:', isGoogleAuth);
-      console.log('Current Domain:', currentDomain);
-      console.log('Is Subdomain:', isSubdomain);
+      console.log('Auth type:', { isGoogleAuth, isTrialSignup });
 
-      if (isGoogleAuth) {
-        // Force a small delay to ensure any profile creation is complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Get user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Profile check error:', profileError);
+        setError('Failed to check user profile. Please try again.');
+        return;
+      }
+
+      console.log('Profile check result:', { profile, hasProfile: !!profile });
+
+      // If on subdomain, verify tenant access
+      if (domainConfig.isSubdomain && domainConfig.tenantId) {
+        console.log('Verifying subdomain access for tenant:', domainConfig.tenantId);
         
-        // Check if profile exists - be more thorough
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        console.log('Profile check result:', { profile, profileError });
-
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Profile check error:', profileError);
-          setError('Failed to check user profile. Please try again.');
+        if (!profile) {
+          setError('New users cannot access business workspaces directly. Please contact your administrator.');
           return;
         }
 
-        // If on subdomain, verify user belongs to this tenant
-        if (isSubdomain) {
-          const subdomain = currentDomain.split('.')[0];
-          console.log('Checking subdomain access for:', subdomain);
-          
-          // Get the tenant for this subdomain
-          const { data: tenant, error: tenantError } = await supabase
+        // Check if user is a member of this tenant
+        const { data: tenantUser, error: tenantUserError } = await supabase
+          .from('tenant_users')
+          .select('*')
+          .eq('tenant_id', domainConfig.tenantId)
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (tenantUserError && tenantUserError.code !== 'PGRST116') {
+          console.error('Tenant user check error:', tenantUserError);
+          setError('Failed to verify access permissions. Please try again.');
+          return;
+        }
+
+        if (!tenantUser) {
+          // Get tenant name for better error message
+          const { data: tenant } = await supabase
             .from('tenants')
-            .select('id, name')
-            .eq('subdomain', subdomain)
-            .eq('status', 'active')
-            .maybeSingle();
-
-          if (tenantError || !tenant) {
-            console.error('Tenant not found for subdomain:', subdomain);
-            setError('This business workspace does not exist.');
-            return;
-          }
-
-          console.log('Tenant found:', tenant);
-
-          // Check if user is a member of this tenant
-          const { data: tenantUser, error: tenantUserError } = await supabase
-            .from('tenant_users')
-            .select('*')
-            .eq('tenant_id', tenant.id)
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .maybeSingle();
-
-          console.log('Tenant user check:', { tenantUser, tenantUserError });
-
-          if (tenantUserError && tenantUserError.code !== 'PGRST116') {
-            console.error('Tenant user check error:', tenantUserError);
-            setError('Failed to verify access permissions. Please try again.');
-            return;
-          }
-
-          if (!tenantUser) {
-            console.log('User not found in tenant_users for this subdomain');
-            setError(`You are not registered for ${tenant.name}. Please contact your administrator or sign up on the main website.`);
-            return;
-          }
-
-          console.log('User verified as member of tenant:', tenant.name);
-        }
-
-        // Check if this is a trial signup flow from URL params (more reliable)
-        const isTrialSignup = searchParams.get('from') === 'trial';
-        
-        console.log('Trial signup detection:', { isTrialSignup, searchParamsFrom: searchParams.get('from') });
-        
-        if (!profile) {
-          // New Google user - show business form only for trial signup on main domain
-          console.log('New Google user detected');
-          if (isSubdomain) {
-            // New user trying to access subdomain - not allowed
-            setError('New users cannot access business workspaces directly. Please contact your administrator.');
-            return;
-          }
-          setIsNewUser(isTrialSignup);
-          setShowOTPModal(true);
-        } else {
-          // Existing Google user
-          console.log('Existing Google user detected - checking tenant status:', { 
-            hasProfile: !!profile, 
-            hasTenant: !!profile.tenant_id, 
-            isTrialSignup,
-            isSubdomain
-          });
-          
-          await updateGoogleUserProfile(user, profile);
-          
-          // Only show business form if this is trial signup AND user has no tenant on main domain
-          if (isTrialSignup && !profile.tenant_id && isMainDomain) {
-            console.log('Existing user without tenant starting trial signup - showing business form');
-            setIsNewUser(true);
-          } else {
-            console.log('Existing user - showing regular OTP');
-            setIsNewUser(false);
-          }
-          
-          setShowOTPModal(true);
-        }
-        
-        setLoading(false);
-      } else {
-        // Regular email/password auth
-        await refreshUserInfo();
-        
-        if (isMainDomain) {
-          // Check if user has a tenant for redirection
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('tenant_id')
-            .eq('user_id', user.id)
+            .select('name')
+            .eq('id', domainConfig.tenantId)
             .single();
-
-          if (profile?.tenant_id) {
-            const { data: tenantData } = await supabase
-              .from('tenants')
-              .select('subdomain')
-              .eq('id', profile.tenant_id)
-              .single();
-
-            if (tenantData?.subdomain) {
-              // Show instructions instead of redirect
-              toast({
-                title: "Login Successful!",
-                description: `Please bookmark and visit: ${tenantData.subdomain}.vibenet.shop`,
-              });
-              
-              setTimeout(() => {
-                navigate('/?login=success&subdomain=' + tenantData.subdomain);
-              }, 2000);
-              return;
-            }
-          }
+          
+          const tenantName = tenant?.name || 'this business';
+          setError(`You are not registered for ${tenantName}. Please contact your administrator or sign up on the main website.`);
+          return;
         }
-        
-        navigate('/dashboard');
+
+        console.log('User verified as member of tenant');
+      } else if (domainConfig.isSubdomain && !domainConfig.tenantId) {
+        setError('This business workspace does not exist.');
+        return;
       }
+
+      // Handle authentication flow
+      if (isGoogleAuth) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Ensure profile creation is complete
+        
+        if (profile) {
+          await updateGoogleUserProfile(user, profile);
+        }
+
+        // Determine if this should be a new user flow
+        const shouldShowBusinessForm = isTrialSignup && 
+                                      !profile?.tenant_id && 
+                                      !domainConfig.isSubdomain;
+        
+        setIsNewUser(shouldShowBusinessForm || !profile);
+        setShowOTPModal(true);
+      } else {
+        // Regular email/password auth - proceed directly to OTP or dashboard
+        await refreshUserInfo();
+        await proceedAfterAuth();
+      }
+      
+      setLoading(false);
     } catch (error: any) {
       console.error('Unexpected callback error:', error);
       setError('An unexpected error occurred. Please try again.');
+      setLoading(false);
     }
+  };
+
+  const proceedAfterAuth = async () => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const domainConfig = await domainManager.getCurrentDomainConfig();
+
+    if (profile?.tenant_id) {
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('subdomain, name')
+        .eq('id', profile.tenant_id)
+        .single();
+
+      if (tenantData?.subdomain) {
+        const isOnCorrectSubdomain = domainConfig.isSubdomain && 
+                                   domainConfig.tenantId === profile.tenant_id;
+        
+        if (isOnCorrectSubdomain) {
+          toast({
+            title: "Welcome back!",
+            description: `Welcome to ${tenantData.name}`,
+          });
+          navigate('/dashboard');
+          return;
+        } else if (!domainConfig.isSubdomain) {
+          // User is on main domain but has tenant - show instructions
+          toast({
+            title: "Login Successful!",
+            description: `Please bookmark and visit: ${tenantData.subdomain}.vibenet.shop`,
+          });
+          
+          setTimeout(() => {
+            navigate('/?login=success&subdomain=' + tenantData.subdomain);
+          }, 2000);
+          return;
+        } else {
+          // User is on wrong subdomain - redirect to correct one
+          const targetSubdomain = `${tenantData.subdomain}.vibenet.shop`;
+          window.location.href = `https://${targetSubdomain}/dashboard`;
+          return;
+        }
+      }
+    }
+
+    // User without tenant
+    if (domainConfig.isSubdomain) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have access to this business workspace. Please sign up on the main website.",
+        variant: "destructive"
+      });
+      
+      setTimeout(() => {
+        window.location.href = 'https://vibenet.shop/';
+      }, 3000);
+      return;
+    }
+
+    // User without tenant on main domain
+    navigate('/dashboard');
   };
 
 
@@ -273,76 +273,8 @@ export default function AuthCallback() {
         return;
       }
       
-      // Check domain type for proper redirection
-      const currentDomain = window.location.hostname;
-      const isMainDomain = currentDomain === 'vibenet.shop' || 
-                          currentDomain === 'vibenet.online' ||
-                          currentDomain === 'www.vibenet.shop' || 
-                          currentDomain === 'www.vibenet.online' ||
-                          currentDomain === 'localhost';
-      
-      const isCurrentSubdomain = (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') ||
-                                (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online');
-
-      if (profile?.tenant_id) {
-        // User has a tenant
-        const { data: tenantData } = await supabase
-          .from('tenants')
-          .select('subdomain, name')
-          .eq('id', profile.tenant_id)
-          .single();
-
-        if (tenantData?.subdomain) {
-          // Check if user is on their correct subdomain
-          const expectedSubdomain = `${tenantData.subdomain}.vibenet.shop`;
-          const expectedSubdomainOnline = `${tenantData.subdomain}.vibenet.online`;
-          const isOnCorrectSubdomain = currentDomain === expectedSubdomain || currentDomain === expectedSubdomainOnline;
-          
-          if (isOnCorrectSubdomain) {
-            // User is on their correct subdomain - go directly to dashboard
-            toast({
-              title: "Welcome back!",
-              description: `Welcome to ${tenantData.name}`,
-            });
-            navigate('/dashboard');
-            return;
-          } else if (isMainDomain) {
-            // User is on main domain but has tenant - redirect to their subdomain
-            const targetSubdomain = `${tenantData.subdomain}.vibenet.shop`;
-            window.location.href = `https://${targetSubdomain}/dashboard`;
-            return;
-          } else if (isCurrentSubdomain) {
-            // User is on wrong subdomain - redirect to their correct subdomain
-            const targetSubdomain = `${tenantData.subdomain}.vibenet.shop`;
-            window.location.href = `https://${targetSubdomain}/dashboard`;
-            return;
-          }
-        }
-      }
-      
-      // User without tenant - check where they are and handle appropriately
-      if (isCurrentSubdomain) {
-        // User is on a subdomain but has no tenant - show error and redirect to main domain
-        console.log('User without tenant trying to access subdomain - showing error');
-        toast({
-          title: "Access Denied",
-          description: "You don't have access to this business workspace. Please sign up on the main website.",
-          variant: "destructive"
-        });
-        
-        setTimeout(() => {
-          window.location.href = 'https://vibenet.shop/';
-        }, 3000);
-        return;
-      }
-      
-      // User without tenant on main domain - stay on main domain
-      console.log('User without tenant on main domain - staying on main domain');
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in.",
-      });
-      navigate('/dashboard');
+      // Use unified approach for post-OTP navigation
+      await proceedAfterAuth();
     } catch (error) {
       console.error('Navigation error:', error);
       setError('Login successful but navigation failed. Please refresh the page.');
