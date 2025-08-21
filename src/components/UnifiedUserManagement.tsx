@@ -172,6 +172,66 @@ const UnifiedUserManagement = () => {
     }
   };
 
+  const handleEditRole = (role: UnifiedRole) => {
+    setSelectedRole(role);
+    setNewRoleName(role.name);
+    setNewRoleDescription(role.description);
+    setNewRoleLevel(role.level);
+    setNewRoleColor(role.color);
+    setSelectedPermissions(role.permissions.map(p => p.id));
+    setIsEditingRole(true);
+  };
+
+  const handleUpdateRole = async () => {
+    if (!selectedRole || !newRoleName) {
+      toast.error('Please enter a role name');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const success = await updateRole(selectedRole.id, {
+        name: newRoleName,
+        description: newRoleDescription,
+        level: newRoleLevel,
+        color: newRoleColor,
+        permissions: selectedPermissions
+      });
+
+      if (success) {
+        setNewRoleName('');
+        setNewRoleDescription('');
+        setNewRoleLevel(1);
+        setNewRoleColor('#2563eb');
+        setSelectedPermissions([]);
+        setIsEditingRole(false);
+        setSelectedRole(null);
+        logActivity({
+          action_type: 'role_updated',
+          resource_type: 'role',
+          resource_id: selectedRole.id,
+          details: { name: newRoleName, permissions: selectedPermissions.length }
+        });
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteRole = async (roleId: string, roleName: string) => {
+    if (window.confirm(`Are you sure you want to delete the role "${roleName}"? This action cannot be undone.`)) {
+      const success = await deleteRole(roleId);
+      if (success) {
+        logActivity({
+          action_type: 'role_deleted',
+          resource_type: 'role',
+          resource_id: roleId,
+          details: { name: roleName }
+        });
+      }
+    }
+  };
+
   const handleDeactivateUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to deactivate this user?')) {
       const success = await deactivateUser(userId);
@@ -552,9 +612,34 @@ const UnifiedUserManagement = () => {
                     >
                       {role.name}
                     </CardTitle>
-                    <Badge variant="outline" className="text-xs">
-                      Level {role.level}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        Level {role.level}
+                      </Badge>
+                      {hasRoleAccess(['admin', 'manager']) && role.is_editable && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleEditRole(role)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Role
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteRole(role.id, role.name)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Role
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
                   </div>
                   {role.description && (
                     <CardDescription className="text-sm">
@@ -584,6 +669,116 @@ const UnifiedUserManagement = () => {
               </Card>
             ))}
           </div>
+
+          {/* Edit Role Dialog */}
+          <Dialog open={isEditingRole} onOpenChange={setIsEditingRole}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit Role</DialogTitle>
+                <DialogDescription>Update role details and permissions.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editRoleName">Role Name</Label>
+                    <Input
+                      id="editRoleName"
+                      value={newRoleName}
+                      onChange={(e) => setNewRoleName(e.target.value)}
+                      placeholder="e.g., Sales Manager"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editRoleLevel">Level (lower = higher priority)</Label>
+                    <Input
+                      id="editRoleLevel"
+                      type="number"
+                      value={newRoleLevel}
+                      onChange={(e) => setNewRoleLevel(parseInt(e.target.value))}
+                      min="1"
+                      max="100"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="editRoleDescription">Description</Label>
+                  <Textarea
+                    id="editRoleDescription"
+                    value={newRoleDescription}
+                    onChange={(e) => setNewRoleDescription(e.target.value)}
+                    placeholder="Describe the role's responsibilities..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editRoleColor">Color</Label>
+                  <Input
+                    id="editRoleColor"
+                    type="color"
+                    value={newRoleColor}
+                    onChange={(e) => setNewRoleColor(e.target.value)}
+                    className="w-20 h-10"
+                  />
+                </div>
+                
+                <div>
+                  <Label>Permissions</Label>
+                  <div className="max-h-48 overflow-y-auto space-y-4 mt-2">
+                    {Object.entries(permissionCategories).map(([category, perms]) => (
+                      <div key={category} className="space-y-2">
+                        <h4 className="font-medium text-sm capitalize">{category}</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {perms.map(perm => (
+                            <div key={perm.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`edit-${perm.id}`}
+                                checked={selectedPermissions.includes(perm.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedPermissions([...selectedPermissions, perm.id]);
+                                  } else {
+                                    setSelectedPermissions(selectedPermissions.filter(id => id !== perm.id));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`edit-${perm.id}`} className="text-sm">
+                                {perm.name}
+                                {perm.is_critical && <Crown className="h-3 w-3 inline ml-1 text-yellow-500" />}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 pt-4">
+                  <Button 
+                    onClick={handleUpdateRole} 
+                    disabled={creating}
+                    className="flex-1"
+                  >
+                    {creating ? 'Updating...' : 'Update Role'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsEditingRole(false);
+                      setSelectedRole(null);
+                      setNewRoleName('');
+                      setNewRoleDescription('');
+                      setNewRoleLevel(1);
+                      setNewRoleColor('#2563eb');
+                      setSelectedPermissions([]);
+                    }}
+                    disabled={creating}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Permissions Tab */}
@@ -632,10 +827,10 @@ const UnifiedUserManagement = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5" />
-                Activity Logs
+                Activity Logs ({activityLogs.length})
               </CardTitle>
               <CardDescription>
-                Recent user activities and system events
+                Recent user activities and system events in chronological order
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -645,34 +840,68 @@ const UnifiedUserManagement = () => {
                   <div className="text-muted-foreground">No activity logs found</div>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {activityLogs.map(log => (
-                    <div key={log.id} className="flex items-start gap-3 p-3 border rounded">
-                      <Activity className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{log.user_name}</span>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Resource</TableHead>
+                      <TableHead>Date & Time</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activityLogs.map(log => (
+                      <TableRow key={log.id}>
+                        <TableCell>
+                          <div className="font-medium">{log.user_name || 'System'}</div>
+                        </TableCell>
+                        <TableCell>
                           <Badge variant="outline" className="text-xs">
-                            {log.action_type}
+                            {log.action_type.replace('_', ' ').toUpperCase()}
                           </Badge>
-                          {log.resource_type && (
+                        </TableCell>
+                        <TableCell>
+                          {log.resource_type ? (
                             <Badge variant="secondary" className="text-xs">
-                              {log.resource_type}
+                              {log.resource_type.toUpperCase()}
                             </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
                           )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(log.created_at).toLocaleString()}
-                        </div>
-                        {log.details && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {JSON.stringify(log.details)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {new Date(log.created_at).toLocaleDateString()}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(log.created_at).toLocaleTimeString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs font-mono">
+                            {log.ip_address || 'Unknown'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {log.details ? (
+                            <div className="text-xs text-muted-foreground max-w-xs truncate">
+                              {typeof log.details === 'object' 
+                                ? Object.entries(log.details).map(([key, value]) => 
+                                    `${key}: ${value}`
+                                  ).join(', ')
+                                : String(log.details)
+                              }
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
