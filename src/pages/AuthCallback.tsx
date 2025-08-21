@@ -56,11 +56,16 @@ export default function AuthCallback() {
                           currentDomain === 'www.vibenet.shop' || 
                           currentDomain === 'www.vibenet.online';
 
+      const isSubdomain = (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') ||
+                         (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online');
+
       // Check if this is a Google user
       const isGoogleAuth = searchParams.get('type') === 'google' || 
                           user.app_metadata?.provider === 'google';
       
       console.log('Is Google Auth:', isGoogleAuth);
+      console.log('Current Domain:', currentDomain);
+      console.log('Is Subdomain:', isSubdomain);
 
       if (isGoogleAuth) {
         // Force a small delay to ensure any profile creation is complete
@@ -81,14 +86,66 @@ export default function AuthCallback() {
           return;
         }
 
+        // If on subdomain, verify user belongs to this tenant
+        if (isSubdomain) {
+          const subdomain = currentDomain.split('.')[0];
+          console.log('Checking subdomain access for:', subdomain);
+          
+          // Get the tenant for this subdomain
+          const { data: tenant, error: tenantError } = await supabase
+            .from('tenants')
+            .select('id, name')
+            .eq('subdomain', subdomain)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (tenantError || !tenant) {
+            console.error('Tenant not found for subdomain:', subdomain);
+            setError('This business workspace does not exist.');
+            return;
+          }
+
+          console.log('Tenant found:', tenant);
+
+          // Check if user is a member of this tenant
+          const { data: tenantUser, error: tenantUserError } = await supabase
+            .from('tenant_users')
+            .select('*')
+            .eq('tenant_id', tenant.id)
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          console.log('Tenant user check:', { tenantUser, tenantUserError });
+
+          if (tenantUserError && tenantUserError.code !== 'PGRST116') {
+            console.error('Tenant user check error:', tenantUserError);
+            setError('Failed to verify access permissions. Please try again.');
+            return;
+          }
+
+          if (!tenantUser) {
+            console.log('User not found in tenant_users for this subdomain');
+            setError(`You are not registered for ${tenant.name}. Please contact your administrator or sign up on the main website.`);
+            return;
+          }
+
+          console.log('User verified as member of tenant:', tenant.name);
+        }
+
         // Check if this is a trial signup flow from URL params (more reliable)
         const isTrialSignup = searchParams.get('from') === 'trial';
         
         console.log('Trial signup detection:', { isTrialSignup, searchParamsFrom: searchParams.get('from') });
         
         if (!profile) {
-          // New Google user - show business form only for trial signup
+          // New Google user - show business form only for trial signup on main domain
           console.log('New Google user detected');
+          if (isSubdomain) {
+            // New user trying to access subdomain - not allowed
+            setError('New users cannot access business workspaces directly. Please contact your administrator.');
+            return;
+          }
           setIsNewUser(isTrialSignup);
           setShowOTPModal(true);
         } else {
@@ -96,17 +153,18 @@ export default function AuthCallback() {
           console.log('Existing Google user detected - checking tenant status:', { 
             hasProfile: !!profile, 
             hasTenant: !!profile.tenant_id, 
-            isTrialSignup 
+            isTrialSignup,
+            isSubdomain
           });
           
           await updateGoogleUserProfile(user, profile);
           
-          // Only show business form if this is trial signup AND user has no tenant
-          if (isTrialSignup && !profile.tenant_id) {
+          // Only show business form if this is trial signup AND user has no tenant on main domain
+          if (isTrialSignup && !profile.tenant_id && isMainDomain) {
             console.log('Existing user without tenant starting trial signup - showing business form');
             setIsNewUser(true);
           } else {
-            console.log('Existing user with tenant or regular login - showing regular OTP');
+            console.log('Existing user - showing regular OTP');
             setIsNewUser(false);
           }
           
