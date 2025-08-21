@@ -709,7 +709,7 @@ export function PaymentManagement() {
                         {assetAccounts.map((account) => (
                           <SelectItem key={account.id} value={account.id}>
                             <div className="flex items-center gap-2">
-                              <Building className="h-4 w-4 text-muted-foreground" />
+                              <CreditCard className="h-4 w-4 text-muted-foreground" />
                               <span>{account.code} - {account.name}</span>
                             </div>
                           </SelectItem>
