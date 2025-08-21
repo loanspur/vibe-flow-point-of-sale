@@ -335,12 +335,15 @@ export const DataMigration: React.FC = () => {
           }
         }
 
+        const costPrice = data.cost_price ? parseFloat(data.cost_price) : null;
+        
         const result = await supabase.from('products').insert({
           tenant_id: profile.tenant_id,
           name: data.name,
           description: data.description || null,
           price: parseFloat(data.price) || 0,
-          cost_price: data.cost_price ? parseFloat(data.cost_price) : null,
+          cost_price: costPrice,
+          purchase_price: costPrice, // Set purchase_price from imported cost_price
           sku: finalSKU,
           barcode: data.barcode || null,
           stock_quantity: data.stock_quantity ? parseInt(data.stock_quantity) : 0,
@@ -368,7 +371,7 @@ export const DataMigration: React.FC = () => {
 
         // Create inventory transaction if stock quantity is provided
         const stockQuantity = data.stock_quantity ? parseInt(data.stock_quantity.toString()) : 0;
-        const costPrice = data.cost_price ? parseFloat(data.cost_price.toString()) : 0;
+        const inventoryCostPrice = data.cost_price ? parseFloat(data.cost_price.toString()) : 0;
         
         if (stockQuantity > 0) {
           console.log('Creating inventory transaction for product:', data.name);
@@ -382,12 +385,12 @@ export const DataMigration: React.FC = () => {
             type: 'purchase',
             referenceId: insertedProduct.id,
             referenceType: 'product_import',
-            unitCost: costPrice,
+            unitCost: inventoryCostPrice,
             notes: `Initial stock from product import: ${data.name}`
           }]);
 
           // Create accounting entry for inventory valuation if cost price is provided
-          if (costPrice > 0) {
+          if (inventoryCostPrice > 0) {
             console.log('Creating accounting entry for inventory valuation');
             
             // Import the accounting integration function  
@@ -412,7 +415,7 @@ export const DataMigration: React.FC = () => {
               const equityAccount = accounts?.find((acc: any) => acc.name === 'Owner Equity' || acc.code === '3010');
               
               if (inventoryAccount && equityAccount) {
-                const totalValue = stockQuantity * costPrice;
+                const totalValue = stockQuantity * inventoryCostPrice;
                 
                 // Get current user ID for the accounting entry
                 const { data: userData } = await supabase.auth.getUser();
