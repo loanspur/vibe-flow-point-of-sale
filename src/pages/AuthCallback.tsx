@@ -215,12 +215,16 @@ export default function AuthCallback() {
         return;
       }
       
-      // Check if we're on a main domain for potential redirection
+      // Check domain type for proper redirection
       const currentDomain = window.location.hostname;
       const isMainDomain = currentDomain === 'vibenet.shop' || 
                           currentDomain === 'vibenet.online' ||
                           currentDomain === 'www.vibenet.shop' || 
-                          currentDomain === 'www.vibenet.online';
+                          currentDomain === 'www.vibenet.online' ||
+                          currentDomain === 'localhost';
+      
+      const isCurrentSubdomain = (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') ||
+                                (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online');
 
       if (profile?.tenant_id) {
         // User has a tenant
@@ -231,24 +235,28 @@ export default function AuthCallback() {
           .single();
 
         if (tenantData?.subdomain) {
-          if (isMainDomain) {
-            // User is on main domain but has tenant - show instructions
-            toast({
-              title: "Welcome back!",
-              description: `Please visit your business dashboard at ${tenantData.subdomain}.vibenet.shop`,
-            });
-            
-            setTimeout(() => {
-              navigate('/?login=success&subdomain=' + tenantData.subdomain);
-            }, 2000);
-            return;
-          } else {
-            // User is already on their subdomain - go directly to dashboard
+          // Check if user is on their correct subdomain
+          const expectedSubdomain = `${tenantData.subdomain}.vibenet.shop`;
+          const expectedSubdomainOnline = `${tenantData.subdomain}.vibenet.online`;
+          const isOnCorrectSubdomain = currentDomain === expectedSubdomain || currentDomain === expectedSubdomainOnline;
+          
+          if (isOnCorrectSubdomain) {
+            // User is on their correct subdomain - go directly to dashboard
             toast({
               title: "Welcome back!",
               description: `Welcome to ${tenantData.name}`,
             });
             navigate('/dashboard');
+            return;
+          } else if (isMainDomain) {
+            // User is on main domain but has tenant - redirect to their subdomain
+            const targetSubdomain = `${tenantData.subdomain}.vibenet.shop`;
+            window.location.href = `https://${targetSubdomain}/dashboard`;
+            return;
+          } else if (isCurrentSubdomain) {
+            // User is on wrong subdomain - redirect to their correct subdomain
+            const targetSubdomain = `${tenantData.subdomain}.vibenet.shop`;
+            window.location.href = `https://${targetSubdomain}/dashboard`;
             return;
           }
         }
