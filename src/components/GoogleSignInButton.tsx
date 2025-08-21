@@ -31,11 +31,15 @@ export function GoogleSignInButton({
         ? 'https://vibenet.online'
         : window.location.origin;
       
-      // Check if this is from trial signup to preserve context
-      const isFromTrialSignup = window.location.pathname.includes('trial') || 
-                               sessionStorage.getItem('trial-signup') === 'true';
+      // Only set trial context if explicitly from trial signup pages
+      const isFromTrialSignup = window.location.pathname === '/trial-signup' || 
+                               window.location.pathname === '/trial';
       
-      // Set trial context for later use
+      // Clear any existing trial flags first to prevent confusion
+      sessionStorage.removeItem('google-trial-signup');
+      sessionStorage.removeItem('trial-signup');
+      
+      // Set trial context only for actual trial pages
       if (isFromTrialSignup) {
         sessionStorage.setItem('google-trial-signup', 'true');
       }
