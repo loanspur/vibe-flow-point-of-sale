@@ -35,7 +35,6 @@ class TabStabilityManager {
   private setupVisibilityListener() {
     const handleVisibilityChange = () => {
       const now = Date.now();
-      const timeSinceLastChange = now - this.state.lastVisibilityChange;
       
       // Clear any existing timeout
       if (this.stabilityTimeout) {
@@ -51,16 +50,15 @@ class TabStabilityManager {
         
         console.log('Tab switching detected - preventing refreshes');
       } else if (document.visibilityState === 'visible') {
-        // Tab is becoming visible - always prevent refreshes initially
-        console.log('Tab returned - maintaining stability regardless of time away');
+        // Tab is becoming visible - shorter grace period for better UX
+        console.log('Tab returned - short stability period');
         
-        // Always maintain prevention when returning to tab
-        this.state.isTabSwitching = false; // Not switching anymore, but keep protections
+        this.state.isTabSwitching = false;
         
-        // Extended grace period - only restore after user interaction or longer delay
+        // Much shorter grace period to prevent login loops
         this.stabilityTimeout = setTimeout(() => {
           this.restoreNormalOperation();
-        }, 10000); // 10 second grace period instead of 3
+        }, 2000); // Reduced to 2 seconds
         
         this.state.lastVisibilityChange = now;
       }
@@ -90,12 +88,10 @@ class TabStabilityManager {
     
     // Also listen for user interactions to restore normal operation
     const handleUserInteraction = () => {
-      // User is actively interacting - safe to restore normal operation
+      // User is actively interacting - immediately restore normal operation
       if (this.state.isTabSwitching || this.state.preventAuthRefresh) {
-        console.log('User interaction detected - restoring normal operation');
-        setTimeout(() => {
-          this.restoreNormalOperation();
-        }, 2000); // Small delay after interaction
+        console.log('User interaction detected - immediate restore');
+        this.restoreNormalOperation();
       }
     };
     

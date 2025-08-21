@@ -187,9 +187,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (!mounted) return;
         
-        // Use the tab stability manager to prevent refresh loops
-        if (tabStabilityManager.shouldPreventAuthRefresh() && event !== 'SIGNED_OUT') {
-          console.log('Tab stability manager preventing auth refresh for event:', event);
+        // Only prevent auth refresh during actual tab switching, not after login
+        if (tabStabilityManager.shouldPreventAuthRefresh() && event !== 'SIGNED_OUT' && event !== 'SIGNED_IN') {
+          console.log('Tab stability preventing refresh for event:', event);
           return;
         }
         

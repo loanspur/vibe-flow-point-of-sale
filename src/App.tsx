@@ -78,11 +78,12 @@ const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Redirect only when tenant context is resolved to avoid loops
-    // Also check tab stability to prevent redirect loops during tab switching
-    if (user && isSubdomain() && domainConfig?.tenantId && !tabStabilityManager.isCurrentlyTabSwitching()) {
-      // User authenticated, redirecting to dashboard using React Router
-      navigate('/dashboard', { replace: true });
+    // Redirect authenticated users on subdomains to dashboard
+    if (user && isSubdomain() && domainConfig?.tenantId) {
+      // Small delay to prevent navigation loops
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 100);
     }
   }, [user, domainConfig?.tenantId, navigate]);
   

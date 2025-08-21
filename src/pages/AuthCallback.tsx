@@ -33,8 +33,8 @@ export default function AuthCallback() {
       console.log('Search params:', window.location.search);
       console.log('Hash fragment:', window.location.hash);
       
-      // Wait a moment for OAuth session to be established
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Reduced wait time to prevent delays
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       // Get the session from Supabase
       const { data, error } = await supabase.auth.getSession();
