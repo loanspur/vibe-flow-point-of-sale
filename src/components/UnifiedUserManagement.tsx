@@ -20,7 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Textarea } from '@/components/ui/textarea';
 import { useUnifiedUserManagement, UnifiedUser, UnifiedRole } from '@/hooks/useUnifiedUserManagement';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
-import { AuthDebugger } from '@/components/AuthDebugger';
+
 
 const UnifiedUserManagement = () => {
   const {
@@ -267,8 +267,6 @@ const UnifiedUserManagement = () => {
 
   return (
     <div className="space-y-6">
-      <AuthDebugger />
-      
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">User & Role Management</h2>
