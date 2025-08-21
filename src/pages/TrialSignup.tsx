@@ -118,7 +118,7 @@ export default function TrialSignup() {
 
     if (formData.password !== formData.confirmPassword) {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Passwords do not match",
         variant: "destructive"
       });
@@ -127,9 +127,9 @@ export default function TrialSignup() {
 
     setLoading(true);
     try {
-      console.log('Starting direct signup process...');
+      console.log('Starting trial signup process with business data...');
       
-      // Create account directly without email verification
+      // Create account with business data in metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -146,24 +146,45 @@ export default function TrialSignup() {
         throw authError;
       }
 
-      // Signup successful - user can now log in
       if (authData.user) {
         console.log('User account created successfully:', authData.user.id);
         
+        // Immediately create tenant and send welcome email
+        console.log('Creating tenant with business data...');
+        const { data: tenantData, error: tenantError } = await supabase.functions.invoke('create-tenant-trial', {
+          body: {
+            userId: authData.user.id,
+            businessData: {
+              businessName: formData.businessName,
+              ownerName: formData.ownerName,
+              ownerEmail: formData.email,
+              businessEmail: formData.email
+            },
+            planType: selectedPlan,
+            isGoogleUser: false
+          }
+        });
+
+        if (tenantError) {
+          console.error('Tenant creation error:', tenantError);
+          throw new Error('Failed to set up your business account');
+        }
+
+        console.log('Tenant created successfully:', tenantData);
+        
         toast({
-          title: "Account Created Successfully!",
-          description: "Check your email for login credentials and instructions to access your business dashboard.",
+          title: "Success! 🎉",
+          description: "Your business account has been created! Check your email for login credentials and instructions.",
           variant: "default"
         });
         
-        // Move to step 2 to show success message
+        // Move to success step
         setStep(2);
       }
 
     } catch (error: any) {
       console.error('Signup error:', error);
       
-      // For specific known errors, provide better messages
       let errorMessage = "Failed to create account. Please try again.";
       
       if (error.message && error.message.includes('already registered')) {
@@ -181,48 +202,7 @@ export default function TrialSignup() {
   };
 
 
-  const handleStartTrial = async () => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "Please create your account first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Start trial without payment
-      const { data, error } = await supabase.functions.invoke('start-free-trial', {
-        body: { planId: selectedPlan }
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast({
-          title: "Trial Started!",
-          description: "Your 14-day free trial has begun. Welcome to VibePOS!",
-          variant: "default"
-        });
-        
-        // Redirect to dashboard after successful trial start
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1500);
-      }
-
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to start trial",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Remove this redundant function since we now handle everything in handleCreateAccount
 
   const selectedPlanData = plans.find(p => p.id === selectedPlan);
 
@@ -463,97 +443,55 @@ export default function TrialSignup() {
                   </div>
                 </CardContent>
               </Card>
-            ) : step === 2 ? (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-                <div className="mb-4">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
+            ) : (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
+                <div className="mb-6">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
                   </div>
                 </div>
-                <h3 className="text-lg font-semibold text-green-900 mb-2">Account Created Successfully!</h3>
-                <p className="text-green-700 mb-4">
-                  Check your email for login credentials and instructions to access your business dashboard.
-                </p>
-                <div className="bg-green-100 rounded-lg p-4">
-                  <p className="text-sm text-green-800">
-                    <strong>Next Steps:</strong><br/>
-                    1. Check your email for login credentials<br/>
-                    2. Visit your business subdomain link<br/>
-                    3. Log in and change your password<br/>
-                    4. Start exploring your {selectedPlanData?.name} trial!
+                
+                <h3 className="text-2xl font-bold text-green-800 mb-4">
+                  🎉 Welcome to VibePOS!
+                </h3>
+                
+                <div className="space-y-4 text-green-700">
+                  <p className="text-lg font-medium">
+                    Your business account has been successfully created!
                   </p>
-                </div>
-              </div>
-            ) : user ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="h-5 w-5" />
-                    Start Your Free Trial
-                  </CardTitle>
-                  <CardDescription>
-                    Step 2 of 2: Start your free trial for {selectedPlanData?.name}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{selectedPlanData?.name}</span>
-                      <span className="font-bold">{selectedPlanData ? formatPrice(selectedPlanData.price) : 'Loading...'}/${selectedPlanData?.period}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {selectedPlanData?.description}
-                    </p>
-                    <div className="text-sm">
-                      <div className="flex items-center justify-between">
-                        <span>Trial Period:</span>
-                        <span className="text-green-600 font-medium">14 days free</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Then:</span>
-                        <span>{selectedPlanData ? formatPrice(selectedPlanData.price) : 'Loading...'}/${selectedPlanData?.period}</span>
-                      </div>
-                    </div>
-                  </div>
                   
-                  <div className="space-y-3">
-                    <h4 className="font-medium">What's included:</h4>
-                    <ul className="space-y-2">
-                      {selectedPlanData && formatFeatures(selectedPlanData.features).map((feature: any, index: number) => (
-                        <li key={index} className="flex items-center space-x-2 text-sm">
-                          <Check className="h-4 w-4 text-green-500" />
-                          <span>{typeof feature === 'string' ? feature : feature?.name || feature?.feature || 'Feature'}</span>
-                        </li>
-                      ))}
+                  <div className="bg-white/60 rounded-lg p-4 border border-green-200">
+                    <p className="font-semibold text-green-800 mb-2">📧 Check Your Email</p>
+                    <p className="text-sm">
+                      We've sent you an email with:
+                    </p>
+                    <ul className="text-sm mt-2 space-y-1">
+                      <li>• Your login credentials</li>
+                      <li>• Temporary password</li>
+                      <li>• Your unique subdomain link</li>
+                      <li>• Quick start guide</li>
                     </ul>
                   </div>
                   
-                  <Button 
-                    onClick={handleStartTrial} 
-                    disabled={loading}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Starting Trial...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4 mr-2" />
-                        Start Free Trial
-                      </>
-                    )}
-                  </Button>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="font-semibold text-blue-800 mb-2">🔐 Important Security Note</p>
+                    <p className="text-sm text-blue-700">
+                      You'll be required to change your temporary password when you first log in to keep your business data secure.
+                    </p>
+                  </div>
                   
-                  <p className="text-xs text-muted-foreground text-center">
-                    No credit card required. Start your 14-day free trial instantly. 
-                    You'll be prompted to add payment details when your trial expires.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : null}
+                  <div className="pt-4">
+                    <Button 
+                      onClick={() => navigate('/')}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      size="lg"
+                    >
+                      Return to Homepage
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

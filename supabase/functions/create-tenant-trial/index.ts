@@ -153,7 +153,7 @@ const handler = async (req: Request): Promise<Response> => {
       const { error: emailError } = await supabaseAdmin.functions.invoke('send-welcome-email', {
         body: {
           tenantName: businessData.businessName,
-          contactEmail: businessData.businessEmail || businessData.ownerEmail,
+          contactEmail: businessData.businessEmail || businessData.ownerEmail || businessData.email,
           tenantId: tenant.id,
           ownerName: businessData.ownerName,
           tempPassword: tempPassword,
