@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantDataCollection } from './TenantDataCollection';
@@ -7,7 +6,6 @@ import { LoadingSpinner } from './LoadingSpinner';
 
 export function TenantSetupCompletion() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [existingData, setExistingData] = useState<any>(null);
@@ -18,7 +16,7 @@ export function TenantSetupCompletion() {
 
   const checkSetupStatus = async () => {
     if (!user) {
-      navigate('/auth');
+      setLoading(false);
       return;
     }
 
@@ -28,10 +26,10 @@ export function TenantSetupCompletion() {
         .from('profiles')
         .select('tenant_id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.tenant_id) {
-        navigate('/auth');
+        setLoading(false);
         return;
       }
 
@@ -40,10 +38,10 @@ export function TenantSetupCompletion() {
         .from('tenants')
         .select('*')
         .eq('id', profile.tenant_id)
-        .single();
+        .maybeSingle();
 
       if (!tenant) {
-        navigate('/auth');
+        setLoading(false);
         return;
       }
 
@@ -56,34 +54,29 @@ export function TenantSetupCompletion() {
 
       if (isIncomplete) {
         setNeedsSetup(true);
-        // Prepare existing data for the form
         setExistingData({
           businessName: tenant.name || '',
           businessPhone: tenant.contact_phone || '',
           businessEmail: tenant.contact_email || '',
           address: tenant.address || '',
-          city: '', // Field not available in tenant schema
+          city: '',
           country: tenant.country || 'Kenya',
-          website: '', // Field not available in tenant schema
-          taxNumber: '', // Field not available in tenant schema
-          registrationNumber: '', // Field not available in tenant schema
-          businessDescription: '', // Field not available in tenant schema
-          postalCode: '' // Field not available in tenant schema
+          website: '',
+          taxNumber: '',
+          registrationNumber: '',
+          businessDescription: '',
+          postalCode: ''
         });
-      } else {
-        // Setup is complete, redirect to dashboard
-        navigate('/dashboard');
       }
     } catch (error) {
       console.error('Error checking setup status:', error);
-      navigate('/dashboard'); // Fallback to dashboard
     } finally {
       setLoading(false);
     }
   };
 
   const handleSetupComplete = () => {
-    navigate('/dashboard');
+    setNeedsSetup(false);
   };
 
   if (loading) {
@@ -95,7 +88,13 @@ export function TenantSetupCompletion() {
   }
 
   if (!needsSetup) {
-    return null; // Will redirect to dashboard
+    // Import TenantAdminDashboard dynamically to prevent circular imports
+    const TenantAdminDashboard = lazy(() => import('../pages/TenantAdminDashboard'));
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <TenantAdminDashboard />
+      </Suspense>
+    );
   }
 
   return (

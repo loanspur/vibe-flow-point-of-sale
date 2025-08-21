@@ -45,15 +45,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profileFetched, setProfileFetched] = useState<string | null>(null);
   const [fetchInProgress, setFetchInProgress] = useState<boolean>(false); // Prevent concurrent calls
 
-  // Fetch user role and tenant info with domain context support
+  // Simplified user info fetching - reduce redundant calls
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
-    // Prevent concurrent calls
-    if (fetchInProgress) {
-      return;
-    }
-    
-    // Check if already fetched for this user
-    if (profileFetched === userId) {
+    if (fetchInProgress || profileFetched === userId) {
       return;
     }
     

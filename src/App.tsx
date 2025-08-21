@@ -71,19 +71,8 @@ const Accounting = lazy(() => import("./pages/Accounting"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
-// Auth page wrapper to redirect authenticated users on subdomains (only when tenant is resolved)
+// Simplified auth wrapper - no automatic redirects to prevent loops
 const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
-  const { domainConfig } = useDomainContext();
-  const navigate = useNavigate();
-  
-  useEffect(() => {
-    // Only redirect if we have both user and tenant context, and we're not already on dashboard
-    if (user && isSubdomain() && domainConfig?.tenantId && window.location.pathname !== '/dashboard') {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, domainConfig?.tenantId, navigate]);
-  
   return <>{children}</>;
 };
 
