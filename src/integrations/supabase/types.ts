@@ -7382,6 +7382,10 @@ export type Database = {
           next_billing_date: string
         }[]
       }
+      setup_tenant_admin_with_unified_roles: {
+        Args: { admin_user_id: string; tenant_id_param: string }
+        Returns: undefined
+      }
       setup_tenant_default_features: {
         Args: { tenant_id_param: string }
         Returns: undefined

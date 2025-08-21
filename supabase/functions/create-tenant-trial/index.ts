@@ -93,6 +93,20 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log('Profile updated successfully');
 
+    // Setup unified role management for the tenant admin
+    console.log('Setting up unified role management...');
+    const { error: roleSetupError } = await supabaseAdmin.rpc('setup_tenant_admin_with_unified_roles', {
+      tenant_id_param: tenant.id,
+      admin_user_id: userId
+    });
+
+    if (roleSetupError) {
+      console.error('Role setup error:', roleSetupError);
+      // Don't fail the whole process, just log the error
+    } else {
+      console.log('Unified role management setup completed');
+    }
+
     // Create subscription with 14-day trial
     console.log('Creating trial subscription...');
     const trialEndDate = new Date();
