@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -27,7 +29,20 @@ import {
   BarChart3,
   Building,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  RotateCcw,
+  Zap,
+  DollarSign,
+  Briefcase,
+  FileText,
+  Database,
+  Smartphone,
+  CreditCard,
+  MapPin,
+  TrendingUp,
+  AlertTriangle
 } from 'lucide-react';
 import { PermissionGuard } from '@/components/PermissionGuard';
 
@@ -47,6 +62,16 @@ interface RolePermission {
   granted: boolean;
 }
 
+interface PermissionGroup {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  category: string;
+  permissions: string[];
+  sort_order: number;
+}
+
 interface RoleFormData {
   id?: string;
   name: string;
@@ -59,15 +84,15 @@ interface RoleFormData {
 const MODULE_ICONS = {
   inventory: Package,
   sales: ShoppingCart,
-  purchasing: Package,
+  purchasing: Briefcase,
   crm: Contact,
   communication: MessageSquare,
   administration: Settings,
   reports: BarChart3,
-  financial: BarChart3,
+  financial: DollarSign,
   settings: Settings,
-  pos: ShoppingCart,
-  marketing: BarChart3,
+  pos: CreditCard,
+  marketing: TrendingUp,
   dashboard: BarChart3
 } as const;
 
@@ -90,9 +115,13 @@ const EnhancedRoleManagement: React.FC = () => {
   const { userRoles, loading, saveUserRole, deleteUserRole, loadAllData } = useRoleManagement();
   const [permissions, setPermissions] = useState<SystemPermission[]>([]);
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
+  const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<UserRole | null>(null);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
+  const [showGroupMode, setShowGroupMode] = useState(true);
   const [roleFormData, setRoleFormData] = useState<RoleFormData>({
     name: '',
     description: '',
@@ -120,6 +149,20 @@ const EnhancedRoleManagement: React.FC = () => {
 
       if (rolePermError) throw rolePermError;
       setRolePermissions(rolePermData || []);
+
+      // Fetch permission groups
+      const { data: groupsData, error: groupsError } = await supabase
+        .from('permission_groups')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('sort_order', { ascending: true });
+
+      if (groupsError) throw groupsError;
+      setPermissionGroups(groupsData || []);
+      
+      // Auto-expand categories
+      const categories = new Set(permissionsData?.map(p => p.category) || []);
+      setExpandedCategories(categories);
     } catch (error) {
       console.error('Error fetching permissions:', error);
       toast.error('Failed to load permissions');
@@ -309,6 +352,61 @@ const EnhancedRoleManagement: React.FC = () => {
     }));
   };
 
+  const toggleCategoryExpansion = (category: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const applyPermissionGroup = (groupName: string) => {
+    const group = permissionGroups.find(g => g.name === groupName);
+    if (!group) return;
+
+    // Reset all permissions first
+    const resetPermissions = Object.keys(roleFormData.permissions).reduce((acc, key) => {
+      acc[key] = false;
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    // Apply group permissions
+    const groupUpdates = group.permissions.reduce((acc, permission) => {
+      if (permission.includes(':*')) {
+        // Handle wildcard permissions (e.g., 'products:*')
+        const resource = permission.split(':')[0];
+        const resourcePermissions = permissions.filter(p => p.resource === resource);
+        resourcePermissions.forEach(p => {
+          acc[p.id] = true;
+        });
+      } else {
+        // Handle specific permissions (e.g., 'products:read')
+        const [resource, action] = permission.split(':');
+        const specificPermission = permissions.find(p => p.resource === resource && p.action === action);
+        if (specificPermission) {
+          acc[specificPermission.id] = true;
+        }
+      }
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    setRoleFormData(prev => ({
+      ...prev,
+      permissions: {
+        ...resetPermissions,
+        ...groupUpdates
+      }
+    }));
+
+    toast.success(`Applied ${group.display_name} permission set`);
+  };
+
+  const getPermissionGroupsForCategory = (category: string) => {
+    return permissionGroups.filter(g => g.category === category);
+  };
+
   if (loading || permissionsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -402,17 +500,66 @@ const EnhancedRoleManagement: React.FC = () => {
                           </div>
 
                           <div className="space-y-4">
-                            <Label className="text-lg font-semibold">Permissions</Label>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-lg font-semibold">Permissions</Label>
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    checked={showGroupMode} 
+                                    onCheckedChange={setShowGroupMode}
+                                  />
+                                  <Label>Bulk Mode</Label>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {showGroupMode && (
+                              <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                                <CardHeader className="pb-3">
+                                  <CardTitle className="text-base flex items-center gap-2">
+                                    <Zap className="h-5 w-5 text-blue-600" />
+                                    Quick Permission Groups
+                                  </CardTitle>
+                                  <CardDescription>
+                                    Apply predefined permission sets to quickly configure role access
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {permissionGroups.slice(0, 8).map((group) => (
+                                      <Button
+                                        key={group.name}
+                                        type="button"
+                                        variant="outline"
+                                        className="justify-start h-auto p-3"
+                                        onClick={() => applyPermissionGroup(group.name)}
+                                      >
+                                        <div className="text-left">
+                                          <div className="font-medium">{group.display_name}</div>
+                                          <div className="text-xs text-muted-foreground mt-1">
+                                            {group.description}
+                                          </div>
+                                        </div>
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+
                             {Object.entries(groupedPermissions).map(([category, resources]) => {
                               const IconComponent = MODULE_ICONS[category as keyof typeof MODULE_ICONS] || Settings;
                               const categoryPerms = permissions.filter(p => p.category === category);
                               const selectedCount = categoryPerms.filter(p => roleFormData.permissions[p.id]).length;
+                              const isExpanded = expandedCategories.has(category);
+                              const groupsForCategory = getPermissionGroupsForCategory(category);
                               
                               return (
                                 <Card key={category} className="border-l-4 border-l-primary">
                                   <CardHeader className="pb-3">
                                     <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleCategoryExpansion(category)}>
+                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                         <IconComponent className="h-5 w-5" />
                                         <CardTitle className="text-base capitalize">
                                           {category.replace('_', ' ')}
@@ -420,8 +567,28 @@ const EnhancedRoleManagement: React.FC = () => {
                                         <Badge variant="outline" className={MODULE_COLORS[category as keyof typeof MODULE_COLORS] || 'bg-gray-100 text-gray-800'}>
                                           {selectedCount}/{categoryPerms.length}
                                         </Badge>
+                                        {selectedCount > 0 && selectedCount === categoryPerms.length && (
+                                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                        )}
+                                        {selectedCount > 0 && selectedCount < categoryPerms.length && (
+                                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                                        )}
                                       </div>
                                       <div className="flex gap-2">
+                                        {groupsForCategory.length > 0 && (
+                                          <Select onValueChange={applyPermissionGroup}>
+                                            <SelectTrigger className="w-36 h-8">
+                                              <SelectValue placeholder="Quick apply..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {groupsForCategory.map((group) => (
+                                                <SelectItem key={group.name} value={group.name}>
+                                                  {group.display_name.replace(`${category.charAt(0).toUpperCase() + category.slice(1)} - `, '')}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        )}
                                         <Button
                                           type="button"
                                           variant="outline"
@@ -441,40 +608,42 @@ const EnhancedRoleManagement: React.FC = () => {
                                       </div>
                                     </div>
                                   </CardHeader>
-                                  <CardContent className="space-y-4">
-                                    {Object.entries(resources).map(([resource, perms]) => (
-                                      <div key={resource} className="space-y-2">
-                                        <h4 className="font-medium text-sm capitalize text-muted-foreground">
-                                          {resource.replace('_', ' ')}
-                                        </h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                          {perms.map((permission) => (
-                                            <div key={permission.id} className="flex items-center space-x-2">
-                                              <Checkbox
-                                                id={permission.id}
-                                                checked={!!roleFormData.permissions[permission.id]}
-                                                onCheckedChange={(checked) => 
-                                                  handlePermissionChange(permission.id, !!checked)
-                                                }
-                                              />
-                                              <Label 
-                                                htmlFor={permission.id} 
-                                                className="text-xs cursor-pointer flex items-center gap-1"
-                                              >
-                                                {permission.action}
-                                                {permission.is_critical && (
-                                                  <Badge variant="destructive" className="text-xs px-1">
-                                                    Critical
-                                                  </Badge>
-                                                )}
-                                              </Label>
-                                            </div>
-                                          ))}
+                                  {isExpanded && (
+                                    <CardContent className="space-y-4">
+                                      {Object.entries(resources).map(([resource, perms]) => (
+                                        <div key={resource} className="space-y-2">
+                                          <h4 className="font-medium text-sm capitalize text-muted-foreground">
+                                            {resource.replace('_', ' ')}
+                                          </h4>
+                                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                            {perms.map((permission) => (
+                                              <div key={permission.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                  id={permission.id}
+                                                  checked={!!roleFormData.permissions[permission.id]}
+                                                  onCheckedChange={(checked) => 
+                                                    handlePermissionChange(permission.id, !!checked)
+                                                  }
+                                                />
+                                                 <Label 
+                                                   htmlFor={permission.id}
+                                                   className="text-xs cursor-pointer flex items-center gap-1"
+                                                 >
+                                                   {permission.action}
+                                                   {permission.is_critical && (
+                                                     <Badge variant="destructive" className="text-xs px-1">
+                                                       Critical
+                                                     </Badge>
+                                                   )}
+                                                 </Label>
+                                              </div>
+                                            ))}
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
-                                  </CardContent>
-                                </Card>
+                                      ))}
+                                    </CardContent>
+                                  )}
+                               </Card>
                               );
                             })}
                           </div>

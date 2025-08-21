@@ -2873,6 +2873,45 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_groups: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_system_group: boolean | null
+          name: string
+          permissions: string[]
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_system_group?: boolean | null
+          name: string
+          permissions?: string[]
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_system_group?: boolean | null
+          name?: string
+          permissions?: string[]
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       permission_templates: {
         Row: {
           category: string
@@ -6912,6 +6951,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_user_permission_enhanced: {
+        Args: { p_action?: string; p_resource: string; p_user_id: string }
+        Returns: boolean
+      }
       copy_role: {
         Args: {
           new_role_description?: string
@@ -7056,6 +7099,10 @@ export type Database = {
       }
       get_effective_subscription_status: {
         Args: { subscription_status: string; trial_end: string }
+        Returns: string
+      }
+      get_permission_error_message: {
+        Args: { p_action: string; p_resource: string; p_user_role?: string }
         Returns: string
       }
       get_product_history_summary: {
