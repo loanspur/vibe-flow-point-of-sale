@@ -718,11 +718,19 @@ export const useUnifiedUserManagement = () => {
       return false;
     }
     
+    // Superadmin has access to everything
     if (userRole === 'superadmin') {
       console.log('hasRoleAccess: User is superadmin');
       return true;
     }
     
+    // Tenant admin has access to everything within their tenant
+    if (userRole === 'admin') {
+      console.log('hasRoleAccess: User is tenant admin');
+      return true;
+    }
+    
+    // First try to use the current user from the users list (complex role system)
     const currentUser = users.find(u => u.user_id === user.id);
     console.log('hasRoleAccess: Current user lookup', { 
       userId: user.id, 
@@ -733,18 +741,19 @@ export const useUnifiedUserManagement = () => {
       primaryRole: currentUser?.role 
     });
     
-    // Fallback to AuthContext userRole if user not found in users list yet
-    if (!currentUser) {
-      console.log('hasRoleAccess: Using fallback to AuthContext userRole', { userRole, requiredRoles });
-      return userRole ? requiredRoles.includes(userRole) : false;
+    if (currentUser) {
+      const hasAccess = requiredRoles.some(role => 
+        currentUser.roles.includes(role) || currentUser.role === role
+      );
+      console.log('hasRoleAccess: Access result from user list', { hasAccess, requiredRoles });
+      return hasAccess;
     }
-
-    const hasAccess = requiredRoles.some(role => 
-      currentUser.roles.includes(role) || currentUser.role === role
-    );
     
-    console.log('hasRoleAccess: Access result', { hasAccess, requiredRoles });
-    return hasAccess;
+    // Fallback to AuthContext userRole (simple role system)
+    console.log('hasRoleAccess: Using fallback to AuthContext userRole', { userRole, requiredRoles });
+    const fallbackAccess = userRole ? requiredRoles.includes(userRole) : false;
+    console.log('hasRoleAccess: Fallback access result', { fallbackAccess, userRole, requiredRoles });
+    return fallbackAccess;
   }, [user, tenantId, userRole, users]);
 
   // Initialize data
