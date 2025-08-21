@@ -617,16 +617,38 @@ export const useUnifiedUserManagement = () => {
   }, [user, tenantId, userRole, users, roles]);
 
   const hasRoleAccess = useCallback((requiredRoles: string[]): boolean => {
-    if (!user || !tenantId) return false;
+    if (!user || !tenantId) {
+      console.log('hasRoleAccess: Missing user or tenantId', { user: !!user, tenantId });
+      return false;
+    }
     
-    if (userRole === 'superadmin') return true;
+    if (userRole === 'superadmin') {
+      console.log('hasRoleAccess: User is superadmin');
+      return true;
+    }
     
     const currentUser = users.find(u => u.user_id === user.id);
-    if (!currentUser) return false;
+    console.log('hasRoleAccess: Current user lookup', { 
+      userId: user.id, 
+      currentUser: !!currentUser,
+      userRole,
+      requiredRoles,
+      userRoles: currentUser?.roles,
+      primaryRole: currentUser?.role 
+    });
+    
+    // Fallback to AuthContext userRole if user not found in users list yet
+    if (!currentUser) {
+      console.log('hasRoleAccess: Using fallback to AuthContext userRole', { userRole, requiredRoles });
+      return userRole ? requiredRoles.includes(userRole) : false;
+    }
 
-    return requiredRoles.some(role => 
+    const hasAccess = requiredRoles.some(role => 
       currentUser.roles.includes(role) || currentUser.role === role
     );
+    
+    console.log('hasRoleAccess: Access result', { hasAccess, requiredRoles });
+    return hasAccess;
   }, [user, tenantId, userRole, users]);
 
   // Initialize data

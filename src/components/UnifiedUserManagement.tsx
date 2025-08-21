@@ -20,9 +20,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Textarea } from '@/components/ui/textarea';
 import { useUnifiedUserManagement, UnifiedUser, UnifiedRole } from '@/hooks/useUnifiedUserManagement';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 const UnifiedUserManagement = () => {
+  const { user, userRole, tenantId } = useAuth();
+  
   const {
     users,
     roles,
@@ -42,6 +45,16 @@ const UnifiedUserManagement = () => {
   } = useUnifiedUserManagement();
 
   const { logActivity } = useActivityLogger();
+
+  console.log('UnifiedUserManagement Debug:', {
+    loading,
+    usersCount: users.length,
+    rolesCount: roles.length,
+    currentUser: users.find(u => u.user_id === user?.id),
+    authUser: user?.id,
+    userRole,
+    tenantId
+  });
 
   // State management
   const [searchTerm, setSearchTerm] = useState('');
