@@ -179,9 +179,14 @@ export default function AuthCallback() {
           return;
         } else if (!domainConfig.isSubdomain) {
           // User is on main domain but has tenant - show instructions
+          const currentDomain = window.location.hostname;
+          const domainExtension = currentDomain.includes('vibenet.shop') ? 'vibenet.shop' : 
+                                 currentDomain.includes('vibenet.online') ? 'vibenet.online' : 
+                                 'online'; // Default for custom domains
+          
           toast({
             title: "Login Successful!",
-            description: `Please bookmark and visit: ${tenantData.subdomain}.vibenet.shop`,
+            description: `Please bookmark and visit: ${tenantData.subdomain}.${domainExtension}`,
           });
           
           setTimeout(() => {
@@ -190,7 +195,11 @@ export default function AuthCallback() {
           return;
         } else {
           // User is on wrong subdomain - redirect to correct one
-          const targetSubdomain = `${tenantData.subdomain}.vibenet.shop`;
+          const currentDomain = window.location.hostname;
+          const domainExtension = currentDomain.includes('vibenet.shop') ? 'vibenet.shop' : 
+                                 currentDomain.includes('vibenet.online') ? 'vibenet.online' : 
+                                 'online'; // Default for custom domains
+          const targetSubdomain = `${tenantData.subdomain}.${domainExtension}`;
           window.location.href = `https://${targetSubdomain}/dashboard`;
           return;
         }
