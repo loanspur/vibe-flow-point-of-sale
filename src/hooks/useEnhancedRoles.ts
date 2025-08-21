@@ -38,7 +38,7 @@ export interface UserRoleAssignment {
 }
 
 export const useEnhancedRoles = () => {
-  const { user, tenantId } = useAuth();
+  const { user, tenantId, userRole: authUserRole } = useAuth();
   const [roles, setRoles] = useState<EnhancedUserRole[]>([]);
   const [permissions, setPermissions] = useState<SystemPermission[]>([]);
   const [userRoleAssignments, setUserRoleAssignments] = useState<UserRoleAssignment[]>([]);
@@ -134,6 +134,11 @@ export const useEnhancedRoles = () => {
   const hasPermission = (resource: string, action: string): boolean => {
     if (!user) return false;
 
+    // Check if user is an administrator via AuthContext - grant all permissions
+    if (authUserRole === 'admin' || authUserRole === 'superadmin') {
+      return true;
+    }
+
     // Get user's roles
     const userAssignments = userRoleAssignments.filter(ua => ua.user_id === user.id);
     if (userAssignments.length === 0) return false;
@@ -155,6 +160,11 @@ export const useEnhancedRoles = () => {
   // Check if user has any permission for a resource
   const hasResourceAccess = (resource: string): boolean => {
     if (!user) return false;
+
+    // Check if user is an administrator via AuthContext - grant all resource access
+    if (authUserRole === 'admin' || authUserRole === 'superadmin') {
+      return true;
+    }
 
     const userAssignments = userRoleAssignments.filter(ua => ua.user_id === user.id);
     if (userAssignments.length === 0) return false;

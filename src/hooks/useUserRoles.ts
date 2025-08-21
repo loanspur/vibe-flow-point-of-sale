@@ -16,7 +16,7 @@ export const useUserRoles = () => {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
-  const { user, tenantId } = useAuth();
+  const { user, tenantId, userRole: authUserRole } = useAuth();
   const { handleSupabaseError } = usePermissionError({ showToast: false });
 
   const fetchRoles = async () => {
@@ -94,6 +94,11 @@ export const useUserRoles = () => {
     // Check for 'all' permission (super admin)
     if (userRole.permissions.all === true) return true;
     
+    // Check if user is an administrator via AuthContext - grant all permissions
+    if (authUserRole === 'admin' || authUserRole === 'superadmin') {
+      return true;
+    }
+    
     // Check specific resource permission
     const resourcePerms = userRole.permissions[resource];
     if (!resourcePerms) return false;
@@ -106,6 +111,11 @@ export const useUserRoles = () => {
     
     // For roles with 'all' permissions, allow access to everything
     if (userRole.permissions?.all === true) return true;
+    
+    // Check if user is an administrator via AuthContext - grant all access
+    if (authUserRole === 'admin' || authUserRole === 'superadmin') {
+      return true;
+    }
     
     // Check if user's role is in the required roles list
     return requiredRoles.includes(userRole.name);

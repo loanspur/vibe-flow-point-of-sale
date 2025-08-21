@@ -47,17 +47,22 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Check role-based access
   if (role) {
-    const allowedRoles = Array.isArray(role) ? role : [role];
-    if (!allowedRoles.includes(userRole || '')) {
-      return fallback || (showMessage ? (
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800">
-            You don't have the required role to access this feature.
-            Required: {allowedRoles.join(', ')}
-          </AlertDescription>
-        </Alert>
-      ) : null);
+    // Check if user is an administrator - grant all access
+    if (userRole === 'admin' || userRole === 'superadmin') {
+      // Administrators inherit all permissions, continue to children
+    } else {
+      const allowedRoles = Array.isArray(role) ? role : [role];
+      if (!allowedRoles.includes(userRole || '')) {
+        return fallback || (showMessage ? (
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              You don't have the required role to access this feature.
+              Required: {allowedRoles.join(', ')}
+            </AlertDescription>
+          </Alert>
+        ) : null);
+      }
     }
   }
 
@@ -78,17 +83,32 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Check resource and action based access with enhanced permissions
   if (resource && action) {
-    // Use enhanced permission system first
-    if (!hasEnhancedPermission(resource, action)) {
-      // Fallback to legacy role-based check
-      const currentUserRole = userRoles.find(r => r.name.toLowerCase() === userRole?.toLowerCase());
-      
-      if (currentUserRole) {
-        const permissions = currentUserRole.permissions || {};
+    // Check if user is an administrator - grant all permissions
+    if (userRole === 'admin' || userRole === 'superadmin') {
+      // Administrators inherit all permissions, continue to children
+    } else {
+      // Use enhanced permission system first
+      if (!hasEnhancedPermission(resource, action)) {
+        // Fallback to legacy role-based check
+        const currentUserRole = userRoles.find(r => r.name.toLowerCase() === userRole?.toLowerCase());
         
-        if (permissions[resource]) {
-          const allowedActions = permissions[resource];
-          if (!allowedActions.includes(action) && !allowedActions.includes('*')) {
+        if (currentUserRole) {
+          const permissions = currentUserRole.permissions || {};
+          
+          if (permissions[resource]) {
+            const allowedActions = permissions[resource];
+            if (!allowedActions.includes(action) && !allowedActions.includes('*')) {
+              return fallback || (showMessage ? (
+                <Alert className="border-orange-200 bg-orange-50">
+                  <Lock className="h-4 w-4 text-orange-600" />
+                  <AlertDescription className="text-orange-800">
+                    You don't have permission to {action} {resource}.
+                  </AlertDescription>
+                </Alert>
+              ) : null);
+            }
+          } else {
+            // No permission found
             return fallback || (showMessage ? (
               <Alert className="border-orange-200 bg-orange-50">
                 <Lock className="h-4 w-4 text-orange-600" />
@@ -99,7 +119,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
             ) : null);
           }
         } else {
-          // No permission found
+          // No role found, deny access
           return fallback || (showMessage ? (
             <Alert className="border-orange-200 bg-orange-50">
               <Lock className="h-4 w-4 text-orange-600" />
@@ -109,16 +129,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
             </Alert>
           ) : null);
         }
-      } else {
-        // No role found, deny access
-        return fallback || (showMessage ? (
-          <Alert className="border-orange-200 bg-orange-50">
-            <Lock className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800">
-              You don't have permission to {action} {resource}.
-            </AlertDescription>
-          </Alert>
-        ) : null);
       }
     }
   }
@@ -151,6 +161,11 @@ export const usePermissions = () => {
     action?: string,
     role?: string | string[]
   ): boolean => {
+    // Check if user is an administrator - grant all permissions
+    if (userRole === 'admin' || userRole === 'superadmin') {
+      return true;
+    }
+
     // Check role
     if (role) {
       const allowedRoles = Array.isArray(role) ? role : [role];
