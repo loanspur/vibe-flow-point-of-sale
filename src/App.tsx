@@ -211,12 +211,20 @@ const DomainRouter = () => {
     const searchParams = new URLSearchParams(location.search || '');
     
     // Check if we're at root with OAuth fragments - redirect to callback
-    if (location.pathname === '/' && hash && /access_token|error/.test(hash)) {
+    if (location.pathname === '/' && hash && /access_token|error|type=/.test(hash)) {
       console.log('🔀 OAuth fragments detected at root - redirecting to callback');
       const callbackUrl = `/auth/callback${location.search}${hash}`;
-      setTimeout(() => {
-        window.location.href = callbackUrl;
-      }, 0);
+      console.log('🎯 Redirecting to:', callbackUrl);
+      window.location.replace(callbackUrl);
+      return;
+    }
+    
+    // Also handle OAuth fragments on /auth path (some OAuth providers redirect here)
+    if (location.pathname === '/auth' && hash && /access_token|error/.test(hash)) {
+      console.log('🔀 OAuth fragments detected on /auth - redirecting to callback');
+      const callbackUrl = `/auth/callback${location.search}${hash}`;
+      console.log('🎯 Redirecting to:', callbackUrl);
+      window.location.replace(callbackUrl);
       return;
     }
     

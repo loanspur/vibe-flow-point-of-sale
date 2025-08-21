@@ -27,6 +27,8 @@ export function GoogleSignInButton({
       // Preserve current domain (including subdomain) for OAuth flow
       const currentOrigin = window.location.origin;
       
+      console.log('🔐 Starting Google OAuth for:', currentOrigin);
+      
       // Only set trial context if explicitly from trial signup pages
       const isFromTrialSignup = window.location.pathname === '/trial-signup' || 
                                window.location.pathname === '/trial';
@@ -39,10 +41,13 @@ export function GoogleSignInButton({
         params.set('from', 'trial');
       }
       
+      const finalRedirectUrl = `${redirectUrl}?${params.toString()}`;
+      console.log('🎯 OAuth redirect URL:', finalRedirectUrl);
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${redirectUrl}?${params.toString()}`,
+          redirectTo: finalRedirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
