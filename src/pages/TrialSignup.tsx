@@ -91,6 +91,8 @@ export default function TrialSignup() {
 
   useEffect(() => {
     fetchPlans();
+    // Set trial signup flag when page loads
+    sessionStorage.setItem('trial-signup', 'true');
   }, []);
 
   useEffect(() => {
@@ -368,6 +370,9 @@ export default function TrialSignup() {
                       buttonText="Continue with Google"
                       onSuccess={(user) => {
                         console.log('Google sign-in successful:', user);
+                        // Set trial signup flag for Google OAuth flow
+                        sessionStorage.setItem('google-trial-signup', 'true');
+                        sessionStorage.setItem('trial-signup', 'true');
                         // OAuth flow will handle redirection
                       }}
                       onError={(error) => {

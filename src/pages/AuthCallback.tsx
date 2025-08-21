@@ -96,9 +96,19 @@ export default function AuthCallback() {
           // Clear any trial signup flags
           sessionStorage.removeItem('google-trial-signup');
         } else {
-          // Existing Google user - update profile and show OTP for verification
-          console.log('Existing Google user detected - showing OTP');
+          // Existing Google user - check if they have a tenant
+          console.log('Existing Google user detected - checking tenant status');
           await updateGoogleUserProfile(user, profile);
+          
+          // Check if this is a new tenant signup flow (user exists but no tenant)
+          const isTrialSignup = sessionStorage.getItem('google-trial-signup') === 'true';
+          const needsTenant = !profile.tenant_id;
+          
+          if (isTrialSignup && needsTenant) {
+            console.log('Existing user starting trial signup - showing business form');
+            setIsNewUser(true); // Show business form even for existing users
+          }
+          
           setShowOTPModal(true);
         }
         
