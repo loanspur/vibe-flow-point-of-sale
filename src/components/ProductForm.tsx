@@ -925,7 +925,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       stepTitle: STEPS[currentStep]?.title 
     });
     
-    if (!formActions.validate()) {
+    // Prevent accidental form submission by validating current step only
+    const validationErrors = validateForm(formState.data);
+    if (Object.keys(validationErrors).length > 0) {
       toast({
         title: "Please complete all required fields",
         description: "Fix the errors before proceeding to the next step",
@@ -939,6 +941,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     if (currentStep < STEPS.length - 1) {
       console.log('Proceeding to next step:', STEPS[currentStep + 1]?.title);
       setCurrentStep(currentStep + 1);
+    } else {
+      console.log('Already at final step, cannot proceed further');
     }
   };
 
@@ -1590,7 +1594,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-6">
         {renderStepContent()}
 
         {/* Navigation */}
@@ -1624,14 +1628,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             </Button>
           ) : (
             <Button 
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading || !canProceed()}
             >
               {loading ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
             </Button>
           )}
         </div>
-      </form>
+      </div>
     </div>
   );
 }
