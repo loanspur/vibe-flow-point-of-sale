@@ -7424,6 +7424,12 @@ export type Database = {
         | "print"
         | "email"
         | "manage"
+        | "process"
+        | "transfer"
+        | "reconcile"
+        | "configure"
+        | "send"
+        | "schedule"
       permission_resource:
         | "dashboard"
         | "products"
@@ -7472,6 +7478,16 @@ export type Database = {
         | "discount_management"
         | "receipt_printing"
         | "session_management"
+        | "brands"
+        | "units"
+        | "stock_levels"
+        | "stock_transfers"
+        | "stock_receiving"
+        | "communication_settings"
+        | "cash_drawers"
+        | "cash_transactions"
+        | "cash_transfers"
+        | "pricing_rules"
       ssl_status: "none" | "pending" | "issued" | "expired" | "failed"
       user_role: "superadmin" | "admin" | "manager" | "cashier" | "user"
     }
@@ -7638,6 +7654,12 @@ export const Constants = {
         "print",
         "email",
         "manage",
+        "process",
+        "transfer",
+        "reconcile",
+        "configure",
+        "send",
+        "schedule",
       ],
       permission_resource: [
         "dashboard",
@@ -7687,6 +7709,16 @@ export const Constants = {
         "discount_management",
         "receipt_printing",
         "session_management",
+        "brands",
+        "units",
+        "stock_levels",
+        "stock_transfers",
+        "stock_receiving",
+        "communication_settings",
+        "cash_drawers",
+        "cash_transactions",
+        "cash_transfers",
+        "pricing_rules",
       ],
       ssl_status: ["none", "pending", "issued", "expired", "failed"],
       user_role: ["superadmin", "admin", "manager", "cashier", "user"],
