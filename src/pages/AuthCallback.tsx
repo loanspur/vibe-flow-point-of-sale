@@ -158,6 +158,10 @@ export default function AuthCallback() {
       .maybeSingle();
 
     const domainConfig = await domainManager.getCurrentDomainConfig();
+    
+    console.log('=== PROCEED AFTER AUTH DEBUG ===');
+    console.log('Profile tenant_id:', profile?.tenant_id);
+    console.log('Domain config:', domainConfig);
 
     if (profile?.tenant_id) {
       const { data: tenantData } = await supabase
@@ -166,11 +170,21 @@ export default function AuthCallback() {
         .eq('id', profile.tenant_id)
         .single();
 
+      console.log('Tenant data:', tenantData);
+
       if (tenantData?.subdomain) {
         const isOnCorrectSubdomain = domainConfig.isSubdomain && 
                                    domainConfig.tenantId === profile.tenant_id;
         
+        console.log('Subdomain check:', {
+          isSubdomain: domainConfig.isSubdomain,
+          domainTenantId: domainConfig.tenantId,
+          profileTenantId: profile.tenant_id,
+          isOnCorrectSubdomain
+        });
+        
         if (isOnCorrectSubdomain) {
+          console.log('User is on correct subdomain - redirecting to dashboard');
           toast({
             title: "Welcome back!",
             description: `Welcome to ${tenantData.name}`,
