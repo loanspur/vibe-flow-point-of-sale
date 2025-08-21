@@ -151,6 +151,16 @@ const EnhancedRoleManagement: React.FC = () => {
       .map(rp => rp.permission_id);
   };
 
+  const getRolePermissionCount = (roleId: string) => {
+    return rolePermissions.filter(rp => rp.role_id === roleId && rp.granted).length;
+  };
+
+  const isAdminRole = (role: UserRole) => {
+    return role.name.toLowerCase().includes('admin') || 
+           role.permissions?.all === true ||
+           getRolePermissionCount(role.id) >= permissions.length * 0.8; // 80% or more permissions
+  };
+
   const handlePermissionChange = (permissionId: string, granted: boolean) => {
     setRoleFormData(prev => ({
       ...prev,
@@ -488,13 +498,19 @@ const EnhancedRoleManagement: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {userRoles.map((role) => {
                   const rolePermissionCount = getRolePermissions(role.id).length;
+                  const isAdmin = isAdminRole(role);
                   return (
-                    <Card key={role.id} className="relative">
+                    <Card key={role.id} className={`relative border-l-4 ${isAdmin ? 'ring-2 ring-red-200 bg-red-50/50' : ''}`} style={{ borderLeftColor: role.color }}>
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">{role.name}</CardTitle>
+                          <CardTitle className={`text-base ${isAdmin ? 'text-red-700 font-bold' : ''}`}>
+                            {role.name}
+                            {isAdmin && (
+                              <Shield className="h-4 w-4 ml-1 inline text-red-600" />
+                            )}
+                          </CardTitle>
                           <div className="flex items-center gap-1">
-                            <Badge variant="outline" style={{ borderColor: role.color }}>
+                            <Badge variant={isAdmin ? "destructive" : "outline"} style={!isAdmin ? { borderColor: role.color } : {}}>
                               Level {role.level || 1}
                             </Badge>
                             <PermissionGuard role={['superadmin', 'admin', 'manager']}>
@@ -525,10 +541,39 @@ const EnhancedRoleManagement: React.FC = () => {
                       </CardHeader>
                       <CardContent className="pt-0">
                         <div className="space-y-2">
-                          <Badge variant="secondary" className="text-xs">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            {rolePermissionCount} Permissions
-                          </Badge>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Permissions</span>
+                            <Badge variant={isAdmin ? "destructive" : "secondary"} className="text-xs">
+                              {rolePermissionCount}/{permissions.length}
+                              {isAdmin && rolePermissionCount === permissions.length && (
+                                <CheckCircle2 className="h-3 w-3 ml-1" />
+                              )}
+                            </Badge>
+                          </div>
+                          {isAdmin && (
+                            <Badge variant="destructive" className="text-xs mr-1 mb-1">
+                              <Shield className="h-3 w-3 mr-1" />
+                              Full Admin Access
+                            </Badge>
+                          )}
+                          {role.can_manage_users && (
+                            <Badge variant="outline" className="text-xs mr-1 mb-1">
+                              <Users className="h-3 w-3 mr-1" />
+                              User Management
+                            </Badge>
+                          )}
+                          {role.can_manage_settings && (
+                            <Badge variant="outline" className="text-xs mr-1 mb-1">
+                              <Settings className="h-3 w-3 mr-1" />
+                              Settings
+                            </Badge>
+                          )}
+                          {role.can_view_reports && (
+                            <Badge variant="outline" className="text-xs mr-1 mb-1">
+                              <BarChart3 className="h-3 w-3 mr-1" />
+                              Reports
+                            </Badge>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

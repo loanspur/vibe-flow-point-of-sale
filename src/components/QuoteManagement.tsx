@@ -49,7 +49,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEmailService } from "@/hooks/useEmailService";
+import { useUnifiedCommunication } from "@/hooks/useUnifiedCommunication";
 import { SaleForm } from "./SaleForm";
 import { QuoteEmailDialog } from "./QuoteEmailDialog";
 
@@ -117,7 +117,7 @@ export function LegacyQuoteManagement() {
   const [selectedQuoteForEmail, setSelectedQuoteForEmail] = useState<Quote | null>(null);
   const { toast } = useToast();
   const { tenantCurrency } = useApp();
-  const { sendEmail } = useEmailService();
+  const { sendEmail } = useUnifiedCommunication();
 
   useEffect(() => {
     fetchQuotes();

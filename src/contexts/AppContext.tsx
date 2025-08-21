@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
+import { tabStabilityManager } from '@/lib/tab-stability-manager';
 
 interface BusinessSettings {
   currency_code: string;
@@ -42,6 +43,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchBusinessSettings = useCallback(async () => {
     if (!tenantId) {
       setLoading(false);
+      return;
+    }
+
+    // Apply homepage stability - prevent business settings fetch during tab switching
+    if (tabStabilityManager.shouldPreventQueryRefresh()) {
       return;
     }
 
@@ -147,9 +153,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchBusinessSettings();
   }, [fetchBusinessSettings]);
 
-  // Optimized real-time subscription with debouncing to prevent performance issues
+  // Simplified real-time subscription - only enable if performance allows
   useEffect(() => {
     if (!tenantId) return;
+
+    // Skip realtime updates if performance is prioritized
+    const ENABLE_REALTIME = process.env.NODE_ENV === 'development' || window.innerWidth > 768;
+    if (!ENABLE_REALTIME) return;
 
     let timeoutRef: NodeJS.Timeout;
 
@@ -164,35 +174,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           filter: `tenant_id=eq.${tenantId}`
         },
         (payload) => {
-          // Debounce updates to prevent rapid flickering
+          // Extended debounce for better performance
           if (timeoutRef) clearTimeout(timeoutRef);
           timeoutRef = setTimeout(() => {
-            if (!refreshingRef.current) {
-              console.log('Business settings changed:', payload);
-              // Immediately update with new data if available
-              if (payload.new && typeof payload.new === 'object') {
-                const newSettings = payload.new as any;
-                
-                // Auto-detect currency symbol if only currency code was changed
-                let currencySymbol = newSettings.currency_symbol;
-                if (newSettings.currency_code && !currencySymbol) {
-                  const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
-                  currencySymbol = autoDetected.symbol;
-                }
-                
-                const updatedSettings = {
-                  currency_code: newSettings.currency_code || 'USD',
-                  currency_symbol: currencySymbol || '$',
-                  company_name: newSettings.company_name || 'Your Business',
-                  timezone: newSettings.timezone || 'UTC',
-                  tax_inclusive: newSettings.tax_inclusive || false,
-                  default_tax_rate: newSettings.default_tax_rate || 0
-                };
-                
-                setBusinessSettings(updatedSettings);
+            if (!refreshingRef.current && payload.new) {
+              const newSettings = payload.new as any;
+              
+              // Auto-detect currency symbol if needed
+              let currencySymbol = newSettings.currency_symbol;
+              if (newSettings.currency_code && !currencySymbol) {
+                const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
+                currencySymbol = autoDetected.symbol;
               }
+              
+              setBusinessSettings({
+                currency_code: newSettings.currency_code || 'USD',
+                currency_symbol: currencySymbol || '$',
+                company_name: newSettings.company_name || 'Your Business',
+                timezone: newSettings.timezone || 'UTC',
+                tax_inclusive: newSettings.tax_inclusive || false,
+                default_tax_rate: newSettings.default_tax_rate || 0
+              });
             }
-          }, 1000); // 1 second debounce
+          }, 2000); // Extended to 2 second debounce for better stability
         }
       )
       .subscribe();

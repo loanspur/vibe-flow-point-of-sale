@@ -5,12 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useDomainContext } from '@/lib/domain-manager';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { GoogleAuthTest } from '@/components/GoogleAuthTest';
 const Auth = () => {
   const navigate = useNavigate();
   const AUTH_DEBUG = false;
@@ -24,6 +27,7 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [subdomainError, setSubdomainError] = useState('');
   
   // Error states
   const [signInError, setSignInError] = useState('');
@@ -32,17 +36,31 @@ const Auth = () => {
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  // Redirect after login on subdomains regardless of tenant resolution; refresh domain in background
+  // Check if subdomain exists when component loads using domain manager
+  useEffect(() => {
+    const checkSubdomain = async () => {
+      if (domainConfig && domainConfig.isSubdomain && !domainConfig.tenantId) {
+        setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
+      }
+    };
+    
+    checkSubdomain();
+  }, [domainConfig]);
+
+  // Redirect after login on subdomains - avoid infinite loops
   useEffect(() => {
     if (!user) return;
     const domain = window.location.hostname;
     const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
     if (!isMainDomain) {
-      navigate(fromPath, { replace: true });
-      // Try to resolve tenant context in the background to avoid loops
-      refreshConfig().catch(() => {});
+      // Add a small delay to prevent rapid redirects and ensure auth state is stable
+      const redirectTimer = setTimeout(() => {
+        navigate(fromPath, { replace: true });
+      }, 100);
+      
+      return () => clearTimeout(redirectTimer);
     }
-  }, [user, navigate, fromPath, refreshConfig]);
+  }, [user, navigate, fromPath]);
 
   // On main domain, auto-redirect superadmins to /superadmin after login
   useEffect(() => {
@@ -179,6 +197,11 @@ const Auth = () => {
     setResetLoading(false);
   };
 
+  // Show Google Auth Test in development
+  if (window.location.search.includes('test=google')) {
+    return <GoogleAuthTest />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -211,6 +234,21 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Subdomain error */}
+            {subdomainError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {subdomainError}
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="https://vibenet.shop/">Go to Main Website</Link>
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Global sign-in error */}
             {signInError && !showForgotPassword && (
               <Alert variant="destructive" className="mb-4">
@@ -227,8 +265,35 @@ const Auth = () => {
               </Alert>
             )}
             
-            {!showForgotPassword ? (
+            {!showForgotPassword && !subdomainError ? (
               <div className="w-full">
+                {/* Google Sign In Option - Only show on main domain, not on tenant subdomains */}
+                {!domainConfig?.isSubdomain && (
+                  <div className="space-y-4 mb-6">
+                    <GoogleSignInButton 
+                      buttonText="Sign in with Google"
+                      onSuccess={(user) => {
+                        console.log('Google sign-in successful:', user);
+                        // OAuth flow will handle redirection
+                      }}
+                      onError={(error) => {
+                        console.error('Google sign-in error:', error);
+                      }}
+                    />
+                    
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <Separator className="w-full" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">
+                          Or sign in with email
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email">Email</Label>
@@ -302,7 +367,7 @@ const Auth = () => {
                   </Button>
                 </form>
               </div>
-            ) : (
+            ) : showForgotPassword && !subdomainError ? (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">Email</Label>
@@ -344,7 +409,7 @@ const Auth = () => {
                   </Button>
                 </div>
               </form>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       </div>

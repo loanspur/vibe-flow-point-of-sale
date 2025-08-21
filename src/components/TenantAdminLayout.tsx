@@ -32,7 +32,7 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  console.log('🏢 TenantAdminLayout rendering with user:', !!user);
+  
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const tenantLogo = useTenantLogo();
   const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';

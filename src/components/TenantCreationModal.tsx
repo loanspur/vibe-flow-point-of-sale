@@ -7,11 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { Check, Star, Zap, Building2, Mail, User, Phone, Globe, Lock, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { countriesData, CountryData, getCountryByName } from '@/lib/countries-data';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 interface TenantCreationModalProps {
   isOpen: boolean;
@@ -226,6 +228,25 @@ export const TenantCreationModal: React.FC<TenantCreationModalProps> = ({
             Create your VibePOS account and get immediate access to all Enterprise features. No credit card required.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Google Sign Up Option */}
+        <div className="space-y-4">
+          <GoogleSignInButton
+            buttonText="Sign up with Google"
+            variant="outline"
+          />
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
 import { enrichWithCustomerData } from '@/lib/customerUtils';
+import { SUCCESS_MESSAGES } from '@/utils/errorMessages';
 
 interface Sale {
   id: string;
@@ -57,7 +58,16 @@ interface SalesStats {
 
 export default function SalesManagement() {
   const { tenantId, user } = useAuth();
-  const { setOpen } = useSidebar();
+  
+  // Safely use sidebar context with error handling
+  let setSidebarOpen: ((open: boolean) => void) | undefined;
+  try {
+    const sidebar = useSidebar();
+    setSidebarOpen = sidebar?.setOpen;
+  } catch (error) {
+    console.log('Sidebar context not available:', error);
+    setSidebarOpen = undefined;
+  }
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sales, setSales] = useState<Sale[]>([]);
@@ -97,171 +107,119 @@ export default function SalesManagement() {
   
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchSales();
-    fetchInvoices();
-    fetchStats();
-  }, []);
-
-  const fetchInvoices = async () => {
+  // Centralized data fetching to reduce redundant API calls
+  const fetchAllData = useCallback(async () => {
     if (!tenantId) return;
-
-    try {
-      // Fetch invoices - these are sales converted from quotes that are awaiting payment
-      const { data, error } = await supabase
-        .from('sales')
-        .select(`
-          *,
-          contacts!sales_customer_id_fkey (
-            id,
-            name,
-            email,
-            phone,
-            address
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .eq('payment_method', 'credit')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Get cashier profiles for invoices
-      const cashierIds = [...new Set((data || []).map(invoice => invoice.cashier_id))];
-      
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', cashierIds);
-        
-      if (profilesError) throw profilesError;
-      
-      const profilesMap: Record<string, any> = {};
-      profilesData?.forEach(profile => {
-        profilesMap[profile.user_id] = profile;
-      });
-      
-      // Enrich invoices with customer data using utility function
-      const invoicesWithCustomerData = await enrichWithCustomerData(
-        data || [],
-        (invoice: any) => invoice.customer_id,
-        (invoice: any) => invoice.customer_name
-      );
-
-      const invoicesWithProfiles = invoicesWithCustomerData.map(invoice => ({
-        ...invoice,
-        profiles: profilesMap[invoice.cashier_id] || null
-      }));
-
-      setInvoices(invoicesWithProfiles);
-    } catch (error: any) {
-      console.error('Error fetching invoices:', error);
-    }
-  };
-
-  const fetchSales = async () => {
-    if (!tenantId) return;
-
-    try {
-      // Fetch sales with customers in one query
-      const { data, error } = await supabase
-        .from('sales')
-        .select(`
-          *,
-          contacts!sales_customer_id_fkey (
-            id,
-            name,
-            email,
-            phone,
-            address
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Get unique cashier IDs to fetch all profiles in one query
-      const cashierIds = [...new Set((data || []).map(sale => sale.cashier_id))];
-      
-      // Fetch all profiles in a single query
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', cashierIds);
-        
-      if (profilesError) throw profilesError;
-      
-      // Create a map of cashier_id to profile for easy lookup
-      const profilesMap: Record<string, any> = {};
-      profilesData?.forEach(profile => {
-        profilesMap[profile.user_id] = profile;
-      });
-      
-      // Add profile data to sales and ensure contacts is properly handled
-      const salesWithProfiles = (data || []).map(sale => ({
-        ...sale,
-        profiles: profilesMap[sale.cashier_id] || null,
-        contacts: sale.contacts || null
-      }));
-
-      setSales(salesWithProfiles);
-      
-      // Get credit sales for AR status
-      const creditSales = salesWithProfiles.filter(sale => sale.payment_method === 'credit');
-      
-      // Fetch AR status for credit sales in parallel
-      if (creditSales.length > 0) {
-        fetchCreditSalesStatus(creditSales);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch sales data",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchCreditSalesStatus = async (creditSales: Sale[]) => {
-    if (creditSales.length === 0) return;
-
-    const saleIds = creditSales.map(sale => sale.id);
+    setIsLoading(true);
     
     try {
-      const { data: arData, error } = await supabase
-        .from('accounts_receivable')
-        .select('reference_id, status, outstanding_amount')
-        .eq('tenant_id', tenantId)
-        .eq('reference_type', 'sale')
-        .in('reference_id', saleIds);
+      // Fetch all data in parallel for better performance
+      const [salesResult, invoicesResult, statsResult] = await Promise.allSettled([
+        // Sales query
+        supabase
+          .from('sales')
+          .select(`
+            *,
+            contacts!sales_customer_id_fkey (
+              id, name, email, phone, address
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false }),
+        
+        // Invoices query (credit sales)
+        supabase
+          .from('sales')
+          .select(`
+            *,
+            contacts!sales_customer_id_fkey (
+              id, name, email, phone, address
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('payment_method', 'credit')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false }),
+        
+        // Stats query
+        supabase
+          .from("sales")
+          .select("total_amount, created_at")
+          .eq('tenant_id', tenantId)
+      ]);
 
-      if (error) throw error;
+      // Process sales data
+      if (salesResult.status === 'fulfilled' && salesResult.value.data) {
+        const salesData = salesResult.value.data;
+        const cashierIds = [...new Set(salesData.map(sale => sale.cashier_id))];
+        
+        // Fetch profiles for all cashiers
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', cashierIds);
+          
+        const profilesMap: Record<string, any> = {};
+        profilesData?.forEach(profile => {
+          profilesMap[profile.user_id] = profile;
+        });
+        
+        const salesWithProfiles = salesData.map(sale => ({
+          ...sale,
+          profiles: profilesMap[sale.cashier_id] || null,
+          contacts: sale.contacts || null
+        }));
 
-      const statusMap: Record<string, { status: string; outstanding: number }> = {};
-      arData?.forEach(ar => {
-        statusMap[ar.reference_id] = {
-          status: ar.status,
-          outstanding: ar.outstanding_amount
-        };
-      });
-      
-      setSalesPaymentStatus(statusMap);
-    } catch (error) {
-      console.error('Error fetching AR status:', error);
-    }
-  };
+        setSales(salesWithProfiles);
+        
+        // Process credit sales AR status
+        const creditSales = salesWithProfiles.filter(sale => sale.payment_method === 'credit');
+        if (creditSales.length > 0) {
+          const saleIds = creditSales.map(sale => sale.id);
+          const { data: arData } = await supabase
+            .from('accounts_receivable')
+            .select('reference_id, status, outstanding_amount')
+            .eq('tenant_id', tenantId)
+            .eq('reference_type', 'sale')
+            .in('reference_id', saleIds);
 
-  const fetchStats = async () => {
-    try {
-      const { data: salesData } = await supabase
-        .from("sales")
-        .select("total_amount, created_at");
+          const statusMap: Record<string, { status: string; outstanding: number }> = {};
+          arData?.forEach(ar => {
+            statusMap[ar.reference_id] = {
+              status: ar.status,
+              outstanding: ar.outstanding_amount
+            };
+          });
+          setSalesPaymentStatus(statusMap);
+        }
+      }
 
-      if (salesData) {
+      // Process invoices data
+      if (invoicesResult.status === 'fulfilled' && invoicesResult.value.data) {
+        const invoicesData = invoicesResult.value.data;
+        const invoiceCashierIds = [...new Set(invoicesData.map(invoice => invoice.cashier_id))];
+        
+        const { data: invoiceProfilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', invoiceCashierIds);
+          
+        const invoiceProfilesMap: Record<string, any> = {};
+        invoiceProfilesData?.forEach(profile => {
+          invoiceProfilesMap[profile.user_id] = profile;
+        });
+        
+        const invoicesWithProfiles = invoicesData.map(invoice => ({
+          ...invoice,
+          profiles: invoiceProfilesMap[invoice.cashier_id] || null
+        }));
+
+        setInvoices(invoicesWithProfiles);
+      }
+
+      // Process stats data
+      if (statsResult.status === 'fulfilled' && statsResult.value.data) {
+        const salesData = statsResult.value.data;
         const totalSales = salesData.reduce((sum, sale) => sum + Number(sale.total_amount), 0);
         const totalTransactions = salesData.length;
         
@@ -279,10 +237,22 @@ export default function SalesManagement() {
           averageSale,
         });
       }
+
     } catch (error: any) {
-      console.error("Error fetching stats:", error);
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch sales data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [tenantId, toast]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   const filteredSales = sales.filter(sale => {
     const matchesSearch = sale.receipt_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -310,12 +280,11 @@ export default function SalesManagement() {
   };
 
   const handleSaleCompleted = () => {
-    fetchSales();
-    fetchStats();
+    fetchAllData(); // Use centralized data fetching
     setSearchParams({ tab: 'overview' });
     toast({
       title: "Success",
-      description: "Sale completed successfully!",
+      description: SUCCESS_MESSAGES.SALE_COMPLETED,
     });
   };
 
@@ -442,7 +411,7 @@ export default function SalesManagement() {
       setArRecord(null);
       
       // Refresh sales data to update any payment status
-      fetchSales();
+      fetchAllData();
 
     } catch (error) {
       console.error('Error processing payment:', error);
@@ -493,11 +462,7 @@ export default function SalesManagement() {
 
     } catch (error) {
       console.error('Error preparing return:', error);
-      toast({
-        title: "Error",
-        description: "Failed to prepare return",
-        variant: "destructive",
-      });
+      // Don't call toast here to avoid React context issues
     }
   };
 

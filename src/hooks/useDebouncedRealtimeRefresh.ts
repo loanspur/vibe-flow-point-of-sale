@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useRealtimeRefresh } from './useRealtimeRefresh';
+import { PERFORMANCE_CONFIG } from '@/lib/performance-config';
 
 interface DebouncedRealtimeRefreshOptions {
   tables: string[];
@@ -11,14 +12,14 @@ interface DebouncedRealtimeRefreshOptions {
 
 /**
  * Debounced version of useRealtimeRefresh to prevent excessive re-renders
- * from rapid database changes
+ * from rapid database changes. Uses performance config for optimal debounce timing.
  */
 export function useDebouncedRealtimeRefresh({
   tables,
   tenantId,
   onChange,
   enabled = true,
-  debounceMs = 1000
+  debounceMs = PERFORMANCE_CONFIG.REALTIME_DEBOUNCE_DELAY // Use global performance setting
 }: DebouncedRealtimeRefreshOptions) {
   const timeoutRef = useRef<NodeJS.Timeout>();
   
@@ -32,10 +33,13 @@ export function useDebouncedRealtimeRefresh({
     }, debounceMs);
   }, [onChange, debounceMs]);
   
+  // Only enable if performance config allows realtime updates
+  const realtimeEnabled = enabled && !PERFORMANCE_CONFIG.DISABLE_AUTO_REFRESH;
+  
   useRealtimeRefresh({
     tables,
     tenantId,
     onChange: debouncedOnChange,
-    enabled
+    enabled: realtimeEnabled
   });
 }

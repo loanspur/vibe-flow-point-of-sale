@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { tabStabilityManager } from '@/lib/tab-stability-manager';
 
 interface QueryOptions {
   enabled?: boolean;
@@ -62,8 +63,8 @@ export function useOptimizedQuery<T>(
 ): QueryResult<T> {
   const {
     enabled = true,
-    refetchOnWindowFocus = false,
-    staleTime = 5 * 60 * 1000, // 5 minutes default
+    refetchOnWindowFocus = false, // Always false for performance
+    staleTime = 10 * 60 * 1000, // Increased to 10 minutes for better caching
     cacheKey
   } = options;
 
@@ -74,6 +75,11 @@ export function useOptimizedQuery<T>(
 
   const executeQuery = useCallback(async () => {
     if (!enabled) return;
+    
+    // Apply homepage stability - prevent queries during tab switching
+    if (tabStabilityManager.shouldPreventQueryRefresh()) {
+      return;
+    }
 
     // Check cache first
     if (cacheKey) {
@@ -117,7 +123,7 @@ export function useOptimizedQuery<T>(
   }, [enabled, queryFn, staleTime, cacheKey]);
 
   const refetch = useCallback(async () => {
-    // Clear cache for this key
+    // Apply homepage stability - allow manual refresh even during tab switching
     if (cacheKey) {
       queryCache.delete(cacheKey);
     }
@@ -134,25 +140,25 @@ export function useOptimizedQuery<T>(
     };
   }, dependencies);
 
-  useEffect(() => {
-    if (!refetchOnWindowFocus) return;
-
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        executeQuery();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleFocus);
-    return () => document.removeEventListener('visibilitychange', handleFocus);
-  }, [executeQuery, refetchOnWindowFocus]);
+  // Window focus refresh disabled for performance optimization
+  // This was causing excessive re-fetching when switching browser tabs
 
   return { data, loading, error, refetch };
 }
 
-// Clear all cached queries
+// Clear all cached queries - including any malformed ones
 export const clearQueryCache = () => {
   queryCache.clear();
+  // Also clear any browser cached requests
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => {
+        if (name.includes('supabase') || name.includes('products')) {
+          caches.delete(name);
+        }
+      });
+    });
+  }
 };
 
 // Clear specific cache entry

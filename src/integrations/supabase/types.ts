@@ -695,6 +695,7 @@ export type Database = {
           tenant_id: string
           timezone: string | null
           updated_at: string
+          use_global_whatsapp: boolean | null
           website: string | null
           whatsapp_api_key: string | null
           whatsapp_api_url: string | null
@@ -790,6 +791,7 @@ export type Database = {
           tenant_id: string
           timezone?: string | null
           updated_at?: string
+          use_global_whatsapp?: boolean | null
           website?: string | null
           whatsapp_api_key?: string | null
           whatsapp_api_url?: string | null
@@ -885,6 +887,7 @@ export type Database = {
           tenant_id?: string
           timezone?: string | null
           updated_at?: string
+          use_global_whatsapp?: boolean | null
           website?: string | null
           whatsapp_api_key?: string | null
           whatsapp_api_url?: string | null
@@ -3135,6 +3138,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          min_stock_level: number | null
           name: string
           price_adjustment: number | null
           product_id: string
@@ -3150,6 +3154,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          min_stock_level?: number | null
           name: string
           price_adjustment?: number | null
           product_id: string
@@ -3165,6 +3170,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          min_stock_level?: number | null
           name?: string
           price_adjustment?: number | null
           product_id?: string
@@ -3204,6 +3210,7 @@ export type Database = {
           min_stock_level: number | null
           name: string
           price: number
+          purchase_price: number | null
           revenue_account_id: string | null
           sku: string | null
           stock_quantity: number | null
@@ -3231,6 +3238,7 @@ export type Database = {
           min_stock_level?: number | null
           name: string
           price: number
+          purchase_price?: number | null
           revenue_account_id?: string | null
           sku?: string | null
           stock_quantity?: number | null
@@ -3258,6 +3266,7 @@ export type Database = {
           min_stock_level?: number | null
           name?: string
           price?: number
+          purchase_price?: number | null
           revenue_account_id?: string | null
           sku?: string | null
           stock_quantity?: number | null
@@ -3320,49 +3329,64 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auth_method: string | null
           avatar_url: string | null
           created_at: string
           email_verified: boolean | null
           email_verified_at: string | null
           full_name: string | null
+          google_id: string | null
+          google_profile_data: Json | null
           id: string
           invitation_accepted_at: string | null
           invitation_status: string | null
           invited_at: string | null
+          otp_required_always: boolean | null
           require_password_change: boolean | null
           role: Database["public"]["Enums"]["user_role"] | null
+          temp_password_created_at: string | null
           tenant_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          auth_method?: string | null
           avatar_url?: string | null
           created_at?: string
           email_verified?: boolean | null
           email_verified_at?: string | null
           full_name?: string | null
+          google_id?: string | null
+          google_profile_data?: Json | null
           id?: string
           invitation_accepted_at?: string | null
           invitation_status?: string | null
           invited_at?: string | null
+          otp_required_always?: boolean | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          temp_password_created_at?: string | null
           tenant_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          auth_method?: string | null
           avatar_url?: string | null
           created_at?: string
           email_verified?: boolean | null
           email_verified_at?: string | null
           full_name?: string | null
+          google_id?: string | null
+          google_profile_data?: Json | null
           id?: string
           invitation_accepted_at?: string | null
           invitation_status?: string | null
           invited_at?: string | null
+          otp_required_always?: boolean | null
           require_password_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          temp_password_created_at?: string | null
           tenant_id?: string | null
           updated_at?: string
           user_id?: string
@@ -5779,6 +5803,42 @@ export type Database = {
           },
         ]
       }
+      tenant_whatsapp_configs: {
+        Row: {
+          api_key: string
+          created_at: string
+          display_name: string | null
+          id: string
+          is_active: boolean
+          phone_number: string
+          tenant_id: string
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          phone_number: string
+          tenant_id: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          phone_number?: string
+          tenant_id?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       tenant_whatsapp_numbers: {
         Row: {
           business_profile: Json | null
@@ -6371,6 +6431,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_automation_settings: {
+        Row: {
+          conditions: Json | null
+          created_at: string
+          delay_minutes: number | null
+          event_type: string
+          id: string
+          is_enabled: boolean | null
+          template_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string
+          delay_minutes?: number | null
+          event_type: string
+          id?: string
+          is_enabled?: boolean | null
+          template_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string
+          delay_minutes?: number | null
+          event_type?: string
+          id?: string
+          is_enabled?: boolean | null
+          template_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_billing: {
         Row: {
           base_fee: number
@@ -6427,6 +6523,116 @@ export type Database = {
           },
         ]
       }
+      whatsapp_bulk_campaign_messages: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          contact_name: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          message_content: string
+          phone_number: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          contact_name?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message_content: string
+          phone_number: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          contact_name?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message_content?: string
+          phone_number?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bulk_campaign_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_bulk_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_bulk_campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          failed_count: number | null
+          id: string
+          message_content: string
+          name: string
+          scheduled_for: string | null
+          sent_count: number | null
+          started_at: string | null
+          status: string
+          target_contacts: Json
+          template_id: string | null
+          tenant_id: string
+          total_recipients: number | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          failed_count?: number | null
+          id?: string
+          message_content: string
+          name: string
+          scheduled_for?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          target_contacts?: Json
+          template_id?: string | null
+          tenant_id: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          failed_count?: number | null
+          id?: string
+          message_content?: string
+          name?: string
+          scheduled_for?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          target_contacts?: Json
+          template_id?: string | null
+          tenant_id?: string
+          total_recipients?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_message_logs: {
         Row: {
           cost: number | null
@@ -6447,6 +6653,7 @@ export type Database = {
           sent_at: string | null
           status: string
           template_id: string | null
+          template_type: string | null
           tenant_id: string
           waba_message_id: string | null
         }
@@ -6469,6 +6676,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           template_id?: string | null
+          template_type?: string | null
           tenant_id: string
           waba_message_id?: string | null
         }
@@ -6491,6 +6699,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           template_id?: string | null
+          template_type?: string | null
           tenant_id?: string
           waba_message_id?: string | null
         }
@@ -6568,6 +6777,51 @@ export type Database = {
           updated_at?: string
           variables?: Json | null
           waba_template_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          message_body: string
+          name: string
+          subject: string | null
+          template_type: string
+          tenant_id: string
+          type: string | null
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          message_body: string
+          name: string
+          subject?: string | null
+          template_type: string
+          tenant_id: string
+          type?: string | null
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          message_body?: string
+          name?: string
+          subject?: string | null
+          template_type?: string
+          tenant_id?: string
+          type?: string | null
+          updated_at?: string
+          variables?: Json | null
         }
         Relationships: []
       }
@@ -6694,7 +6948,7 @@ export type Database = {
       create_otp_verification: {
         Args: {
           email_param: string
-          otp_type_param: string
+          otp_type_param?: string
           user_id_param: string
         }
         Returns: {
@@ -6735,6 +6989,10 @@ export type Database = {
           tenant_user_exists: boolean
           user_tenant_id_result: string
         }[]
+      }
+      ensure_all_tenants_have_admin_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       ensure_tenant_subdomain: {
         Args: { tenant_id_param: string }
@@ -7115,11 +7373,18 @@ export type Database = {
         Returns: boolean
       }
       verify_otp_code: {
-        Args: {
-          otp_code_param: string
-          otp_type_param: string
-          user_id_param: string
-        }
+        Args:
+          | {
+              email_param: string
+              otp_code_param: string
+              otp_type_param?: string
+              user_id_param: string
+            }
+          | {
+              otp_code_param: string
+              otp_type_param: string
+              user_id_param: string
+            }
         Returns: boolean
       }
     }

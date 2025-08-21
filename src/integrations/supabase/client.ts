@@ -18,7 +18,7 @@ export const supabase = (() => {
         storage: localStorage,
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false, // Improve initial load time
+        detectSessionInUrl: true, // Required for OAuth callbacks
         storageKey: 'vibepos-auth', // Unique storage key to avoid conflicts
       },
       global: {

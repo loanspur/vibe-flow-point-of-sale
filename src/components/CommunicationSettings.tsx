@@ -34,6 +34,7 @@ interface CommunicationSettings {
   whatsapp_api_url: string;
   whatsapp_api_key: string;
   whatsapp_phone_number: string;
+  use_global_whatsapp: boolean;
 }
 
 const smsProviders = [
@@ -83,7 +84,8 @@ export const CommunicationSettings = () => {
           whatsapp_enable_notifications: data.whatsapp_enable_notifications || false,
           whatsapp_api_url: data.whatsapp_api_url || '',
           whatsapp_api_key: data.whatsapp_api_key || '',
-          whatsapp_phone_number: data.whatsapp_phone_number || ''
+          whatsapp_phone_number: data.whatsapp_phone_number || '',
+          use_global_whatsapp: (data as any).use_global_whatsapp || false
         });
       }
     } catch (error) {
@@ -353,6 +355,25 @@ export const CommunicationSettings = () => {
                   }
                 />
                 <Label>Enable WhatsApp notifications</Label>
+              </div>
+
+              <div className="flex items-center space-x-2 mb-4">
+                <Switch
+                  checked={settings.use_global_whatsapp || false}
+                  onCheckedChange={(checked) =>
+                    setSettings(prev => ({ ...prev, use_global_whatsapp: checked }))
+                  }
+                />
+                <Label>Use Global WhatsApp API (fallback when tenant config is not available)</Label>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-blue-900 mb-2">Configuration Priority</h4>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>1. <strong>Tenant Configuration</strong> - Your custom 360Messenger API settings (configured in WhatsApp → Config)</p>
+                  <p>2. <strong>Global Configuration</strong> - System-wide 360Messenger API (used when tenant config is missing)</p>
+                  <p className="pt-2 font-medium">✅ Global API is available and configured for your system</p>
+                </div>
               </div>
 
               <div>

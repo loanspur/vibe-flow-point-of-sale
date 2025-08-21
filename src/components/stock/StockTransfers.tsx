@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { FeatureGuard } from '@/components/FeatureGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -559,7 +561,8 @@ export const StockTransfers: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <FeatureGuard featureName="advanced_inventory">
+      <div className="space-y-6">
       {/* Header with Create Button */}
       <div className="flex justify-between items-center">
         <div>
@@ -1055,6 +1058,9 @@ export const StockTransfers: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </FeatureGuard>
   );
 };
+
+export default StockTransfers;

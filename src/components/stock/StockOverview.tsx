@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,15 +46,16 @@ export const StockOverview: React.FC = () => {
         return;
       }
 
-      // Optimized: Fetch data separately to improve performance
+      // Optimized: Fetch data with pagination and better performance
       const [inventoryResult, locationsResult, lowStockResult] = await Promise.allSettled([
-        // Simplified products query without joins for better performance
+        // Simplified products query - only essential fields, limit to 100 for better performance
         supabase
           .from('products')
           .select('id, name, sku, stock_quantity, min_stock_level, cost_price, location_id')
           .eq('tenant_id', profile.tenant_id)
           .eq('is_active', true)
-          .limit(1000), // Add limit for performance
+          .order('updated_at', { ascending: false })
+          .limit(100), // Reduced limit for better performance
         // Fetch locations separately
         supabase
           .from('store_locations')

@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import TenantCustomPricing from '@/components/TenantCustomPricing';
 import { getBaseDomain } from '@/lib/domain-manager';
-import { useEmailService } from '@/hooks/useEmailService';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 
 type Tenant = Tables<'tenants'>;
 type TenantUser = Tables<'tenant_users'>;
@@ -283,7 +283,7 @@ export default function TenantManagement() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { sendWelcomeEmail: sendWelcomeEmailService, sendEmail } = useEmailService();
+  const { sendWelcomeEmail: sendWelcomeEmailUnified, sendEmail } = useUnifiedCommunication();
 
   const [manualPayment, setManualPayment] = useState({
     amount: '',
@@ -591,6 +591,27 @@ export default function TenantManagement() {
     try {
       console.log('Sending welcome email to:', tenant.contact_email, 'for tenant:', tenant.name);
       
+      // Try unified communication system first
+      try {
+        const result = await sendWelcomeEmailUnified(
+          tenant.contact_email,
+          tenant.name,
+          tenant.name
+        );
+        
+        if (result.success) {
+          console.log('Welcome email sent successfully via unified system');
+          toast({
+            title: "Success",
+            description: `Welcome email sent to ${tenant.contact_email} via unified system`,
+          });
+          return;
+        }
+      } catch (unifiedError) {
+        console.warn('Unified communication system failed, falling back to legacy:', unifiedError);
+      }
+      
+      // Fallback to legacy system
       const { data, error } = await supabase.functions.invoke('send-welcome-email', {
         body: {
           tenantName: tenant.name,
@@ -599,7 +620,7 @@ export default function TenantManagement() {
         }
       });
 
-      console.log('Function response:', { data, error });
+      console.log('Legacy function response:', { data, error });
 
       if (error) {
         console.error('Function error:', error);
@@ -709,11 +730,10 @@ export default function TenantManagement() {
       const toEmail = manualPayment.email || selectedTenant.contact_email || '';
 
       if (toEmail) {
-        await sendEmail({
-          to: toEmail,
-          toName: selectedTenant.name,
-          subject: `Payment received - ${manualPayment.reference}`,
-          htmlContent: `
+        await sendEmail(
+          toEmail,
+          `Payment received - ${manualPayment.reference}`,
+          `
             <h2>Payment Confirmation</h2>
             <p>Dear ${selectedTenant.name},</p>
             <p>We have received your payment of <strong>${amountDisplay}</strong>${planName ? ` for plan <strong>${planName}</strong>` : ''} on <strong>${manualPayment.paymentDate}</strong>.</p>
@@ -721,9 +741,12 @@ export default function TenantManagement() {
             <p>Method: ${manualPayment.method}</p>
             <p>Thank you for your business.</p>
           `,
-          textContent: `Payment received: ${amountDisplay}${planName ? ` for plan ${planName}` : ''} on ${manualPayment.paymentDate}. Reference: ${manualPayment.reference}.`,
-          priority: 'medium'
-        });
+          {
+            recipientName: selectedTenant.name,
+            textContent: `Payment received: ${amountDisplay}${planName ? ` for plan ${planName}` : ''} on ${manualPayment.paymentDate}. Reference: ${manualPayment.reference}.`,
+            priority: 'medium'
+          }
+        );
       }
 
       // Refresh data and close

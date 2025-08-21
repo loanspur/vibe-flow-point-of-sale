@@ -28,24 +28,12 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   const [hasAccess, setHasAccess] = useState(false);
   const navigate = useNavigate();
   
-  console.log('🎫 SubscriptionGuard check:', { 
-    hasUser: !!user, 
-    tenantId, 
-    authLoading,
-    loading,
-    hasAccess,
-    currentPath: window.location.pathname 
-  });
-
   useEffect(() => {
-    console.log('🎫 SubscriptionGuard useEffect triggered:', { user: !!user, tenantId, authLoading });
     if (!user || !tenantId || authLoading) {
-      console.log('🎫 SubscriptionGuard early return - missing requirements');
       return;
     }
 
     const checkSubscription = async () => {
-      console.log('🎫 SubscriptionGuard checking subscription for tenant:', tenantId);
       try {
         const { data, error } = await supabase
           .from('tenant_subscription_details')
@@ -199,6 +187,5 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
     );
   }
 
-  console.log('✅ SubscriptionGuard allowing access - rendering children');
   return <>{children}</>;
 }

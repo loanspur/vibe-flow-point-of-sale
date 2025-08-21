@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
+import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,13 +20,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
-
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
@@ -52,6 +52,7 @@ interface Product {
   name: string;
   sku: string;
   price: number;
+  purchase_price?: number;
   default_profit_margin?: number;
   stock_quantity: number;
   min_stock_level: number;
@@ -88,6 +89,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
   const [hasLoaded, setHasLoaded] = useState(false);
   const didMountRef = useRef(false);
   const refreshTimeoutRef = useRef<NodeJS.Timeout>();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
  
    useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -111,41 +114,60 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           setExpiringIds(new Set((data || []).map((d: any) => d.product_id)));
         }
       });
-  }, [activeFilter, tenantId]);
+   }, [activeFilter, tenantId]);
 
-  // Optimized product fetching with minimal fields and caching
-  const { data: products = [], loading, refetch: refetchProducts } = useOptimizedQuery(
-    async () => {
-      if (!tenantId) return { data: [], error: null };
-      
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          product_categories(name),
-          product_subcategories(name),
-          product_units(name, abbreviation),
-          store_locations(name),
-          product_variants(
-            id,
-            name,
-            value,
-            stock_quantity,
-            price_adjustment,
-            is_active
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return { data: data || [], error: null };
-    },
-    [tenantId, refreshSignal],
+  // Pagination and data fetching with optimized query
+  const {
+    data: products = [],
+    loading,
+    pagination,
+    handlePageChange,
+    handlePageSizeChange,
+    refetch: refetchProducts
+  } = usePaginatedQuery<any>(
+    'products',
+    `
+      id,
+      name,
+      sku,
+      description,
+      price,
+      purchase_price,
+      default_profit_margin,
+      barcode,
+      category_id,
+      subcategory_id,
+      revenue_account_id,
+      unit_id,
+      stock_quantity,
+      min_stock_level,
+      is_active,
+      image_url,
+      brand_id,
+      is_combo_product,
+      allow_negative_stock,
+      cost_price,
+      created_at,
+      updated_at,
+      product_categories(name),
+      product_subcategories(name),
+      product_units(name, abbreviation),
+      store_locations(name),
+      brands(name),
+      product_variants(
+        id,
+        name,
+        value,
+        stock_quantity,
+        is_active
+      )
+    `,
     {
       enabled: !!tenantId,
-      staleTime: 0, // Always fetch fresh data
-      cacheKey: `products-list-${tenantId}-${refreshSignal || 0}`
+      searchTerm: searchTerm,
+      filters: { tenant_id: tenantId },
+      orderBy: { column: 'created_at', ascending: false },
+      initialPageSize: 50
     }
   );
 
@@ -153,63 +175,24 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     if (!loading) setHasLoaded(true);
   }, [loading]);
 
-  // Remove aggressive refresh signal - use debounced approach instead
+  // Sync debounced search term with state (prevent loops)
   useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
+    if (debouncedSearchTerm !== searchTerm) {
+      setSearchTerm(debouncedSearchTerm);
     }
-    if (typeof refreshSignal !== 'undefined') {
-      // Debounce refresh calls to prevent excessive re-renders
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      refreshTimeoutRef.current = setTimeout(() => {
-        refetchProducts();
-      }, 500);
-    }
-    
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, [refreshSignal]);
+  }, [debouncedSearchTerm, searchTerm]);
+
+  // Memoized refresh function to prevent loops
+  const refetch = useMemo(() => {
+    return refetchProducts;
+  }, [refetchProducts]);
 
   const filteredProducts = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
     
-    const getTotalStock = (product: any) => {
-      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-        const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-          return total + (variant.stock_quantity || 0);
-        }, 0);
-        return (product.stock_quantity || 0) + totalVariantStock;
-      }
-      return product.stock_quantity || 0;
-    };
-    
-    let filtered = products as any[];
-    
-    // Apply active filter from URL
-    if (activeFilter === 'low-stock') {
-      filtered = filtered.filter((product: any) => getTotalStock(product) <= (product.min_stock_level || 0));
-    } else if (activeFilter === 'out-of-stock') {
-      filtered = filtered.filter((product: any) => getTotalStock(product) === 0);
-    } else if (activeFilter === 'expiring') {
-      filtered = filtered.filter((product: any) => expiringIds.has(product.id));
-    }
-    
-    // Filter by search term
-    if (debouncedSearchTerm) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-      );
-    }
-    
-    return filtered;
-  }, [products, debouncedSearchTerm, activeFilter, expiringIds]);
+    // No additional filtering needed as search is handled by pagination
+    return products;
+  }, [products]);
 
   // Memoized low stock calculation
   const lowStockProducts = useMemo(() => {
@@ -287,15 +270,16 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               <TableHead className="hidden md:table-cell">SKU</TableHead>
               <TableHead className="hidden lg:table-cell">Category</TableHead>
               <TableHead className="hidden lg:table-cell">Unit</TableHead>
-              <TableHead>Price</TableHead>
+              <TableHead>Sale Price</TableHead>
+              <TableHead className="hidden md:table-cell">Purchase Price</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
-              <TableHead className="hidden xl:table-cell">Variants</TableHead>
+              <TableHead className="hidden lg:table-cell">Variants</TableHead>
               <TableHead className="text-right min-w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
         <TableBody>
-          {filteredProducts.map((product) => (
+           {products.map((product) => (
             <TableRow key={product.id}>
               <TableCell>
                 <div className="flex items-center space-x-2 sm:space-x-3">
@@ -345,44 +329,50 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                <TableCell className="hidden lg:table-cell text-sm">
                  {product.product_categories?.name || 'None'}
                </TableCell>
-               <TableCell className="hidden lg:table-cell text-sm">
-                 {product.product_units?.abbreviation || 'N/A'}
-               </TableCell>
-               <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
+                <TableCell className="hidden lg:table-cell text-sm">
+                  {product.product_units?.abbreviation || 'N/A'}
+                </TableCell>
+                 <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
+                <TableCell className="hidden md:table-cell text-sm font-medium">
+                  {formatCurrency(product.purchase_price || 0)}
+                </TableCell>
                <TableCell className="text-sm">
-                 {(() => {
-                   // Show total stock including variants
-                   if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                     const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                       return total + (variant.stock_quantity || 0);
-                     }, 0);
-                     const mainStock = product.stock_quantity || 0;
-                     return mainStock + totalVariantStock;
-                   }
-                   return product.stock_quantity || 0;
-                 })()}
-               </TableCell>
+                  {(() => {
+                    // Show total stock including variants
+                    if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                      const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+                        return total + (variant.stock_quantity || 0);
+                      }, 0);
+                      const mainStock = product.stock_quantity || 0;
+                      return mainStock + totalVariantStock;
+                    }
+                    return product.stock_quantity || 0;
+                  })()}
+                </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <Badge variant={product.is_active ? "secondary" : "outline"} className="text-xs">
                   {product.is_active ? "Active" : "Inactive"}
                 </Badge>
               </TableCell>
-               <TableCell className="hidden xl:table-cell">
+               <TableCell className="hidden lg:table-cell">
                 {product.product_variants && product.product_variants.length > 0 ? (
-                  <div className="space-y-1">
-                    {product.product_variants.slice(0, 2).map((variant: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between gap-2">
-                        <Badge variant="outline" className="text-xs px-2 py-1">
-                          {variant.name}: {variant.value}
+                  <div className="space-y-1 max-w-xs">
+                    {product.product_variants
+                      .filter((variant: any) => variant.is_active)
+                      .slice(0, 4)
+                      .map((variant: any) => (
+                      <div key={variant.id} className="flex items-center justify-between gap-2 p-1 bg-muted/30 rounded-sm">
+                        <Badge variant="outline" className="text-xs px-1 py-0.5 flex-1 min-w-0">
+                          <span className="truncate">{variant.name}: {variant.value}</span>
                         </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Stock: {variant.stock_quantity || 0}
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {variant.stock_quantity || 0}
                         </span>
                       </div>
                     ))}
-                    {product.product_variants.length > 2 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{product.product_variants.length - 2} more variants
+                    {product.product_variants.filter((v: any) => v.is_active).length > 4 && (
+                      <div className="text-xs text-muted-foreground text-center py-1">
+                        +{product.product_variants.filter((v: any) => v.is_active).length - 4} more
                       </div>
                     )}
                   </div>
@@ -505,15 +495,17 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
         <div className="flex gap-2">
           <Button 
             variant="outline"
-            onClick={() => {
-              setHasLoaded(false);
-              refetchProducts();
-            }}
+            onClick={refetch}
             disabled={loading}
             title="Refresh product data"
+            className="shrink-0"
           >
-            <RotateCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RotateCcw 
+              className={`h-4 w-4 mr-2 transition-transform duration-300 ${
+                loading ? 'animate-spin' : ''
+              }`} 
+            />
+            <span className="whitespace-nowrap">Refresh</span>
           </Button>
           <Button 
             onClick={() => {
@@ -561,8 +553,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
         </Card>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
         </TabsList>
@@ -594,8 +586,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             </Button>
           </div>
 
-          {/* Products Grid */}
-          {filteredProducts.length === 0 ? (
+           {/* Products Table */}
+           {filteredProducts.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground mb-4" />
@@ -614,9 +606,19 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 </Button>
               </CardContent>
             </Card>
-          ) : (
-            <ProductTable />
-          )}
+           ) : (
+             <>
+               <ProductTable />
+               
+               {/* Pagination Controls */}
+               <PaginationControls
+                 pagination={pagination}
+                 onPageChange={handlePageChange}
+                 onPageSizeChange={handlePageSizeChange}
+                 isLoading={loading}
+               />
+             </>
+           )}
         </TabsContent>
 
         <TabsContent value="categories">
@@ -640,7 +642,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
             onSuccess={() => {
               setShowProductForm(false);
               setSelectedProduct(null);
-              // Debounced refresh to prevent rapid re-renders
+              // Refresh products after successful form submission
               if (refreshTimeoutRef.current) {
                 clearTimeout(refreshTimeoutRef.current);
               }

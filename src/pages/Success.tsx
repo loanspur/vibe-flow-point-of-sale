@@ -29,8 +29,8 @@ export default function Success() {
       }
     };
 
-    // Wait a moment for Stripe to process, then check subscription
-    const timer = setTimeout(checkSubscription, 2000);
+    // Check subscription after processing
+    const timer = setTimeout(checkSubscription, 1000);
     return () => clearTimeout(timer);
   }, [user]);
 

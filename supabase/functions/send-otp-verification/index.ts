@@ -9,8 +9,9 @@ const corsHeaders = {
 
 interface OTPRequest {
   email: string;
-  otpType: 'email_verification' | 'password_reset';
+  otpType: 'email_verification' | 'password_reset' | 'login_verification';
   userId?: string;
+  recipientName?: string;
 }
 
 // Rate limiting helper
@@ -38,7 +39,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, otpType, userId }: OTPRequest = await req.json();
+    const { email, otpType, userId, recipientName }: OTPRequest = await req.json();
     
     // Get client IP for rate limiting
     const clientIP = req.headers.get('x-forwarded-for') || 
@@ -104,7 +105,26 @@ const handler = async (req: Request): Promise<Response> => {
     let subject: string;
     let htmlContent: string;
 
-    if (otpType === 'email_verification') {
+    if (otpType === 'login_verification') {
+      subject = 'Login Verification Code - VibePOS';
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2563eb; margin-bottom: 20px;">Login Verification Required</h2>
+          <p>Hello${recipientName ? ` ${recipientName}` : ''},</p>
+          <p>To complete your sign-in to VibePOS, please enter the following verification code:</p>
+          <div style="background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+            <span style="font-size: 32px; font-weight: bold; color: #1f2937; letter-spacing: 4px;">${otpCode}</span>
+          </div>
+          <p style="color: #6b7280; font-size: 14px;">This code will expire in 5 minutes for your security.</p>
+          <p style="color: #6b7280; font-size: 14px;">If you didn't request this code, please ignore this email or contact our support team.</p>
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+          <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+            VibePOS - Point of Sale Management System<br>
+            This is an automated message, please do not reply.
+          </p>
+        </div>
+      `;
+    } else if (otpType === 'email_verification') {
       subject = 'Verify Your Email - VibePOS';
       htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

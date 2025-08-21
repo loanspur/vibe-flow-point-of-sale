@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { format } from 'date-fns';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 
 interface ARAPItem {
   id: string;
@@ -34,6 +35,7 @@ interface ARAPPaymentProcessorProps {
 export function ARAPPaymentProcessor({ type }: ARAPPaymentProcessorProps) {
   const { tenantId } = useAuth();
   const { toast } = useToast();
+  const { sendPaymentReceivedNotification } = useUnifiedCommunication();
   
   const [items, setItems] = useState<ARAPItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ARAPItem | null>(null);
@@ -238,6 +240,17 @@ export function ARAPPaymentProcessor({ type }: ARAPPaymentProcessorProps) {
           description: "Payment recorded but accounting entry failed",
           variant: "destructive",
         });
+      }
+
+      // Trigger payment received automation for receivables
+      if (type === 'receivable') {
+        const customerId = (selectedItem as any).customer_id;
+        if (customerId) {
+          await sendPaymentReceivedNotification(
+            selectedItem.id,
+            { id: selectedItem.id, amount, payment_method: paymentMethod, customer_id: customerId }
+          );
+        }
       }
 
       toast({

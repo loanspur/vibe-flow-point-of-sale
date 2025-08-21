@@ -273,8 +273,8 @@ export default function UserProfileSettings() {
         }
       }
 
-      // Wait a bit for the auth update to propagate
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for auth update to propagate
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       toast.success('Profile updated successfully');
       await fetchUserProfile();
@@ -284,10 +284,10 @@ export default function UserProfileSettings() {
         await refreshUserInfo();
       }
 
-      // Refresh the page to ensure all components show updated data
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Refresh data without page reload
+      if (refreshUserInfo) {
+        await refreshUserInfo();
+      }
     } catch (error: any) {
       console.error('Unexpected error updating profile:', error);
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);

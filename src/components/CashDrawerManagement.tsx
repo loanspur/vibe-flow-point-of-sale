@@ -289,7 +289,7 @@ export function CashDrawerManagement() {
       setActionNotes('');
       
       // Wait for database update to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Refresh all relevant data after successful action
       await Promise.all([

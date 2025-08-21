@@ -103,12 +103,13 @@ class DomainManager {
   async getCurrentDomainConfig(): Promise<DomainConfig> {
     const currentDomain = window.location.hostname;
     
-    console.log('🔍 Getting domain config for:', currentDomain);
+    // Don't log for every call to reduce noise
+    // console.log('🔍 Getting domain config for:', currentDomain);
     
     // Check cache first
     const cached = this.cache.get(currentDomain);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TIMEOUT) {
-      console.log('📦 Using cached config for:', currentDomain);
+      // console.log('📦 Using cached config for:', currentDomain);
       return {
         tenantId: cached.tenantId,
         domain: currentDomain,
@@ -142,7 +143,7 @@ class DomainManager {
       // Wait for ongoing resolution to complete with shorter timeout
       let attempts = 0;
       while (this.resolving.has(currentDomain) && attempts < 30) { // 3 second timeout
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
         attempts++;
       }
       
@@ -173,7 +174,7 @@ class DomainManager {
     this.resolving.add(currentDomain);
     
     try {
-      console.log('🔎 Resolving tenant for domain:', currentDomain);
+      // console.log('🔎 Resolving tenant for domain:', currentDomain);
       // Resolve tenant ID from database
       const { data: tenantId, error } = await supabase
         .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });

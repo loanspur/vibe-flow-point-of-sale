@@ -3,6 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 // CACHE BUST v2 - Multiple profile load prevention
 import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
+import { tabStabilityManager } from '@/lib/tab-stability-manager';
+import { PasswordChangeModal } from '@/components/PasswordChangeModal';
 
 // User roles are now dynamically managed via user_roles table
 type UserRole = string; // Dynamic role from database
@@ -18,6 +20,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
+  showPasswordChangeModal: boolean;
+  setShowPasswordChangeModal: (show: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,79 +41,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [profileFetched, setProfileFetched] = useState<string | null>(null);
   const [fetchInProgress, setFetchInProgress] = useState<boolean>(false); // Prevent concurrent calls
 
-  // Fetch user role and tenant info with domain context support
+  // Optimized user info fetching with performance checks
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
-    console.log(`🔐 fetchUserInfo called for ${userId} from ${source}, fetchInProgress: ${fetchInProgress}, profileFetched: ${profileFetched}`);
-    
-    // Prevent concurrent calls
-    if (fetchInProgress) {
-      console.log(`🔐 fetchUserInfo already in progress, skipping`);
+    // Performance check - don't fetch if tab is switching
+    if (tabStabilityManager.shouldPreventQueryRefresh()) {
       return;
     }
     
-    // Check if already fetched for this user
-    if (profileFetched === userId) {
-      console.log(`🔐 Profile already fetched for ${userId}, skipping`);
+    if (fetchInProgress || profileFetched === userId) {
       return;
     }
     
     setFetchInProgress(true);
-    console.log(`🔐 Starting profile fetch for user ${userId}`);
     
     try {
-      console.log(`🔐 FETCHING: About to query profiles table for user ${userId}`);
-      
       // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid errors
-
-      console.log(`🔐 FETCHING: Query completed. Profile:`, profile, 'Error:', error);
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
-        console.warn('Error fetching user profile:', error);
         setUserRole('user');
-        // Use domain tenant if available, otherwise null
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
-        console.log(`🔐 FETCHING: Set fallback values due to error`);
         return;
       }
 
       if (profile) {
-        // Check if we're setting the same data repeatedly BEFORE logging
+        // Check if we're setting the same data repeatedly
         if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
-          return; // Skip update and logging if data hasn't changed
+          return; // Skip update if data hasn't changed
         }
         
-        console.log(`User profile loaded:`, profile);
         setUserRole(profile.role);
         setTenantId(profile.tenant_id);
-        setRequirePasswordChange(profile.require_password_change || false);
+        const passwordChangeRequired = profile.require_password_change || false;
+        setRequirePasswordChange(passwordChangeRequired);
+        
+        // Show password change modal if required
+        if (passwordChangeRequired && !showPasswordChangeModal) {
+          setShowPasswordChangeModal(true);
+        }
       } else {
-        console.log(`🔐 No profile found, using defaults`);
         // Fallback if no profile found
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
         setRequirePasswordChange(false);
-        console.log(`🔐 FETCHING: Set default values - no profile found`);
       }
     } catch (error) {
-      console.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
       setRequirePasswordChange(false);
-      console.log(`🔐 FETCHING: Set default values due to exception:`, error);
     } finally {
-      console.log(`🔐 fetchUserInfo completed for ${userId}, setting fetchInProgress to false`);
       setFetchInProgress(false);
     }
   };
@@ -185,17 +177,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     
+    // Initialize tab stability manager
+    tabStabilityManager.initialize();
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log(`🔄 AUTH STATE CHANGE: ${event}`, { 
-          sessionExists: !!session, 
-          userExists: !!session?.user,
-          currentPath: window.location.pathname,
-          timestamp: Date.now()
-        });
         
         if (!mounted) return;
+        
+        // Minimal tab stability check - only prevent during actual browser tab switching
+        if (tabStabilityManager.isCurrentlyTabSwitching() && event === 'TOKEN_REFRESHED') {
+          return; // Only prevent token refresh events during tab switching
+        }
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -267,11 +261,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user && profileFetched !== session.user.id && !fetchInProgress) {
-          console.log(`🚀 Initial user info fetch for: ${session.user.id}`);
           setProfileFetched(session.user.id);
           await fetchUserInfo(session.user.id, 'initial-auth-check');
-        } else if (session?.user) {
-          console.log(`✅ Skipping initial fetch - User: ${session.user.id}, Fetched: ${profileFetched}, InProgress: ${fetchInProgress}`);
         }
         
         // Always set loading to false after initial check
@@ -326,7 +317,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const uid = user.id;
       if (!uid) return;
 
-      console.log('🎯 Marking invitation as accepted for user:', uid);
+      // Check if invitation was already processed to prevent loops
+      const inviteProcessedKey = `invite_processed_${uid}`;
+      if (sessionStorage.getItem(inviteProcessedKey)) {
+        return;
+      }
 
       // First, update profile invite status
       const { error: profileError } = await supabase
@@ -339,28 +334,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (profileError) {
         console.warn('Failed to update profile invitation status:', profileError);
-      } else {
-        console.log('✅ Profile invitation status updated successfully');
       }
 
-      // Get tenant ID from multiple sources to ensure we find it
-      let tenantId: string | null = null;
+      // Get tenant ID from domain context first
+      let tenantId: string | null = domainManager.getDomainTenantId();
       
-      // Try getting from user metadata first
-      const metaTenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
-      if (metaTenantId) {
-        tenantId = metaTenantId;
-        console.log('📋 Found tenant ID in user metadata:', tenantId);
-      }
-      
-      // Fallback to RPC function
+      // Fallback to user metadata
       if (!tenantId) {
-        const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
-        tenantId = tenantData as string;
-        console.log('📋 Found tenant ID via RPC:', tenantId);
+        const metaTenantId = user.user_metadata?.tenant_id || user.app_metadata?.tenant_id;
+        if (metaTenantId) {
+          tenantId = metaTenantId;
+          
+        }
       }
       
-      // Final fallback: check existing profile
+      // Final fallback: check existing profile (avoid RPC if possible)
       if (!tenantId) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -368,12 +356,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .eq('user_id', uid)
           .maybeSingle();
         tenantId = profile?.tenant_id;
-        console.log('📋 Found tenant ID in profile:', tenantId);
+        
       }
       
       if (tenantId) {
-        console.log('🏢 Updating tenant_users for tenant:', tenantId);
-        
         // Update all tenant_users records for this user in this tenant
         const { error: tenantUserError } = await supabase
           .from('tenant_users')
@@ -387,28 +373,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (tenantUserError) {
           console.warn('Failed to update tenant_users invitation status:', tenantUserError);
-        } else {
-          console.log('✅ Tenant_users invitation status updated successfully');
         }
-
-        // Also update any records that are specifically pending
-        const { error: pendingError } = await supabase
-          .from('tenant_users')
-          .update({
-            invitation_status: 'accepted',
-            invitation_accepted_at: new Date().toISOString(),
-            is_active: true,
-          })
-          .eq('user_id', uid)
-          .eq('tenant_id', tenantId)
-          .eq('invitation_status', 'pending');
-
-        if (pendingError) {
-          console.warn('Failed to update pending tenant_users records:', pendingError);
-        }
-      } else {
-        console.warn('⚠️ No tenant ID found for user, skipping tenant_users update');
       }
+
+      // Mark as processed to prevent future runs
+      sessionStorage.setItem(inviteProcessedKey, 'true');
     } catch (e) {
       console.error('❌ Failed to mark invitation as accepted:', e);
     }
@@ -426,10 +395,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (user) {
         await supabase
           .from('profiles')
-          .update({ require_password_change: false })
+          .update({ 
+            require_password_change: false,
+            temp_password_created_at: null
+          })
           .eq('user_id', user.id);
         
         setRequirePasswordChange(false);
+        setShowPasswordChangeModal(false);
       }
 
       return { error: null };
@@ -448,7 +421,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     refreshUserInfo,
     signIn,
     signOut,
-    updatePassword
+    updatePassword,
+    showPasswordChangeModal,
+    setShowPasswordChangeModal,
   };
 
   // Don't render children until we've checked for an existing session
@@ -458,10 +433,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (loading) {
       const timer = setTimeout(() => {
-        console.warn('Auth loading timeout reached, forcing render');
         setLoading(false);
         setAuthTimeout(true);
-      }, 10000); // 10 second timeout
+      }, 5000); // Reduced timeout to 5 seconds
       
       return () => clearTimeout(timer);
     }
@@ -478,6 +452,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthContext.Provider value={value}>
       {children}
+      
+      {/* Password Change Modal */}
+      <PasswordChangeModal
+        isOpen={showPasswordChangeModal}
+        onClose={() => setShowPasswordChangeModal(false)}
+        onSuccess={() => {
+          setShowPasswordChangeModal(false);
+          setRequirePasswordChange(false);
+        }}
+        isRequired={requirePasswordChange}
+      />
     </AuthContext.Provider>
   );
 };

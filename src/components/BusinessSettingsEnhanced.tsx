@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import BillingManagement from "./BillingManagement";
 import { DocumentTemplateEditor } from "./DocumentTemplateEditor";
 import { DataMigration } from "./DataMigration";
@@ -224,9 +224,6 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
-  console.log('🎯 BusinessSettingsEnhanced component is LOADING!');
-  console.log('🎯 Current timestamp:', new Date().toISOString());
-  console.log('🎯 Window location:', window.location.href);
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -396,29 +393,7 @@ export function BusinessSettingsEnhanced() {
     fetchSettings();
   }, []);
 
-
-  // Listen for auth state changes
-  useEffect(() => {
-    console.log('🔄 Setting up auth state listener...');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event, session?.user?.id || 'No user');
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        console.log('✅ User signed in, fetching data...');
-        await fetchSettings();
-      } else if (event === 'SIGNED_OUT') {
-        console.log('👋 User signed out, clearing data...');
-        setSettings(null);
-      }
-    });
-
-    return () => {
-      console.log('🧹 Cleaning up auth listener...');
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       // Resolve tenant id first to avoid RLS race conditions
       const { data: authUser } = await supabase.auth.getUser();
@@ -480,7 +455,7 @@ export function BusinessSettingsEnhanced() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [form, toast]);
 
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -529,12 +504,8 @@ export function BusinessSettingsEnhanced() {
   };
 
   // Location management functions
-  const fetchLocations = async (tenantId: string) => {
+  const fetchLocations = useCallback(async (tenantId: string) => {
     try {
-      console.log('🔍 DEBUG: Fetching locations for tenant:', tenantId);
-      console.log('🔍 DEBUG: Current auth user ID:', supabase.auth.getUser());
-      console.log('🔍 DEBUG: Tenant context:', tenantId);
-      
       const { data, error } = await supabase
         .from('store_locations')
         .select('*')
@@ -542,21 +513,16 @@ export function BusinessSettingsEnhanced() {
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true });
 
-      console.log('🔍 DEBUG: Query result - data:', data);
-      console.log('🔍 DEBUG: Query result - error:', error);
-
       if (error) throw error;
       setLocations(data || []);
-      console.log('🔍 DEBUG: Locations state set to:', data || []);
     } catch (error) {
-      console.error('❌ Error fetching locations:', error);
       toast({
         title: "Error",
         description: "Failed to load locations",
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   // Load locations when component mounts or tenantId changes
   useEffect(() => {
@@ -570,7 +536,7 @@ export function BusinessSettingsEnhanced() {
           .single();
 
         if (profile?.tenant_id) {
-          console.log('🔄 useEffect: Loading locations for tenant:', profile.tenant_id);
+          // Loading locations for tenant
           fetchLocations(profile.tenant_id);
         }
       }
@@ -592,7 +558,7 @@ export function BusinessSettingsEnhanced() {
             .single();
 
           if (profile?.tenant_id) {
-            console.log('🏢 Locations tab activated: Loading locations for tenant:', profile.tenant_id);
+            // Locations tab activated, loading locations
             await fetchLocations(profile.tenant_id);
           }
         }
@@ -603,9 +569,7 @@ export function BusinessSettingsEnhanced() {
   }, [activeTab]);
 
   const handleAddLocation = () => {
-    console.log('🏪 handleAddLocation called!');
-    console.log('🏪 Current locations:', locations);
-    console.log('🏪 Current activeTab:', activeTab);
+    // Add location handler called
     
     setEditingLocation(null);
     setLocationFormData({
@@ -624,7 +588,7 @@ export function BusinessSettingsEnhanced() {
     });
     setIsLocationDialogOpen(true);
     
-    console.log('🏪 Location dialog should be opening...');
+    // Opening location dialog
   };
 
   const handleEditLocation = (location: StoreLocation) => {
@@ -858,31 +822,25 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
-  // Debug logging for component render
-  console.log('🔄 Rendering BusinessSettingsEnhanced component');
-  console.log('🔄 isLoading:', isLoading);
-  console.log('🔄 settings:', settings);
-  console.log('🔄 activeTab:', activeTab);
-  console.log('🔄 locations:', locations);
 
-  const filteredCurrencies = currencySearch
+  const filteredCurrencies = useMemo(() => currencySearch
     ? currencies.filter(currency => 
         currency.code && currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
         currency.name && currency.name.toLowerCase().includes(currencySearch.toLowerCase())
       ).filter(currency => currency.code && currency.code.trim() !== '')
-    : currencies.filter(currency => currency.code && currency.code.trim() !== '');
+    : currencies.filter(currency => currency.code && currency.code.trim() !== ''), [currencySearch]);
 
-  const filteredTimezones = timezoneSearch
+  const filteredTimezones = useMemo(() => timezoneSearch
     ? timezones.filter(timezone => 
         timezone.label && timezone.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
         timezone.value && timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
       ).filter(timezone => timezone.value && timezone.value.trim() !== '')
-    : timezones.filter(timezone => timezone.value && timezone.value.trim() !== '');
+    : timezones.filter(timezone => timezone.value && timezone.value.trim() !== ''), [timezoneSearch]);
 
   const countryOptions = COUNTRY_LIST;
 
   if (isLoading) {
-    console.log('⏳ BusinessSettingsEnhanced is still loading...');
+    // Settings component still loading
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -1367,7 +1325,7 @@ export function BusinessSettingsEnhanced() {
                         <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
                           <ShoppingCart className="h-6 w-6 text-primary" />
                         </div>
-                        Sales Configuration
+                        Product Settings
                       </CardTitle>
                       <CardDescription className="text-base">
                         Configure sales processes and customer interactions
@@ -1471,7 +1429,7 @@ export function BusinessSettingsEnhanced() {
                         <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
                           <Package className="h-6 w-6 text-primary" />
                         </div>
-                        Product Management
+                        Product Settings
                       </CardTitle>
                       <CardDescription className="text-base">
                         Configure product features and inventory settings

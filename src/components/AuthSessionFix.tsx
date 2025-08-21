@@ -24,12 +24,12 @@ export const AuthSessionFix = () => {
         await Promise.all(cacheNames.map(name => caches.delete(name)));
       }
       
-      // Force reload to reset everything
+      // Navigate to auth without reload
       window.location.href = '/auth';
     } catch (error) {
       console.error('Error during session fix:', error);
-      // Force reload anyway
-      window.location.reload();
+      // Emergency reload only as last resort
+      window.location.href = '/auth';
     }
   };
 

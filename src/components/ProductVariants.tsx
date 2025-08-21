@@ -63,6 +63,11 @@ export default function ProductVariants({ productId }: ProductVariantsProps) {
   }, [productId]);
 
   const fetchVariants = async () => {
+    if (!productId) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -71,14 +76,20 @@ export default function ProductVariants({ productId }: ProductVariantsProps) {
         .eq('product_id', productId)
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Variant fetch error:', error);
+        throw error;
+      }
+      
       setVariants(data || []);
     } catch (error: any) {
+      console.error('Failed to fetch variants:', error);
       toast({
         title: "Error fetching variants",
-        description: error.message,
+        description: error.message || "Failed to load product variants",
         variant: "destructive",
       });
+      setVariants([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

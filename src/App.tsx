@@ -2,12 +2,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDomainContext, isDevelopmentDomain, isSubdomain, getBaseDomain } from "@/lib/domain-manager";
+import { tabStabilityManager } from "@/lib/tab-stability-manager";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { FeatureGuard } from "./components/FeatureGuard";
@@ -16,14 +17,16 @@ import { SuperAdminLayout } from "./components/SuperAdminLayout";
 import { StockManagement } from "./components/StockManagement";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import CookieConsent from "./components/CookieConsent";
-import { PasswordChangeModal } from "./components/PasswordChangeModal";
 import { AuthSessionFix } from "./components/AuthSessionFix";
+import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
-import { SimplifiedTenantRoutes } from "@/components/SimplifiedTenantRoutes";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { TabStabilityProvider } from "./components/TabStabilityProvider";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
 const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const CurrencyDebug = lazy(() => import("./pages/CurrencyDebug"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -42,6 +45,7 @@ const AccountsReceivablePayable = lazy(() => import("./components/AccountsReceiv
 // Dashboards
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
 import TenantAdminDashboard from "./pages/TenantAdminDashboard";
+import { TenantSetupCompletion } from "./components/TenantSetupCompletion";
 
 // Admin Pages
 const TenantManagement = lazy(() => import("./pages/TenantManagement"));
@@ -67,19 +71,8 @@ const Accounting = lazy(() => import("./pages/Accounting"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
-// Auth page wrapper to redirect authenticated users on subdomains (only when tenant is resolved)
+// Simplified auth wrapper - no automatic redirects to prevent loops
 const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
-  const { domainConfig } = useDomainContext();
-  
-  useEffect(() => {
-    // Redirect only when tenant context is resolved to avoid loops
-    if (user && isSubdomain() && domainConfig?.tenantId) {
-      console.log('👤 User authenticated, tenant resolved; redirecting to dashboard');
-      window.location.replace('/dashboard');
-    }
-  }, [user, domainConfig?.tenantId]);
-  
   return <>{children}</>;
 };
 
@@ -131,68 +124,51 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Block Firebase network requests and feature warnings at the console level
-const originalLog = console.error;
-const originalWarn = console.warn;
-const originalConsoleLog = console.log;
-const originalInfo = console.info;
+// Suppress Firebase and other noisy logs in production
+if (process.env.NODE_ENV !== 'development') {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  console.error = function(...args) {
+    const message = args.join(' ').toLowerCase();
+    if (message.includes('firebase') || 
+        message.includes('firestore') || 
+        message.includes('googleapis') ||
+        message.includes('webchannelconnection') ||
+        message.includes('unrecognized feature') ||
+        message.includes('iframe') ||
+        message.includes('message channel closed') ||
+        message.includes('sandbox')) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
 
-console.error = function(...args) {
-  const message = args.join(' ').toLowerCase();
-  if (message.includes('firebase') || 
-      message.includes('firestore') || 
-      message.includes('googleapis') ||
-      message.includes('webchannelconnection') ||
-      message.includes('unrecognized feature') ||
-      message.includes('iframe') ||
-      message.includes('message channel closed') ||
-      message.includes('listener indicated an asynchronous response') ||
-      message.includes('sandbox') ||
-      message.includes('feature_collector')) {
-    return; // Suppress these error logs
-  }
-  originalLog.apply(console, args);
-};
+  console.warn = function(...args) {
+    const message = args.join(' ').toLowerCase();
+    if (message.includes('firebase') || 
+        message.includes('firestore') || 
+        message.includes('googleapis') ||
+        message.includes('multiple gotrueclient') ||
+        message.includes('sandbox')) {
+      return;
+    }
+    originalWarn.apply(console, args);
+  };
+}
 
-console.warn = function(...args) {
-  const message = args.join(' ').toLowerCase();
-  if (message.includes('firebase') || 
-      message.includes('firestore') || 
-      message.includes('googleapis') ||
-      message.includes('unrecognized feature') ||
-      message.includes('iframe') ||
-      message.includes('multiple gotrueclient') ||
-      message.includes('sandbox') ||
-      message.includes('feature_collector') ||
-      message.includes('deprecated parameters')) {
-    return; // Suppress these warnings
-  }
-  originalWarn.apply(console, args);
-};
-
-// Suppress noisy debug logs (auth/route guards)
-console.log = function(...args) {
-  const msg = args.map(a => (typeof a === 'string' ? a : '')).join(' ');
-  const lower = msg.toLowerCase();
-  if (/[🔐🛡️✅🚫👁️🚀🎯]/u.test(msg) ||
-      lower.includes('protectedroute') ||
-      lower.includes('auth state change') ||
-      lower.includes('user profile loaded')) {
-    return;
-  }
-  originalConsoleLog.apply(console, args);
-};
-
-// Optimized query client configuration for better performance
+// Optimized query client configuration for better performance with tab stability
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 2 * 60 * 1000, // 2 minutes - shorter for fresher data
-      gcTime: 5 * 60 * 1000, // 5 minutes - shorter to free memory faster
+      staleTime: 120000, // 2 minutes
+      gcTime: 300000, // 5 minutes
       retry: 1,
       refetchOnWindowFocus: false, // Disabled to prevent performance issues
       refetchOnMount: false, // Disabled to prevent unnecessary refetches
       refetchOnReconnect: false, // Disabled to prevent network spam
+      // Custom refetch condition that respects tab stability
+      queryFn: undefined, // Will be set per query
     },
     mutations: {
       retry: 1, // Limit mutation retries
@@ -207,61 +183,79 @@ const DomainRouter = () => {
   
   // Removed excessive logging that caused tab switching reload issues
   
-  // Redirect auth callbacks to reset-password flow - optimized to prevent reloads
+  // Handle auth callbacks with React Router to prevent hydration issues
   useEffect(() => {
-    const checkAuthCallback = () => {
-      if (typeof window !== 'undefined' && window.location.hash &&
-          /access_token|token_hash|type=invite|type=recovery/i.test(window.location.hash) &&
-          location.pathname !== '/reset-password') {
-        const search = new URLSearchParams(location.search || '');
-        if (!search.get('from')) search.set('from', 'invite');
-        const qs = search.toString();
-        const newUrl = `/reset-password${qs ? `?${qs}` : ''}${window.location.hash}`;
-        // Use navigate instead of window.location.replace to prevent full page reload
-        window.history.replaceState(null, '', newUrl);
-      }
-    };
+    if (typeof window === 'undefined') return;
     
-    // Only check once on mount
-    let hasChecked = false;
-    if (!hasChecked) {
-      checkAuthCallback();
-      hasChecked = true;
+    console.log('🔄 App Router - Current location:', {
+      pathname: location.pathname,
+      search: location.search,
+      hash: window.location.hash,
+      href: window.location.href
+    });
+    
+    const hash = window.location.hash;
+    const searchParams = new URLSearchParams(location.search || '');
+    
+    // Check if we're at root with OAuth fragments - redirect to callback
+    if (location.pathname === '/' && hash && /access_token|error|type=/.test(hash)) {
+      console.log('🔀 OAuth fragments detected at root - redirecting to callback');
+      const callbackUrl = `/auth/callback${location.search}${hash}`;
+      console.log('🎯 Redirecting to:', callbackUrl);
+      window.location.replace(callbackUrl);
+      return;
     }
-  }, []); // No dependencies to prevent re-runs
+    
+    // Also handle OAuth fragments on /auth path (some OAuth providers redirect here)
+    if (location.pathname === '/auth' && hash && /access_token|error/.test(hash)) {
+      console.log('🔀 OAuth fragments detected on /auth - redirecting to callback');
+      const callbackUrl = `/auth/callback${location.search}${hash}`;
+      console.log('🎯 Redirecting to:', callbackUrl);
+      window.location.replace(callbackUrl);
+      return;
+    }
+    
+    // Only redirect to reset-password for specific invite/recovery types, not Google OAuth
+    const isInviteCallback = hash && /type=invite|type=recovery/i.test(hash);
+    const isGoogleOAuth = searchParams.get('type') === 'google' || location.pathname === '/auth/callback';
+    
+    console.log('🔍 Router checks:', {
+      isInviteCallback,
+      isGoogleOAuth,
+      currentPath: location.pathname
+    });
+    
+    if (isInviteCallback && !isGoogleOAuth && location.pathname !== '/reset-password') {
+      const search = new URLSearchParams(location.search || '');
+      if (!search.get('from')) search.set('from', 'invite');
+      const qs = search.toString();
+      
+      console.log('🔀 Redirecting to reset-password');
+      // Use setTimeout to avoid hydration mismatch
+      setTimeout(() => {
+        window.location.href = `/reset-password${qs ? `?${qs}` : ''}${hash}`;
+      }, 0);
+    }
+  }, [location.pathname, location.search]);
   
   // Simplified auth session check - removed to prevent excessive API calls
   const [showAuthFix, setShowAuthFix] = useState(false);
   
+  // Handle subdomain without tenant ID
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
-    // Show loading with timeout to prevent infinite loading
-    const [timeoutReached, setTimeoutReached] = useState(false);
-    
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        setTimeoutReached(true);
-      }, 5000); // Reduced to 5 seconds to improve UX
-      
-      return () => clearTimeout(timer);
-    }, []);
-    
-    if (timeoutReached) {
-      // After timeout, show auth page instead of infinite loading
-      return (
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<Navigate to="/auth" replace />} />
-          </Routes>
-        </Suspense>
-      );
-    }
-    
-    return <PageLoader />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="*" element={<Navigate to="/auth" replace />} />
+        </Routes>
+      </Suspense>
+    );
   }
 
   const currentPath = location.pathname;
-  if (currentPath === '/auth' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
+  if (currentPath === '/auth' || currentPath === '/auth/callback' || currentPath === '/reset-password' || currentPath === '/forgot-password') {
     return (
       <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -273,6 +267,7 @@ const DomainRouter = () => {
                 : (<Auth />)
             } 
           />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="*" element={<Navigate to="/auth" replace />} />
@@ -308,6 +303,7 @@ const DomainRouter = () => {
               </AuthPageWrapper>
             } 
           />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           
@@ -325,15 +321,13 @@ const DomainRouter = () => {
             } 
           />
           
-          {/* Dashboard route - same as root for subdomains */}
+          {/* Dashboard route - check for setup completion first */}
           <Route 
             path="/dashboard" 
             element={
               <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
-                  <TenantAdminLayout>
-                    <TenantAdminDashboard />
-                  </TenantAdminLayout>
+                  <TenantSetupCompletion />
                 </SubscriptionGuard>
               </ProtectedRoute>
             } 
@@ -506,9 +500,12 @@ const DomainRouter = () => {
         <Route path="/" element={<LandingPage />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/tenant-redirect" element={<TenantRedirect />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        
+        <Route path="/trial-signup" element={<TrialSignup />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         
         <Route path="/signup" element={<Navigate to="/" replace />} />
         <Route path="/success" element={<Success />} />
@@ -804,24 +801,28 @@ const DomainRouter = () => {
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppProvider>
-          <TooltipProvider>
-            <>
-              <Toaster />
-              <Sonner />
-              <PerformanceMonitor />
-              <CookieConsent />
-              <PasswordChangeModal />
-              <BrowserRouter>
-                <DomainRouter />
-              </BrowserRouter>
-            </>
-          </TooltipProvider>
-        </AppProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <TabStabilityProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+             <AppProvider>
+               <TooltipProvider>
+                 <>
+                   <Toaster />
+                   <Sonner />
+                   <PerformanceMonitor />
+                   <AppOptimizer />
+                   <CookieConsent />
+                   <BrowserRouter>
+                     <DomainRouter />
+                   </BrowserRouter>
+                 </>
+               </TooltipProvider>
+             </AppProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </TabStabilityProvider>
+    </ErrorBoundary>
   );
 };
 

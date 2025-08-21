@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Mail, Send, FileText, Eye, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useEmailService } from '@/hooks/useEmailService';
+import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
 import { useApp } from '@/contexts/AppContext';
 import { format } from 'date-fns';
 
@@ -66,7 +66,7 @@ export const QuoteEmailDialog = ({ quote, isOpen, onClose, onEmailSent }: QuoteE
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   
   const { toast } = useToast();
-  const { sendQuoteEmail, sendEmail } = useEmailService();
+  const { sendTemplateEmail, sendEmail } = useUnifiedCommunication();
   const { tenantCurrency } = useApp();
 
   // Load email templates
@@ -219,27 +219,28 @@ ${getCompanyName()} Team
 
     try {
       if (emailData.useTemplate && selectedTemplate) {
-        // Send using unified quote service
-        await sendQuoteEmail(
+        // Send using unified template service
+        await sendTemplateEmail(
+          selectedTemplate.id,
           emailData.to,
-          quote.contacts?.name || 'Valued Customer',
+          generateQuoteVariables(),
           {
-            quoteNumber: quote.quote_number || `QT-${quote.id.slice(0, 8)}`,
-            totalAmount: `${tenantCurrency} ${quote.total_amount.toFixed(2)}`,
-            validUntil: quote.valid_until ? format(new Date(quote.valid_until), "PPP") : "30 days",
-            quoteUrl: `${window.location.origin}/quote/${quote.id}`,
+            recipientName: quote.contacts?.name || 'Valued Customer',
+            priority: 'medium'
           }
         );
       } else {
         // Send custom email
-        await sendEmail({
-          to: emailData.to,
-          toName: quote.contacts?.name,
-          subject: emailData.subject,
-          htmlContent: emailData.message.replace(/\n/g, '<br>'),
-          textContent: emailData.message,
-          priority: 'medium'
-        });
+        await sendEmail(
+          emailData.to,
+          emailData.subject,
+          emailData.message.replace(/\n/g, '<br>'),
+          {
+            recipientName: quote.contacts?.name,
+            textContent: emailData.message,
+            priority: 'medium'
+          }
+        );
       }
 
       // Update quote status to 'sent' if it's currently 'draft'

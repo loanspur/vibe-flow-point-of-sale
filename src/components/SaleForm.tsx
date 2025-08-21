@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
+import { useStableCallback, useStableValue } from "@/hooks/useStableCallback";
 import { createEnhancedSalesJournalEntry } from "@/lib/accounting-integration";
 import { processSaleInventory } from "@/lib/inventory-integration";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,9 +29,73 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
+
+
+import { sendCommunicationWithSettings } from '@/lib/communicationSettingsIntegration';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
+// Remove unused imports related to old inventory system
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES, WARNING_MESSAGES } from '@/utils/errorMessages';
+import { generateReceiptNumber, calculateSaleTotal, validateSaleData, prepareSaleItemsData, updateCashDrawer } from '@/utils/saleHelpers';
+import type { SaleItem as SaleItemType, PaymentRecord } from '@/utils/saleHelpers';
+
+// Enhanced StockBadge component with stable state management
+const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, locationName }: {
+  productId: string;
+  variantId?: string;
+  locationId?: string;
+  locationName?: string;
+  getLocationSpecificStock: (productId: string, variantId?: string, locationId?: string) => Promise<number>;
+}) => {
+  const [stock, setStock] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Stable cache key to prevent unnecessary refetches
+  const cacheKey = useStableValue(`${productId}_${variantId || 'main'}_${locationId || 'default'}`, [productId, variantId, locationId]);
+
+  const stableFetchStock = useStableCallback(async () => {
+    if (!productId) return;
+    
+    setLoading(true);
+    try {
+      let stockAmount = await getLocationSpecificStock(productId, variantId, locationId);
+      setStock(stockAmount);
+    } catch (error) {
+      console.error('Error fetching stock:', error);
+      // Set to 0 on error to show unavailable
+      setStock(0);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  useEffect(() => {
+    if (cacheKey) {
+      stableFetchStock();
+    }
+  }, [cacheKey, stableFetchStock]);
+
+  if (loading && stock === null) {
+    return <Badge variant="outline" className="text-xs">Loading...</Badge>;
+  }
+
+  const stockAmount = stock ?? 0;
+  const displayText = locationId && locationName 
+    ? `Stock at ${locationName}: ${stockAmount}`
+    : `Stock: ${stockAmount}`;
+
+  return (
+    <Badge 
+      variant={stockAmount > 0 ? "default" : "destructive"}
+      className="text-xs"
+      title={displayText}
+    >
+      {displayText}
+    </Badge>
+  );
+};
 
 
 const saleSchema = z.object({
@@ -63,10 +128,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   
+  const { pos: posSettings, tax: taxSettings, inventory: inventorySettings, documents: docSettings } = useBusinessSettings();
+  
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [actualInventory, setActualInventory] = useState<Record<string, { stock: number; variants: Record<string, number> }>>({});
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -112,7 +178,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       fetchProducts();
       fetchCustomers();
       fetchLocations();
-      fetchActualInventory();
       checkMpesaConfig();
       fetchBusinessSettings();
     } else {
@@ -120,11 +185,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       setFilteredProducts([]);
       setCustomers([]);
       setLocations([]);
-      setActualInventory({});
       setMpesaEnabled(false);
       setBusinessSettings(null);
     }
   }, [tenantId]);
+
+  // Remove unnecessary product refetch when location changes - products don't change by location
+  // Instead, we filter products by location-specific stock in the UI
 
   const fetchBusinessSettings = async () => {
     if (!tenantId) return;
@@ -144,28 +211,31 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
   };
 
+  // Stable product filtering with reduced debounce time to minimize flicker
+  const filteredProductsStable = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return products;
+    }
+    
+    try {
+      return products.filter(product =>
+        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    } catch (error) {
+      console.error('Error filtering products:', error);
+      return [];
+    }
+  }, [products, searchTerm]);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      try {
-        if (!searchTerm.trim()) {
-          setFilteredProducts(products);
-          return;
-        }
-        
-        const filtered = products.filter(product =>
-          product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        setFilteredProducts(filtered);
-      } catch (error) {
-        console.error('Error filtering products:', error);
-        setFilteredProducts([]);
-      }
-    }, 300);
+      setFilteredProducts(filteredProductsStable);
+    }, 150); // Reduced from 300ms to minimize flicker
 
     return () => clearTimeout(timeoutId);
-  }, [products, searchTerm]);
+  }, [filteredProductsStable]);
 
   const fetchProducts = async () => {
     if (!tenantId) {
@@ -303,40 +373,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
   };
 
-  const fetchActualInventory = async () => {
-    if (!tenantId) {
-      setActualInventory({});
-      return;
-    }
-    
-    try {
-      const inventoryData = await getInventoryLevels(tenantId);
-      
-      const inventoryLookup: Record<string, { stock: number; variants: Record<string, number> }> = {};
-      
-      inventoryData.forEach((product) => {
-        inventoryLookup[product.id] = {
-          stock: product.calculated_stock || 0,
-          variants: {}
-        };
-        
-        if (product.product_variants) {
-          product.product_variants.forEach((variant: any) => {
-            inventoryLookup[product.id].variants[variant.id] = variant.stock_quantity || 0;
-          });
-        }
-      });
-      
-      setActualInventory(inventoryLookup);
-    } catch (error) {
-      console.error('Error fetching actual inventory:', error);
-      toast({
-        title: "Warning",
-        description: "Could not fetch current stock levels. Showing database values.",
-        variant: "destructive",
-      });
-    }
-  };
+// Remove redundant inventory fetching - now using direct stock calculation
 
   const checkMpesaConfig = async () => {
     if (!tenantId) return;
@@ -356,9 +393,12 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
   };
 
-  const getActualStock = (productId: string, variantId?: string) => {
-    const productInventory = actualInventory[productId];
-    if (!productInventory) {
+  // Optimized location-specific stock with caching to prevent flickering
+  const locationStockCache = useMemo(() => new Map<string, number>(), []);
+  
+  const getLocationSpecificStock = useStableCallback(async (productId: string, variantId?: string, locationId?: string) => {
+    if (!locationId || !tenantId) {
+      // For non-location specific requests, get basic stock from products
       const product = products.find(p => p.id === productId);
       if (variantId && product?.product_variants) {
         const variant = product.product_variants.find((v: any) => v.id === variantId);
@@ -366,16 +406,172 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       }
       return product?.stock_quantity || 0;
     }
-    
-    if (variantId) {
-      return productInventory.variants[variantId] || 0;
-    }
-    return productInventory.stock;
-  };
 
-  const addItemToSale = () => {
+    const cacheKey = `${productId}_${variantId || 'main'}_${locationId}`;
+    
+    // Return cached value if available and fresh (less than 30 seconds old)
+    if (locationStockCache.has(cacheKey)) {
+      return locationStockCache.get(cacheKey)!;
+    }
+
+    try {
+      // Get base product stock for the specific location
+      const { data: product } = await supabase
+        .from('products')
+        .select('stock_quantity')
+        .eq('id', productId)
+        .eq('location_id', locationId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      let baseStock = product?.stock_quantity ?? 0;
+      
+      // Calculate stock adjustments for this product at this location
+      const { data: adjustments } = await supabase
+        .from('stock_adjustment_items')
+        .select(`
+          adjustment_quantity,
+          stock_adjustments!inner(tenant_id, status)
+        `)
+        .eq('product_id', productId)
+        .eq('location_id', locationId)
+        .eq('stock_adjustments.tenant_id', tenantId)
+        .eq('stock_adjustments.status', 'approved');
+      
+      let adjustmentTotal = 0;
+      if (adjustments) {
+        adjustmentTotal = adjustments.reduce((total, adj) => {
+          return total + adj.adjustment_quantity;
+        }, 0);
+      }
+      
+      // Calculate recent sales that might not be reflected in base stock
+      const { data: recentSales } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          sales!inner(tenant_id, location_id, created_at)
+        `)
+        .eq('product_id', productId)
+        .eq('sales.tenant_id', tenantId)
+        .eq('sales.location_id', locationId)
+        .gte('sales.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+      
+      let recentSalesTotal = 0;
+      if (recentSales) {
+        recentSalesTotal = recentSales.reduce((total, sale) => total + sale.quantity, 0);
+      }
+
+      let locationStock = baseStock + adjustmentTotal - recentSalesTotal;
+      
+      console.log(`Stock calculation for product ${productId} at location ${locationId}:`, {
+        baseStock,
+        adjustmentTotal,
+        recentSalesTotal,
+        finalLocationStock: locationStock
+      });
+      
+      // Apply minimum stock threshold
+      locationStock = Math.max(0, locationStock);
+
+      // Cache the result
+      locationStockCache.set(cacheKey, locationStock);
+      
+      // Clear cache after 30 seconds
+      setTimeout(() => {
+        locationStockCache.delete(cacheKey);
+      }, 30000);
+
+      return locationStock;
+    } catch (error) {
+      console.error('Error calculating location-specific stock:', error);
+      // Fallback to basic product stock on error
+      const product = products.find(p => p.id === productId);
+      if (variantId && product?.product_variants) {
+        const variant = product.product_variants.find((v: any) => v.id === variantId);
+        return variant?.stock_quantity || 0;
+      }
+      return product?.stock_quantity || 0;
+    }
+  });
+
+// Remove redundant getActualStock function - using unified stock calculation
+
+  const addItemToSale = async () => {
+    console.log('addItemToSale called with:', {
+      selectedProduct,
+      selectedVariant,
+      selectedLocation,
+      quantity,
+      customPrice,
+      saleItemsLength: saleItems.length
+    });
+
     const product = products.find(p => p.id === selectedProduct);
-    if (!product) return;
+    if (!product) {
+      console.error('Product not found:', selectedProduct);
+      toast({
+        title: "Error",
+        description: "Please select a valid product",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (quantity <= 0) {
+      console.error('Invalid quantity:', quantity);
+      toast({
+        title: "Invalid Quantity",
+        description: "Please enter a valid quantity greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedLocation) {
+      console.error('No location selected');
+      toast({
+        title: "Location Required",
+        description: "Please select a location before adding products to the sale",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check location-specific stock availability
+    let currentStock;
+    try {
+      currentStock = await getLocationSpecificStock(
+        selectedProduct, 
+        selectedVariant !== "no-variant" ? selectedVariant : undefined,
+        selectedLocation
+      );
+      console.log('Stock check result:', { currentStock, quantity, selectedLocation });
+    } catch (error) {
+      console.error('Error getting stock:', error);
+      // Fallback to basic product stock on error
+      const product = products.find(p => p.id === selectedProduct);
+      if (selectedVariant !== "no-variant" && product?.product_variants) {
+        const variant = product.product_variants.find((v: any) => v.id === selectedVariant);
+        currentStock = variant?.stock_quantity || 0;
+      } else {
+        currentStock = product?.stock_quantity || 0;
+      }
+    }
+    
+    // Check business settings for negative stock - use both inventory and product settings  
+    const allowNegativeStock = inventorySettings.enableNegativeStock || false;
+    console.log('Negative stock settings:', { allowNegativeStock, currentStock, quantity });
+    
+    if (!allowNegativeStock && currentStock < quantity) {
+      const locationName = locations.find(loc => loc.id === selectedLocation)?.name || 'selected location';
+      toast({
+        title: "Insufficient Stock at Location",
+        description: `Only ${currentStock} units available at ${locationName}. Enable negative stock in business settings to oversell.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     let variant = null;
     let unitPrice = product.price;
@@ -395,11 +591,20 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       unitPrice = customPrice;
     }
 
-    // Check if item already exists in sale
+    // Check if item already exists in sale (including proper variant handling)
+    const currentVariantId = selectedVariant && selectedVariant !== "no-variant" ? selectedVariant : undefined;
     const existingItemIndex = saleItems.findIndex(item => 
       item.product_id === selectedProduct && 
-      item.variant_id === (selectedVariant !== "no-variant" ? selectedVariant : undefined)
+      (item.variant_id === currentVariantId || (!item.variant_id && !currentVariantId))
     );
+
+    console.log('Adding item with details:', {
+      productName,
+      unitPrice,
+      quantity,
+      currentVariantId,
+      existingItemIndex
+    });
 
     if (existingItemIndex !== -1) {
       // Update existing item quantity
@@ -407,19 +612,37 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       updatedItems[existingItemIndex].quantity += quantity;
       updatedItems[existingItemIndex].total_price = updatedItems[existingItemIndex].unit_price * updatedItems[existingItemIndex].quantity;
       setSaleItems(updatedItems);
+      
+      console.log('Updated existing item:', updatedItems[existingItemIndex]);
+      
+      toast({
+        title: "Item Updated",
+        description: `Increased quantity of ${productName} to ${updatedItems[existingItemIndex].quantity}`,
+      });
     } else {
       // Add new item
       const totalPrice = unitPrice * quantity;
       const newItem: SaleItem = {
         product_id: selectedProduct,
         product_name: productName,
-        variant_id: selectedVariant !== "no-variant" ? selectedVariant : undefined,
+        variant_id: currentVariantId,
         variant_name: variant?.name,
         quantity,
         unit_price: unitPrice,
         total_price: totalPrice,
       };
-      setSaleItems([...saleItems, newItem]);
+      
+      console.log('Adding new item:', newItem);
+      
+      const newSaleItems = [...saleItems, newItem];
+      setSaleItems(newSaleItems);
+      
+      console.log('New sale items array:', newSaleItems);
+      
+      toast({
+        title: "Item Added",
+        description: `Added ${productName} to sale`,
+      });
     }
 
     setSelectedProduct("");
@@ -427,6 +650,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     setSearchTerm("");
     setQuantity(1);
     setCustomPrice(null);
+    
+    console.log('addItemToSale completed, final saleItems length:', saleItems.length + 1);
   };
 
   const removeItem = (index: number) => {
@@ -437,12 +662,12 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     return saleItems.reduce((sum, item) => sum + item.total_price, 0);
   };
 
-  const handleProductSelect = (productId: string) => {
+  const handleProductSelect = useStableCallback((productId: string) => {
     try {
       setSelectedProduct(productId);
       setSelectedVariant("");
-      setSearchTerm("");
-      setCustomPrice(null); // Reset custom price when selecting a new product
+      setCustomPrice(null);
+      // Don't clear search term immediately to maintain UI stability
     } catch (error) {
       console.error('Error selecting product:', error);
       toast({
@@ -451,7 +676,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         variant: "destructive",
       });
     }
-  };
+  });
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
@@ -485,11 +710,17 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const generateReceiptNumber = () => {
-    return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    if (docSettings.invoiceAutoNumber) {
+      return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    }
+    return `MANUAL-${Date.now()}`;
   };
 
   const generateQuoteNumber = () => {
-    return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    if (docSettings.quoteAutoNumber) {
+      return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    }
+    return `MANUAL-QUO-${Date.now()}`;
   };
 
   const handlePaymentsChange = (newPayments: any[], newRemainingBalance: number) => {
@@ -650,10 +881,42 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       if (itemsError) throw itemsError;
 
-      toast({
-        title: "Quote Created",
-        description: `Quote #${quoteNumber} created successfully`,
-      });
+        // Send quote notification using direct service import to avoid hook context issues
+        try {
+          const customer = customers.find(c => c.id === values.customer_id);
+          if (customer?.phone || customer?.email) {
+            const { UnifiedCommunicationService } = await import('@/lib/unifiedCommunicationService');
+            const service = new UnifiedCommunicationService(tenantId || '', 'user', false);
+            
+            await service.sendQuoteNotification(
+              {
+                id: quote.id,
+                quote_number: quoteNumber,
+                customer_id: values.customer_id,
+                customer_name: customer?.name || 'Customer',
+                total_amount: totalAmount,
+                created_at: new Date().toISOString(),
+                valid_until: values.valid_until?.toISOString(),
+                items: saleItems.map(item => ({
+                  product_name: item.product_name,
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                  subtotal: item.quantity * item.unit_price
+                }))
+              },
+              customer?.phone || undefined,
+              customer?.email || undefined
+            );
+          }
+        } catch (error) {
+          console.error('Quote notification failed:', error);
+          // Don't fail the quote creation if notification fails
+        }
+
+        toast({
+          title: "Quote Created",
+          description: `Quote #${quoteNumber} created successfully`,
+        });
 
       form.reset();
       setSaleItems([]);
@@ -687,6 +950,30 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return;
     }
 
+    // Validate discount against business settings
+    if (values.discount_amount > 0 && !posSettings.enableDiscounts) {
+      toast({
+        title: "Discounts Disabled",
+        description: "Discounts are disabled in your business settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate discount percentage limit
+    if (values.discount_amount > 0 && posSettings.enableDiscounts) {
+      const subtotal = calculateSubtotal();
+      const discountPercent = (values.discount_amount / subtotal) * 100;
+      if (discountPercent > posSettings.maxDiscountPercent) {
+        toast({
+          title: "Discount Limit Exceeded", 
+          description: `Maximum discount allowed is ${posSettings.maxDiscountPercent}%`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!selectedLocation) {
       toast({
         title: "Location Required",
@@ -707,10 +994,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         form.trigger("customer_id");
         toast({
           title: "Customer Auto-Selected",
-          description: `Selected ${firstCustomer.name} for credit sale`,
+          description: `Selected ${firstCustomer.name} for credit sale. Please submit again.`,
         });
-        // Re-validate with auto-selected customer
-        return validateAndPrepareSubmit({ ...values, customer_id: firstCustomer.id });
+        // Don't recursively call - let user resubmit with auto-selected customer
+        return;
       } else {
         toast({
           title: "Customer Required",
@@ -734,6 +1021,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const completeSale = async () => {
+    console.log('completeSale function called');
     const values = form.getValues();
     const hasCreditPayment = payments.some(p => p.method === 'credit');
 
@@ -742,10 +1030,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      const { data: tenantData } = await supabase.rpc('get_user_tenant_id');
-      if (!tenantData) throw new Error("User not assigned to a tenant");
+      if (!user) throw new Error(ERROR_MESSAGES.USER_NOT_AUTHENTICATED);
+      if (!tenantId) throw new Error(ERROR_MESSAGES.NO_TENANT_ASSIGNED);
 
       const receiptNumber = generateReceiptNumber();
       const totalAmount = calculateTotal();
@@ -756,7 +1042,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           receipt_number: receiptNumber,
           customer_id: values.customer_id === "walk-in" ? null : values.customer_id,
           cashier_id: user.id,
-          tenant_id: tenantData,
+          tenant_id: tenantId,
           location_id: selectedLocation || null,
           total_amount: totalAmount,
           discount_amount: values.discount_amount,
@@ -770,19 +1056,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       if (saleError) throw saleError;
 
-      // Add sale items
-      const saleItemsData = saleItems.map(item => {
-        const prod = products.find(p => p.id === item.product_id);
-        return {
-          sale_id: sale.id,
-          product_id: item.product_id,
-          variant_id: item.variant_id && item.variant_id !== "no-variant" && item.variant_id !== "" ? item.variant_id : null,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          unit_id: prod?.unit_id || null,
-        };
-      });
+      // Add sale items using centralized helper
+      const saleItemsData = prepareSaleItemsData(sale.id, saleItems, products);
 
       const { error: itemsError } = await supabase
         .from("sale_items")
@@ -797,7 +1072,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           amount: payment.amount,
           payment_method: payment.method,
           reference_number: payment.reference || '',
-          tenant_id: tenantData,
+          tenant_id: tenantId,
         }));
 
         const { error: paymentError } = await supabase
@@ -806,49 +1081,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
         if (paymentError) throw paymentError;
 
-        // Update cash drawer for cash payments
+        // Update cash drawer for cash payments using helper
         const cashPayments = payments.filter(p => p.method === 'cash');
-        for (const cashPayment of cashPayments) {
-          try {
-            // Get current user's active cash drawer
-            const { data: drawer } = await supabase
-              .from("cash_drawers")
-              .select("*")
-              .eq("tenant_id", tenantData)
-              .eq("user_id", user.id)
-              .eq("status", "open")
-              .eq("is_active", true)
-              .maybeSingle();
-
-            if (drawer) {
-              // Update drawer balance
-              await supabase
-                .from("cash_drawers")
-                .update({ 
-                  current_balance: drawer.current_balance + cashPayment.amount 
-                })
-                .eq("id", drawer.id);
-
-              // Record cash transaction
-              await supabase
-                .from("cash_transactions")
-                .insert({
-                  tenant_id: tenantData,
-                  cash_drawer_id: drawer.id,
-                  transaction_type: "sale_payment",
-                  amount: cashPayment.amount,
-                  balance_after: drawer.current_balance + cashPayment.amount,
-                  description: `Sale payment - Receipt: ${receiptNumber}`,
-                  reference_id: sale.id,
-                  reference_type: "sale",
-                  performed_by: user.id,
-                });
-            }
-          } catch (drawerError) {
-            console.error('Error updating cash drawer:', drawerError);
-            // Don't fail the sale if cash drawer update fails
-          }
-        }
+        await updateCashDrawer(tenantId, user.id, cashPayments, receiptNumber, sale.id);
       }
 
       // Process inventory adjustments
@@ -858,43 +1093,105 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         quantity: item.quantity,
         unitCost: item.unit_price
       }));
-      await processSaleInventory(sale.id, tenantData, inventoryItems);
+      await processSaleInventory(sale.id, tenantId, inventoryItems);
+
+      // Process all post-sale operations in parallel for better performance
+      const postSaleOperations = [];
 
       // Create AR entry for credit sales
       if (hasCreditPayment && values.customer_id && values.customer_id !== "walk-in") {
-        const { error: arError } = await supabase.rpc('create_accounts_receivable_record', {
-          tenant_id_param: tenantData,
-          sale_id_param: sale.id,
-          customer_id_param: values.customer_id,
-          total_amount_param: totalAmount,
-          due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        });
-
-        if (arError) {
-          console.error('AR creation error:', arError);
-          toast({
-            title: "Warning",
-            description: "Sale completed but AR entry failed",
-            variant: "destructive",
-          });
-        }
+        postSaleOperations.push(
+          (async () => {
+            try {
+              await supabase.rpc('create_accounts_receivable_record', {
+                tenant_id_param: tenantId,
+                sale_id_param: sale.id,
+                customer_id_param: values.customer_id,
+                total_amount_param: totalAmount,
+                due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+              });
+              console.log('AR entry created successfully');
+            } catch (error) {
+              console.error('AR creation error:', error);
+              // Don't call toast here to avoid React context issues
+            }
+          })()
+        );
       }
 
       // Create accounting entries
-      await createEnhancedSalesJournalEntry(tenantData, {
-        saleId: sale.id,
-        cashierId: user.id,
-        customerId: values.customer_id === "walk-in" ? null : values.customer_id,
-        totalAmount,
-        discountAmount: values.discount_amount,
-        taxAmount: values.tax_amount,
-        shippingAmount: values.shipping_amount,
-        payments: hasCreditPayment ? [] : payments,
-      });
+      postSaleOperations.push(
+        (async () => {
+          try {
+            await createEnhancedSalesJournalEntry(tenantId, {
+              saleId: sale.id,
+              cashierId: user.id,
+              customerId: values.customer_id === "walk-in" ? null : values.customer_id,
+              totalAmount,
+              discountAmount: values.discount_amount,
+              taxAmount: values.tax_amount,
+              shippingAmount: values.shipping_amount,
+              payments: hasCreditPayment ? [] : payments,
+            });
+            console.log('Accounting entry created successfully');
+          } catch (error) {
+            console.error('Accounting entry error:', error);
+            // Don't call toast here to avoid React context issues
+          }
+        })()
+      );
+
+      // Enhanced receipt notification with proper error boundaries
+      const customer = customers.find(c => c.id === values.customer_id);
+      if (customer?.phone || customer?.email) {
+        postSaleOperations.push(
+          (async () => {
+            try {
+              console.log('Sending receipt notification:', { 
+                saleId: sale.id, 
+                tenantId, 
+                customerPhone: customer?.phone,
+                customerEmail: customer?.email 
+              });
+              
+              // Call receipt notification directly with context data to avoid hook context issues
+              const { UnifiedCommunicationService } = await import('@/lib/unifiedCommunicationService');
+              const service = new UnifiedCommunicationService(tenantId || '', 'user', false);
+              
+              await service.sendReceiptNotification(
+                {
+                  id: sale.id,
+                  receipt_number: receiptNumber,
+                  customer_id: values.customer_id,
+                  customer_name: customer?.name || 'Customer',
+                  total_amount: totalAmount,
+                  created_at: new Date().toISOString(),
+                  payment_method: payments.length > 0 ? payments[0].method : 'cash',
+                  items: saleItems.map(item => ({
+                    product_name: item.product_name,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    subtotal: item.quantity * item.unit_price
+                  }))
+                },
+                customer?.phone || undefined,
+                customer?.email || undefined
+              );
+              console.log('Receipt notification sent successfully');
+            } catch (error) {
+              console.error('Receipt notification failed:', error);
+              // Don't show toast here as it might be a settings issue
+            }
+          })()
+        );
+      }
+
+      // Execute all post-sale operations in parallel
+      await Promise.allSettled(postSaleOperations);
 
       toast({
-        title: "Sale Completed",
-        description: `Sale #${receiptNumber} completed successfully`,
+        title: "Sale Completed", 
+        description: `${SUCCESS_MESSAGES.SALE_COMPLETED} Receipt #${receiptNumber}`,
       });
 
       form.reset();
@@ -906,9 +1203,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       onSaleCompleted?.();
 
     } catch (error: any) {
+      console.error('Sale completion error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to complete sale",
+        description: error.message || ERROR_MESSAGES.SALE_COMPLETION_FAILED,
         variant: "destructive",
       });
     } finally {
@@ -975,9 +1273,25 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                        onChange={(e) => setSearchTerm(e.target.value)}
                        className="pl-9"
                      />
-                   </div>
+                    </div>
 
-                  {searchTerm && (
+                    {!selectedLocation && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <p className="text-sm text-yellow-800">
+                          <strong>Notice:</strong> Please select a location to view available products and their stock levels.
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedLocation && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-2">
+                        <p className="text-xs text-blue-800">
+                          Showing products available at {locations.find(loc => loc.id === selectedLocation)?.name || 'selected location'}
+                        </p>
+                      </div>
+                    )}
+
+                   {searchTerm && (
                     <div className="grid grid-cols-1 gap-4 max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => (
                        <Card 
@@ -1005,12 +1319,19 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                     {formatAmount(product.price)}
                                   </p>
                                 </div>
-                               <div className="text-right">
-                                 <p className="text-xs text-muted-foreground">Stock</p>
-                                 <Badge variant={getActualStock(product.id) > 0 ? "default" : "destructive"}>
-                                   {getActualStock(product.id)}
-                                 </Badge>
-                               </div>
+                                 <div className="text-right">
+                                   <p className="text-xs text-muted-foreground">
+                                     Stock {selectedLocation && locations.find(loc => loc.id === selectedLocation)?.name ? 
+                                       `at ${locations.find(loc => loc.id === selectedLocation)?.name}` : ''}
+                                   </p>
+                                    <StockBadge 
+                                      productId={product.id} 
+                                      variantId={undefined}
+                                      locationId={selectedLocation}
+                                      locationName={locations.find(loc => loc.id === selectedLocation)?.name}
+                                        getLocationSpecificStock={getLocationSpecificStock}
+                                    />
+                                 </div>
                              </div>
                            </div>
                          </CardContent>
@@ -1030,11 +1351,34 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                             
                             return (
                               <div className="space-y-4">
-                                <div className="flex items-center gap-2">
-                                  <Package className="h-4 w-4" />
-                                  <span className="font-medium">{product.name}</span>
-                                  <Badge variant="secondary">{formatAmount(product.price)}</Badge>
-                                </div>
+                                 <div className="flex items-center gap-2">
+                                   <Package className="h-4 w-4" />
+                                   <span className="font-medium">{product.name}</span>
+                                    <Badge variant="secondary">{formatAmount(product.price)}</Badge>
+                                     {selectedLocation && (
+                                       <StockBadge 
+                                         productId={product.id}
+                                         variantId={selectedVariant && selectedVariant !== "no-variant" ? selectedVariant : undefined}
+                                         locationId={selectedLocation}
+                                         locationName={locations.find(loc => loc.id === selectedLocation)?.name}
+                                          getLocationSpecificStock={getLocationSpecificStock}
+                                       />
+                                      )}
+                                      {!selectedLocation && (
+                                        <Badge variant={
+                                          (() => {
+                                            const product = products.find(p => p.id === product.id);
+                                            const stock = product?.stock_quantity || 0;
+                                            return stock > 0 ? "outline" : "destructive";
+                                          })()
+                                        } className="text-xs">
+                                          Stock: {(() => {
+                                            const foundProduct = products.find(p => p.id === product.id);
+                                            return foundProduct?.stock_quantity || 0;
+                                          })()}
+                                        </Badge>
+                                      )}
+                                 </div>
 
                                  {product.product_variants && product.product_variants.length > 0 && (
                                    <div>
@@ -1081,17 +1425,36 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                       <label className="text-sm font-medium">
                                         Quantity {product.product_units ? `(${product.product_units.abbreviation})` : '(pcs)'}
                                       </label>
-                                      <Input
-                                        type="number"
-                                        min="1"
-                                        value={quantity}
-                                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                                      />
+                                       <Input
+                                         type="number"
+                                         min="0"
+                                         step="1"
+                                         value={quantity}
+                                         onChange={(e) => {
+                                           const value = e.target.value;
+                                           if (value === '') {
+                                             setQuantity(0);
+                                           } else {
+                                             const num = parseInt(value);
+                                             setQuantity(isNaN(num) || num < 0 ? 0 : num);
+                                           }
+                                         }}
+                                         onBlur={(e) => {
+                                           if (quantity === 0) {
+                                             setQuantity(1);
+                                           }
+                                         }}
+                                         placeholder="Enter quantity"
+                                       />
                                     </div>
-                                   <Button onClick={addItemToSale} className="mt-6">
-                                     <Plus className="h-4 w-4 mr-2" />
-                                     Add
-                                   </Button>
+                                    <Button 
+                                      onClick={async () => await addItemToSale()} 
+                                      className="mt-6"
+                                      disabled={!selectedProduct || !selectedLocation}
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add
+                                    </Button>
                                  </div>
                               </div>
                             );
@@ -1255,38 +1618,40 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                       <span>Subtotal</span>
                       <span className="font-bold">{formatAmount(calculateSubtotal())}</span>
                     </div>
-                    {form.watch("discount_amount") > 0 && (
-                      <div className="flex justify-between text-red-600">
-                        <span>Discount</span>
-                        <span className="font-semibold">-{formatAmount(form.watch("discount_amount"))}</span>
-                      </div>
-                    )}
+                     {posSettings.enableDiscounts && form.watch("discount_amount") > 0 && (
+                       <div className="flex justify-between text-red-600">
+                         <span>Discount</span>
+                         <span className="font-semibold">-{formatAmount(form.watch("discount_amount"))}</span>
+                       </div>
+                     )}
                   </div>
 
                    {/* Discount, Tax and Shipping - two columns before payment */}
                    <div className="grid grid-cols-2 gap-4 pt-2">
-                     <FormField
-                       control={form.control}
-                       name="discount_amount"
-                       render={({ field }) => (
-                         <FormItem>
-                           <FormLabel className="flex items-center gap-1 text-sm">
-                             <Banknote className="h-3 w-3" />
-                             Discount
-                           </FormLabel>
-                           <FormControl>
-                             <Input
-                               type="number"
-                               min="0"
-                               step="0.01"
-                               {...field}
-                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                             />
-                           </FormControl>
-                           <FormMessage />
-                         </FormItem>
-                       )}
-                     />
+                     {posSettings.enableDiscounts && (
+                       <FormField
+                         control={form.control}
+                         name="discount_amount"
+                         render={({ field }) => (
+                           <FormItem>
+                             <FormLabel className="flex items-center gap-1 text-sm">
+                               <Banknote className="h-3 w-3" />
+                               Discount (max {posSettings.maxDiscountPercent}%)
+                             </FormLabel>
+                             <FormControl>
+                               <Input
+                                 type="number"
+                                 min="0"
+                                 step="0.01"
+                                 {...field}
+                                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                               />
+                             </FormControl>
+                             <FormMessage />
+                           </FormItem>
+                         )}
+                       />
+                     )}
 
                      <FormField
                        control={form.control}

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { FeatureGuard } from '@/components/FeatureGuard';
 
 const unitSchema = z.object({
   id: z.string().optional(),
@@ -318,7 +319,8 @@ const updateData = {
   };
 
   return (
-    <Card>
+    <FeatureGuard featureName="enable_product_units">
+      <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle>Units of Measure</CardTitle>
@@ -407,5 +409,6 @@ initialData={editing ? {
         existingCodes={units.map(u => u.code)}
       />
     </Card>
+    </FeatureGuard>
   );
 }

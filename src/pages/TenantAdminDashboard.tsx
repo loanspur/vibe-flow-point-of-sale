@@ -44,9 +44,7 @@ const getTimeBasedGreeting = () => {
 };
 
 function TenantAdminDashboard() {
-  console.log('🏠 TenantAdminDashboard COMPONENT LOADING');
-  console.log('🏠 Current URL:', window.location.href);
-  console.log('🏠 Component mounted at:', new Date().toISOString());
+  // Removed excessive console logging for better performance
   
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
@@ -437,18 +435,12 @@ function TenantAdminDashboard() {
   ];
 
   if (loading) {
-    console.log('🏠 Dashboard still loading...', { tenantId, user: !!user });
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
-  
-  console.log('🏠 Dashboard RENDERING with data:', { dashboardData, loading });
-
-  console.log('🏠 Dashboard RENDERING with data:', { dashboardData, loading, tenantId, user: !!user });
-  console.log('🏠 About to render dashboard JSX');
   
   return (
     <div className="space-y-6 p-6">

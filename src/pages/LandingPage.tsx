@@ -14,7 +14,8 @@ export default function LandingPage() {
     const domain = getCurrentDomain();
     const isMainDev = domain === "vibenet.online" || domain === "www.vibenet.online";
     const apexShop = domain === "vibenet.shop" || domain === "www.vibenet.shop";
-    const apexOnline = domain === "vibenet.online" || domain === "www.vibenet.online";
+    // isApexOnline should NOT include vibenet.online as it's the main dev domain
+    const apexOnline = false; // No apex online domains currently
     const redirect = !isMainDev && (isSubdomain(domain) || isCustomDomain(domain) || apexShop);
     return { isMainDevDomain: isMainDev, shouldRedirect: redirect, isApexShop: apexShop, isApexOnline: apexOnline };
   }, []);
