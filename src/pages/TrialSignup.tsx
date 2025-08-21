@@ -342,8 +342,8 @@ export default function TrialSignup() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Google Sign In Option */}
-                  <div className="space-y-4">
+                  {/* Google Sign In Option - Hidden for now */}
+                  {/* <div className="space-y-4">
                     <GoogleSignInButton 
                       buttonText="Continue with Google"
                       onSuccess={(user) => {
@@ -365,7 +365,7 @@ export default function TrialSignup() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Traditional Email/Password Form */}
                   <div className="space-y-4">

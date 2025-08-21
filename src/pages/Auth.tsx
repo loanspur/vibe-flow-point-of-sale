@@ -47,17 +47,20 @@ const Auth = () => {
     checkSubdomain();
   }, [domainConfig]);
 
-  // Redirect after login on subdomains regardless of tenant resolution; refresh domain in background
+  // Redirect after login on subdomains - avoid infinite loops
   useEffect(() => {
     if (!user) return;
     const domain = window.location.hostname;
     const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
     if (!isMainDomain) {
-      navigate(fromPath, { replace: true });
-      // Try to resolve tenant context in the background to avoid loops
-      refreshConfig().catch(() => {});
+      // Add a small delay to prevent rapid redirects and ensure auth state is stable
+      const redirectTimer = setTimeout(() => {
+        navigate(fromPath, { replace: true });
+      }, 100);
+      
+      return () => clearTimeout(redirectTimer);
     }
-  }, [user, navigate, fromPath, refreshConfig]);
+  }, [user, navigate, fromPath]);
 
   // On main domain, auto-redirect superadmins to /superadmin after login
   useEffect(() => {
@@ -264,30 +267,32 @@ const Auth = () => {
             
             {!showForgotPassword && !subdomainError ? (
               <div className="w-full">
-                {/* Google Sign In Option */}
-                <div className="space-y-4 mb-6">
-                  <GoogleSignInButton 
-                    buttonText="Sign in with Google"
-                    onSuccess={(user) => {
-                      console.log('Google sign-in successful:', user);
-                      // OAuth flow will handle redirection
-                    }}
-                    onError={(error) => {
-                      console.error('Google sign-in error:', error);
-                    }}
-                  />
-                  
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <Separator className="w-full" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">
-                        Or sign in with email
-                      </span>
+                {/* Google Sign In Option - Only show on main domain, not on tenant subdomains */}
+                {!domainConfig?.isSubdomain && (
+                  <div className="space-y-4 mb-6">
+                    <GoogleSignInButton 
+                      buttonText="Sign in with Google"
+                      onSuccess={(user) => {
+                        console.log('Google sign-in successful:', user);
+                        // OAuth flow will handle redirection
+                      }}
+                      onError={(error) => {
+                        console.error('Google sign-in error:', error);
+                      }}
+                    />
+                    
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <Separator className="w-full" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">
+                          Or sign in with email
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">

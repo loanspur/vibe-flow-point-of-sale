@@ -225,8 +225,8 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Google Sign In Option */}
-        <div className="space-y-4">
+        {/* Google Sign In Option - Hidden for now */}
+        {/* <div className="space-y-4">
           <GoogleSignInButton 
             buttonText="Continue with Google"
             onSuccess={(user) => {
@@ -248,7 +248,7 @@ export const TrialSignupModal: React.FC<TrialSignupModalProps> = ({
               </span>
             </div>
           </div>
-        </div>
+        </div> */}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
