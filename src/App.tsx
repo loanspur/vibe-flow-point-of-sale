@@ -200,18 +200,42 @@ const DomainRouter = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
+    console.log('🔄 App Router - Current location:', {
+      pathname: location.pathname,
+      search: location.search,
+      hash: window.location.hash,
+      href: window.location.href
+    });
+    
     const hash = window.location.hash;
     const searchParams = new URLSearchParams(location.search || '');
+    
+    // Check if we're at root with OAuth fragments - redirect to callback
+    if (location.pathname === '/' && hash && /access_token|error/.test(hash)) {
+      console.log('🔀 OAuth fragments detected at root - redirecting to callback');
+      const callbackUrl = `/auth/callback${location.search}${hash}`;
+      setTimeout(() => {
+        window.location.href = callbackUrl;
+      }, 0);
+      return;
+    }
     
     // Only redirect to reset-password for specific invite/recovery types, not Google OAuth
     const isInviteCallback = hash && /type=invite|type=recovery/i.test(hash);
     const isGoogleOAuth = searchParams.get('type') === 'google' || location.pathname === '/auth/callback';
+    
+    console.log('🔍 Router checks:', {
+      isInviteCallback,
+      isGoogleOAuth,
+      currentPath: location.pathname
+    });
     
     if (isInviteCallback && !isGoogleOAuth && location.pathname !== '/reset-password') {
       const search = new URLSearchParams(location.search || '');
       if (!search.get('from')) search.set('from', 'invite');
       const qs = search.toString();
       
+      console.log('🔀 Redirecting to reset-password');
       // Use setTimeout to avoid hydration mismatch
       setTimeout(() => {
         window.location.href = `/reset-password${qs ? `?${qs}` : ''}${hash}`;

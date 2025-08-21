@@ -29,8 +29,11 @@ export default function AuthCallback() {
   const handleAuthCallback = async () => {
     try {
       console.log('=== UNIFIED AUTH CALLBACK STARTED ===');
+      console.log('Current URL:', window.location.href);
+      console.log('Search params:', window.location.search);
+      console.log('Hash fragment:', window.location.hash);
       
-      // Get the session from URL params
+      // Get the session from Supabase
       const { data, error } = await supabase.auth.getSession();
       
       if (error) {
