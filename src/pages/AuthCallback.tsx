@@ -81,19 +81,18 @@ export default function AuthCallback() {
           return;
         }
 
-        // Check if this is a trial signup flow
-        const isTrialSignup = sessionStorage.getItem('google-trial-signup') === 'true';
+        // Check if this is a trial signup flow from URL params (more reliable)
+        const isTrialSignup = searchParams.get('from') === 'trial';
+        
+        console.log('Trial signup detection:', { isTrialSignup, searchParamsFrom: searchParams.get('from') });
         
         if (!profile) {
-          // New Google user - show unified OTP form with business fields
-          console.log('New Google user detected - showing unified OTP form with business fields');
-          setIsNewUser(true);
+          // New Google user - always show business form for trial signup
+          console.log('New Google user detected');
+          setIsNewUser(isTrialSignup);
           setShowOTPModal(true);
-          
-          // Clear trial signup flag after using it
-          sessionStorage.removeItem('google-trial-signup');
         } else {
-          // Existing Google user - check if they have a tenant
+          // Existing Google user
           console.log('Existing Google user detected - checking tenant status:', { 
             hasProfile: !!profile, 
             hasTenant: !!profile.tenant_id, 
@@ -102,17 +101,13 @@ export default function AuthCallback() {
           
           await updateGoogleUserProfile(user, profile);
           
-          // Check if this is a new tenant signup flow (user exists but no tenant)
-          const needsTenant = !profile.tenant_id;
-          
-          if (isTrialSignup && needsTenant) {
+          // Only show business form if this is trial signup AND user has no tenant
+          if (isTrialSignup && !profile.tenant_id) {
             console.log('Existing user without tenant starting trial signup - showing business form');
-            setIsNewUser(true); // Show business form for existing users without tenant
-            
-            // Clear trial signup flag after using it
-            sessionStorage.removeItem('google-trial-signup');
+            setIsNewUser(true);
           } else {
-            console.log('Existing user with tenant or not trial signup - showing regular OTP');
+            console.log('Existing user with tenant or regular login - showing regular OTP');
+            setIsNewUser(false);
           }
           
           setShowOTPModal(true);

@@ -35,14 +35,9 @@ export function GoogleSignInButton({
       const isFromTrialSignup = window.location.pathname === '/trial-signup' || 
                                window.location.pathname === '/trial';
       
-      // Clear any existing trial flags first to prevent confusion
-      sessionStorage.removeItem('google-trial-signup');
-      sessionStorage.removeItem('trial-signup');
+      // No need to manage session storage - use URL params instead
       
-      // Set trial context only for actual trial pages
-      if (isFromTrialSignup) {
-        sessionStorage.setItem('google-trial-signup', 'true');
-      }
+      // Trial context will be passed via URL params
       
       const redirectUrl = `${mainDomain}/auth/callback`;
       const params = new URLSearchParams();
