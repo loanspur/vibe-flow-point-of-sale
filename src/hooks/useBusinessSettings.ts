@@ -26,6 +26,7 @@ export const useBusinessSettings = () => {
       enableNegativeStock: (businessSettings as any)?.enable_negative_stock ?? false,
       enableWarranty: (businessSettings as any)?.enable_warranty ?? false,
       enableFixedPricing: (businessSettings as any)?.enable_fixed_pricing ?? false,
+      enableProductExpiry: (businessSettings as any)?.enable_product_expiry ?? true,
       autoGenerateSku: (businessSettings as any)?.auto_generate_sku ?? true,
       enableRetailPricing: (businessSettings as any)?.enable_retail_pricing ?? true,
       enableWholesalePricing: (businessSettings as any)?.enable_wholesale_pricing ?? false,
