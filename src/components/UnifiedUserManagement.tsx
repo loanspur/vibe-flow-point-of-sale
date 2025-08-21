@@ -469,11 +469,16 @@ const UnifiedUserManagement = () => {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               <Settings className="h-4 w-4" />
+                              <span className="sr-only">Open menu</span>
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>User Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            
+                            {/* View Details - Available to everyone */}
                             <DropdownMenuItem onClick={() => {
                               setSelectedUser(user);
                               setIsViewingUser(true);
@@ -481,12 +486,101 @@ const UnifiedUserManagement = () => {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            {hasRoleAccess(['admin', 'manager']) && user.status !== 'inactive' && (
+
+                            {hasRoleAccess(['admin', 'manager']) && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleDeactivateUser(user.user_id)}>
-                                  <Ban className="h-4 w-4 mr-2" />
-                                  Deactivate
+                                
+                                {/* Edit User Profile */}
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedUser(user);
+                                  // TODO: Open edit user dialog
+                                }}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Profile
+                                </DropdownMenuItem>
+
+                                {/* Change Role */}
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedUser(user);
+                                  // TODO: Open role change dialog
+                                }}>
+                                  <Crown className="h-4 w-4 mr-2" />
+                                  Change Role
+                                </DropdownMenuItem>
+
+                                {/* Reset Password / Send Password Reset */}
+                                <DropdownMenuItem onClick={() => {
+                                  // TODO: Handle password reset
+                                  toast.info('Password reset functionality coming soon');
+                                }}>
+                                  <Key className="h-4 w-4 mr-2" />
+                                  Reset Password
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+
+                                {/* Status Management */}
+                                {user.status === 'pending' && (
+                                  <DropdownMenuItem onClick={() => {
+                                    // TODO: Resend invitation
+                                    toast.info('Resending invitation...');
+                                  }}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Resend Invitation
+                                  </DropdownMenuItem>
+                                )}
+
+                                {user.status === 'inactive' && (
+                                  <DropdownMenuItem onClick={() => {
+                                    // TODO: Activate user
+                                    toast.info('User activation functionality coming soon');
+                                  }} className="text-green-600">
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Activate User
+                                  </DropdownMenuItem>
+                                )}
+
+                                {user.status === 'active' && (
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeactivateUser(user.user_id)}
+                                    className="text-orange-600"
+                                  >
+                                    <Ban className="h-4 w-4 mr-2" />
+                                    Deactivate User
+                                  </DropdownMenuItem>
+                                )}
+
+                                <DropdownMenuSeparator />
+
+                                {/* Danger Zone */}
+                                {user.status !== 'active' && (
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      if (window.confirm(`Are you sure you want to permanently delete ${user.full_name}? This action cannot be undone.`)) {
+                                        // TODO: Delete user
+                                        toast.info('User deletion functionality coming soon');
+                                      }
+                                    }}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete User
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
+
+                            {/* Special actions for current user */}
+                            {user.user_id === user?.id && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => {
+                                  // TODO: Open profile settings
+                                  toast.info('Profile settings coming soon');
+                                }}>
+                                  <Settings className="h-4 w-4 mr-2" />
+                                  My Profile Settings
                                 </DropdownMenuItem>
                               </>
                             )}
