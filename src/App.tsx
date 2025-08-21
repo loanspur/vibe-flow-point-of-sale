@@ -78,12 +78,9 @@ const AuthPageWrapper = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Redirect authenticated users on subdomains to dashboard
-    if (user && isSubdomain() && domainConfig?.tenantId) {
-      // Small delay to prevent navigation loops
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 100);
+    // Only redirect if we have both user and tenant context, and we're not already on dashboard
+    if (user && isSubdomain() && domainConfig?.tenantId && window.location.pathname !== '/dashboard') {
+      navigate('/dashboard', { replace: true });
     }
   }, [user, domainConfig?.tenantId, navigate]);
   

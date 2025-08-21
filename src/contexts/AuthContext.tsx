@@ -187,10 +187,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (!mounted) return;
         
-        // Only prevent auth refresh during actual tab switching, not after login
-        if (tabStabilityManager.shouldPreventAuthRefresh() && event !== 'SIGNED_OUT' && event !== 'SIGNED_IN') {
-          console.log('Tab stability preventing refresh for event:', event);
-          return;
+        // Minimal tab stability check - only prevent during actual browser tab switching
+        if (tabStabilityManager.isCurrentlyTabSwitching() && event === 'TOKEN_REFRESHED') {
+          return; // Only prevent token refresh events during tab switching
         }
         
         setSession(session);

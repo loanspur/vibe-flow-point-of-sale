@@ -36,31 +36,23 @@ class TabStabilityManager {
     const handleVisibilityChange = () => {
       const now = Date.now();
       
-      // Clear any existing timeout
-      if (this.stabilityTimeout) {
-        clearTimeout(this.stabilityTimeout);
-      }
-
+      // Only prevent refreshes for actual tab switches, not navigation-related visibility changes
       if (document.visibilityState === 'hidden') {
-        // Tab is being hidden - mark as switching
+        // Only set state, don't immediately prevent everything
         this.state.isTabSwitching = true;
-        this.state.preventAuthRefresh = true;
-        this.state.preventQueryRefresh = true;
         this.state.lastVisibilityChange = now;
-        
-        console.log('Tab switching detected - preventing refreshes');
       } else if (document.visibilityState === 'visible') {
-        // Tab is becoming visible - shorter grace period for better UX
-        console.log('Tab returned - short stability period');
-        
+        // Immediately restore on visibility return - no delays that cause loops
         this.state.isTabSwitching = false;
-        
-        // Much shorter grace period to prevent login loops
-        this.stabilityTimeout = setTimeout(() => {
-          this.restoreNormalOperation();
-        }, 2000); // Reduced to 2 seconds
-        
+        this.state.preventAuthRefresh = false;
+        this.state.preventQueryRefresh = false;
         this.state.lastVisibilityChange = now;
+        
+        // Clear any existing timeout to prevent conflicts
+        if (this.stabilityTimeout) {
+          clearTimeout(this.stabilityTimeout);
+          this.stabilityTimeout = null;
+        }
       }
 
       // Notify listeners
@@ -68,30 +60,19 @@ class TabStabilityManager {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Also handle window focus/blur as backup
-    window.addEventListener('blur', () => {
-      this.state.isTabSwitching = true;
-      this.state.preventAuthRefresh = true;
-    });
   }
 
   private setupNavigationListener() {
-    // Prevent back/forward button from causing refreshes
-    const handlePopState = (event: PopStateEvent) => {
-      event.preventDefault();
-      // Let React Router handle navigation
-      return false;
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    
-    // Also listen for user interactions to restore normal operation
+    // Simplified - just handle user interactions to restore normal operation
     const handleUserInteraction = () => {
-      // User is actively interacting - immediately restore normal operation
-      if (this.state.isTabSwitching || this.state.preventAuthRefresh) {
-        console.log('User interaction detected - immediate restore');
-        this.restoreNormalOperation();
+      // User is actively using the app - ensure normal operation
+      this.state.isTabSwitching = false;
+      this.state.preventAuthRefresh = false;
+      this.state.preventQueryRefresh = false;
+      
+      if (this.stabilityTimeout) {
+        clearTimeout(this.stabilityTimeout);
+        this.stabilityTimeout = null;
       }
     };
     
