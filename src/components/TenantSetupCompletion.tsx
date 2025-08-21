@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantDataCollection } from './TenantDataCollection';
 import { LoadingSpinner } from './LoadingSpinner';
+import { TenantAdminLayout } from './TenantAdminLayout';
 
 export function TenantSetupCompletion() {
   const { user } = useAuth();
@@ -40,8 +41,10 @@ export function TenantSetupCompletion() {
   // Always render dashboard - business setup form workflow removed
   const TenantAdminDashboard = lazy(() => import('../pages/TenantAdminDashboard'));
   return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <TenantAdminDashboard />
-    </Suspense>
+    <TenantAdminLayout>
+      <Suspense fallback={<LoadingSpinner />}>
+        <TenantAdminDashboard />
+      </Suspense>
+    </TenantAdminLayout>
   );
 }
