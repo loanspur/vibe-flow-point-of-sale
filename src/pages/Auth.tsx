@@ -39,7 +39,7 @@ const Auth = () => {
   // Check if subdomain exists when component loads using domain manager
   useEffect(() => {
     const checkSubdomain = async () => {
-      if (domainConfig.isSubdomain && !domainConfig.tenantId) {
+      if (domainConfig && domainConfig.isSubdomain && !domainConfig.tenantId) {
         setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
       }
     };
