@@ -188,9 +188,18 @@ export default function AuthCallback() {
     try {
       await refreshUserInfo();
       
-      // If this is a new user with business data, create tenant
-      if (isNewUser && businessData) {
-        console.log('New user OTP verified, creating tenant with business data:', businessData);
+      // Check if user already has a tenant first
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      console.log('User profile tenant check:', profile);
+
+      // If user has business data (from signup flow) and no tenant, create one
+      if (businessData && !profile?.tenant_id) {
+        console.log('User with business data but no tenant - creating tenant:', businessData);
         await createTenantForNewUser(businessData);
         return;
       }
@@ -201,13 +210,6 @@ export default function AuthCallback() {
                           currentDomain === 'vibenet.online' ||
                           currentDomain === 'www.vibenet.shop' || 
                           currentDomain === 'www.vibenet.online';
-      
-      // Check if user already has a tenant
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', userId)
-        .single();
 
       if (profile?.tenant_id) {
         // User has a tenant - redirect to their subdomain
@@ -231,7 +233,7 @@ export default function AuthCallback() {
         }
       }
       
-      // Existing user without tenant - redirect to dashboard
+      // User without tenant - redirect to dashboard
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in.",
