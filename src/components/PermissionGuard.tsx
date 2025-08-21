@@ -1,9 +1,6 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserRoles } from '@/hooks/useUserRoles';
-import { useEnhancedRoles } from '@/hooks/useEnhancedRoles';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import { usePermissionErrorHandler } from '@/hooks/usePermissionErrorHandler';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
@@ -27,10 +24,7 @@ export const PermissionGuard = ({
   showMessage = true 
 }: PermissionGuardProps) => {
   const { user, userRole } = useAuth();
-  const { hasPermission: hasLegacyPermission, canAccess } = useUserRoles();
-  const { hasPermission: hasEnhancedPermission, hasResourceAccess } = useEnhancedRoles();
   const { hasFeature } = useFeatureAccess();
-  const { handlePermissionError } = usePermissionErrorHandler({ showToast: false });
 
   // Must be authenticated
   if (!user) {
@@ -53,18 +47,21 @@ export const PermissionGuard = ({
   }
 
   // Check role-based access
-  if (role && !canAccess(Array.isArray(role) ? role : [role])) {
-    if (showMessage) {
-      return (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Access denied: This feature requires {role} role or higher. Your current role ({userRole}) doesn't have sufficient permissions. Please contact your administrator to request access.
-          </AlertDescription>
-        </Alert>
-      );
+  if (role) {
+    const allowedRoles = Array.isArray(role) ? role : [role];
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      if (showMessage) {
+        return (
+          <Alert className="border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Access denied: This feature requires {role} role or higher. Your current role ({userRole}) doesn't have sufficient permissions. Please contact your administrator to request access.
+            </AlertDescription>
+          </Alert>
+        );
+      }
+      return fallback;
     }
-    return fallback;
   }
 
   // Check feature access (subscription-based)
@@ -82,15 +79,13 @@ export const PermissionGuard = ({
     return fallback;
   }
 
-  // Check resource/action permissions
-  if (resource) {
-    const hasResourcePermission = hasEnhancedPermission(resource, action) || 
-                                  hasLegacyPermission(resource, action) ||
-                                  hasResourceAccess(resource);
+  // Check resource/action permissions - simplified for now, can be enhanced with unified system
+  if (resource && action) {
+    // Basic admin/manager access for now
+    const hasResourcePermission = userRole === 'superadmin' || userRole === 'admin' || userRole === 'manager';
     
     if (!hasResourcePermission) {
       if (showMessage) {
-        // Get user-friendly error message
         const actionText = action === 'read' ? 'view' : 
                           action === 'create' ? 'add new items to' :
                           action === 'update' ? 'modify items in' :
@@ -130,7 +125,6 @@ export const withPermission = (
 // Hook for checking permissions in components
 export const usePermissions = () => {
   const { userRole } = useAuth();
-  const { hasPermission: hasEnhancedPermission } = useEnhancedRoles();
   const { hasFeature } = useFeatureAccess();
 
   const checkPermission = (
@@ -157,9 +151,9 @@ export const usePermissions = () => {
       return false;
     }
 
-    // Check resource/action with enhanced permissions
+    // Check resource/action - simplified for now
     if (resource && action) {
-      return hasEnhancedPermission(resource, action);
+      return userRole === 'manager' || userRole === 'admin' || userRole === 'superadmin';
     }
 
     return true;

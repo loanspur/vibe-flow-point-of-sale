@@ -7263,16 +7263,27 @@ export type Database = {
         Returns: string
       }
       log_user_activity: {
-        Args: {
-          action_type_param: string
-          details_param?: Json
-          ip_address_param?: unknown
-          resource_id_param?: string
-          resource_type_param?: string
-          tenant_id_param: string
-          user_agent_param?: string
-          user_id_param: string
-        }
+        Args:
+          | {
+              action_type_param: string
+              details_param?: Json
+              ip_address_param?: string
+              resource_id_param?: string
+              resource_type_param?: string
+              tenant_id_param: string
+              user_agent_param?: string
+              user_id_param: string
+            }
+          | {
+              action_type_param: string
+              details_param?: Json
+              ip_address_param?: unknown
+              resource_id_param?: string
+              resource_type_param?: string
+              tenant_id_param: string
+              user_agent_param?: string
+              user_id_param: string
+            }
         Returns: string
       }
       open_cash_drawer: {
