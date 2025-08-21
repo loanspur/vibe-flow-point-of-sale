@@ -2873,6 +2873,45 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_groups: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_system_group: boolean | null
+          name: string
+          permissions: string[]
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_system_group?: boolean | null
+          name: string
+          permissions?: string[]
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_system_group?: boolean | null
+          name?: string
+          permissions?: string[]
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       permission_templates: {
         Row: {
           category: string
@@ -6912,6 +6951,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_user_permission_enhanced: {
+        Args: { p_action?: string; p_resource: string; p_user_id: string }
+        Returns: boolean
+      }
       copy_role: {
         Args: {
           new_role_description?: string
@@ -7056,6 +7099,10 @@ export type Database = {
       }
       get_effective_subscription_status: {
         Args: { subscription_status: string; trial_end: string }
+        Returns: string
+      }
+      get_permission_error_message: {
+        Args: { p_action: string; p_resource: string; p_user_role?: string }
         Returns: string
       }
       get_product_history_summary: {
@@ -7216,16 +7263,27 @@ export type Database = {
         Returns: string
       }
       log_user_activity: {
-        Args: {
-          action_type_param: string
-          details_param?: Json
-          ip_address_param?: unknown
-          resource_id_param?: string
-          resource_type_param?: string
-          tenant_id_param: string
-          user_agent_param?: string
-          user_id_param: string
-        }
+        Args:
+          | {
+              action_type_param: string
+              details_param?: Json
+              ip_address_param?: string
+              resource_id_param?: string
+              resource_type_param?: string
+              tenant_id_param: string
+              user_agent_param?: string
+              user_id_param: string
+            }
+          | {
+              action_type_param: string
+              details_param?: Json
+              ip_address_param?: unknown
+              resource_id_param?: string
+              resource_type_param?: string
+              tenant_id_param: string
+              user_agent_param?: string
+              user_id_param: string
+            }
         Returns: string
       }
       open_cash_drawer: {
@@ -7323,6 +7381,10 @@ export type Database = {
           is_prorated: boolean
           next_billing_date: string
         }[]
+      }
+      setup_tenant_admin_with_unified_roles: {
+        Args: { admin_user_id: string; tenant_id_param: string }
+        Returns: undefined
       }
       setup_tenant_default_features: {
         Args: { tenant_id_param: string }
@@ -7424,6 +7486,12 @@ export type Database = {
         | "print"
         | "email"
         | "manage"
+        | "process"
+        | "transfer"
+        | "reconcile"
+        | "configure"
+        | "send"
+        | "schedule"
       permission_resource:
         | "dashboard"
         | "products"
@@ -7472,6 +7540,16 @@ export type Database = {
         | "discount_management"
         | "receipt_printing"
         | "session_management"
+        | "brands"
+        | "units"
+        | "stock_levels"
+        | "stock_transfers"
+        | "stock_receiving"
+        | "communication_settings"
+        | "cash_drawers"
+        | "cash_transactions"
+        | "cash_transfers"
+        | "pricing_rules"
       ssl_status: "none" | "pending" | "issued" | "expired" | "failed"
       user_role: "superadmin" | "admin" | "manager" | "cashier" | "user"
     }
@@ -7638,6 +7716,12 @@ export const Constants = {
         "print",
         "email",
         "manage",
+        "process",
+        "transfer",
+        "reconcile",
+        "configure",
+        "send",
+        "schedule",
       ],
       permission_resource: [
         "dashboard",
@@ -7687,6 +7771,16 @@ export const Constants = {
         "discount_management",
         "receipt_printing",
         "session_management",
+        "brands",
+        "units",
+        "stock_levels",
+        "stock_transfers",
+        "stock_receiving",
+        "communication_settings",
+        "cash_drawers",
+        "cash_transactions",
+        "cash_transfers",
+        "pricing_rules",
       ],
       ssl_status: ["none", "pending", "issued", "expired", "failed"],
       user_role: ["superadmin", "admin", "manager", "cashier", "user"],

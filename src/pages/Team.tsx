@@ -1,11 +1,11 @@
-import UserManagement from '@/components/UserManagement';
+import UnifiedUserManagement from '@/components/UnifiedUserManagement';
 import { SafeWrapper } from '@/components/SafeWrapper';
 
 const Team = () => {
   return (
     <div className="p-6">
       <SafeWrapper>
-        <UserManagement />
+        <UnifiedUserManagement />
       </SafeWrapper>
     </div>
   );

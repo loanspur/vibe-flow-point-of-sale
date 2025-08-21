@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantDataCollection } from './TenantDataCollection';
 import { LoadingSpinner } from './LoadingSpinner';
+import { TenantAdminLayout } from './TenantAdminLayout';
 
 export function TenantSetupCompletion() {
   const { user } = useAuth();
@@ -20,59 +21,9 @@ export function TenantSetupCompletion() {
       return;
     }
 
-    try {
-      // Get user's tenant info
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!profile?.tenant_id) {
-        setLoading(false);
-        return;
-      }
-
-      // Check if tenant has complete business information
-      const { data: tenant } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', profile.tenant_id)
-        .maybeSingle();
-
-      if (!tenant) {
-        setLoading(false);
-        return;
-      }
-
-      // Check if setup is incomplete (basic required fields missing)
-      const isIncomplete = !tenant.name || 
-                          !tenant.contact_phone || 
-                          !tenant.contact_email || 
-                          !tenant.address || 
-                          !tenant.country;
-
-      if (isIncomplete) {
-        setNeedsSetup(true);
-        setExistingData({
-          businessName: tenant.name || '',
-          businessPhone: tenant.contact_phone || '',
-          businessEmail: tenant.contact_email || '',
-          address: tenant.address || '',
-          city: '',
-          country: tenant.country || 'Kenya',
-          website: '',
-          taxNumber: '',
-          registrationNumber: '',
-          businessDescription: '',
-          postalCode: ''
-        });
-      }
-    } catch (error) {
-      console.error('Error checking setup status:', error);
-    } finally {
-      setLoading(false);
-    }
+    // Skip setup check - always go to dashboard
+    // Business setup form workflow was removed as requested
+    setLoading(false);
   };
 
   const handleSetupComplete = () => {
@@ -87,21 +38,13 @@ export function TenantSetupCompletion() {
     );
   }
 
-  if (!needsSetup) {
-    // Import TenantAdminDashboard dynamically to prevent circular imports
-    const TenantAdminDashboard = lazy(() => import('../pages/TenantAdminDashboard'));
-    return (
+  // Always render dashboard - business setup form workflow removed
+  const TenantAdminDashboard = lazy(() => import('../pages/TenantAdminDashboard'));
+  return (
+    <TenantAdminLayout>
       <Suspense fallback={<LoadingSpinner />}>
         <TenantAdminDashboard />
       </Suspense>
-    );
-  }
-
-  return (
-    <TenantDataCollection 
-      mode="update"
-      existingData={existingData}
-      onSuccess={handleSetupComplete}
-    />
+    </TenantAdminLayout>
   );
 }

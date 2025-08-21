@@ -448,6 +448,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   }, [formActions, toast]);
 
   const handleInputChange = async (field: keyof ProductFormData, value: string | boolean) => {
+    // Prevent accidental immediate saves during variant type selection
+    if (field === 'has_variants') {
+      console.log('Variant type selection changed:', value);
+      // Add small delay to prevent any race conditions with form validation
+      setTimeout(() => {
+        formActions.setFieldValue(field, value);
+      }, 100);
+      return;
+    }
+    
     formActions.setFieldValue(field, value);
 
     if (field === 'location_id' && typeof value === 'string') {
@@ -915,7 +925,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       stepTitle: STEPS[currentStep]?.title 
     });
     
-    if (!formActions.validate()) {
+    // Prevent accidental form submission by validating current step only
+    const validationErrors = validateForm(formState.data);
+    if (Object.keys(validationErrors).length > 0) {
       toast({
         title: "Please complete all required fields",
         description: "Fix the errors before proceeding to the next step",
@@ -929,6 +941,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     if (currentStep < STEPS.length - 1) {
       console.log('Proceeding to next step:', STEPS[currentStep + 1]?.title);
       setCurrentStep(currentStep + 1);
+    } else {
+      console.log('Already at final step, cannot proceed further');
     }
   };
 
@@ -945,7 +959,11 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       case 1:
         return formState.data.category_id && formState.data.unit_id;
       case 2:
-        return true; // No validation needed for variant selection
+        // For variable products, ensure at least one variant is configured with pricing
+        if (formState.data.has_variants && variants.length > 0) {
+          return variants.some(v => v.name.trim() && v.value.trim() && parseFloat(v.sale_price || '0') > 0);
+        }
+        return true; // For simple products, no validation needed
       case 3:
         return formState.data.price && parseFloat(formState.data.price) > 0;
       default:
@@ -1187,6 +1205,13 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
               {formState.data.has_variants && (
                 <div className="space-y-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Configure Product Variants & Pricing</h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Add variants with their individual pricing below. Each variant needs a name, value, and price before you can proceed to the next step.
+                    </p>
+                  </div>
+                  
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">Product Variants</h4>
                     <Button type="button" variant="outline" size="sm" onClick={addVariant}>
@@ -1196,10 +1221,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                   </div>
                   
                   {variants.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground">
+                    <div className="text-center py-8 border-2 border-dashed border-muted-foreground/25 rounded-lg bg-muted/20">
                       <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p>No variants added yet</p>
-                      <p className="text-sm">Add variants to offer different options for this product</p>
+                      <p className="font-medium">No variants added yet</p>
+                      <p className="text-sm text-muted-foreground mb-4">Add variants with pricing to offer different options for this product</p>
+                      <Button type="button" variant="outline" onClick={addVariant}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Your First Variant
+                      </Button>
                     </div>
                   ) : (
                      <div className="space-y-4">
@@ -1427,14 +1456,25 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="has_expiry_date"
-                    checked={formState.data.has_expiry_date || false}
-                    onCheckedChange={(checked) => handleInputChange('has_expiry_date', checked)}
-                  />
-                  <Label htmlFor="has_expiry_date">Track expiry date for this product</Label>
-                </div>
+                {productSettings.enableProductExpiry && (
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="has_expiry_date"
+                      checked={formState.data.has_expiry_date || false}
+                      onCheckedChange={(checked) => handleInputChange('has_expiry_date', checked)}
+                    />
+                    <Label htmlFor="has_expiry_date">Track expiry date for this product</Label>
+                  </div>
+                )}
+                
+                {!productSettings.enableProductExpiry && (
+                  <div className="p-3 bg-muted/50 rounded-lg border border-muted">
+                    <p className="text-sm text-muted-foreground">
+                      Product expiry tracking is disabled in business settings. 
+                      <span className="text-primary cursor-pointer hover:underline ml-1">Enable it in Settings → Product Settings</span>
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1554,7 +1594,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-6">
         {renderStepContent()}
 
         {/* Navigation */}
@@ -1588,14 +1628,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             </Button>
           ) : (
             <Button 
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading || !canProceed()}
             >
               {loading ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
             </Button>
           )}
         </div>
-      </form>
+      </div>
     </div>
   );
 }

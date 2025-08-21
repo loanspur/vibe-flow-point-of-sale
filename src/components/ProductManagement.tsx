@@ -175,12 +175,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     if (!loading) setHasLoaded(true);
   }, [loading]);
 
-  // Sync debounced search term with state (prevent loops)
-  useEffect(() => {
-    if (debouncedSearchTerm !== searchTerm) {
-      setSearchTerm(debouncedSearchTerm);
-    }
-  }, [debouncedSearchTerm, searchTerm]);
+  // Remove the problematic sync to prevent input flickering
 
   // Memoized refresh function to prevent loops
   const refetch = useMemo(() => {
@@ -333,9 +328,9 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                   {product.product_units?.abbreviation || 'N/A'}
                 </TableCell>
                  <TableCell className="text-sm font-medium">{formatCurrency(product.price)}</TableCell>
-                <TableCell className="hidden md:table-cell text-sm font-medium">
-                  {formatCurrency(product.purchase_price || 0)}
-                </TableCell>
+                 <TableCell className="hidden md:table-cell text-sm font-medium">
+                   {formatCurrency(product.purchase_price || product.cost_price || 0)}
+                 </TableCell>
                <TableCell className="text-sm">
                   {(() => {
                     // Show total stock including variants

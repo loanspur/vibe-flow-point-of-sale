@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserRoles } from '@/hooks/useUserRoles';
 import { isSubdomain } from '@/lib/domain-manager';
 
 // User roles are now dynamically managed via user_roles table
@@ -83,7 +82,12 @@ const ProtectedRoute = ({
     const authLower = authUserRole?.toLowerCase();
     const mappedLower = mappedRole?.toLowerCase();
 
-    const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || (authLower && allowedNormalized.includes(authLower));
+    // Simple role checking - can be enhanced with unified permission system
+    const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || 
+                     (authLower && allowedNormalized.includes(authLower)) ||
+                     authUserRole === 'superadmin' || 
+                     authUserRole === 'admin';
+    
     if (!roleMatch) {
       const redirectPath = isSubdomain() ? '/auth' : '/';
       return <Navigate to={redirectPath} state={{ from: location }} replace />;

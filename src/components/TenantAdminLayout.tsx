@@ -57,19 +57,6 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
               </div>
               
               <div className="flex items-center gap-2 sm:gap-3">
-                {/* Search - hidden on mobile, shown on larger screens */}
-                <div className="relative hidden md:block">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search..."
-                    className="pl-10 w-48 lg:w-64"
-                  />
-                </div>
-
-                {/* Mobile search button */}
-                <Button variant="ghost" size="icon" className="touch-target md:hidden">
-                  <Search className="h-4 w-4" />
-                </Button>
 
                 {/* Notifications */}
                 <Button variant="ghost" size="icon" className="relative touch-target">

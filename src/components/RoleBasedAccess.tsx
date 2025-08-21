@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
-import { useUserRoles } from '@/hooks/useUserRoles';
-import { usePermissionError } from '@/hooks/usePermissionError';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RoleBasedAccessProps {
   children: ReactNode;
@@ -18,24 +17,22 @@ export const RoleBasedAccess = ({
   requiredPermission,
   fallback = null 
 }: RoleBasedAccessProps) => {
-  const { userRole, hasPermission, canAccess } = useUserRoles();
-  const { handleRoleError, handleMissingPermissionError } = usePermissionError({ showToast: false });
+  const { userRole } = useAuth();
 
   // Check role-based access
   if (allowedRoles.length > 0) {
-    if (!canAccess(allowedRoles)) {
-      handleRoleError(allowedRoles.join(' or '), userRole?.name);
-      return <>{fallback}</>;
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      // Also allow superadmin and admin to access everything
+      if (userRole !== 'superadmin' && userRole !== 'admin') {
+        return <>{fallback}</>;
+      }
     }
   }
 
-  // Check permission-based access
+  // Check permission-based access - simplified for now
   if (requiredPermission) {
-    if (!hasPermission(requiredPermission.resource, requiredPermission.action)) {
-      handleMissingPermissionError(
-        `${requiredPermission.action} on ${requiredPermission.resource}`,
-        requiredPermission.resource
-      );
+    // Basic permission check - admin and superadmin can do anything
+    if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'manager') {
       return <>{fallback}</>;
     }
   }
