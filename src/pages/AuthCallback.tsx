@@ -192,20 +192,22 @@ export default function AuthCallback() {
           navigate('/dashboard');
           return;
         } else if (!domainConfig.isSubdomain) {
-          // User is on main domain but has tenant - show instructions
+          // User is on main domain but has tenant - redirect to correct subdomain
           const currentDomain = window.location.hostname;
           const domainExtension = currentDomain.includes('vibenet.shop') ? 'vibenet.shop' : 
                                  currentDomain.includes('vibenet.online') ? 'vibenet.online' : 
-                                 'online'; // Default for custom domains
+                                 'vibenet.shop'; // Default to vibenet.shop
+          
+          const targetSubdomain = `${tenantData.subdomain}.${domainExtension}`;
           
           toast({
-            title: "Login Successful!",
-            description: `Please bookmark and visit: ${tenantData.subdomain}.${domainExtension}`,
+            title: "Redirecting to your workspace...",
+            description: `Taking you to ${tenantData.name}`,
           });
           
           setTimeout(() => {
-            navigate('/?login=success&subdomain=' + tenantData.subdomain);
-          }, 2000);
+            window.location.href = `https://${targetSubdomain}/dashboard`;
+          }, 1500);
           return;
         } else {
           // User is on wrong subdomain - redirect to correct one
