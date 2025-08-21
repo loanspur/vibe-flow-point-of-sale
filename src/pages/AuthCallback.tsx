@@ -262,11 +262,19 @@ export default function AuthCallback() {
         }
       }
       
-      // User without tenant - check where they are and redirect appropriately
+      // User without tenant - check where they are and handle appropriately
       if (isCurrentSubdomain) {
-        // User is on a subdomain but has no tenant - redirect to main domain
-        console.log('User without tenant on subdomain - redirecting to main domain');
-        window.location.href = 'https://vibenet.shop/dashboard';
+        // User is on a subdomain but has no tenant - show error and redirect to main domain
+        console.log('User without tenant trying to access subdomain - showing error');
+        toast({
+          title: "Access Denied",
+          description: "You don't have access to this business workspace. Please sign up on the main website.",
+          variant: "destructive"
+        });
+        
+        setTimeout(() => {
+          window.location.href = 'https://vibenet.shop/';
+        }, 3000);
         return;
       }
       

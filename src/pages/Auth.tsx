@@ -27,6 +27,7 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [subdomainError, setSubdomainError] = useState('');
   
   // Error states
   const [signInError, setSignInError] = useState('');
@@ -34,6 +35,37 @@ const Auth = () => {
   const [passwordError, setPasswordError] = useState('');
   const [resetEmailError, setResetEmailError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
+
+  // Check if subdomain exists when component loads
+  useEffect(() => {
+    const checkSubdomain = async () => {
+      const currentDomain = window.location.hostname;
+      const isSubdomain = (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') ||
+                          (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online');
+      
+      if (isSubdomain) {
+        const subdomain = currentDomain.split('.')[0];
+        
+        try {
+          const { data: tenant, error } = await supabase
+            .from('tenants')
+            .select('id, name, status')
+            .eq('subdomain', subdomain)
+            .eq('status', 'active')
+            .maybeSingle();
+          
+          if (error || !tenant) {
+            setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
+          }
+        } catch (error) {
+          console.error('Error checking subdomain:', error);
+          setSubdomainError('Unable to verify business workspace. Please try again later.');
+        }
+      }
+    };
+    
+    checkSubdomain();
+  }, []);
 
   // Redirect after login on subdomains regardless of tenant resolution; refresh domain in background
   useEffect(() => {
@@ -219,6 +251,21 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Subdomain error */}
+            {subdomainError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {subdomainError}
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="https://vibenet.shop/">Go to Main Website</Link>
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Global sign-in error */}
             {signInError && !showForgotPassword && (
               <Alert variant="destructive" className="mb-4">
@@ -235,7 +282,7 @@ const Auth = () => {
               </Alert>
             )}
             
-            {!showForgotPassword ? (
+            {!showForgotPassword && !subdomainError ? (
               <div className="w-full">
                 {/* Google Sign In Option */}
                 <div className="space-y-4 mb-6">
@@ -335,7 +382,7 @@ const Auth = () => {
                   </Button>
                 </form>
               </div>
-            ) : (
+            ) : showForgotPassword && !subdomainError ? (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">Email</Label>
@@ -377,7 +424,7 @@ const Auth = () => {
                   </Button>
                 </div>
               </form>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       </div>
