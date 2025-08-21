@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { tabStabilityManager } from '@/lib/tab-stability-manager';
 
 interface QueryOptions {
   enabled?: boolean;
@@ -74,6 +75,11 @@ export function useOptimizedQuery<T>(
 
   const executeQuery = useCallback(async () => {
     if (!enabled) return;
+    
+    // Apply homepage stability - prevent queries during tab switching
+    if (tabStabilityManager.shouldPreventQueryRefresh()) {
+      return;
+    }
 
     // Check cache first
     if (cacheKey) {
@@ -117,7 +123,7 @@ export function useOptimizedQuery<T>(
   }, [enabled, queryFn, staleTime, cacheKey]);
 
   const refetch = useCallback(async () => {
-    // Clear cache for this key
+    // Apply homepage stability - allow manual refresh even during tab switching
     if (cacheKey) {
       queryCache.delete(cacheKey);
     }

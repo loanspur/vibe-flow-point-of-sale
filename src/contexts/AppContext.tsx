@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
+import { tabStabilityManager } from '@/lib/tab-stability-manager';
 
 interface BusinessSettings {
   currency_code: string;
@@ -42,6 +43,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchBusinessSettings = useCallback(async () => {
     if (!tenantId) {
       setLoading(false);
+      return;
+    }
+
+    // Apply homepage stability - prevent business settings fetch during tab switching
+    if (tabStabilityManager.shouldPreventQueryRefresh()) {
       return;
     }
 
