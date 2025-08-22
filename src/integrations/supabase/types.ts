@@ -2744,6 +2744,7 @@ export type Database = {
       }
       payment_methods: {
         Row: {
+          account_id: string | null
           created_at: string
           display_order: number | null
           id: string
@@ -2755,6 +2756,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           created_at?: string
           display_order?: number | null
           id?: string
@@ -2766,6 +2768,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           created_at?: string
           display_order?: number | null
           id?: string
@@ -2777,6 +2780,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_methods_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_methods_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -7285,6 +7295,10 @@ export type Database = {
               user_id_param: string
             }
         Returns: string
+      }
+      manual_sync_subscription_status: {
+        Args: { tenant_id_param: string }
+        Returns: boolean
       }
       open_cash_drawer: {
         Args: { drawer_id_param: string; opening_balance_param: number }

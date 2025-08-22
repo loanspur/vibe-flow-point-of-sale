@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 const paymentMethodSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(["cash", "card", "mobile_money", "bank_transfer", "crypto", "other"]),
+  account_id: z.string().uuid("Please select an accounting account"),
   is_active: z.boolean().default(true),
   requires_reference: z.boolean().default(false),
   description: z.string().optional(),
@@ -62,6 +63,9 @@ interface PaymentMethod {
   tenant_id: string;
   name: string;
   type: "cash" | "card" | "mobile_money" | "bank_transfer" | "crypto" | "other";
+  account_id?: string;
+  account_name?: string;
+  account_code?: string;
   is_active: boolean;
   requires_reference: boolean;
   description?: string;
@@ -71,6 +75,13 @@ interface PaymentMethod {
   display_order: number;
   created_at: string;
   updated_at: string;
+}
+
+interface AssetAccount {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
 }
 
 interface PaymentIntegration {
@@ -96,6 +107,7 @@ export function PaymentManagement() {
   
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [integrations, setIntegrations] = useState<PaymentIntegration[]>([]);
+  const [assetAccounts, setAssetAccounts] = useState<AssetAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMethodDialog, setShowMethodDialog] = useState(false);
   const [showIntegrationDialog, setShowIntegrationDialog] = useState(false);
@@ -108,6 +120,7 @@ export function PaymentManagement() {
     defaultValues: {
       name: '',
       type: 'cash',
+      account_id: '',
       is_active: true,
       requires_reference: false,
       processing_fee_percentage: 0,
@@ -130,75 +143,90 @@ export function PaymentManagement() {
     if (tenantId) {
       fetchPaymentMethods();
       fetchIntegrations();
+      fetchAssetAccounts();
     }
   }, [tenantId]);
 
   const fetchPaymentMethods = async () => {
     try {
-      // For now, use default payment methods with enhanced features
-      const defaultMethods: PaymentMethod[] = [
-        {
-          id: '1',
-          tenant_id: tenantId || '',
-          name: 'Cash',
-          type: 'cash',
-          is_active: true,
-          requires_reference: false,
-          processing_fee_percentage: 0,
-          minimum_amount: 0,
-          display_order: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          description: 'Physical cash payments',
-        },
-        {
-          id: '2',
-          tenant_id: tenantId || '',
-          name: 'Credit Card',
-          type: 'card',
-          is_active: true,
-          requires_reference: true,
-          processing_fee_percentage: 2.5,
-          minimum_amount: 1,
-          maximum_amount: 10000,
-          display_order: 2,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          description: 'Visa, MasterCard, and other credit/debit cards',
-        },
-        {
-          id: '3',
-          tenant_id: tenantId || '',
-          name: 'M-Pesa',
-          type: 'mobile_money',
-          is_active: true,
-          requires_reference: true,
-          processing_fee_percentage: 1.0,
-          minimum_amount: 5,
-          maximum_amount: 150000,
-          display_order: 3,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          description: 'Mobile money payments via M-Pesa',
-        },
-        {
-          id: '4',
-          tenant_id: tenantId || '',
-          name: 'Bank Transfer',
-          type: 'bank_transfer',
-          is_active: false,
-          requires_reference: true,
-          processing_fee_percentage: 0.5,
-          minimum_amount: 100,
-          display_order: 4,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          description: 'Direct bank transfers',
-        }
-      ];
-      setPaymentMethods(defaultMethods);
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('display_order');
+
+      if (error) throw error;
+      
+      // Enhance payment methods with account information
+      const enhancedMethods = await Promise.all(
+        (data || []).map(async (method: any) => {
+          let account_name = '';
+          let account_code = '';
+          
+          if (method.account_id) {
+            const { data: accountData } = await supabase
+              .from('accounts')
+              .select('name, code')
+              .eq('id', method.account_id)
+              .maybeSingle();
+              
+            if (accountData) {
+              account_name = accountData.name;
+              account_code = accountData.code;
+            }
+          }
+          
+          return {
+            ...method,
+            account_name,
+            account_code,
+          };
+        })
+      );
+      
+      setPaymentMethods(enhancedMethods);
     } catch (error) {
       console.error('Error fetching payment methods:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch payment methods',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const fetchAssetAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select(`
+          id,
+          name,
+          code,
+          account_types!inner(category)
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('account_types.category', 'assets')
+        .eq('is_active', true)
+        .order('code');
+
+      if (error) throw error;
+      
+      const formattedAccounts = (data || []).map((account: any) => ({
+        id: account.id,
+        name: account.name,
+        code: account.code,
+        category: account.account_types?.category || 'assets'
+      }));
+      
+      setAssetAccounts(formattedAccounts);
+    } catch (error) {
+      console.error('Error fetching asset accounts:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch asset accounts',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -242,40 +270,51 @@ export function PaymentManagement() {
 
   const handleSavePaymentMethod = async (values: z.infer<typeof paymentMethodSchema>) => {
     try {
-      // For demonstration purposes - simulate saving to database
-      const newMethod: PaymentMethod = {
-        id: editingMethod?.id || Date.now().toString(),
-        tenant_id: tenantId || '',
+      const paymentMethodData = {
+        tenant_id: tenantId,
         name: values.name,
         type: values.type,
+        account_id: values.account_id,
         is_active: values.is_active,
         requires_reference: values.requires_reference,
-        description: values.description,
-        processing_fee_percentage: values.processing_fee_percentage,
-        minimum_amount: values.minimum_amount,
-        maximum_amount: values.maximum_amount,
+        description: values.description || null,
+        processing_fee_percentage: values.processing_fee_percentage || null,
+        minimum_amount: values.minimum_amount || null,
+        maximum_amount: values.maximum_amount || null,
         display_order: editingMethod?.display_order || paymentMethods.length + 1,
-        created_at: editingMethod?.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       };
 
+      let result;
       if (editingMethod) {
         // Update existing method
-        setPaymentMethods(prev => 
-          prev.map(method => method.id === editingMethod.id ? newMethod : method)
-        );
+        result = await supabase
+          .from('payment_methods')
+          .update(paymentMethodData)
+          .eq('id', editingMethod.id)
+          .eq('tenant_id', tenantId)
+          .select();
+          
         toast({ 
           title: 'Success', 
           description: 'Payment method updated successfully' 
         });
       } else {
         // Add new method
-        setPaymentMethods(prev => [...prev, newMethod]);
+        result = await supabase
+          .from('payment_methods')
+          .insert([paymentMethodData])
+          .select();
+          
         toast({ 
           title: 'Success', 
           description: 'Payment method created successfully' 
         });
       }
+      
+      if (result.error) throw result.error;
+      
+      // Refresh the payment methods list
+      await fetchPaymentMethods();
       
       setShowMethodDialog(false);
       setEditingMethod(null);
@@ -342,8 +381,17 @@ export function PaymentManagement() {
 
   const handleDeletePaymentMethod = async (id: string) => {
     try {
-      // For demonstration purposes - simulate deleting from database
-      setPaymentMethods(prev => prev.filter(method => method.id !== id));
+      const { error } = await supabase
+        .from('payment_methods')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', tenantId);
+        
+      if (error) throw error;
+      
+      // Refresh the payment methods list
+      await fetchPaymentMethods();
+      
       toast({ title: 'Success', description: 'Payment method deleted successfully' });
     } catch (error) {
       console.error('Error deleting payment method:', error);
@@ -404,6 +452,7 @@ export function PaymentManagement() {
       methodForm.reset({
         name: method.name,
         type: method.type,
+        account_id: method.account_id || '',
         is_active: method.is_active,
         requires_reference: method.requires_reference,
         description: method.description || '',
@@ -493,7 +542,8 @@ export function PaymentManagement() {
                           <h4 className="font-medium">{method.name}</h4>
                           <p className="text-sm text-muted-foreground">
                             {method.type.replace('_', ' ')} • 
-                            {method.processing_fee_percentage && method.processing_fee_percentage > 0 && ` ${method.processing_fee_percentage}% fee`}
+                            {method.account_name && `Account: ${method.account_code} - ${method.account_name}`}
+                            {method.processing_fee_percentage && method.processing_fee_percentage > 0 && ` • ${method.processing_fee_percentage}% fee`}
                             {method.minimum_amount && method.minimum_amount > 0 && ` • Min: ${businessSettings?.currency_symbol}${method.minimum_amount}`}
                             {method.requires_reference && ' • Requires Reference'}
                           </p>
@@ -594,11 +644,14 @@ export function PaymentManagement() {
 
       {/* Payment Method Dialog */}
       <Dialog open={showMethodDialog} onOpenChange={setShowMethodDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-describedby="payment-method-description">
           <DialogHeader>
             <DialogTitle>
               {editingMethod ? 'Edit' : 'Add'} Payment Method
             </DialogTitle>
+            <p id="payment-method-description" className="text-sm text-muted-foreground">
+              Configure payment methods and link them to accounting asset accounts for proper financial tracking.
+            </p>
           </DialogHeader>
           <Form {...methodForm}>
             <form onSubmit={methodForm.handleSubmit(handleSavePaymentMethod)} className="space-y-4">
@@ -642,6 +695,37 @@ export function PaymentManagement() {
                   )}
                 />
               </div>
+
+              <FormField
+                control={methodForm.control}
+                name="account_id"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Associated Asset Account</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an asset account" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {assetAccounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="h-4 w-4 text-muted-foreground" />
+                              <span>{account.code} - {account.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    <p className="text-xs text-muted-foreground">
+                      This account will be used for accounting transactions when this payment method is used
+                    </p>
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={methodForm.control}
@@ -756,11 +840,14 @@ export function PaymentManagement() {
 
       {/* Integration Dialog */}
       <Dialog open={showIntegrationDialog} onOpenChange={setShowIntegrationDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-describedby="payment-integration-description">
           <DialogHeader>
             <DialogTitle>
               {editingIntegration ? 'Edit' : 'Add'} Payment Integration
             </DialogTitle>
+            <p id="payment-integration-description" className="text-sm text-muted-foreground">
+              Configure payment gateway integrations and API settings for online payment processing.
+            </p>
           </DialogHeader>
           <Form {...integrationForm}>
             <form onSubmit={integrationForm.handleSubmit(handleSaveIntegration)} className="space-y-4">
