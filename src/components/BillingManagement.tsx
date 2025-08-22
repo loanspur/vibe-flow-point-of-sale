@@ -1,9 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useUnifiedBilling } from '@/hooks/useUnifiedBilling';
 import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
-import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,348 +17,32 @@ import {
   DollarSign
 } from 'lucide-react';
 
-interface BillingPlan {
-  id: string;
-  name: string;
-  price: number;
-  period: string;
-  features: Array<{ name: string; included: boolean }>;
-  badge?: string;
-  badge_color?: string;
-  popularity: number;
-  original_price?: number;
-}
-
-interface TenantSubscription {
-  id: string;
-  billing_plan_id: string;
-  status: string;
-  amount?: number;
-  currency?: string;
-  reference?: string;
-  expires_at?: string;
-  trial_start?: string;
-  trial_end?: string;
-  current_period_start?: string;
-  current_period_end?: string;
-  next_billing_date?: string;
-  is_prorated_period?: boolean;
-  billing_day?: number;
-  next_billing_amount?: number;
-  setup_fee?: number;
-  billing_plans?: {
-    id: string;
-    name: string;
-    price: number;
-    period: string;
-  };
-}
-
-interface TenantCustomPricing {
-  id: string;
-  tenant_id: string;
-  billing_plan_id: string;
-  custom_amount: number;
-  original_amount: number;
-  discount_percentage?: number;
-  setup_fee?: number;
-  reason: string;
-  effective_date: string;
-  expires_at?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PaymentHistory {
-  id: string;
-  amount: number;
-  currency: string;
-  payment_reference: string;
-  payment_status: string;
-  payment_type: string;
-  created_at: string;
-  paid_at?: string;
-  billing_period_start?: string;
-  billing_period_end?: string;
-  is_prorated?: boolean;
-  full_period_amount?: number;
-  proration_start_date?: string;
-  proration_end_date?: string;
-  prorated_days?: number;
-  billing_plans?: {
-    name: string;
-    price: number;
-    period: string;
-  };
-}
+// Interfaces now imported from unified billing service
 
 export default function BillingManagement() {
-  const { user, tenantId } = useAuth();
-  const { toast } = useToast();
-  const { formatPrice, currencySymbol, currencyCode, updateCounter } = useCurrencyUpdate();
+  const { formatPrice, currencyCode, updateCounter } = useCurrencyUpdate();
   
-  // Currency settings available
-  const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
-  const [convertedPlans, setConvertedPlans] = useState<BillingPlan[]>([]);
-  const [currentSubscription, setCurrentSubscription] = useState<TenantSubscription | null>(null);
-  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState<string | null>(null);
+  // Use unified billing hook instead of local state
+  const {
+    subscription: currentSubscription,
+    paymentHistory,
+    billingPlans,
+    effectivePricing,
+    loading,
+    upgrading,
+    handleUpgrade,
+    verifyPayment,
+    subscriptionAccess,
+    syncSubscriptionStatus
+  } = useUnifiedBilling();
   
-  // Use effective pricing hook
-  const { effectivePricing, loading: pricingLoading } = useEffectivePricing(
-    tenantId, 
-    currentSubscription?.billing_plan_id
-  );
-  
-  // Component state tracking
+  // Keep converted plans for compatibility
+  const convertedPlans = billingPlans;
 
-  useEffect(() => {
-    fetchBillingPlans();
-    fetchCurrentSubscription();
-    fetchPaymentHistory();
-  }, [tenantId]);
-
-  // Re-fetch data when currency changes to ensure proper formatting
-  useEffect(() => {
-    if (updateCounter > 0) {
-      fetchBillingPlans();
-      fetchCurrentSubscription();
-      fetchPaymentHistory();
-    }
-  }, [updateCounter]);
-
-  const fetchBillingPlans = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('billing_plans')
-        .select('id, name, price, period, features, badge, badge_color, popularity, original_price')
-        .eq('is_active', true)
-        .order('popularity', { ascending: false });
-
-      if (error) throw error;
-      
-      const transformedPlans = (data || []).map(plan => ({
-        ...plan,
-        features: Array.isArray(plan.features) 
-          ? plan.features 
-          : []
-      })) as BillingPlan[];
-      
-      setBillingPlans(transformedPlans);
-      setConvertedPlans(transformedPlans);
-    } catch (error) {
-      console.error('Error fetching billing plans:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load billing plans",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const fetchCurrentSubscription = async () => {
-    try {
-      if (!tenantId) return;
-      
-      // First check tenant_subscription_details for current subscription info
-      const { data: subscriptionDetails, error: detailsError } = await supabase
-        .from('tenant_subscription_details')
-        .select(`
-          *,
-          billing_plans (
-            id,
-            name,
-            price,
-            period
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-
-      if (detailsError && detailsError.code !== 'PGRST116') throw detailsError;
-      
-      if (subscriptionDetails) {
-        setCurrentSubscription({
-          ...subscriptionDetails,
-          billing_plans: subscriptionDetails.billing_plans
-        } as TenantSubscription);
-      } else {
-        // Fallback to tenant_subscriptions for backward compatibility
-        const { data, error } = await supabase
-          .from('tenant_subscriptions')
-          .select(`
-            *,
-            billing_plans (
-              id,
-              name,
-              price,
-              period
-            )
-          `)
-          .eq('tenant_id', tenantId)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (error && error.code !== 'PGRST116') throw error;
-        
-        if (data) {
-          setCurrentSubscription({
-            ...data,
-            billing_plans: data.billing_plans
-          } as TenantSubscription);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPaymentHistory = async () => {
-    try {
-      if (!tenantId) return;
-      
-      const { data, error } = await supabase
-        .from('payment_history')
-        .select(`
-          *,
-          billing_plans (
-            name,
-            price,
-            period
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      
-      if (data) {
-        setPaymentHistory(data as PaymentHistory[]);
-      }
-    } catch (error) {
-      console.error('Error fetching payment history:', error);
-    }
-  };
+  // All data fetching is now handled by useUnifiedBilling hook
 
 
-  const handleUpgrade = async (planId: string) => {
-    if (!user?.email) {
-      toast({
-        title: "Error",
-        description: "Please ensure you're logged in",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setUpgrading(planId);
-    
-    try {
-      // Get the current session to ensure we have a valid JWT token
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      if (!sessionData?.session?.access_token) {
-        throw new Error('No valid session found. Please log out and log back in.');
-      }
-      
-      // Try direct fetch approach instead of supabase.functions.invoke
-      const response = await fetch(`https://qwtybhvdbbkbcelisuek.supabase.co/functions/v1/create-paystack-checkout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionData.session.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE'
-        },
-        body: JSON.stringify({
-          planId: planId,
-          isSignup: false
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      if (data?.authorization_url) {
-        // Try to open in new tab first
-        const newTab = window.open(data.authorization_url, '_blank', 'noopener,noreferrer');
-        
-        // Check if popup was blocked
-        if (!newTab || newTab.closed || typeof newTab.closed === 'undefined') {
-          // Popup was blocked, redirect in current tab instead
-          toast({
-            title: "Redirecting to Payment",
-            description: "Redirecting to payment page...",
-            duration: 2000
-          });
-          
-          setTimeout(() => {
-            window.location.href = data.authorization_url;
-          }, 1000);
-        } else {
-          // Popup opened successfully
-          toast({
-            title: "Payment Window Opened",
-            description: "Complete your payment in the new tab to upgrade your plan"
-          });
-        }
-      } else {
-        throw new Error('No authorization URL received from payment processor');
-      }
-    } catch (error: any) {
-      console.error('Upgrade error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to initiate upgrade",
-        variant: "destructive"
-      });
-    } finally {
-      setUpgrading(null);
-    }
-  };
-
-  const verifyPayment = async (reference: string) => {
-    try {
-      // Verifying payment with reference
-      
-      // Use the edge function which has access to the secure Paystack secret key
-      const { data, error } = await supabase.functions.invoke('verify-paystack-payment', {
-        body: { reference }
-      });
-
-      if (error) {
-        // Edge function error logged
-        throw error;
-      }
-
-      if (data?.success) {
-        // Payment verification successful
-        toast({
-          title: "Payment Verified!",
-          description: "Your subscription has been activated successfully"
-        });
-        fetchCurrentSubscription();
-        fetchPaymentHistory();
-      } else {
-        // Payment verification failed
-        throw new Error(data?.error || "Payment verification failed");
-      }
-    } catch (error: any) {
-      console.error('Payment verification error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to verify payment",
-        variant: "destructive"
-      });
-    }
-  };
+  // handleUpgrade and verifyPayment are now provided by useUnifiedBilling hook
 
 
   const formatDate = (dateString: string) => {
@@ -394,11 +74,7 @@ export default function BillingManagement() {
               </div>
               <div className="flex items-center space-x-2">
                 <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                  {(() => {
-                    const trialEnd = currentSubscription.trial_end ? new Date(currentSubscription.trial_end) : null;
-                    const isOnTrial = trialEnd && new Date() < trialEnd;
-                    return isOnTrial ? 'TRIAL' : currentSubscription.status?.toUpperCase();
-                  })()}
+                  {subscriptionAccess.isTrialActive ? 'TRIAL' : currentSubscription.status?.toUpperCase()}
                 </Badge>
                 {effectivePricing?.is_custom && (
                   <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
@@ -487,21 +163,12 @@ export default function BillingManagement() {
             {/* Action Buttons */}
             <div className="flex justify-end mb-6">
               {(() => {
-                // Check if user is on trial
-                const trialEnd = currentSubscription.trial_end ? new Date(currentSubscription.trial_end) : null;
-                const now = new Date();
-                const isOnTrial = trialEnd && now < trialEnd;
-                const daysLeftInTrial = trialEnd ? Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                const isTrialEnding = isOnTrial && daysLeftInTrial <= 7;
+                // Use unified billing access info
+                const { isTrialActive, isSubscriptionActive, daysLeftInTrial, daysUntilExpiry } = subscriptionAccess;
+                const isTrialEnding = isTrialActive && daysLeftInTrial && daysLeftInTrial <= 7;
+                const isPending = currentSubscription.status === 'pending' && !isTrialActive;
                 
-                // Check subscription expiry
-                const expiryDate = currentSubscription.expires_at ? new Date(currentSubscription.expires_at) : 
-                                 currentSubscription.current_period_end ? new Date(currentSubscription.current_period_end) : null;
-                const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                const isExpired = expiryDate && daysLeft <= 0;
-                const isPending = currentSubscription.status === 'pending' && !isOnTrial; // Only pending if not on trial
-                
-                if (isOnTrial) {
+                if (isTrialActive) {
                   return (
                     <div className="flex flex-col items-end space-y-2">
                       <Button 
@@ -526,12 +193,12 @@ export default function BillingManagement() {
                             </>
                          )}
                       </Button>
-                       <p className="text-xs text-blue-600 text-center">
-                         {isTrialEnding ? 
-                           `Trial ends in ${daysLeftInTrial} day${daysLeftInTrial !== 1 ? 's' : ''}` :
-                           `${daysLeftInTrial} days left in trial`
-                         }
-                       </p>
+                        <p className="text-xs text-blue-600 text-center">
+                          {isTrialEnding ? 
+                            `Trial ends in ${daysLeftInTrial || 0} day${(daysLeftInTrial || 0) !== 1 ? 's' : ''}` :
+                            `${daysLeftInTrial || 0} days left in trial`
+                          }
+                        </p>
                     </div>
                    );
                  }
@@ -568,7 +235,7 @@ export default function BillingManagement() {
                    );
                  }
                  
-                 if (isExpired) {
+                 if (!isSubscriptionActive && currentSubscription.status !== 'pending') {
                   return (
                     <div className="flex flex-col items-end space-y-2">
                       <Button 

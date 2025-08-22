@@ -7296,6 +7296,10 @@ export type Database = {
             }
         Returns: string
       }
+      manual_sync_subscription_status: {
+        Args: { tenant_id_param: string }
+        Returns: boolean
+      }
       open_cash_drawer: {
         Args: { drawer_id_param: string; opening_balance_param: number }
         Returns: boolean
