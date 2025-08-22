@@ -437,30 +437,22 @@ class UnifiedBillingService {
         throw new Error('No valid session found. Please log out and log back in.');
       }
 
-      // Use the create-paystack-checkout edge function
-      const response = await fetch(`https://qwtybhvdbbkbcelisuek.supabase.co/functions/v1/create-paystack-checkout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionData.session.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE4MjYsImV4cCI6MjA2NzkyNzgyNn0.unXOuVkZ5zh4zizLe3wquHiDOBaPxKvbRduVUt5gcIE'
-        },
-        body: JSON.stringify({
+      // Use Supabase Edge Function via client helper (automatically sets headers)
+      const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
+        body: {
           planId: planId,
           isSignup: isSignup
-        })
+        }
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+      if (error) {
+        throw new Error(error.message || 'Failed to initiate checkout');
       }
 
-      return { authorization_url: data.authorization_url };
+      return { authorization_url: (data as any)?.authorization_url };
     } catch (error: any) {
-      console.error('Checkout error:', error);
-      return { error: error.message || 'Failed to initiate checkout' };
+      console.error('Error initiating checkout:', error);
+      return { error: error.message || 'An error occurred while initiating checkout' };
     }
   }
 }
