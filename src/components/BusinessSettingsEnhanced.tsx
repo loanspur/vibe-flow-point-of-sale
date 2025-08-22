@@ -81,25 +81,25 @@ import { MpesaIntegration } from '@/components/MpesaIntegration';
 
 const businessSettingsSchema = z.object({
   // Basic company information
-  company_name: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().optional(),
-  website: z.string().optional(),
-  address_line_1: z.string().optional(),
-  address_line_2: z.string().optional(),
-  city: z.string().optional(),
-  state_province: z.string().optional(),
-  postal_code: z.string().optional(),
-  country: z.string().optional(),
+  company_name: z.string().nullable().optional(),
+  email: z.string().email().nullable().optional().or(z.literal("")),
+  phone: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  address_line_1: z.string().nullable().optional(),
+  address_line_2: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state_province: z.string().nullable().optional(),
+  postal_code: z.string().nullable().optional(),
+  country: z.string().nullable().optional(),
   currency_code: z.string().default("USD"),
   timezone: z.string().default("America/New_York"),
   default_tax_rate: z.number().min(0).max(100).default(0),
   tax_name: z.string().default("Tax"),
-  company_logo_url: z.string().optional(),
+  company_logo_url: z.string().nullable().optional(),
   
   // Business registration details
-  tax_identification_number: z.string().optional(),
-  business_registration_number: z.string().optional(),
+  tax_identification_number: z.string().nullable().optional(),
+  business_registration_number: z.string().nullable().optional(),
   
   // Product and inventory features
   enable_brands: z.boolean().default(false),
@@ -128,20 +128,20 @@ const businessSettingsSchema = z.object({
   // Notifications and communications
   sms_enable_notifications: z.boolean().default(false),
   whatsapp_enable_notifications: z.boolean().default(false),
-  sms_provider: z.string().optional(),
-  sms_api_key: z.string().optional(),
-  sms_sender_id: z.string().optional(),
-  whatsapp_api_key: z.string().optional(),
-  whatsapp_phone_number: z.string().optional(),
-  whatsapp_api_url: z.string().optional(),
+  sms_provider: z.string().nullable().optional(),
+  sms_api_key: z.string().nullable().optional(),
+  sms_sender_id: z.string().nullable().optional(),
+  whatsapp_api_key: z.string().nullable().optional(),
+  whatsapp_phone_number: z.string().nullable().optional(),
+  whatsapp_api_url: z.string().nullable().optional(),
   
   // Email settings
-  email_from_address: z.string().optional(),
-  email_from_name: z.string().optional(),
-  email_smtp_host: z.string().optional(),
+  email_from_address: z.string().nullable().optional(),
+  email_from_name: z.string().nullable().optional(),
+  email_smtp_host: z.string().nullable().optional(),
   email_smtp_port: z.number().default(587),
-  email_smtp_username: z.string().optional(),
-  email_smtp_password: z.string().optional(),
+  email_smtp_username: z.string().nullable().optional(),
+  email_smtp_password: z.string().nullable().optional(),
   email_enable_ssl: z.boolean().default(true),
   
   // Templates and documents
@@ -152,11 +152,11 @@ const businessSettingsSchema = z.object({
   invoice_number_prefix: z.string().default("INV-"),
   quote_number_prefix: z.string().default("QT-"),
   delivery_note_prefix: z.string().default("DN-"),
-  invoice_terms_conditions: z.string().optional(),
+  invoice_terms_conditions: z.string().nullable().optional(),
   
   // Receipt customization
-  receipt_header: z.string().optional(),
-  receipt_footer: z.string().optional(),
+  receipt_header: z.string().nullable().optional(),
+  receipt_footer: z.string().nullable().optional(),
   receipt_logo_url: z.string().optional(),
   print_customer_copy: z.boolean().default(true),
   print_merchant_copy: z.boolean().default(true),

@@ -644,11 +644,14 @@ export function PaymentManagement() {
 
       {/* Payment Method Dialog */}
       <Dialog open={showMethodDialog} onOpenChange={setShowMethodDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-describedby="payment-method-description">
           <DialogHeader>
             <DialogTitle>
               {editingMethod ? 'Edit' : 'Add'} Payment Method
             </DialogTitle>
+            <p id="payment-method-description" className="text-sm text-muted-foreground">
+              Configure payment methods and link them to accounting asset accounts for proper financial tracking.
+            </p>
           </DialogHeader>
           <Form {...methodForm}>
             <form onSubmit={methodForm.handleSubmit(handleSavePaymentMethod)} className="space-y-4">
@@ -837,11 +840,14 @@ export function PaymentManagement() {
 
       {/* Integration Dialog */}
       <Dialog open={showIntegrationDialog} onOpenChange={setShowIntegrationDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" aria-describedby="payment-integration-description">
           <DialogHeader>
             <DialogTitle>
               {editingIntegration ? 'Edit' : 'Add'} Payment Integration
             </DialogTitle>
+            <p id="payment-integration-description" className="text-sm text-muted-foreground">
+              Configure payment gateway integrations and API settings for online payment processing.
+            </p>
           </DialogHeader>
           <Form {...integrationForm}>
             <form onSubmit={integrationForm.handleSubmit(handleSaveIntegration)} className="space-y-4">
