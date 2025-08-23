@@ -32,10 +32,27 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { settings, loading, fetchSettings } = useBusinessSettingsManager();
+  const { tenantId } = useAuth();
   
-  // Remove the existing fetchBusinessSettings and real-time subscription logic
-  // Use the centralized manager instead
+  // Use settings as businessSettings for consistency
+  const businessSettings = settings;
   
+  // State for currency updates
+  const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
+  const refreshingRef = useRef(false);
+  
+  // Mock functions for currency conversion (replace with actual implementation)
+  const formatLocalCurrency = useCallback((amount: number): string => {
+    return formatAmountWithSymbol(amount, 'KES', 'KSh');
+  }, []);
+
+  const convertFromKES = useCallback(async (amount: number): Promise<number> => {
+    // Mock conversion - replace with actual API call
+    return amount;
+  }, []);
+
+  const tenantCurrency = { currency: 'KES' }; // Mock tenant currency
+
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
@@ -44,12 +61,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     try {
-      await fetchSettings(); // Use fetchSettings instead of fetchBusinessSettings
+      await fetchSettings();
       setCurrencyUpdateTrigger(prev => prev + 1);
     } finally {
       refreshingRef.current = false;
     }
-  }, [fetchSettings]); // Update dependency
+  }, [fetchSettings]);
 
   const triggerCurrencyUpdate = useCallback(() => {
     setCurrencyUpdateTrigger(prev => prev + 1);
@@ -79,10 +96,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [tenantCurrency, convertFromKES, formatLocalCurrency, formatCurrency]);
 
-  useEffect(() => {
-    fetchSettings(); // Use fetchSettings instead of fetchBusinessSettings
-  }, [fetchSettings]); // Update dependency
-
   // Simplified real-time subscription - only enable if performance allows
   useEffect(() => {
     if (!tenantId) return;
@@ -108,23 +121,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (timeoutRef) clearTimeout(timeoutRef);
           timeoutRef = setTimeout(() => {
             if (!refreshingRef.current && payload.new) {
-              const newSettings = payload.new as any;
-              
-              // Auto-detect currency symbol if needed
-              let currencySymbol = newSettings.currency_symbol;
-              if (newSettings.currency_code && !currencySymbol) {
-                const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
-                currencySymbol = autoDetected.symbol;
-              }
-              
-              setBusinessSettings({
-                currency_code: newSettings.currency_code || 'USD',
-                currency_symbol: currencySymbol || '$',
-                company_name: newSettings.company_name || 'Your Business',
-                timezone: newSettings.timezone || 'UTC',
-                tax_inclusive: newSettings.tax_inclusive || false,
-                default_tax_rate: newSettings.default_tax_rate || 0
-              });
+              // Trigger a refresh instead of manually setting state
+              fetchSettings();
             }
           }, 2000); // Extended to 2 second debounce for better stability
         }
@@ -135,9 +133,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (timeoutRef) clearTimeout(timeoutRef);
       supabase.removeChannel(channel);
     };
-  }, [tenantId]);
-
-  // Remove the problematic auth readiness check - AuthContext should always be available
+  }, [tenantId, fetchSettings]);
 
   return (
     <AppContext.Provider value={{
