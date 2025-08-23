@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { handleError } from '@/utils/errorHandler';
 import { debugLog } from '@/utils/debug';
 
@@ -15,8 +14,8 @@ interface BusinessSettings {
   [key: string]: any; // Allow additional properties
 }
 
-export const useBusinessSettingsManager = () => {
-  const { tenantId } = useAuth();
+// Accept tenantId as parameter to avoid circular dependency
+export const useBusinessSettingsManager = (tenantId?: string | null) => {
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
 

@@ -38,7 +38,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   let settings, loading, fetchSettings;
   
   try {
-    const hookResult = useBusinessSettingsManager();
+    const hookResult = useBusinessSettingsManager(tenantId); // Pass tenantId as parameter
     settings = hookResult.settings;
     loading = hookResult.loading;
     fetchSettings = hookResult.fetchSettings;
