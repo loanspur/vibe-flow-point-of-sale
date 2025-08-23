@@ -78,8 +78,6 @@ import DomainManagement from '@/components/DomainManagement';
 import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { PaymentManagement } from '@/components/PaymentManagement';
 import { MpesaIntegration } from '@/components/MpesaIntegration';
-import { handleError, handleSuccess } from '@/utils/errorHandler';
-import { debugLog } from '@/utils/debug';
 import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
 import { useAuth } from '@/contexts/AuthContext';
 import { BusinessSettingsErrorBoundary } from './BusinessSettingsErrorBoundary';
@@ -230,212 +228,180 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
-  return (
-    <BusinessSettingsErrorBoundary componentName="BusinessSettingsEnhanced">
-      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
-        <div className="container mx-auto px-4 py-8 max-w-7xl animate-fade-in">
-          {/* Enhanced Header with Glass Effect */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-background/80 to-secondary/5 backdrop-blur-sm border border-border/50 p-8 mb-8 shadow-2xl">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 opacity-50" />
-            <div className="relative z-10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
-                    <div className="relative p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                      <Settings className="h-8 w-8 text-primary" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <h1 className="text-5xl font-bold bg-gradient-to-r from-foreground via-primary to-foreground/80 bg-clip-text text-transparent">
-                      Business Settings
-                    </h1>
-                    <p className="text-muted-foreground text-lg max-w-2xl">
-                      Configure your business operations, customize workflows, and manage system preferences
-                    </p>
+    const [activeTab, setActiveTab] = useState<string>(() => {
+      const tab = new URLSearchParams(window.location.search).get('tab');
+      return tab || 'company';
+    });
+    const handleTabChange = useCallback((value: string) => {
+      setActiveTab(value);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', value);
+      window.history.replaceState(null, '', url.toString());
+    }, []);
+
+    return (
+    <>
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+      <div className="container mx-auto px-4 py-8 max-w-7xl animate-fade-in">
+        {/* Enhanced Header with Glass Effect */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-background/80 to-secondary/5 backdrop-blur-sm border border-border/50 p-8 mb-8 shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 opacity-50" />
+          <div className="relative z-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                  <div className="relative p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                    <Settings className="h-8 w-8 text-primary" />
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {/* Removed global buttons - now on individual tabs */}
+                <div className="space-y-2">
+                  <h1 className="text-5xl font-bold bg-gradient-to-r from-foreground via-primary to-foreground/80 bg-clip-text text-transparent">
+                    Business Settings
+                  </h1>
+                  <p className="text-muted-foreground text-lg max-w-2xl">
+                    Configure your business operations, customize workflows, and manage system preferences
+                  </p>
                 </div>
               </div>
+              <div className="flex items-center gap-3">
+                {/* Removed global buttons - now on individual tabs */}
+              </div>
             </div>
-            {/* Decorative Elements */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-48 translate-x-48 blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-secondary/5 to-transparent rounded-full translate-y-36 -translate-x-36 blur-3xl" />
           </div>
+          {/* Decorative Elements */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-48 translate-x-48 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-secondary/5 to-transparent rounded-full translate-y-36 -translate-x-36 blur-3xl" />
+        </div>
 
-          {/* Enhanced Navigation with Modern Glass Effect */}
-          <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
-            <Tabs value="company" onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
-                <TabsTrigger 
-                  value="company" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <Building className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium hidden sm:inline">Company</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="sales-products" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <Package className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium hidden sm:inline">Sales</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="notifications" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium hidden sm:inline">Notifications</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="templates" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <FileText className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium hidden sm:inline">Templates</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="payments" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <CreditCard className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium">Payments</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="domains" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <Globe className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium">Domains</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="billing" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <Receipt className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium">Billing</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="locations" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <MapPin className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium">Locations</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="migration" 
-                  className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-                >
-                  <Database className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium">Migration</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+        {/* Enhanced Navigation with Modern Glass Effect */}
+        <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
+              <TabsTrigger 
+                value="company" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Building className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium hidden sm:inline">Company</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="sales-products" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Package className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium hidden sm:inline">Sales</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="notifications" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium hidden sm:inline">Notifications</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="templates" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <FileText className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium hidden sm:inline">Templates</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="payments" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <CreditCard className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Payments</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="domains" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Globe className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Domains</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="billing" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Receipt className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Billing</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="locations" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <MapPin className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Locations</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="migration" 
+                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
+              >
+                <Database className="h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="font-medium">Migration</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
-          {/* Enhanced Form Container */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <Tabs value="company" onValueChange={setActiveTab} className="w-full">
-                
-                {/* Company & Operations Combined Tab */}
-                <TabsContent value="company" className="space-y-8 mt-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                    
-                    {/* Company Information Card */}
-                    <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <Building className="h-6 w-6 text-primary" />
-                          </div>
-                          Company Information
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Basic details about your business and contact information
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <FormField
-                          control={form.control}
-                          name="company_name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium flex items-center gap-2">
-                                <Building className="h-4 w-4 text-primary" />
-                                Company Name
-                              </FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="Enter your company name" 
-                                  className="border-2 focus:border-primary/50 transition-colors" 
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-sm font-medium flex items-center gap-2">
-                                  <Mail className="h-4 w-4 text-primary" />
-                                  Email
-                                </FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    placeholder="business@company.com" 
-                                    className="border-2 focus:border-primary/50 transition-colors" 
-                                    {...field} 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-sm font-medium flex items-center gap-2">
-                                  <Phone className="h-4 w-4 text-primary" />
-                                  Phone
-                                </FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    placeholder="+1 (555) 123-4567" 
-                                    className="border-2 focus:border-primary/50 transition-colors" 
-                                    {...field} 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+        {/* Enhanced Form Container */}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+              
+              {/* Company & Operations Combined Tab */}
+              <TabsContent value="company" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                  
+                  {/* Company Information Card */}
+                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Building className="h-6 w-6 text-primary" />
                         </div>
-                        
+                        Company Information
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Basic details about your business and contact information
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="company_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium flex items-center gap-2">
+                              <Building className="h-4 w-4 text-primary" />
+                              Company Name
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter your company name" 
+                                className="border-2 focus:border-primary/50 transition-colors" 
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
-                          name="website"
+                          name="email"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel className="text-sm font-medium flex items-center gap-2">
-                                <Globe className="h-4 w-4 text-primary" />
-                                Website
+                                <Mail className="h-4 w-4 text-primary" />
+                                Email
                               </FormLabel>
                               <FormControl>
                                 <Input 
-                                  placeholder="https://www.company.com" 
+                                  placeholder="business@company.com" 
                                   className="border-2 focus:border-primary/50 transition-colors" 
                                   {...field} 
                                 />
@@ -444,1222 +410,1265 @@ export function BusinessSettingsEnhanced() {
                             </FormItem>
                           )}
                         />
-                      </CardContent>
-                    </Card>
-
-                    {/* Company Logo Card */}
-                    <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <ImageIcon className="h-6 w-6 text-primary" />
-                          </div>
-                          Company Logo
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Upload your company logo for branding and receipts
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="flex flex-col items-center gap-6 p-8 border-2 border-dashed border-muted-foreground/25 rounded-xl bg-gradient-to-br from-muted/20 to-transparent hover:border-primary/50 transition-colors">
-                          {logoPreview ? (
-                            <div className="relative group">
-                              <img
-                                src={logoPreview}
-                                alt="Company Logo"
-                                className="w-32 h-32 object-contain rounded-lg border-2 border-border shadow-lg"
-                              />
-                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                                <Button
-                                  type="button"
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => {
-                                    setLogoPreview("");
-                                    form.setValue('company_logo_url', "");
-                                  }}
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-32 h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center bg-muted/10">
-                              <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
-                            </div>
+                        
+                        <FormField
+                          control={form.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-primary" />
+                                Phone
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="+1 (555) 123-4567" 
+                                  className="border-2 focus:border-primary/50 transition-colors" 
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
                           )}
-                            <div className="space-y-4 text-center">
+                        />
+                      </div>
+                      
+                      <FormField
+                        control={form.control}
+                        name="website"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium flex items-center gap-2">
+                              <Globe className="h-4 w-4 text-primary" />
+                              Website
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="https://www.company.com" 
+                                className="border-2 focus:border-primary/50 transition-colors" 
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Company Logo Card */}
+                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <ImageIcon className="h-6 w-6 text-primary" />
+                        </div>
+                        Company Logo
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Upload your company logo for branding and receipts
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="flex flex-col items-center gap-6 p-8 border-2 border-dashed border-muted-foreground/25 rounded-xl bg-gradient-to-br from-muted/20 to-transparent hover:border-primary/50 transition-colors">
+                        {logoPreview ? (
+                          <div className="relative group">
+                            <img
+                              src={logoPreview}
+                              alt="Company Logo"
+                              className="w-32 h-32 object-contain rounded-lg border-2 border-border shadow-lg"
+                            />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                               <Button
                                 type="button"
-                                variant="outline"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="cursor-pointer hover:bg-primary/10 transition-colors"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setLogoPreview("");
+                                  form.setValue('company_logo_url', "");
+                                }}
                               >
-                                <Upload className="h-4 w-4 mr-2" />
-                                {logoPreview ? "Change Logo" : "Upload Logo"}
+                                Remove
                               </Button>
-                              <Input
-                                id="logo-upload"
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleLogoUpload}
-                              />
-                              <p className="text-sm text-muted-foreground">
-                                Recommended: 200x200px, PNG or JPG format
-                              </p>
                             </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    {/* Currency & Localization */}
-                    <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <Globe className="h-6 w-6 text-primary" />
                           </div>
-                          Currency & Localization
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <FormField
-                          control={form.control}
-                          name="currency_code"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Default Currency</FormLabel>
-                              <Select 
-                                onValueChange={(value) => {
-                                  field.onChange(value);
-                                  // Auto-update currency symbol when currency changes
-                                  const selectedCurrency = currencies.find(c => c.code === value);
-                                  if (selectedCurrency) {
-                                    form.setValue('currency_symbol', selectedCurrency.symbol);
-                                  }
-                                }} 
-                                value={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="border-2 focus:border-primary/50">
-                                    <SelectValue placeholder="Select currency" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent className="bg-background/95 backdrop-blur-sm border border-border/50">
-                                  {filteredCurrencies.map((currency) => (
-                                    <SelectItem key={currency.code} value={currency.code}>
-                                      <div className="flex items-center gap-3">
-                                        <CurrencyIcon currency={currency.code} className="h-4 w-4" />
-                                        <span>{currency.code} - {currency.name}</span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="timezone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Timezone</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="border-2 focus:border-primary/50">
-                                    <SelectValue placeholder="Select timezone" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent className="bg-background/95 backdrop-blur-sm border border-border/50">
-                                  {filteredTimezones.map((timezone) => (
-                                    <SelectItem key={timezone.value} value={timezone.value}>
-                                      {timezone.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </CardContent>
-                    </Card>
-
-                    {/* Tax Configuration */}
-                    <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <Receipt className="h-6 w-6 text-primary" />
+                        ) : (
+                          <div className="w-32 h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center bg-muted/10">
+                            <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                           </div>
-                          Tax Configuration
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <FormField
-                          control={form.control}
-                          name="default_tax_rate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium flex items-center gap-2">
-                                <Receipt className="h-4 w-4 text-primary" />
-                                Default Tax Rate (%)
-                              </FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number" 
-                                  min="0" 
-                                  max="100" 
-                                  step="0.01" 
-                                  placeholder="0.00" 
-                                  className="border-2 focus:border-primary/50 transition-colors" 
-                                  {...field} 
-                                  onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="tax_name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium flex items-center gap-2">
-                                <Tag className="h-4 w-4 text-primary" />
-                                Tax Label
-                              </FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="VAT, GST, Sales Tax, etc." 
-                                  className="border-2 focus:border-primary/50 transition-colors" 
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="tax_inclusive"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-muted p-4 bg-gradient-to-r from-muted/20 to-transparent">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base font-medium">
-                                  Tax Inclusive Pricing
-                                </FormLabel>
-                                <FormDescription>
-                                  Prices include tax by default
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                       </CardContent>
-                    </Card>
-                  </div>
+                        )}
+                          <div className="space-y-4 text-center">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="cursor-pointer hover:bg-primary/10 transition-colors"
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              {logoPreview ? "Change Logo" : "Upload Logo"}
+                            </Button>
+                            <Input
+                              id="logo-upload"
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleLogoUpload}
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              Recommended: 200x200px, PNG or JPG format
+                            </p>
+                          </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                   
-                  {/* Company Information Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                {/* Payments Tab */}
-                <TabsContent value="sales-products" className="space-y-8 mt-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    
-                    {/* Sales Settings Card */}
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <ShoppingCart className="h-6 w-6 text-primary" />
-                          </div>
-                          Product Settings
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Configure sales processes and customer interactions
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <FormField
-                          control={form.control}
-                          name="pos_ask_customer_info"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Ask Customer Info</FormLabel>
-                                <FormDescription>
-                                  Prompt for customer information during sales
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="pos_enable_discounts"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Enable Discounts</FormLabel>
-                                <FormDescription>
-                                  Allow discount application during sales
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="pos_max_discount_percent"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium flex items-center gap-2">
-                                <Tag className="h-4 w-4 text-primary" />
-                                Maximum Discount Percentage
-                              </FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number" 
-                                  min="0" 
-                                  max="100" 
-                                  placeholder="0" 
-                                  className="border-2 focus:border-primary/50 transition-colors" 
-                                  {...field} 
-                                  onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="purchase_auto_receive"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Auto-receive Purchases</FormLabel>
-                                <FormDescription>
-                                  Automatically receive purchases when they're created
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </CardContent>
-                    </Card>
-
-                    {/* Product Settings Card */}
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <Package className="h-6 w-6 text-primary" />
-                          </div>
-                          Product Settings
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Configure product features and inventory settings
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <FormField
-                          control={form.control}
-                          name="enable_brands"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Product Brands</FormLabel>
-                                <FormDescription>
-                                  Enable brand management for products
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="enable_product_units"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Product Units</FormLabel>
-                                <FormDescription>
-                                  Enable units of measure and conversions
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="enable_product_expiry"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Product Expiry Tracking</FormLabel>
-                                <FormDescription>
-                                  Track expiry dates for products across the system
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="enable_barcode_scanning"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Barcode Scanning</FormLabel>
-                                <FormDescription>
-                                  Enable barcode scanning for products
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="auto_generate_sku"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Auto Generate SKU</FormLabel>
-                                <FormDescription>
-                                  Automatically generate SKUs for new products
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="enable_negative_stock"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Allow Negative Stock</FormLabel>
-                                <FormDescription>
-                                  Allow products to have negative inventory
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="stock_accounting_method"
-                          render={({ field }) => {
-                            const isFifo = (field.value || 'FIFO') === 'FIFO';
-                            return (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                <div className="space-y-0.5">
-                                  <FormLabel className="text-base">Use FIFO Costing</FormLabel>
-                                  <FormDescription>
-                                    When enabled, Cost of Goods uses FIFO (First-In, First-Out). When off, uses Weighted Average Cost.
-                                  </FormDescription>
-                                </div>
-                                <FormControl>
-                                  <Switch
-                                    checked={isFifo}
-                                    onCheckedChange={(checked) => field.onChange(checked ? 'FIFO' : 'WAC')}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      </CardContent>
-                    </Card>
-                  </div>
-                  
-                  {/* Sales & Products Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                {/* Notifications Tab */}
-                <TabsContent value="notifications" className="space-y-8 mt-0">
-                  <div className="grid grid-cols-1 gap-8">
-                    
-                    {/* Notification Settings Card */}
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <Bell className="h-6 w-6 text-primary" />
-                          </div>
-                          Notification Settings
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Configure email, SMS, and system notifications
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <FormField
-                          control={form.control}
-                          name="email_notifications"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Email Notifications</FormLabel>
-                                <FormDescription>
-                                  Send email notifications for important events
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="sms_enable_notifications"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">SMS Notifications</FormLabel>
-                                <FormDescription>
-                                  Send SMS notifications to customers
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="low_stock_alerts"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Low Stock Alerts</FormLabel>
-                                <FormDescription>
-                                  Receive alerts when inventory is low
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="daily_reports"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Daily Reports</FormLabel>
-                                <FormDescription>
-                                  Receive daily business reports via email
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </CardContent>
-                    </Card>
-                  </div>
-                  
-                  {/* Notifications Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                {/* Templates Tab */}
-                <TabsContent value="templates" className="space-y-8 mt-0">
-                  <div className="grid grid-cols-1 gap-8">
-                    {/* Document Templates Card - Full Width */}
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <FileText className="h-6 w-6 text-primary" />
-                          </div>
-                          Document Templates
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Customize invoice, receipt, and quote templates
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <DocumentTemplateEditor tenantId={settings?.tenant_id || ''} />
-                      </CardContent>
-                    </Card>
-                  </div>
-                  
-                  {/* Templates Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                {/* Payments Tab */}
-                <TabsContent value="payments" className="space-y-8 mt-0">
-                  <div className="space-y-8">
-                    {/* Payment Management Card */}
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                            <CreditCard className="h-6 w-6 text-primary" />
-                          </div>
-                          Payment Methods
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Configure payment methods and gateway integrations
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <PaymentManagement />
-                      </CardContent>
-                    </Card>
-
-                    <Separator />
-
-                    {/* Mpesa Integration Card */}
-                    <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                      <CardHeader className="pb-6">
-                        <CardTitle className="flex items-center gap-3 text-2xl">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20">
-                            <Smartphone className="h-6 w-6 text-green-600" />
-                          </div>
-                          M-Pesa Integration
-                        </CardTitle>
-                        <CardDescription className="text-base">
-                          Configure M-Pesa C2B payment integration for Kenyan customers
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <MpesaIntegration />
-                      </CardContent>
-                    </Card>
-                  </div>
-                  
-                  {/* Payments Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                {/* Domains Tab */}
-                <TabsContent value="domains" className="space-y-8 mt-0">
-                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  {/* Currency & Localization */}
+                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
                     <CardHeader className="pb-6">
                       <CardTitle className="flex items-center gap-3 text-2xl">
                         <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
                           <Globe className="h-6 w-6 text-primary" />
                         </div>
-                        Domain Management
+                        Currency & Localization
                       </CardTitle>
-                      <CardDescription className="text-base">
-                        Manage custom domains and SSL certificates
-                      </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <DomainManagement />
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="currency_code"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Currency</FormLabel>
+                            <Select 
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Auto-update currency symbol when currency changes
+                                const selectedCurrency = currencies.find(c => c.code === value);
+                                if (selectedCurrency) {
+                                  form.setValue('currency_symbol', selectedCurrency.symbol);
+                                }
+                              }} 
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="border-2 focus:border-primary/50">
+                                  <SelectValue placeholder="Select currency" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="bg-background/95 backdrop-blur-sm border border-border/50">
+                                {filteredCurrencies.map((currency) => (
+                                  <SelectItem key={currency.code} value={currency.code}>
+                                    <div className="flex items-center gap-3">
+                                      <CurrencyIcon currency={currency.code} className="h-4 w-4" />
+                                      <span>{currency.code} - {currency.name}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="timezone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Timezone</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="border-2 focus:border-primary/50">
+                                  <SelectValue placeholder="Select timezone" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="bg-background/95 backdrop-blur-sm border border-border/50">
+                                {filteredTimezones.map((timezone) => (
+                                  <SelectItem key={timezone.value} value={timezone.value}>
+                                    {timezone.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </CardContent>
                   </Card>
-                  
-                  {/* Domains Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
 
-                {/* Billing Tab */}
-                <TabsContent value="billing" className="space-y-8 mt-0">
-                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  {/* Tax Configuration */}
+                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
                     <CardHeader className="pb-6">
                       <CardTitle className="flex items-center gap-3 text-2xl">
                         <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
                           <Receipt className="h-6 w-6 text-primary" />
                         </div>
-                        Billing Management
+                        Tax Configuration
                       </CardTitle>
-                      <CardDescription className="text-base">
-                        Manage subscription plans, billing cycles, and payments
-                      </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <BillingManagement />
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Billing Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="default_tax_rate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium flex items-center gap-2">
+                              <Receipt className="h-4 w-4 text-primary" />
+                              Default Tax Rate (%)
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                min="0" 
+                                max="100" 
+                                step="0.01" 
+                                placeholder="0.00" 
+                                className="border-2 focus:border-primary/50 transition-colors" 
+                                {...field} 
+                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="tax_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium flex items-center gap-2">
+                              <Tag className="h-4 w-4 text-primary" />
+                              Tax Label
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="VAT, GST, Sales Tax, etc." 
+                                className="border-2 focus:border-primary/50 transition-colors" 
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                {/* Locations Tab */}
-                <TabsContent value="locations" className="space-y-8 mt-0">
+                      <FormField
+                        control={form.control}
+                        name="tax_inclusive"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-muted p-4 bg-gradient-to-r from-muted/20 to-transparent">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base font-medium">
+                                Tax Inclusive Pricing
+                              </FormLabel>
+                              <FormDescription>
+                                Prices include tax by default
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                     </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Company Information Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Payments Tab */}
+              <TabsContent value="sales-products" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  
+                  {/* Sales Settings Card */}
                   <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
                     <CardHeader className="pb-6">
                       <CardTitle className="flex items-center gap-3 text-2xl">
                         <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <MapPin className="h-6 w-6 text-primary" />
+                          <ShoppingCart className="h-6 w-6 text-primary" />
                         </div>
-                        Store Locations
+                        Product Settings
                       </CardTitle>
                       <CardDescription className="text-base">
-                        Manage your business locations and branch offices
+                        Configure sales processes and customer interactions
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="pos_ask_customer_info"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Ask Customer Info</FormLabel>
+                              <FormDescription>
+                                Prompt for customer information during sales
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="pos_enable_discounts"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Enable Discounts</FormLabel>
+                              <FormDescription>
+                                Allow discount application during sales
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="pos_max_discount_percent"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium flex items-center gap-2">
+                              <Tag className="h-4 w-4 text-primary" />
+                              Maximum Discount Percentage
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                min="0" 
+                                max="100" 
+                                placeholder="0" 
+                                className="border-2 focus:border-primary/50 transition-colors" 
+                                {...field} 
+                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="purchase_auto_receive"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Auto-receive Purchases</FormLabel>
+                              <FormDescription>
+                                Automatically receive purchases when they're created
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Product Settings Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Package className="h-6 w-6 text-primary" />
+                        </div>
+                        Product Settings
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure product features and inventory settings
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="enable_brands"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Product Brands</FormLabel>
+                              <FormDescription>
+                                Enable brand management for products
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_product_units"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Product Units</FormLabel>
+                              <FormDescription>
+                                Enable units of measure and conversions
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_product_expiry"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Product Expiry Tracking</FormLabel>
+                              <FormDescription>
+                                Track expiry dates for products across the system
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_barcode_scanning"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Barcode Scanning</FormLabel>
+                              <FormDescription>
+                                Enable barcode scanning for products
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="auto_generate_sku"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Auto Generate SKU</FormLabel>
+                              <FormDescription>
+                                Automatically generate SKUs for new products
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_negative_stock"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Allow Negative Stock</FormLabel>
+                              <FormDescription>
+                                Allow products to have negative inventory
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="stock_accounting_method"
+                        render={({ field }) => {
+                          const isFifo = (field.value || 'FIFO') === 'FIFO';
+                          return (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">Use FIFO Costing</FormLabel>
+                                <FormDescription>
+                                  When enabled, Cost of Goods uses FIFO (First-In, First-Out). When off, uses Weighted Average Cost.
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={isFifo}
+                                  onCheckedChange={(checked) => field.onChange(checked ? 'FIFO' : 'WAC')}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Sales & Products Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Notifications Tab */}
+              <TabsContent value="notifications" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 gap-8">
+                  
+                  {/* Notification Settings Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Bell className="h-6 w-6 text-primary" />
+                        </div>
+                        Notification Settings
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure email, SMS, and system notifications
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="email_notifications"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Email Notifications</FormLabel>
+                              <FormDescription>
+                                Send email notifications for important events
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="sms_enable_notifications"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">SMS Notifications</FormLabel>
+                              <FormDescription>
+                                Send SMS notifications to customers
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="low_stock_alerts"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Low Stock Alerts</FormLabel>
+                              <FormDescription>
+                                Receive alerts when inventory is low
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="daily_reports"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Daily Reports</FormLabel>
+                              <FormDescription>
+                                Receive daily business reports via email
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Notifications Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Templates Tab */}
+              <TabsContent value="templates" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 gap-8">
+                  {/* Document Templates Card - Full Width */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <FileText className="h-6 w-6 text-primary" />
+                        </div>
+                        Document Templates
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Customize invoice, receipt, and quote templates
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {locations.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Store className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                          <h3 className="text-lg font-medium mb-2">Store Locations</h3>
-                          <p className="text-muted-foreground mb-6">
-                            Set up and manage multiple business locations to organize your operations.
-                          </p>
+                      <DocumentTemplateEditor tenantId={settings?.tenant_id || ''} />
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Templates Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Payments Tab */}
+              <TabsContent value="payments" className="space-y-8 mt-0">
+                <div className="space-y-8">
+                  {/* Payment Management Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <CreditCard className="h-6 w-6 text-primary" />
+                        </div>
+                        Payment Methods
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure payment methods and gateway integrations
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <PaymentManagement />
+                    </CardContent>
+                  </Card>
+
+                  <Separator />
+
+                  {/* Mpesa Integration Card */}
+                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20">
+                          <Smartphone className="h-6 w-6 text-green-600" />
+                        </div>
+                        M-Pesa Integration
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure M-Pesa C2B payment integration for Kenyan customers
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <MpesaIntegration />
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Payments Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Domains Tab */}
+              <TabsContent value="domains" className="space-y-8 mt-0">
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <Globe className="h-6 w-6 text-primary" />
+                      </div>
+                      Domain Management
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Manage custom domains and SSL certificates
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DomainManagement />
+                  </CardContent>
+                </Card>
+                
+                {/* Domains Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Billing Tab */}
+              <TabsContent value="billing" className="space-y-8 mt-0">
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <Receipt className="h-6 w-6 text-primary" />
+                      </div>
+                      Billing Management
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Manage subscription plans, billing cycles, and payments
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <BillingManagement />
+                  </CardContent>
+                </Card>
+                
+                {/* Billing Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Locations Tab */}
+              <TabsContent value="locations" className="space-y-8 mt-0">
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <MapPin className="h-6 w-6 text-primary" />
+                      </div>
+                      Store Locations
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Manage your business locations and branch offices
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {locations.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Store className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Store Locations</h3>
+                        <p className="text-muted-foreground mb-6">
+                          Set up and manage multiple business locations to organize your operations.
+                        </p>
+                        <Button 
+                          onClick={handleAddLocation}
+                          className="bg-gradient-to-r from-primary to-primary/80"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Your First Location
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="text-lg font-medium">Your Locations</h3>
+                            <p className="text-muted-foreground">
+                              Manage your business locations and branch offices
+                            </p>
+                          </div>
                           <Button 
                             onClick={handleAddLocation}
                             className="bg-gradient-to-r from-primary to-primary/80"
                           >
                             <Plus className="h-4 w-4 mr-2" />
-                            Add Your First Location
+                            Add Location
                           </Button>
                         </div>
-                      ) : (
-                        <div className="space-y-6">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <h3 className="text-lg font-medium">Your Locations</h3>
-                              <p className="text-muted-foreground">
-                                Manage your business locations and branch offices
-                              </p>
-                            </div>
-                            <Button 
-                              onClick={handleAddLocation}
-                              className="bg-gradient-to-r from-primary to-primary/80"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Location
-                            </Button>
-                          </div>
 
-                          <div className="grid gap-4">
-                            {locations.map((location) => (
-                              <Card key={location.id} className="p-4">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <h4 className="font-medium">{location.name}</h4>
-                                      {location.is_primary && (
-                                        <Badge variant="default" className="text-xs">
-                                          Primary
-                                        </Badge>
-                                      )}
-                                      {!location.is_active && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          Inactive
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground space-y-1">
-                                      {location.address_line_1 && (
-                                        <div>{location.address_line_1}</div>
-                                      )}
-                                      {location.address_line_2 && (
-                                        <div>{location.address_line_2}</div>
-                                      )}
-                                      {(location.city || location.state_province || location.postal_code) && (
-                                        <div>
-                                          {[location.city, location.state_province, location.postal_code]
-                                            .filter(Boolean)
-                                            .join(', ')}
-                                        </div>
-                                      )}
-                                      {location.country && (
-                                        <div>{location.country}</div>
-                                      )}
-                                      {location.phone && (
-                                        <div className="flex items-center gap-1">
-                                          <Phone className="h-3 w-3" />
-                                          {location.phone}
-                                        </div>
-                                      )}
-                                      {location.email && (
-                                        <div className="flex items-center gap-1">
-                                          <Mail className="h-3 w-3" />
-                                          {location.email}
-                                        </div>
-                                      )}
-                                      {location.manager_name && (
-                                        <div className="flex items-center gap-1">
-                                          <User className="h-3 w-3" />
-                                          Manager: {location.manager_name}
-                                        </div>
-                                      )}
-                                    </div>
+                        <div className="grid gap-4">
+                          {locations.map((location) => (
+                            <Card key={location.id} className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h4 className="font-medium">{location.name}</h4>
+                                    {location.is_primary && (
+                                      <Badge variant="default" className="text-xs">
+                                        Primary
+                                      </Badge>
+                                    )}
+                                    {!location.is_active && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Inactive
+                                      </Badge>
+                                    )}
                                   </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEditLocation(location)}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleDeleteLocation(location.id)}
-                                      disabled={location.is_primary && locations.length === 1}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                  <div className="text-sm text-muted-foreground space-y-1">
+                                    {location.address_line_1 && (
+                                      <div>{location.address_line_1}</div>
+                                    )}
+                                    {location.address_line_2 && (
+                                      <div>{location.address_line_2}</div>
+                                    )}
+                                    {(location.city || location.state_province || location.postal_code) && (
+                                      <div>
+                                        {[location.city, location.state_province, location.postal_code]
+                                          .filter(Boolean)
+                                          .join(', ')}
+                                      </div>
+                                    )}
+                                    {location.country && (
+                                      <div>{location.country}</div>
+                                    )}
+                                    {location.phone && (
+                                      <div className="flex items-center gap-1">
+                                        <Phone className="h-3 w-3" />
+                                        {location.phone}
+                                      </div>
+                                    )}
+                                    {location.email && (
+                                      <div className="flex items-center gap-1">
+                                        <Mail className="h-3 w-3" />
+                                        {location.email}
+                                      </div>
+                                    )}
+                                    {location.manager_name && (
+                                      <div className="flex items-center gap-1">
+                                        <User className="h-3 w-3" />
+                                        Manager: {location.manager_name}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                              </Card>
-                            ))}
-                          </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditLocation(location)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteLocation(location.id)}
+                                    disabled={location.is_primary && locations.length === 1}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-                  {/* Location Dialog */}
-                  <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>
-                          {editingLocation ? 'Edit Location' : 'Add New Location'}
-                        </DialogTitle>
-                        <DialogDescription>
-                          {editingLocation 
-                            ? 'Update the location details below.' 
-                            : 'Enter the details for your new business location.'
-                          }
-                        </DialogDescription>
-                      </DialogHeader>
-                      
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="location-name">Location Name *</Label>
-                            <Input
-                              id="location-name"
-                              value={locationFormData.name || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                name: e.target.value
-                              }))}
-                              placeholder="Main Store, Branch Office, etc."
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="location-phone">Phone</Label>
-                            <Input
-                              id="location-phone"
-                              value={locationFormData.phone || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                phone: e.target.value
-                              }))}
-                              placeholder="+1 (555) 123-4567"
-                            />
-                          </div>
-                        </div>
-
+                {/* Location Dialog */}
+                <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {editingLocation ? 'Edit Location' : 'Add New Location'}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {editingLocation 
+                          ? 'Update the location details below.' 
+                          : 'Enter the details for your new business location.'
+                        }
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="location-address1">Address Line 1</Label>
+                          <Label htmlFor="location-name">Location Name *</Label>
                           <Input
-                            id="location-address1"
-                            value={locationFormData.address_line_1 || ''}
+                            id="location-name"
+                            value={locationFormData.name || ''}
                             onChange={(e) => setLocationFormData(prev => ({
                               ...prev,
-                              address_line_1: e.target.value
+                              name: e.target.value
                             }))}
-                            placeholder="Street address"
+                            placeholder="Main Store, Branch Office, etc."
                           />
                         </div>
-
                         <div className="space-y-2">
-                          <Label htmlFor="location-address2">Address Line 2</Label>
+                          <Label htmlFor="location-phone">Phone</Label>
                           <Input
-                            id="location-address2"
-                            value={locationFormData.address_line_2 || ''}
+                            id="location-phone"
+                            value={locationFormData.phone || ''}
                             onChange={(e) => setLocationFormData(prev => ({
                               ...prev,
-                              address_line_2: e.target.value
+                              phone: e.target.value
                             }))}
-                            placeholder="Apartment, suite, etc. (optional)"
+                            placeholder="+1 (555) 123-4567"
                           />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="location-city">City</Label>
-                            <Input
-                              id="location-city"
-                              value={locationFormData.city || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                city: e.target.value
-                              }))}
-                              placeholder="City"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="location-state">State/Province</Label>
-                            <Input
-                              id="location-state"
-                              value={locationFormData.state_province || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                state_province: e.target.value
-                              }))}
-                              placeholder="State or Province"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="location-postal">Postal Code</Label>
-                            <Input
-                              id="location-postal"
-                              value={locationFormData.postal_code || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                postal_code: e.target.value
-                              }))}
-                              placeholder="12345"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="location-country">Country</Label>
-                            <Input
-                              id="location-country"
-                              value={locationFormData.country || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                country: e.target.value
-                              }))}
-                              placeholder="Country"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="location-email">Email</Label>
-                            <Input
-                              id="location-email"
-                              type="email"
-                              value={locationFormData.email || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                email: e.target.value
-                              }))}
-                              placeholder="store@company.com"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="location-manager">Manager Name</Label>
-                            <Input
-                              id="location-manager"
-                              value={locationFormData.manager_name || ''}
-                              onChange={(e) => setLocationFormData(prev => ({
-                                ...prev,
-                                manager_name: e.target.value
-                              }))}
-                              placeholder="John Doe"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              id="location-primary"
-                              checked={locationFormData.is_primary || false}
-                              onCheckedChange={(checked) => setLocationFormData(prev => ({
-                                ...prev,
-                                is_primary: checked
-                              }))}
-                            />
-                            <Label htmlFor="location-primary">Primary Location</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              id="location-active"
-                              checked={locationFormData.is_active !== false}
-                              onCheckedChange={(checked) => setLocationFormData(prev => ({
-                                ...prev,
-                                is_active: checked
-                              }))}
-                            />
-                            <Label htmlFor="location-active">Active</Label>
-                          </div>
                         </div>
                       </div>
 
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button 
-                          onClick={handleSaveLocation}
-                          disabled={!locationFormData.name}
-                        >
-                          {editingLocation ? 'Update Location' : 'Create Location'}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </TabsContent>
+                      <div className="space-y-2">
+                        <Label htmlFor="location-address1">Address Line 1</Label>
+                        <Input
+                          id="location-address1"
+                          value={locationFormData.address_line_1 || ''}
+                          onChange={(e) => setLocationFormData(prev => ({
+                            ...prev,
+                            address_line_1: e.target.value
+                          }))}
+                          placeholder="Street address"
+                        />
+                      </div>
 
-                {/* Data Migration Tab */}
-                <TabsContent value="migration" className="space-y-8 mt-0">
-                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <Database className="h-6 w-6 text-primary" />
+                      <div className="space-y-2">
+                        <Label htmlFor="location-address2">Address Line 2</Label>
+                        <Input
+                          id="location-address2"
+                          value={locationFormData.address_line_2 || ''}
+                          onChange={(e) => setLocationFormData(prev => ({
+                            ...prev,
+                            address_line_2: e.target.value
+                          }))}
+                          placeholder="Apartment, suite, etc. (optional)"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location-city">City</Label>
+                          <Input
+                            id="location-city"
+                            value={locationFormData.city || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              city: e.target.value
+                            }))}
+                            placeholder="City"
+                          />
                         </div>
-                        Data Migration
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Import and export your business data including contacts, products, and categories
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <DataMigration />
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Migration Tab Actions */}
-                  <div className="flex justify-end gap-3 pt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => form.reset()}
-                      className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                    >
-                      Reset Changes
-                    </Button>
-                    <Button 
-                      onClick={() => onSubmit(form.getValues())} 
-                      disabled={isSaving}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </form>
-          </Form>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-state">State/Province</Label>
+                          <Input
+                            id="location-state"
+                            value={locationFormData.state_province || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              state_province: e.target.value
+                            }))}
+                            placeholder="State or Province"
+                          />
+                        </div>
+                      </div>
 
-        </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location-postal">Postal Code</Label>
+                          <Input
+                            id="location-postal"
+                            value={locationFormData.postal_code || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              postal_code: e.target.value
+                            }))}
+                            placeholder="12345"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-country">Country</Label>
+                          <Input
+                            id="location-country"
+                            value={locationFormData.country || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              country: e.target.value
+                            }))}
+                            placeholder="Country"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="location-email">Email</Label>
+                          <Input
+                            id="location-email"
+                            type="email"
+                            value={locationFormData.email || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              email: e.target.value
+                            }))}
+                            placeholder="store@company.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-manager">Manager Name</Label>
+                          <Input
+                            id="location-manager"
+                            value={locationFormData.manager_name || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              manager_name: e.target.value
+                            }))}
+                            placeholder="John Doe"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="location-primary"
+                            checked={locationFormData.is_primary || false}
+                            onCheckedChange={(checked) => setLocationFormData(prev => ({
+                              ...prev,
+                              is_primary: checked
+                            }))}
+                          />
+                          <Label htmlFor="location-primary">Primary Location</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="location-active"
+                            checked={locationFormData.is_active !== false}
+                            onCheckedChange={(checked) => setLocationFormData(prev => ({
+                              ...prev,
+                              is_active: checked
+                            }))}
+                          />
+                          <Label htmlFor="location-active">Active</Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleSaveLocation}
+                        disabled={!locationFormData.name}
+                      >
+                        {editingLocation ? 'Update Location' : 'Create Location'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </TabsContent>
+
+              {/* Data Migration Tab */}
+              <TabsContent value="migration" className="space-y-8 mt-0">
+                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                        <Database className="h-6 w-6 text-primary" />
+                      </div>
+                      Data Migration
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Import and export your business data including contacts, products, and categories
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DataMigration />
+                  </CardContent>
+                </Card>
+                
+                {/* Migration Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </form>
+        </Form>
+
       </div>
-    </BusinessSettingsErrorBoundary>
+    </div>
+    </>
   );
 }
