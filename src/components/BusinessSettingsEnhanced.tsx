@@ -78,9 +78,7 @@ import DomainManagement from '@/components/DomainManagement';
 import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { PaymentManagement } from '@/components/PaymentManagement';
 import { MpesaIntegration } from '@/components/MpesaIntegration';
-import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
-import { useAuth } from '@/contexts/AuthContext';
-import { BusinessSettingsErrorBoundary } from './BusinessSettingsErrorBoundary';
+
 
 const businessSettingsSchema = z.object({
   // Basic company information
@@ -239,7 +237,93 @@ export function BusinessSettingsEnhanced() {
       window.history.replaceState(null, '', url.toString());
     }, []);
 
-    return (
+    const form = useForm<z.infer<typeof businessSettingsSchema>>({
+      resolver: zodResolver(businessSettingsSchema),
+      defaultValues: {
+        company_name: "",
+        email: "",
+        phone: "",
+        website: "",
+        currency_code: "USD",
+        timezone: "America/New_York",
+        default_tax_rate: 0,
+        tax_name: "Tax",
+        enable_brands: false,
+        enable_overselling: false,
+        enable_product_units: true,
+        enable_product_expiry: true,
+        enable_warranty: false,
+        enable_fixed_pricing: false,
+        auto_generate_sku: true,
+        enable_barcode_scanning: true,
+        enable_negative_stock: false,
+        stock_accounting_method: "FIFO",
+        default_markup_percentage: 0,
+        enable_retail_pricing: true,
+        enable_wholesale_pricing: false,
+        enable_combo_products: false,
+        pos_auto_print_receipt: true,
+        pos_ask_customer_info: false,
+        pos_enable_discounts: true,
+        pos_max_discount_percent: 100,
+        pos_enable_tips: false,
+        pos_default_payment_method: "cash",
+        sms_enable_notifications: false,
+        whatsapp_enable_notifications: false,
+        sms_provider: "",
+        sms_api_key: "",
+        sms_sender_id: "",
+        whatsapp_api_key: "",
+        whatsapp_phone_number: "",
+        whatsapp_api_url: "",
+        email_from_address: "",
+        email_from_name: "",
+        email_smtp_host: "",
+        email_smtp_port: 587,
+        email_smtp_username: "",
+        email_smtp_password: "",
+        email_enable_ssl: true,
+        invoice_template: "standard",
+        receipt_template: "standard",
+        quote_template: "standard",
+        delivery_note_template: "standard",
+        invoice_number_prefix: "INV-",
+        quote_number_prefix: "QT-",
+        delivery_note_prefix: "DN-",
+        invoice_terms_conditions: "",
+        receipt_header: "",
+        receipt_footer: "",
+        receipt_logo_url: "",
+        print_customer_copy: true,
+        print_merchant_copy: true,
+        invoice_auto_number: true,
+        quote_auto_number: true,
+        delivery_note_auto_number: true,
+        quote_validity_days: 30,
+        max_login_attempts: 3,
+        account_lockout_duration: 15,
+        session_timeout_minutes: 60,
+        require_password_change: false,
+        password_expiry_days: 90,
+        enable_loyalty_program: false,
+        enable_gift_cards: false,
+        enable_online_orders: false,
+        enable_multi_location: false,
+        enable_user_roles: true,
+        low_stock_threshold: 10,
+        low_stock_alerts: true,
+        daily_reports: true,
+        email_notifications: true,
+        purchase_default_tax_rate: 0,
+        purchase_auto_receive: false,
+        purchase_enable_partial_receive: true,
+        tax_inclusive: false,
+        currency_symbol: "$",
+        date_format: "MM/DD/YYYY",
+      },
+    });
+
+  return (
     <>
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl animate-fade-in">
@@ -276,7 +360,7 @@ export function BusinessSettingsEnhanced() {
 
         {/* Enhanced Navigation with Modern Glass Effect */}
         <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
                 value="company" 
