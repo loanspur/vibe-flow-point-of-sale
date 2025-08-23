@@ -33,8 +33,7 @@ import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { debugLog } from '@/utils/debug';
-import { handleError } from '@/utils/errorHandler';
+import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
 // Removed unused recharts import that was causing module loading issues
 
 const getTimeBasedGreeting = () => {
@@ -60,7 +59,7 @@ function TenantAdminDashboard() {
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null}>({ start: new Date(), end: new Date() });
   
 
-  debugLog('Dashboard auth state:', { user: !!user, tenantId, userEmail: user?.email });
+  console.log('🏠 Dashboard auth state:', { user: !!user, tenantId, userEmail: user?.email });
 
   // Get effective pricing for the current subscription
   const { effectivePricing } = useEffectivePricing(
@@ -90,7 +89,7 @@ function TenantAdminDashboard() {
         
         await Promise.all(promises);
       } catch (error) {
-        handleError(error, 'TenantAdminDashboard');
+        console.error('Error initializing dashboard:', error);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -126,19 +125,22 @@ function TenantAdminDashboard() {
     return () => clearTimeout(timeoutId);
   }, [dateFilter, dateRange.start, dateRange.end, tenantId]); // Added tenantId dependency
 
-  // Single optimized auto-refresh
-  useAutoRefresh({ 
-    interval: 60000, // Increased to 1 minute
-    onRefresh: () => fetchDashboardData(), 
-    visibilityBased: true, 
-    enabled: true 
+  // Auto-refresh features re-enabled
+  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
+
+  useDebouncedRealtimeRefresh({
+    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+    tenantId,
+    onChange: () => fetchDashboardData(),
+    enabled: true,
+    debounceMs: 2000,
   });
 
   const fetchCurrentSubscription = async () => {
     if (!tenantId) return;
     
     try {
-      debugLog('Fetching subscription for tenant:', tenantId);
+      console.log('Fetching subscription for tenant:', tenantId);
       const { data, error } = await supabase
         .from('tenant_subscription_details')
         .select(`
@@ -153,10 +155,11 @@ function TenantAdminDashboard() {
         .in('status', ['active', 'pending', 'trialing', 'trial'])
         .maybeSingle();
 
+      console.log('Subscription fetch result:', { data, error });
       if (error && error.code !== 'PGRST116') throw error;
       setCurrentSubscription(data);
     } catch (error) {
-      handleError(error, 'fetchCurrentSubscription');
+      console.error('Error fetching subscription:', error);
     }
   };
 
@@ -175,7 +178,7 @@ function TenantAdminDashboard() {
         setUserProfile(data);
       }
     } catch (error) {
-      handleError(error, 'TenantAdminDashboard');
+      console.warn('Error fetching user profile:', error);
     }
   };
 
@@ -213,7 +216,7 @@ function TenantAdminDashboard() {
     const endDate = `${format(rangeEnd, 'yyyy-MM-dd')}T23:59:59.999Z`;
 
     try {
-      debugLog('🚀 Dashboard fetch for tenant with filters:', { tenantId, dateFilter, startDate, endDate });
+      console.log('🚀 Dashboard fetch for tenant with filters:', { tenantId, dateFilter, startDate, endDate });
 
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       const next30Str = format(addDays(new Date(), 30), 'yyyy-MM-dd');
@@ -331,10 +334,10 @@ function TenantAdminDashboard() {
         endDate
       };
 
-      debugLog('📈 Dashboard metrics:', result);
+      console.log('📈 Dashboard metrics:', result);
       setDashboardData(result);
     } catch (error) {
-      handleError(error, 'TenantAdminDashboard');
+      console.error('Error fetching dashboard data:', error);
       setDashboardData({
         revenue: 0,
         salesCount: 0,
@@ -355,7 +358,7 @@ function TenantAdminDashboard() {
     }
   };
 
-  debugLog('🎯 CURRENT DASHBOARD DATA:', {
+  console.log('🎯 CURRENT DASHBOARD DATA:', {
     loading,
     dashboardData,
     tenantId

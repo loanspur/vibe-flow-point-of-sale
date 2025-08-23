@@ -11,13 +11,21 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCashDrawer } from "@/hooks/useCashDrawer";
-import { usePaymentMethods, PaymentMethod } from '@/hooks/usePaymentMethods';
 
 interface Payment {
   id: string;
   method: string;
   amount: number;
   reference?: string;
+}
+
+interface PaymentMethod {
+  id: string;
+  name: string;
+  type: string;
+  is_active: boolean;
+  requires_reference: boolean;
+  display_order: number;
 }
 
 interface PaymentProcessorProps {
@@ -31,8 +39,9 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
   const { formatAmount } = useCurrencySettings();
   const { tenantId } = useAuth();
   const { currentDrawer } = useCashDrawer();
-  const { paymentMethods, loading: isLoadingMethods } = usePaymentMethods();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [newPayment, setNewPayment] = useState({
     method: "cash",
     amount: 0,
@@ -45,8 +54,57 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
 
   // Fetch payment methods from database
   useEffect(() => {
-    // The usePaymentMethods hook now handles fetching and subscribing
+    fetchPaymentMethods();
   }, [tenantId]);
+
+  const fetchPaymentMethods = async () => {
+    if (!tenantId) {
+      setPaymentMethods([]);
+      setIsLoadingMethods(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setPaymentMethods(data);
+        // Set first payment method as default
+        setNewPayment(prev => ({ 
+          ...prev, 
+          method: data[0].type 
+        }));
+      } else {
+        // Fallback to default methods if none configured
+        setPaymentMethods([
+          { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+          { id: 'default-card', name: 'Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 },
+          { id: 'default-credit', name: 'Credit Sale', type: 'credit', is_active: true, requires_reference: true, display_order: 3 }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      toast({
+        title: "Warning",
+        description: "Could not load payment methods. Using defaults.",
+        variant: "destructive",
+      });
+      // Use fallback methods
+      setPaymentMethods([
+        { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+        { id: 'default-card', name: 'Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 }
+      ]);
+    } finally {
+      setIsLoadingMethods(false);
+    }
+  };
 
   const addPayment = () => {
     const selectedMethod = paymentMethods.find(m => m.type === newPayment.method);

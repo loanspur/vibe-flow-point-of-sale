@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { debugLog } from '@/utils/debug';
 
 // Unified interfaces
 export interface UnifiedUser {
@@ -92,7 +91,7 @@ export const useUnifiedUserManagement = () => {
         fetchUserSessions(),
       ]);
     } catch (error) {
-      debugLog('Error fetching data:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -130,7 +129,7 @@ export const useUnifiedUserManagement = () => {
         return;
       }
 
-      // Fallback method A: tenant_users table
+      // Fallback method
       const { data: tenantUsers, error: tuError } = await supabase
         .from('tenant_users')
         .select(`
@@ -182,7 +181,7 @@ export const useUnifiedUserManagement = () => {
       });
 
       // Combine all data with unified status handling
-      let combined: UnifiedUser[] = (tenantUsers || []).map(tu => {
+      const combined: UnifiedUser[] = (tenantUsers || []).map(tu => {
         const profile = profileMap.get(tu.user_id);
         const emailInfo = emailMap.get(tu.user_id);
         const userRoles = userRolesMap.get(tu.user_id) || [];
@@ -220,70 +219,9 @@ export const useUnifiedUserManagement = () => {
         };
       });
 
-      // Supplement with profiles in this tenant that are missing from tenant_users
-      try {
-        const { data: tenantProfiles, error: profErr } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, avatar_url, created_at, role')
-          .eq('tenant_id', tenantId);
-
-        if (!profErr && tenantProfiles) {
-          const existingIds = new Set(combined.map(u => u.user_id));
-          const supplemental: UnifiedUser[] = tenantProfiles
-            .filter(p => !existingIds.has(p.user_id))
-            .map(p => ({
-              id: p.user_id,
-              user_id: p.user_id,
-              full_name: p.full_name || (emailMap.get(p.user_id) as any)?.email || 'Unknown User',
-              email: (emailMap.get(p.user_id) as any)?.email,
-              role: p.role || 'user',
-              roles: [p.role || 'user'],
-              tenant_id: tenantId!,
-              created_at: p.created_at,
-              status: 'active',
-              invitation_status: 'accepted',
-              avatar_url: p.avatar_url,
-            }));
-          if (supplemental.length > 0) {
-            combined = [...combined, ...supplemental];
-          }
-        }
-      } catch (e) {
-        // Non-fatal: keep combined as-is
-      }
-
       setUsers(combined);
-
-      // Fallback method B: profiles-only (covers cases where tenant_users is not populated)
-      const { data: tenantProfiles, error: profErr } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, avatar_url, created_at, role')
-        .eq('tenant_id', tenantId);
-
-      if (profErr) throw profErr;
-
-      // Map emails via helper RPC if available
-      const { data: emailMapData } = await supabase.rpc('get_tenant_user_emails', { tenant_id: tenantId });
-      const fallbackEmailMap = new Map((emailMapData || []).map((e: any) => [e.user_id, e.email]));
-
-      const profilesCombined: UnifiedUser[] = (tenantProfiles || []).map(p => ({
-        id: p.user_id,
-        user_id: p.user_id,
-        full_name: p.full_name || fallbackEmailMap.get(p.user_id) || 'Unknown User',
-        email: fallbackEmailMap.get(p.user_id),
-        role: p.role || 'user',
-        roles: [p.role || 'user'],
-        tenant_id: tenantId!,
-        created_at: p.created_at,
-        status: 'active',
-        invitation_status: 'accepted'
-      }));
-
-      if (profilesCombined.length > 0) {
-        setUsers(profilesCombined);
-      }
     } catch (error) {
-      debugLog('Error fetching users:', error);
+      console.error('Error fetching users:', error);
       toast.error('Failed to load users');
     }
   };
@@ -326,7 +264,7 @@ export const useUnifiedUserManagement = () => {
 
       setRoles(rolesWithPermissions);
     } catch (error) {
-      debugLog('Error fetching roles:', error);
+      console.error('Error fetching roles:', error);
       toast.error('Failed to load roles');
     }
   };
@@ -344,7 +282,7 @@ export const useUnifiedUserManagement = () => {
       if (error) throw error;
       setPermissions(data || []);
     } catch (error) {
-      debugLog('Error fetching permissions:', error);
+      console.error('Error fetching permissions:', error);
       toast.error('Failed to load permissions');
     }
   };
@@ -385,7 +323,7 @@ export const useUnifiedUserManagement = () => {
 
       setActivityLogs(mappedLogs);
     } catch (error) {
-      debugLog('Error fetching activity logs:', error);
+      console.error('Error fetching activity logs:', error);
     }
   };
 
@@ -426,20 +364,18 @@ export const useUnifiedUserManagement = () => {
 
       setUserSessions(mappedSessions);
     } catch (error) {
-      debugLog('Error fetching user sessions:', error);
+      console.error('Error fetching user sessions:', error);
     }
   };
 
   // User management actions
   const inviteUser = async (email: string, roleId: string, fullName?: string) => {
     try {
-      // Map roleId to role name for the Edge Function contract
-      const roleName = roles.find(r => r.id === roleId)?.name || 'user';
       const { error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email,
+          roleId,
           fullName,
-          role: roleName,
           tenantId,
         }
       });
@@ -450,7 +386,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      debugLog('Error inviting user:', error);
+      console.error('Error inviting user:', error);
       toast.error('Failed to send invitation');
       return false;
     }
@@ -482,7 +418,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      debugLog('Error updating user role:', error);
+      console.error('Error updating user role:', error);
       toast.error('Failed to update user role');
       return false;
     }
@@ -502,7 +438,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      debugLog('Error deactivating user:', error);
+      console.error('Error deactivating user:', error);
       toast.error('Failed to deactivate user');
       return false;
     }
@@ -522,7 +458,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      debugLog('Error activating user:', error);
+      console.error('Error activating user:', error);
       toast.error('Failed to activate user');
       return false;
     }
@@ -546,7 +482,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      debugLog('Error resending invitation:', error);
+      console.error('Error resending invitation:', error);
       toast.error('Failed to resend invitation');
       return false;
     }
@@ -568,7 +504,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      debugLog('Error updating user profile:', error);
+      console.error('Error updating user profile:', error);
       toast.error('Failed to update user profile');
       return false;
     }
@@ -598,7 +534,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      debugLog('Error deleting user:', error);
+      console.error('Error deleting user:', error);
       toast.error('Failed to delete user');
       return false;
     }
@@ -650,7 +586,7 @@ export const useUnifiedUserManagement = () => {
       await fetchRoles();
       return true;
     } catch (error) {
-      debugLog('Error creating role:', error);
+      console.error('Error creating role:', error);
       toast.error('Failed to create role');
       return false;
     }
@@ -708,7 +644,7 @@ export const useUnifiedUserManagement = () => {
       await fetchRoles();
       return true;
     } catch (error) {
-      debugLog('Error updating role:', error);
+      console.error('Error updating role:', error);
       toast.error('Failed to update role');
       return false;
     }
@@ -748,34 +684,25 @@ export const useUnifiedUserManagement = () => {
       await fetchRoles();
       return true;
     } catch (error) {
-      debugLog('Error deleting role:', error);
+      console.error('Error deleting role:', error);
       toast.error('Failed to delete role');
       return false;
     }
   };
 
   // Permission checking
-  const normalizeRole = (role?: string) => {
-    if (!role) return role;
-    const map: Record<string, string> = {
-      'Administrator': 'admin',
-      'Business Owner': 'admin'
-    };
-    return map[role] || role;
-  };
-
   const hasPermission = useCallback((resource: string, action: string): boolean => {
     if (!user || !tenantId) return false;
     
     // Super admins have all permissions
-    if (normalizeRole(userRole) === 'superadmin') return true;
+    if (userRole === 'superadmin') return true;
     
     // Find user's roles and check permissions
     const currentUser = users.find(u => u.user_id === user.id);
     if (!currentUser) return false;
 
     const userRoles = roles.filter(role => 
-      currentUser.roles.map(normalizeRole).includes(normalizeRole(role.name))
+      currentUser.roles.includes(role.name)
     );
 
     return userRoles.some(role => 
@@ -792,13 +719,13 @@ export const useUnifiedUserManagement = () => {
     }
     
     // Superadmin has access to everything
-    if (normalizeRole(userRole) === 'superadmin') {
+    if (userRole === 'superadmin') {
       console.log('hasRoleAccess: User is superadmin');
       return true;
     }
     
     // Tenant admin has access to everything within their tenant
-    if (['admin'].includes(normalizeRole(userRole))) {
+    if (userRole === 'admin') {
       console.log('hasRoleAccess: User is tenant admin');
       return true;
     }
@@ -816,7 +743,7 @@ export const useUnifiedUserManagement = () => {
     
     if (currentUser) {
       const hasAccess = requiredRoles.some(role => 
-        currentUser.roles.map(normalizeRole).includes(normalizeRole(role)) || normalizeRole(currentUser.role) === normalizeRole(role)
+        currentUser.roles.includes(role) || currentUser.role === role
       );
       console.log('hasRoleAccess: Access result from user list', { hasAccess, requiredRoles });
       return hasAccess;
@@ -824,7 +751,7 @@ export const useUnifiedUserManagement = () => {
     
     // Fallback to AuthContext userRole (simple role system)
     console.log('hasRoleAccess: Using fallback to AuthContext userRole', { userRole, requiredRoles });
-    const fallbackAccess = userRole ? requiredRoles.map(normalizeRole).includes(normalizeRole(userRole)) : false;
+    const fallbackAccess = userRole ? requiredRoles.includes(userRole) : false;
     console.log('hasRoleAccess: Fallback access result', { fallbackAccess, userRole, requiredRoles });
     return fallbackAccess;
   }, [user, tenantId, userRole, users]);

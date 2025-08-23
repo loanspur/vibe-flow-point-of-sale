@@ -13,8 +13,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
-import { BUSINESS_CONFIG } from '@/lib/business-config';
 
 interface DocumentTemplate {
   id: string;
@@ -256,7 +254,6 @@ const SAMPLE_DATA: Record<string, string> = {
 };
 
 export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ tenantId }) => {
-  const { settings } = useBusinessSettingsManager(tenantId);
   const [templates, setTemplates] = useState<Record<string, DocumentTemplate>>({});
   const [activeTemplate, setActiveTemplate] = useState<'receipt' | 'invoice' | 'quote' | 'delivery_note'>('receipt');
   const [isLoading, setIsLoading] = useState(false);

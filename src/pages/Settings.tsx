@@ -1,8 +1,9 @@
 import { BusinessSettingsEnhanced } from '@/components/BusinessSettingsEnhanced';
-import { debugLog } from '@/utils/debug';
 
 const Settings = () => {
-  debugLog('Settings page rendering');
+  console.log('🏪 Settings page component is rendering!');
+  console.log('🏪 Current URL:', window.location.href);
+  console.log('🏪 Current timestamp:', new Date().toISOString());
   
   return (
     <div className="min-h-screen">
