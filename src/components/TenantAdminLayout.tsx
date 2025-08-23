@@ -1,8 +1,9 @@
 import { ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, LogOut, User } from 'lucide-react';
+import { Bell, Search, Plus, LogOut, User, Settings } from 'lucide-react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { Input } from '@/components/ui/input';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -15,33 +16,32 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
-import UserProfileSettings from '@/components/UserProfileSettings';
- 
+import UserProfileSettings from './UserProfileSettings';
+import { LazyImage } from '@/components/ui/image-lazy';
+import { useTenantLogo } from '@/hooks/useTenantLogo';
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
 }
-
- 
 
 export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const tenantLogo = useTenantLogo();
+  const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
   
   // Check if we're on sales page with new-sale tab active
   const isOnAddSalePage = location.pathname === '/admin/sales' && searchParams.get('tab') === 'new-sale';
   
   // Sidebar should be open by default except on add sale page
   const shouldSidebarBeOpen = !isOnAddSalePage;
-
-  
 
   return (
     <SidebarProvider defaultOpen={shouldSidebarBeOpen}>
@@ -102,27 +102,16 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
           </main>
         </div>
         
+        {/* Mobile-optimized Profile Settings Dialog */}
+        <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+          <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Profile Settings</DialogTitle>
+            </DialogHeader>
+            <UserProfileSettings />
+          </DialogContent>
+        </Dialog>
       </div>
-      {/* Profile Settings Dialog */}
-      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-        <DialogContent 
-          className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-auto"
-          aria-describedby="profile-settings-description"
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Profile Settings
-            </DialogTitle>
-            <DialogDescription id="profile-settings-description">
-              Update your profile information, avatar, and account settings.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4">
-            <UserProfileSettings key={isProfileOpen ? 'open' : 'closed'} />
-          </div>
-        </DialogContent>
-      </Dialog>
     </SidebarProvider>
   );
 }

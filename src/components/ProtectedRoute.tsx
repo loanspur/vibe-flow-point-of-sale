@@ -22,17 +22,14 @@ const ProtectedRoute = ({
 
   // Simple role mapping for basic functionality
   const mapRole = (role: string): string => {
-    const r = role?.toLowerCase();
-    switch (r) {
-      case 'superadmin':
-        return 'superadmin';
+    switch (role?.toLowerCase()) {
       case 'admin':
-      case 'administrator':
+      case 'superadmin':
       case 'tenant admin':
       case 'tenant_admin':
       case 'owner':
       case 'business owner':
-        return 'admin';
+        return 'Business Owner';
       case 'manager':
       case 'store manager':
         return 'Store Manager';
@@ -89,8 +86,7 @@ const ProtectedRoute = ({
     const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || 
                      (authLower && allowedNormalized.includes(authLower)) ||
                      authUserRole === 'superadmin' || 
-                     authUserRole?.toLowerCase() === 'admin' ||
-                     authUserRole?.toLowerCase() === 'administrator';
+                     authUserRole === 'admin';
     
     if (!roleMatch) {
       const redirectPath = isSubdomain() ? '/auth' : '/';

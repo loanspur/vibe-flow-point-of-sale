@@ -6,8 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { RefreshCw, AlertTriangle, CheckCircle, DollarSign } from 'lucide-react';
-import { handleError } from '@/utils/errorHandler';
-import { debugLog } from '@/utils/debug';
 
 interface BalanceCheckData {
   assetsTotal: number;
@@ -97,7 +95,7 @@ export default function AccountingBalanceCheck() {
       });
 
     } catch (error) {
-      handleError(error, 'AccountingBalanceCheck.fetchBalanceData');
+      console.error('Error fetching balance data:', error);
       toast({ title: "Error", description: "Failed to fetch balance data", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -115,7 +113,7 @@ export default function AccountingBalanceCheck() {
       toast({ title: "Success", description: "Account balances synchronized successfully" });
       await fetchBalanceData();
     } catch (error) {
-      handleError(error, 'AccountingBalanceCheck.syncAccountBalances');
+      console.error('Error syncing balances:', error);
       toast({ title: "Error", description: "Failed to sync account balances", variant: "destructive" });
     } finally {
       setLoading(false);
