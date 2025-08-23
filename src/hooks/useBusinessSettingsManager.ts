@@ -16,16 +16,14 @@ export const useBusinessSettingsManager = () => {
     try {
       const { data, error } = await supabase
         .from('business_settings')
-        .select('*')
+        .select('*') // Select all fields to support all components
         .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      
-      setSettings(data || getDefaultSettings());
+      if (error) throw error;
+      setSettings(data);
     } catch (error) {
-      handleError(error, 'useBusinessSettingsManager.fetchSettings');
-      setSettings(getDefaultSettings());
+      handleError(error, 'useBusinessSettingsManager');
     } finally {
       setLoading(false);
     }

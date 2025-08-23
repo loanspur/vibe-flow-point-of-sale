@@ -44,12 +44,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     try {
-      await fetchBusinessSettings();
+      await fetchSettings(); // Use fetchSettings instead of fetchBusinessSettings
       setCurrencyUpdateTrigger(prev => prev + 1);
     } finally {
       refreshingRef.current = false;
     }
-  }, [fetchBusinessSettings]);
+  }, [fetchSettings]); // Update dependency
 
   const triggerCurrencyUpdate = useCallback(() => {
     setCurrencyUpdateTrigger(prev => prev + 1);
@@ -80,8 +80,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [tenantCurrency, convertFromKES, formatLocalCurrency, formatCurrency]);
 
   useEffect(() => {
-    fetchBusinessSettings();
-  }, [fetchBusinessSettings]);
+    fetchSettings(); // Use fetchSettings instead of fetchBusinessSettings
+  }, [fetchSettings]); // Update dependency
 
   // Simplified real-time subscription - only enable if performance allows
   useEffect(() => {

@@ -36,7 +36,7 @@ import { fetchCustomersFromContacts } from '@/lib/customerUtils';
 // Remove unused imports related to old inventory system
 import { getInventoryLevels } from "@/lib/inventory-integration";
 import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
-import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, WARNING_MESSAGES } from '@/utils/errorMessages';
 import { generateReceiptNumber, calculateSaleTotal, validateSaleData, prepareSaleItemsData, updateCashDrawer } from '@/utils/saleHelpers';
 import type { SaleItem as SaleItemType, PaymentRecord } from '@/utils/saleHelpers';
@@ -128,9 +128,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   
-  const { pos: posSettings, tax: taxSettings, inventory: inventorySettings, documents: docSettings } = useBusinessSettings();
+  const { settings: businessSettings, fetchSettings } = useBusinessSettingsManager();
   
-  const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -179,37 +178,20 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       fetchCustomers();
       fetchLocations();
       checkMpesaConfig();
-      fetchBusinessSettings();
+      fetchSettings();
     } else {
       setProducts([]);
       setFilteredProducts([]);
       setCustomers([]);
       setLocations([]);
       setMpesaEnabled(false);
-      setBusinessSettings(null);
     }
-  }, [tenantId]);
+  }, [tenantId, fetchSettings]);
 
   // Remove unnecessary product refetch when location changes - products don't change by location
   // Instead, we filter products by location-specific stock in the UI
 
-  const fetchBusinessSettings = async () => {
-    if (!tenantId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('business_settings')
-        .select('tax_inclusive, default_tax_rate')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-
-      if (!error && data) {
-        setBusinessSettings(data);
-      }
-    } catch (error) {
-      console.error('Error fetching business settings:', error);
-    }
-  };
+  // Remove the local fetchBusinessSettings function - use centralized one
 
   // Stable product filtering with reduced debounce time to minimize flicker
   const filteredProductsStable = useMemo(() => {
@@ -560,7 +542,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
     
     // Check business settings for negative stock - use both inventory and product settings  
-    const allowNegativeStock = inventorySettings.enableNegativeStock || false;
+    const allowNegativeStock = businessSettings?.enableNegativeStock || false;
     console.log('Negative stock settings:', { allowNegativeStock, currentStock, quantity });
     
     if (!allowNegativeStock && currentStock < quantity) {
@@ -710,14 +692,14 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const generateReceiptNumber = () => {
-    if (docSettings.invoiceAutoNumber) {
+    if (businessSettings?.invoiceAutoNumber) {
       return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     }
     return `MANUAL-${Date.now()}`;
   };
 
   const generateQuoteNumber = () => {
-    if (docSettings.quoteAutoNumber) {
+    if (businessSettings?.quoteAutoNumber) {
       return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     }
     return `MANUAL-QUO-${Date.now()}`;
@@ -951,7 +933,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     // Validate discount against business settings
-    if (values.discount_amount > 0 && !posSettings.enableDiscounts) {
+    if (values.discount_amount > 0 && !businessSettings?.enableDiscounts) {
       toast({
         title: "Discounts Disabled",
         description: "Discounts are disabled in your business settings",
@@ -961,13 +943,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     // Validate discount percentage limit
-    if (values.discount_amount > 0 && posSettings.enableDiscounts) {
+    if (values.discount_amount > 0 && businessSettings?.enableDiscounts) {
       const subtotal = calculateSubtotal();
       const discountPercent = (values.discount_amount / subtotal) * 100;
-      if (discountPercent > posSettings.maxDiscountPercent) {
+      if (discountPercent > businessSettings?.maxDiscountPercent) {
         toast({
           title: "Discount Limit Exceeded", 
-          description: `Maximum discount allowed is ${posSettings.maxDiscountPercent}%`,
+          description: `Maximum discount allowed is ${businessSettings?.maxDiscountPercent}%`,
           variant: "destructive",
         });
         return;
@@ -1618,7 +1600,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                       <span>Subtotal</span>
                       <span className="font-bold">{formatAmount(calculateSubtotal())}</span>
                     </div>
-                     {posSettings.enableDiscounts && form.watch("discount_amount") > 0 && (
+                     {businessSettings?.enableDiscounts && form.watch("discount_amount") > 0 && (
                        <div className="flex justify-between text-red-600">
                          <span>Discount</span>
                          <span className="font-semibold">-{formatAmount(form.watch("discount_amount"))}</span>
@@ -1628,7 +1610,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
                    {/* Discount, Tax and Shipping - two columns before payment */}
                    <div className="grid grid-cols-2 gap-4 pt-2">
-                     {posSettings.enableDiscounts && (
+                     {businessSettings?.enableDiscounts && (
                        <FormField
                          control={form.control}
                          name="discount_amount"
@@ -1636,7 +1618,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                            <FormItem>
                              <FormLabel className="flex items-center gap-1 text-sm">
                                <Banknote className="h-3 w-3" />
-                               Discount (max {posSettings.maxDiscountPercent}%)
+                               Discount (max {businessSettings?.maxDiscountPercent}%)
                              </FormLabel>
                              <FormControl>
                                <Input
@@ -1722,7 +1704,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
                   <Separator />
 
-                  {/* Final Total - before payment selection */}
+                  {/* Final Total - before payment */}
                   <div className="flex justify-between text-2xl font-bold">
                     <span>Total</span>
                     <span>{formatAmount(calculateTotal())}</span>
@@ -1743,7 +1725,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                            onCashPayment={handleCashPayment}
                          />
                          
-                         {mpesaEnabled && (
+                         {businessSettings?.mpesaEnabled && (
                            <div className="mt-4">
                              <Separator />
                              <div className="pt-4">
