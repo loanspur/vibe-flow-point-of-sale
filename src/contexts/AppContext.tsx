@@ -5,6 +5,7 @@ import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
 import { tabStabilityManager } from '@/lib/tab-stability-manager';
 import { useSimpleBusinessSettings } from '@/hooks/useSimpleBusinessSettings';
+import { getWindowWidth } from '@/utils/browser-safe';
 
 interface BusinessSettings {
   currency_code: string;
@@ -97,8 +98,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!tenantId) return;
 
+    // Move window.innerWidth check inside useEffect to avoid build issues
+    const checkRealtimeEnabled = () => {
+      return process.env.NODE_ENV === 'development' || 
+             (typeof window !== 'undefined' && window.innerWidth > 768);
+    };
+
     // Skip realtime updates if performance is prioritized
-    const ENABLE_REALTIME = process.env.NODE_ENV === 'development' || window.innerWidth > 768;
+    const ENABLE_REALTIME = process.env.NODE_ENV === 'development' || getWindowWidth() > 768;
     if (!ENABLE_REALTIME) return;
 
     let timeoutRef: NodeJS.Timeout;

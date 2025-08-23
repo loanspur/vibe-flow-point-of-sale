@@ -5,6 +5,9 @@ import { useEffect } from 'react';
  */
 export function AppOptimizer() {
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') return;
+
     // Prevent aggressive scroll restoration
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
