@@ -401,11 +401,13 @@ export const useUnifiedUserManagement = () => {
   // User management actions
   const inviteUser = async (email: string, roleId: string, fullName?: string) => {
     try {
+      // Map roleId to role name for the Edge Function contract
+      const roleName = roles.find(r => r.id === roleId)?.name || 'user';
       const { error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email,
-          roleId,
           fullName,
+          role: roleName,
           tenantId,
         }
       });
