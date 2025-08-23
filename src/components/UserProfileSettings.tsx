@@ -73,6 +73,8 @@ interface LoginActivity {
 }
 
 export default function UserProfileSettings() {
+  console.log('🔄 UserProfileSettings component loaded at:', new Date().toISOString());
+  
   const { user, userRole, tenantId, signOut, refreshUserInfo } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [harmonizedRole, setHarmonizedRole] = useState<HarmonizedUserRole | null>(null);

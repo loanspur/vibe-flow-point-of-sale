@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
-import UserProfileSettings from './UserProfileSettings';
+import UserProfileSettings from '@/components/UserProfileSettings';
 import { LazyImage } from '@/components/ui/image-lazy';
 import { useTenantLogo } from '@/hooks/useTenantLogo';
 
@@ -135,7 +135,7 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
               </DialogDescription>
             </DialogHeader>
             <div className="mt-4">
-              <UserProfileSettings />
+              <UserProfileSettings key={Date.now()} />
             </div>
           </DialogContent>
         </Dialog>
