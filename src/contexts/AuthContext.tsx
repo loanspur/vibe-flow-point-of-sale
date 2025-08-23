@@ -7,7 +7,7 @@ import { tabStabilityManager } from '@/lib/tab-stability-manager';
 import { PasswordChangeModal } from '@/components/PasswordChangeModal';
 
 // User roles are now dynamically managed via user_roles table
-type UserRole = string; // Dynamic role from database
+type UserRole = 'user' | 'superadmin' | 'admin' | 'manager' | 'cashier';
 
 interface AuthContextType {
   user: User | null;
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setFetchInProgress(true);
     
     try {
-      // Get user role from profiles with optimized query
+      // Load profile for tenant context and base role (fallback)
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id, require_password_change')
@@ -74,27 +74,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      if (profile) {
-        // Check if we're setting the same data repeatedly
-        if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
-          return; // Skip update if data hasn't changed
+      let effectiveTenantId = profile?.tenant_id || domainManager.getDomainTenantId() || null;
+      // Normalize profile role to unified roles
+      const profileRoleRaw = (profile?.role || '').toString().toLowerCase();
+      let effectiveRole: UserRole = (
+        profileRoleRaw === 'administrator' ? 'admin' :
+        profileRoleRaw === 'admin' ? 'admin' :
+        profileRoleRaw === 'manager' ? 'manager' :
+        profileRoleRaw === 'cashier' ? 'cashier' :
+        'user'
+      );
+
+      // Prefer highest-level active role assignment for this tenant
+      if (effectiveTenantId) {
+        const { data: assignments } = await supabase
+          .from('user_role_assignments')
+          .select('is_active, role_id, user_roles!inner(name, level)')
+          .eq('user_id', userId)
+          .eq('tenant_id', effectiveTenantId)
+          .eq('is_active', true);
+
+        if (assignments && assignments.length > 0) {
+          const highest = [...assignments].sort((a: any, b: any) => (a.user_roles?.level ?? 999) - (b.user_roles?.level ?? 999))[0];
+          const name = (highest?.user_roles?.name || '').toString();
+          // Normalize and constrain to allowed roles
+          const normalized = ['administrator'].includes(name.toLowerCase()) ? 'admin' : name.toLowerCase();
+          const mapped = (['superadmin','admin','manager','cashier','user'].includes(normalized) ? normalized : 'user') as UserRole;
+          effectiveRole = mapped;
         }
-        
-        setUserRole(profile.role);
-        setTenantId(profile.tenant_id);
-        const passwordChangeRequired = profile.require_password_change || false;
-        setRequirePasswordChange(passwordChangeRequired);
-        
-        // Show password change modal if required
-        if (passwordChangeRequired && !showPasswordChangeModal) {
-          setShowPasswordChangeModal(true);
-        }
-      } else {
-        // Fallback if no profile found
-        setUserRole('user');
-        const domainTenantId = domainManager.getDomainTenantId();
-        setTenantId(domainTenantId || null);
-        setRequirePasswordChange(false);
+      }
+
+      // Skip update if no change
+      const passwordChangeRequired = profile?.require_password_change || false;
+      if (userRole === effectiveRole && tenantId === effectiveTenantId && requirePasswordChange === passwordChangeRequired) {
+        return;
+      }
+
+      // Limit to known roles for type safety
+      type AllowedRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
+      const normalizedRole = (effectiveRole || 'user').toLowerCase();
+      const safeRole = (['superadmin','admin','manager','cashier','user'].includes(normalizedRole) 
+        ? normalizedRole 
+        : 'user') as AllowedRole;
+      setUserRole(safeRole);
+      setTenantId(effectiveTenantId);
+      setRequirePasswordChange(passwordChangeRequired);
+
+      // Show password change modal if required
+      if (passwordChangeRequired && !showPasswordChangeModal) {
+        setShowPasswordChangeModal(true);
       }
     } catch (error) {
       // Set default values on error

@@ -1267,55 +1267,41 @@ export default function UserProfileSettings() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loginActivity.length > 0 ? (
-                <div className="space-y-3">
-                  {loginActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                      <div className="flex-shrink-0 mt-1">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                          {activity.action_type === 'login' ? 'Login successful' : 
-                           activity.action_type === 'logout' ? 'Logout' :
-                           activity.action_type === 'session_start' ? 'Session started' :
-                           activity.action_type === 'session_end' ? 'Session ended' :
-                           'Activity recorded'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(activity.created_at).toLocaleString()}
-                        </p>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                          {activity.ip_address && activity.ip_address !== 'Unknown' && (
-                            <span className="flex items-center gap-1">
-                              <Globe className="h-3 w-3" />
-                              {activity.ip_address}
-                            </span>
-                          )}
-                          {activity.location && activity.location !== 'Unknown Location' && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {activity.location}
-                            </span>
-                          )}
-                          {activity.device && activity.device !== 'Unknown Device' && (
-                            <span className="flex items-center gap-1">
-                              <Monitor className="h-3 w-3" />
-                              {activity.device}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+              {loginActivity.length === 0 ? (
                 <div className="text-center py-8">
                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No login activity recorded</p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Activity will appear here once you log in and out
-                  </p>
+                </div>
+              ) : (
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-muted-foreground">
+                        <th className="py-2 pr-4">Action</th>
+                        <th className="py-2 pr-4">Date & Time</th>
+                        <th className="py-2 pr-4">IP</th>
+                        <th className="py-2 pr-4">Location</th>
+                        <th className="py-2 pr-4">Device</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loginActivity.map((activity) => (
+                        <tr key={activity.id} className="border-t">
+                          <td className="py-2 pr-4">
+                            {activity.action_type === 'login' ? 'Login' : 
+                             activity.action_type === 'logout' ? 'Logout' :
+                             activity.action_type === 'session_start' ? 'Session start' :
+                             activity.action_type === 'session_end' ? 'Session end' :
+                             'Activity'}
+                          </td>
+                          <td className="py-2 pr-4">{new Date(activity.created_at).toLocaleString()}</td>
+                          <td className="py-2 pr-4">{activity.ip_address || '—'}</td>
+                          <td className="py-2 pr-4">{activity.location || '—'}</td>
+                          <td className="py-2 pr-4">{activity.device || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>
