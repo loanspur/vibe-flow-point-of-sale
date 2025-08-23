@@ -161,17 +161,15 @@ if (process.env.NODE_ENV !== 'development') {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 120000, // 2 minutes
-      gcTime: 300000, // 5 minutes
-      retry: 1,
-      refetchOnWindowFocus: false, // Disabled to prevent performance issues
-      refetchOnMount: false, // Disabled to prevent unnecessary refetches
-      refetchOnReconnect: false, // Disabled to prevent network spam
-      // Custom refetch condition that respects tab stability
-      queryFn: undefined, // Will be set per query
+      staleTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 30 * 60 * 1000, // 30 minutes
+      retry: 0, // No retries
+      refetchOnWindowFocus: false, // Disable window focus refetch
+      refetchOnMount: false, // Disable mount refetch
+      refetchOnReconnect: false, // Disable reconnect refetch
     },
     mutations: {
-      retry: 1, // Limit mutation retries
+      retry: 0, // No retries
     },
   },
 });

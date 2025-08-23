@@ -177,60 +177,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     
-    // Initialize tab stability manager
-    tabStabilityManager.initialize();
-    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         
         if (!mounted) return;
         
-        // Minimal tab stability check - only prevent during actual browser tab switching
-        if (tabStabilityManager.isCurrentlyTabSwitching() && event === 'TOKEN_REFRESHED') {
-          return; // Only prevent token refresh events during tab switching
-        }
-        
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // User state updated
         
         if (session?.user) {
           // Check all conditions to prevent duplicate calls
           const needsProfileFetch = profileFetched !== session.user.id && !fetchInProgress;
           
           if (needsProfileFetch) {
-            // Fetching user profile
             setProfileFetched(session.user.id);
             setLoading(true);
             
-            // Use setTimeout to prevent deadlock
-            setTimeout(() => {
-              if (mounted) {
-                fetchUserInfo(session.user.id, 'auth-state-change')
-                  .finally(() => {
-                    if (mounted) setLoading(false);
-                  });
-                
-                // Log login activity and mark invitation as accepted
-                if (event === 'SIGNED_IN') {
-                  logUserActivity('login', session.user.id);
-                  markInvitationAccepted(session.user);
-                }
-              }
-            }, 0);
+            fetchUserInfo(session.user.id, 'auth-state-change')
+              .finally(() => {
+                if (mounted) setLoading(false);
+              });
+            
+            // Log login activity and mark invitation as accepted
+            if (event === 'SIGNED_IN') {
+              logUserActivity('login', session.user.id);
+              markInvitationAccepted(session.user);
+            }
           } else {
-            // Profile already fetched
             setLoading(false);
             
-            // Still mark invitation as accepted on signin
             if (event === 'SIGNED_IN') {
               markInvitationAccepted(session.user);
             }
           }
         } else {
-          // User signed out - reset everything including profile fetch tracking
           if (event === 'SIGNED_OUT' && user) {
             logUserActivity('logout', user.id);
           }
@@ -238,7 +219,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUserRole(null);
           setTenantId(null);
           setProfileFetched(null);
-          setFetchInProgress(false); // Reset fetch state
+          setFetchInProgress(false);
           setLoading(false);
         }
       }
