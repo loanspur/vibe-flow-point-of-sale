@@ -129,7 +129,7 @@ export const useUnifiedUserManagement = () => {
         return;
       }
 
-      // Fallback method
+      // Fallback method A: tenant_users table
       const { data: tenantUsers, error: tuError } = await supabase
         .from('tenant_users')
         .select(`
@@ -220,6 +220,36 @@ export const useUnifiedUserManagement = () => {
       });
 
       setUsers(combined);
+      if ((tenantUsers || []).length > 0) return;
+
+      // Fallback method B: profiles-only (covers cases where tenant_users is not populated)
+      const { data: tenantProfiles, error: profErr } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, avatar_url, created_at, role')
+        .eq('tenant_id', tenantId);
+
+      if (profErr) throw profErr;
+
+      // Map emails via helper RPC if available
+      const { data: emailMapData } = await supabase.rpc('get_tenant_user_emails', { tenant_id: tenantId });
+      const emailMap = new Map((emailMapData || []).map((e: any) => [e.user_id, e.email]));
+
+      const profilesCombined: UnifiedUser[] = (tenantProfiles || []).map(p => ({
+        id: p.user_id,
+        user_id: p.user_id,
+        full_name: p.full_name || emailMap.get(p.user_id) || 'Unknown User',
+        email: emailMap.get(p.user_id),
+        role: p.role || 'user',
+        roles: [p.role || 'user'],
+        tenant_id: tenantId!,
+        created_at: p.created_at,
+        status: 'active',
+        invitation_status: 'accepted'
+      }));
+
+      if (profilesCombined.length > 0) {
+        setUsers(profilesCombined);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -691,18 +721,27 @@ export const useUnifiedUserManagement = () => {
   };
 
   // Permission checking
+  const normalizeRole = (role?: string) => {
+    if (!role) return role;
+    const map: Record<string, string> = {
+      'Administrator': 'admin',
+      'Business Owner': 'admin'
+    };
+    return map[role] || role;
+  };
+
   const hasPermission = useCallback((resource: string, action: string): boolean => {
     if (!user || !tenantId) return false;
     
     // Super admins have all permissions
-    if (userRole === 'superadmin') return true;
+    if (normalizeRole(userRole) === 'superadmin') return true;
     
     // Find user's roles and check permissions
     const currentUser = users.find(u => u.user_id === user.id);
     if (!currentUser) return false;
 
     const userRoles = roles.filter(role => 
-      currentUser.roles.includes(role.name)
+      currentUser.roles.map(normalizeRole).includes(normalizeRole(role.name))
     );
 
     return userRoles.some(role => 
@@ -719,13 +758,13 @@ export const useUnifiedUserManagement = () => {
     }
     
     // Superadmin has access to everything
-    if (userRole === 'superadmin') {
+    if (normalizeRole(userRole) === 'superadmin') {
       console.log('hasRoleAccess: User is superadmin');
       return true;
     }
     
     // Tenant admin has access to everything within their tenant
-    if (userRole === 'admin') {
+    if (['admin'].includes(normalizeRole(userRole))) {
       console.log('hasRoleAccess: User is tenant admin');
       return true;
     }
@@ -743,7 +782,7 @@ export const useUnifiedUserManagement = () => {
     
     if (currentUser) {
       const hasAccess = requiredRoles.some(role => 
-        currentUser.roles.includes(role) || currentUser.role === role
+        currentUser.roles.map(normalizeRole).includes(normalizeRole(role)) || normalizeRole(currentUser.role) === normalizeRole(role)
       );
       console.log('hasRoleAccess: Access result from user list', { hasAccess, requiredRoles });
       return hasAccess;
@@ -751,7 +790,7 @@ export const useUnifiedUserManagement = () => {
     
     // Fallback to AuthContext userRole (simple role system)
     console.log('hasRoleAccess: Using fallback to AuthContext userRole', { userRole, requiredRoles });
-    const fallbackAccess = userRole ? requiredRoles.includes(userRole) : false;
+    const fallbackAccess = userRole ? requiredRoles.map(normalizeRole).includes(normalizeRole(userRole)) : false;
     console.log('hasRoleAccess: Fallback access result', { fallbackAccess, userRole, requiredRoles });
     return fallbackAccess;
   }, [user, tenantId, userRole, users]);
