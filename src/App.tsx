@@ -22,6 +22,7 @@ import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TabStabilityProvider } from "./components/TabStabilityProvider";
+import { PaymentMethodsProvider } from '@/contexts/PaymentMethodsContext';
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -804,18 +805,20 @@ const App = () => {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
              <AppProvider>
-               <TooltipProvider>
-                 <>
-                   <Toaster />
-                   <Sonner />
-                   <PerformanceMonitor />
-                   <AppOptimizer />
-                   <CookieConsent />
-                   <BrowserRouter>
-                     <DomainRouter />
-                   </BrowserRouter>
-                 </>
-               </TooltipProvider>
+               <PaymentMethodsProvider>
+                 <TooltipProvider>
+                   <>
+                     <Toaster />
+                     <Sonner />
+                     <PerformanceMonitor />
+                     <AppOptimizer />
+                     <CookieConsent />
+                     <BrowserRouter>
+                       <DomainRouter />
+                     </BrowserRouter>
+                   </>
+                 </TooltipProvider>
+               </PaymentMethodsProvider>
              </AppProvider>
           </AuthProvider>
         </QueryClientProvider>

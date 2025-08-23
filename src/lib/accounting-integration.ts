@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { processSaleInventory } from './inventory-integration';
 import { initializeDefaultChartOfAccounts } from './default-accounts';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 
 // Enhanced payment method interface for accounting integration
 interface PaymentMethodAccount {
@@ -200,33 +201,30 @@ export const createJournalEntry = async (
 // Get payment method asset account mapping
 export const getPaymentMethodAccount = async (
   tenantId: string, 
-  paymentMethodType: string
+  paymentMethodId: string
 ): Promise<string> => {
   try {
-    // Since the existing payment_methods table doesn't have account_id,
-    // we'll use the default account mapping based on payment type
-    const accounts = await getDefaultAccounts(tenantId);
-    
-    switch (paymentMethodType) {
-      case 'cash':
-        if (!accounts.cash) throw new Error('Cash account not found');
-        return accounts.cash;
-        
-      case 'card':
-      case 'digital':
-      case 'bank_transfer':
-        // Try to find a bank/card account, fallback to cash
-        return accounts.bank || accounts.cash;
-        
-      case 'credit':
-        if (!accounts.accounts_receivable) throw new Error('Accounts Receivable account not found');
-        return accounts.accounts_receivable;
-        
-      default:
-        // Default to cash account for unknown payment types
-        if (!accounts.cash) throw new Error('Cash account not found');
-        return accounts.cash;
+    // Get the specific payment method with account information
+    const { data: paymentMethod, error } = await supabase
+      .from('payment_methods')
+      .select(`
+        *,
+        accounts!inner(id, name, code)
+      `)
+      .eq('id', paymentMethodId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (error || !paymentMethod) {
+      throw new Error('Payment method not found');
     }
+
+    if (!paymentMethod.account_id) {
+      // Fallback to default account mapping
+      return await getDefaultPaymentMethodAccount(tenantId, paymentMethod.type);
+    }
+
+    return paymentMethod.account_id;
   } catch (error) {
     console.error('Error getting payment method account:', error);
     throw error;

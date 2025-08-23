@@ -17,6 +17,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAccountingRealtime } from '@/hooks/useAccountingRealtime';
+import { debugLog } from '@/utils/debug';
 
 interface AccountingMetrics {
   totalAssets: number;
@@ -115,52 +117,10 @@ export default function AccountingDashboard() {
   );
 
   // Set up real-time subscriptions for accounting tables
-  useEffect(() => {
-    if (!tenantId) return;
-
-    const channel = supabase
-      .channel('accounting-realtime-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_transactions',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          refetchMetrics();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_entries'
-        },
-        () => {
-          refetchMetrics();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounts',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          refetchMetrics();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId, refetchMetrics]);
+  useAccountingRealtime(() => {
+    debugLog('Accounting data updated, refreshing dashboard metrics...');
+    refetchMetrics();
+  });
 
 
   const formatPercentage = (value: number, total: number) => {
