@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { 
   Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, 
   Clock, AlertTriangle, Ban, CheckCircle, XCircle, Mail,
-  UserPlus, Crown, Key
+  UserPlus, Crown, Key, RefreshCw
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -274,6 +274,19 @@ const UnifiedUserManagement = () => {
     return acc;
   }, {} as Record<string, typeof permissions>);
 
+  // Add this function to force refresh roles
+  const forceRefreshRoles = async () => {
+    try {
+      // Clear any cached data
+      await fetchAllData(); // Assuming fetchAllData is the correct way to refresh all data
+      
+      // Force a page refresh to clear all caches
+      window.location.reload();
+    } catch (error) {
+      console.error('Error refreshing roles:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -360,6 +373,12 @@ const UnifiedUserManagement = () => {
                 </div>
               </DialogContent>
             </Dialog>
+          )}
+          {hasRoleAccess(['admin', 'manager']) && (
+            <Button onClick={forceRefreshRoles} variant="outline">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Roles
+            </Button>
           )}
         </div>
       </div>
