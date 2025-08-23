@@ -232,13 +232,13 @@ export const useUnifiedUserManagement = () => {
 
       // Map emails via helper RPC if available
       const { data: emailMapData } = await supabase.rpc('get_tenant_user_emails', { tenant_id: tenantId });
-      const emailMap = new Map((emailMapData || []).map((e: any) => [e.user_id, e.email]));
+      const fallbackEmailMap = new Map((emailMapData || []).map((e: any) => [e.user_id, e.email]));
 
       const profilesCombined: UnifiedUser[] = (tenantProfiles || []).map(p => ({
         id: p.user_id,
         user_id: p.user_id,
-        full_name: p.full_name || emailMap.get(p.user_id) || 'Unknown User',
-        email: emailMap.get(p.user_id),
+        full_name: p.full_name || fallbackEmailMap.get(p.user_id) || 'Unknown User',
+        email: fallbackEmailMap.get(p.user_id),
         role: p.role || 'user',
         roles: [p.role || 'user'],
         tenant_id: tenantId!,
