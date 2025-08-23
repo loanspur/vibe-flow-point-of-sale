@@ -55,7 +55,7 @@ interface ContactStatementProps {
 
 const ContactStatement: React.FC<ContactStatementProps> = ({ contact, isOpen, onClose }) => {
   const { tenantId } = useAuth();
-  const { settings: businessSettings, fetchSettings } = useBusinessSettingsManager();
+  const { settings: businessSettings, fetchSettings } = useBusinessSettingsManager(tenantId);
   const printRef = useRef<HTMLDivElement>(null);
   
   const [loading, setLoading] = useState(false);

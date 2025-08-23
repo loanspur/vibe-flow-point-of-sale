@@ -4,6 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BUSINESS_CONFIG } from '@/lib/business-config';
 
 export function useTenantLogo() {
-  const { settings } = useBusinessSettingsManager();
+  const { user } = useAuth();
+  const profile = user?.user_metadata;
+  const tenantId = profile?.tenant_id;
+  const { settings } = useBusinessSettingsManager(tenantId);
+
   return settings?.company_logo_url || null;
 }

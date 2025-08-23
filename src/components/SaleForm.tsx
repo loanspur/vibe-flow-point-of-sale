@@ -128,7 +128,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const { toast } = useToast();
   const { formatAmount } = useCurrencyUpdate();
   
-  const { settings: businessSettings, fetchSettings } = useBusinessSettingsManager();
+  const { settings: businessSettings, fetchSettings } = useBusinessSettingsManager(tenantId);
   
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);

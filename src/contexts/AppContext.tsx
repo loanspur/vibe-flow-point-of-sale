@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
 import { tabStabilityManager } from '@/lib/tab-stability-manager';
-import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
 import { useSimpleBusinessSettings } from '@/hooks/useSimpleBusinessSettings';
 
 interface BusinessSettings {

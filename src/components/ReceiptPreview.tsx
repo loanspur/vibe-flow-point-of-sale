@@ -105,7 +105,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   const receiptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { formatAmount } = useCurrencySettings();
-  const { settings } = useBusinessSettingsManager();
+  const { settings } = useBusinessSettingsManager(tenantId);
 
   const document = sale || quote;
 

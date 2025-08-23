@@ -256,13 +256,13 @@ const SAMPLE_DATA: Record<string, string> = {
 };
 
 export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ tenantId }) => {
+  const { settings } = useBusinessSettingsManager(tenantId);
   const [templates, setTemplates] = useState<Record<string, DocumentTemplate>>({});
   const [activeTemplate, setActiveTemplate] = useState<'receipt' | 'invoice' | 'quote' | 'delivery_note'>('receipt');
   const [isLoading, setIsLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSideBySide, setShowSideBySide] = useState(true);
   const { toast } = useToast();
-  const { settings } = useBusinessSettingsManager();
 
   useEffect(() => {
     loadTemplates();

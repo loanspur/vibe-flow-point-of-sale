@@ -81,6 +81,7 @@ import { MpesaIntegration } from '@/components/MpesaIntegration';
 import { handleError, handleSuccess } from '@/utils/errorHandler';
 import { debugLog } from '@/utils/debug';
 import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
+import { useAuth } from '@/contexts/AuthContext';
 
 const businessSettingsSchema = z.object({
   // Basic company information
@@ -228,7 +229,10 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
-  const { settings, loading, updateSettings } = useBusinessSettingsManager();
+  const { user } = useAuth();
+  const profile = user?.user_metadata;
+  const tenantId = profile?.tenant_id;
+  const { settings, loading, updateSettings } = useBusinessSettingsManager(tenantId);
   
   // Get initial tab from URL or default to "company"
   const getInitialTab = () => {
