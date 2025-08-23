@@ -78,6 +78,8 @@ import DomainManagement from '@/components/DomainManagement';
 import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { PaymentManagement } from '@/components/PaymentManagement';
 import { MpesaIntegration } from '@/components/MpesaIntegration';
+import { handleError, handleSuccess } from '@/utils/errorHandler';
+import { debugLog } from '@/utils/debug';
 
 const businessSettingsSchema = z.object({
   // Basic company information
@@ -711,6 +713,8 @@ export function BusinessSettingsEnhanced() {
   const onSubmit = async (values: z.infer<typeof businessSettingsSchema>) => {
     setIsSaving(true);
     try {
+      debugLog('Updating business settings:', values);
+      
       // Get the current user's tenant ID
       const { data: user } = await supabase.auth.getUser();
       
@@ -732,93 +736,33 @@ export function BusinessSettingsEnhanced() {
         throw new Error('No tenant associated with user');
       }
 
-      // Check if user has permission to modify settings
+      // Check permissions
       if (profile.role !== 'superadmin' && profile.role !== 'admin') {
-        // Attempt membership repair to grant admin if needed
-        try {
-          if (user.user.email) {
-            await supabase.rpc('reactivate_tenant_membership', {
-              tenant_id_param: profile.tenant_id,
-              target_email_param: user.user.email,
-            });
-            // Re-fetch profile role after repair
-            const { data: repairedProfile } = await supabase
-              .from('profiles')
-              .select('tenant_id, role')
-              .eq('user_id', user.user.id)
-              .single();
-            if (repairedProfile?.role === 'admin' || repairedProfile?.role === 'superadmin') {
-              // proceed
-            } else {
-              throw new Error('Insufficient permissions to modify business settings');
-            }
-          } else {
-            throw new Error('Insufficient permissions to modify business settings');
-          }
-        } catch (e) {
-          throw new Error('Insufficient permissions to modify business settings');
-        }
+        throw new Error('Insufficient permissions to modify business settings');
       }
 
-      // Prepare the data for update/insert
-      const normalizedValues = {
-        ...values,
-        // If a specific receipt logo isn't set, fall back to the company logo
-        receipt_logo_url: values.receipt_logo_url || values.company_logo_url || values.receipt_logo_url,
-      };
-      const settingsData = {
-        ...normalizedValues,
-        tenant_id: profile.tenant_id
-      };
-
-      // Check if settings already exist
-      const { data: existingSettings } = await supabase
+      // Update business settings
+      const { error: updateError } = await supabase
         .from('business_settings')
-        .select('id')
-        .eq('tenant_id', profile.tenant_id)
-        .single();
+        .upsert({
+          tenant_id: profile.tenant_id,
+          ...values,
+          updated_at: new Date().toISOString()
+        });
 
-      let result;
-      if (existingSettings) {
-        // Update existing settings
-        result = await supabase
-          .from('business_settings')
-          .update(settingsData)
-          .eq('tenant_id', profile.tenant_id)
-          .select();
-      } else {
-        // Insert new settings
-        result = await supabase
-          .from('business_settings')
-          .insert([settingsData])
-          .select();
+      if (updateError) {
+        throw updateError;
       }
 
-      if (result.error) {
-        throw result.error;
-      }
-
-      setSettings(result.data[0]);
-
-      // Clear currency cache to refresh with new settings
-      clearCurrencyCache();
+      handleSuccess('Business settings updated successfully');
       
-      // Trigger app-wide currency update
+      // Refresh settings in context
       if (refreshBusinessSettings) {
         await refreshBusinessSettings();
       }
 
-      toast({
-        title: "Settings saved",
-        description: "Your business settings have been updated successfully.",
-      });
-    } catch (error: any) {
-      console.error('Error saving settings:', error);
-      toast({
-        title: "Error saving settings",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
-      });
+    } catch (error) {
+      handleError(error, 'BusinessSettingsEnhanced');
     } finally {
       setIsSaving(false);
     }
