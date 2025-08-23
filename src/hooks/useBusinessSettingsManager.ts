@@ -4,6 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 // Enhanced logging for debugging
 const DEBUG_PREFIX = '[useBusinessSettingsManager]';
 
+// Add this function to detect if the hook is being called without proper import
+const detectHookUsage = () => {
+  const stack = new Error().stack || '';
+  const callerInfo = stack.split('\n')[2] || 'unknown';
+  
+  console.log(`${DEBUG_PREFIX} Hook called from:`, {
+    caller: callerInfo.trim(),
+    timestamp: new Date().toISOString(),
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'server'
+  });
+};
+
 const simpleErrorHandler = (error: any, context: string) => {
   console.error(`${DEBUG_PREFIX} Error in ${context}:`, error);
   console.error(`${DEBUG_PREFIX} Stack trace:`, new Error().stack);
@@ -36,6 +48,9 @@ interface BusinessSettings {
 }
 
 export const useBusinessSettingsManager = (tenantId?: string | null) => {
+  // Detect hook usage
+  detectHookUsage();
+  
   // Log hook initialization
   logHookInitialization(tenantId);
   
