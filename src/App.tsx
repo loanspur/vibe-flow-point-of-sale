@@ -86,77 +86,93 @@ const PageLoader = () => (
   </div>
 );
 
-// Comprehensive error suppression for external errors and warnings
-window.addEventListener('error', (event) => {
-  const message = event.message?.toLowerCase() || '';
-  const filename = event.filename?.toLowerCase() || '';
-  
-  if (message.includes('firebase') || 
-      message.includes('firestore') || 
-      message.includes('googleapis') ||
-      message.includes('unrecognized feature') ||
-      message.includes('iframe') ||
-      message.includes('sandbox') ||
-      message.includes('message channel closed') ||
-      message.includes('listener indicated an asynchronous response') ||
-      filename.includes('firebase') ||
-      filename.includes('firestore') ||
-      message.includes('webchannelconnection') ||
-      message.includes('quic_protocol_error')) {
-    event.preventDefault();
-    event.stopPropagation();
-    return false;
-  }
-});
+// Move error suppression to a component
+const ErrorSuppression = () => {
+  useEffect(() => {
+    // Comprehensive error suppression for external errors and warnings
+    const errorHandler = (event: ErrorEvent) => {
+      const message = event.message?.toLowerCase() || '';
+      const filename = event.filename?.toLowerCase() || '';
+      
+      if (message.includes('firebase') || 
+          message.includes('firestore') || 
+          message.includes('googleapis') ||
+          message.includes('unrecognized feature') ||
+          message.includes('iframe') ||
+          message.includes('sandbox') ||
+          message.includes('message channel closed') ||
+          message.includes('listener indicated an asynchronous response') ||
+          filename.includes('firebase') ||
+          filename.includes('firestore') ||
+          message.includes('webchannelconnection') ||
+          message.includes('quic_protocol_error')) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+    };
 
-window.addEventListener('unhandledrejection', (event) => {
-  const reason = event.reason?.message?.toLowerCase() || 
-                event.reason?.toString?.()?.toLowerCase() || '';
-  
-  if (reason.includes('firebase') || 
-      reason.includes('firestore') || 
-      reason.includes('googleapis') ||
-      reason.includes('webchannelconnection') ||
-      reason.includes('message channel closed') ||
-      reason.includes('listener indicated an asynchronous response') ||
-      reason.includes('quic_protocol_error')) {
-    event.preventDefault();
-    return false;
-  }
-});
+    const rejectionHandler = (event: PromiseRejectionEvent) => {
+      const reason = event.reason?.message?.toLowerCase() || 
+                    event.reason?.toString?.()?.toLowerCase() || '';
+      
+      if (reason.includes('firebase') || 
+          reason.includes('firestore') || 
+          reason.includes('googleapis') ||
+          reason.includes('webchannelconnection') ||
+          reason.includes('message channel closed') ||
+          reason.includes('listener indicated an asynchronous response') ||
+          reason.includes('quic_protocol_error')) {
+        event.preventDefault();
+        return false;
+      }
+    };
 
-// Suppress Firebase and other noisy logs in production
-if (process.env.NODE_ENV !== 'development') {
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  
-  console.error = function(...args) {
-    const message = args.join(' ').toLowerCase();
-    if (message.includes('firebase') || 
-        message.includes('firestore') || 
-        message.includes('googleapis') ||
-        message.includes('webchannelconnection') ||
-        message.includes('unrecognized feature') ||
-        message.includes('iframe') ||
-        message.includes('message channel closed') ||
-        message.includes('sandbox')) {
-      return;
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', rejectionHandler);
+
+    // Suppress Firebase and other noisy logs in production
+    if (process.env.NODE_ENV !== 'development') {
+      const originalError = console.error;
+      const originalWarn = console.warn;
+      
+      console.error = function(...args) {
+        const message = args.join(' ').toLowerCase();
+        if (message.includes('firebase') || 
+            message.includes('firestore') || 
+            message.includes('googleapis') ||
+            message.includes('webchannelconnection') ||
+            message.includes('unrecognized feature') ||
+            message.includes('iframe') ||
+            message.includes('message channel closed') ||
+            message.includes('sandbox')) {
+          return;
+        }
+        originalError.apply(console, args);
+      };
+
+      console.warn = function(...args) {
+        const message = args.join(' ').toLowerCase();
+        if (message.includes('firebase') || 
+            message.includes('firestore') || 
+            message.includes('googleapis') ||
+            message.includes('multiple gotrueclient') ||
+            message.includes('sandbox')) {
+          return;
+        }
+        originalWarn.apply(console, args);
+      };
     }
-    originalError.apply(console, args);
-  };
 
-  console.warn = function(...args) {
-    const message = args.join(' ').toLowerCase();
-    if (message.includes('firebase') || 
-        message.includes('firestore') || 
-        message.includes('googleapis') ||
-        message.includes('multiple gotrueclient') ||
-        message.includes('sandbox')) {
-      return;
-    }
-    originalWarn.apply(console, args);
-  };
-}
+    // Cleanup function
+    return () => {
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', rejectionHandler);
+    };
+  }, []);
+
+  return null;
+};
 
 // Optimized query client configuration for better performance with tab stability
 const queryClient = new QueryClient({
@@ -808,6 +824,7 @@ function App() {
               <TabStabilityProvider>
                 <TooltipProvider>
                   <BrowserRouter>
+                    <ErrorSuppression /> {/* Add this component */}
                     <Routes>
                       {/* ... your routes ... */}
                     </Routes>
