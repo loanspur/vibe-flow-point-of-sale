@@ -23,6 +23,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TabStabilityProvider } from "./components/TabStabilityProvider";
 import { PaymentMethodsProvider } from '@/contexts/PaymentMethodsContext';
+import { setupGlobalErrorHandler } from '@/utils/globalErrorHandler';
+
+// Initialize global error handler
+setupGlobalErrorHandler();
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";

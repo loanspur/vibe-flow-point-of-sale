@@ -1,6 +1,29 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Enhanced logging for debugging
+const DEBUG_PREFIX = '[useBusinessSettingsManager]';
+
+const simpleErrorHandler = (error: any, context: string) => {
+  console.error(`${DEBUG_PREFIX} Error in ${context}:`, error);
+  console.error(`${DEBUG_PREFIX} Stack trace:`, new Error().stack);
+};
+
+const simpleDebugLog = (message: string, data?: any) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`${DEBUG_PREFIX} ${message}`, data);
+  }
+};
+
+// Add hook initialization logging
+const logHookInitialization = (tenantId?: string | null) => {
+  simpleDebugLog('Hook initialized', { 
+    tenantId, 
+    timestamp: new Date().toISOString(),
+    stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+  });
+};
+
 // Simple interface without complex dependencies
 interface BusinessSettings {
   currency_code: string;
@@ -12,30 +35,25 @@ interface BusinessSettings {
   [key: string]: any;
 }
 
-// Simple error handler without external dependencies
-const simpleErrorHandler = (error: any, context: string) => {
-  console.error(`Error in ${context}:`, error);
-};
-
-// Simple debug logger without external dependencies
-const simpleDebugLog = (message: string, data?: any) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(message, data);
-  }
-};
-
 export const useBusinessSettingsManager = (tenantId?: string | null) => {
+  // Log hook initialization
+  logHookInitialization(tenantId);
+  
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
+    simpleDebugLog('fetchSettings called', { tenantId });
+    
     if (!tenantId) {
+      simpleDebugLog('No tenantId provided, skipping fetch');
       setLoading(false);
       return;
     }
     
     setLoading(true);
     try {
+      simpleDebugLog('Fetching settings from database', { tenantId });
       const { data, error } = await supabase
         .from('business_settings')
         .select('*')
@@ -43,10 +61,11 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
         .single();
 
       if (error) throw error;
+      simpleDebugLog('Settings fetched successfully', { data });
       setSettings(data);
     } catch (error) {
-      simpleErrorHandler(error, 'useBusinessSettingsManager');
-      // Set default settings on error
+      simpleErrorHandler(error, 'useBusinessSettingsManager.fetchSettings');
+      simpleDebugLog('Setting default settings due to error');
       setSettings(getDefaultSettings());
     } finally {
       setLoading(false);
@@ -54,7 +73,12 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
   }, [tenantId]);
 
   const updateSettings = useCallback(async (updates: Partial<BusinessSettings>) => {
-    if (!tenantId) return;
+    simpleDebugLog('updateSettings called', { tenantId, updates });
+    
+    if (!tenantId) {
+      simpleDebugLog('No tenantId provided, skipping update');
+      return;
+    }
     
     try {
       const { data, error } = await supabase
@@ -64,6 +88,7 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
         .single();
 
       if (error) throw error;
+      simpleDebugLog('Settings updated successfully', { data });
       setSettings(data);
       return data;
     } catch (error) {
@@ -74,7 +99,12 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
 
   // Centralized real-time subscription
   useEffect(() => {
-    if (!tenantId) return;
+    simpleDebugLog('Setting up real-time subscription', { tenantId });
+    
+    if (!tenantId) {
+      simpleDebugLog('No tenantId, skipping real-time subscription');
+      return;
+    }
 
     const channel = supabase
       .channel('business-settings-centralized')
@@ -87,7 +117,7 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
           filter: `tenant_id=eq.${tenantId}`
         },
         (payload) => {
-          simpleDebugLog('Business settings updated, refreshing...');
+          simpleDebugLog('Real-time update received', payload);
           if (payload.new) {
             setSettings(payload.new);
           }
@@ -95,22 +125,34 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
       )
       .subscribe();
 
+    simpleDebugLog('Real-time subscription established');
+
     return () => {
+      simpleDebugLog('Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
   }, [tenantId]);
 
   // Initial fetch
   useEffect(() => {
+    simpleDebugLog('Initial fetch effect triggered');
     fetchSettings();
   }, [fetchSettings]);
 
-  return { 
+  const result = { 
     settings, 
     loading, 
     fetchSettings, 
     updateSettings 
   };
+  
+  simpleDebugLog('Hook returning result', { 
+    hasSettings: !!settings, 
+    loading, 
+    tenantId 
+  });
+  
+  return result;
 };
 
 // Centralized default settings
