@@ -89,6 +89,9 @@ const PageLoader = () => (
 // Move error suppression to a component
 const ErrorSuppression = () => {
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') return;
+
     // Comprehensive error suppression for external errors and warnings
     const errorHandler = (event: ErrorEvent) => {
       const message = event.message?.toLowerCase() || '';
@@ -824,7 +827,7 @@ function App() {
               <TabStabilityProvider>
                 <TooltipProvider>
                   <BrowserRouter>
-                    <ErrorSuppression /> {/* Add this component */}
+                    <ErrorSuppression />
                     <Routes>
                       {/* ... your routes ... */}
                     </Routes>

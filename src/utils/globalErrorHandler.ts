@@ -28,14 +28,22 @@ export const setupGlobalErrorHandler = () => {
     }
   };
 
-  window.addEventListener('error', errorHandler);
-  window.addEventListener('unhandledrejection', rejectionHandler);
+  try {
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', rejectionHandler);
+  } catch (error) {
+    console.warn('Failed to set up global error handler:', error);
+  }
 
   // Return cleanup function
   return () => {
-    window.removeEventListener('error', errorHandler);
-    window.removeEventListener('unhandledrejection', rejectionHandler);
-    delete (window as any).__globalErrorHandlerSet;
+    try {
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', rejectionHandler);
+      delete (window as any).__globalErrorHandlerSet;
+    } catch (error) {
+      console.warn('Failed to clean up global error handler:', error);
+    }
   };
 };
 
