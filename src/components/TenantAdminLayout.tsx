@@ -36,9 +36,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { supabase } from '@/lib/supabaseClient';
-import { getLocationFromIP } from '@/lib/ipGeolocation';
-import { getDeviceFromUserAgent } from '@/lib/deviceDetection';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
@@ -86,6 +84,23 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   useEffect(() => {
     console.log('Profile dialog state:', isProfileOpen);
   }, [isProfileOpen]);
+
+  // Helper functions for activity enhancement (moved from UserProfileSettings)
+  const getLocationFromIP = (ip: string): string => {
+    if (ip.includes('192.168')) return 'Nairobi, Kenya';
+    if (ip.includes('10.0')) return 'Local Network';
+    if (ip.includes('127.0.0.1')) return 'Local Development';
+    return 'Unknown Location';
+  };
+
+  const getDeviceFromUserAgent = (userAgent: string): string => {
+    if (userAgent.includes('iPhone')) return 'iPhone';
+    if (userAgent.includes('Android')) return 'Android';
+    if (userAgent.includes('Windows')) return 'Windows Desktop';
+    if (userAgent.includes('Macintosh')) return 'Mac Desktop';
+    if (userAgent.includes('Linux')) return 'Linux Desktop';
+    return 'Unknown Device';
+  };
 
   // Enhanced login activity fetching with real data
   const fetchLoginActivity = async () => {
