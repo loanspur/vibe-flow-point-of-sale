@@ -31,6 +31,9 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Get tenantId from useAuth
+  const { tenantId } = useAuth();
+  
   // Add error boundary for hook
   let settings, loading, fetchSettings;
   
