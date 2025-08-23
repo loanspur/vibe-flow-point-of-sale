@@ -21,6 +21,10 @@ import {
   
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { useAccountingRealtime } from '@/hooks/useAccountingRealtime';
+import { debugLog } from '@/utils/debug';
+import { handleError } from '@/utils/errorHandler';
+
 export default function AccountingModule() {
   const { user, tenantId } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
@@ -41,7 +45,7 @@ export default function AccountingModule() {
           tenant_id_param: tenantId
         });
       } catch (error) {
-        console.error('Error setting up default accounts:', error);
+        handleError(error, 'AccountingModule.setupDefaultAccounts');
       }
     };
 

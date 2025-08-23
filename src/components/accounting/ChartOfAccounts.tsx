@@ -13,6 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { Plus, Building, TrendingUp, TrendingDown, CreditCard, Banknote, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { debugLog } from '@/utils/debug';
+import { useAccountingRealtime } from '@/hooks/useAccountingRealtime';
+import { handleError } from '@/utils/errorHandler';
 
 interface AccountType {
   id: string;
@@ -109,8 +112,7 @@ export default function ChartOfAccounts() {
 
       setAccounts(formattedAccounts);
     } catch (error) {
-      console.error('Error fetching accounts:', error);
-      toast({ title: "Error", description: "Failed to fetch accounts", variant: "destructive" });
+      handleError(error, 'ChartOfAccounts.fetchAccounts');
     }
   };
 
@@ -128,8 +130,7 @@ export default function ChartOfAccounts() {
       if (error) throw error;
       setAccountTypes((data as AccountType[]) || []);
     } catch (error) {
-      console.error('Error fetching account types:', error);
-      toast({ title: "Error", description: "Failed to fetch account types", variant: "destructive" });
+      handleError(error, 'ChartOfAccounts.fetchAccountTypes');
     }
   };
 
@@ -216,8 +217,7 @@ export default function ChartOfAccounts() {
       resetAccountForm();
       fetchAccounts();
     } catch (error) {
-      console.error('Error creating account:', error);
-      toast({ title: "Error", description: "Failed to create account", variant: "destructive" });
+      handleError(error, 'ChartOfAccounts.createAccount');
     }
   };
 
@@ -241,8 +241,7 @@ export default function ChartOfAccounts() {
       resetAccountTypeForm();
       fetchAccountTypes();
     } catch (error) {
-      console.error('Error creating account type:', error);
-      toast({ title: "Error", description: "Failed to create account type", variant: "destructive" });
+      handleError(error, 'ChartOfAccounts.createAccountType');
     }
   };
 
@@ -279,8 +278,7 @@ export default function ChartOfAccounts() {
       resetAccountForm();
       fetchAccounts();
     } catch (error) {
-      console.error('Error updating account:', error);
-      toast({ title: "Error", description: "Failed to update account", variant: "destructive" });
+      handleError(error, 'ChartOfAccounts.updateAccount');
     }
   };
 
@@ -311,8 +309,7 @@ export default function ChartOfAccounts() {
       toast({ title: "Success", description: "Account deleted successfully" });
       fetchAccounts();
     } catch (error) {
-      console.error('Error deleting account:', error);
-      toast({ title: "Error", description: "Failed to delete account", variant: "destructive" });
+      handleError(error, 'ChartOfAccounts.deleteAccount');
     }
   };
 
@@ -329,8 +326,7 @@ export default function ChartOfAccounts() {
       toast({ title: "Success", description: "Account status updated" });
       fetchAccounts();
     } catch (error) {
-      console.error('Error updating account status:', error);
-      toast({ title: "Error", description: "Failed to update account status", variant: "destructive" });
+      handleError(error, 'ChartOfAccounts.toggleAccountStatus');
     }
   };
 
@@ -400,56 +396,11 @@ export default function ChartOfAccounts() {
   }, [tenantId]);
 
   // Real-time subscriptions for instant updates
-  useEffect(() => {
-    if (!tenantId) return;
-
-    const accountsChannel = supabase
-      .channel('accounts-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounts',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          console.log('Accounts updated, refreshing...');
-          fetchAccounts();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'account_types',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          console.log('Account types updated, refreshing...');
-          fetchAccountTypes();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_transactions',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          console.log('Accounting transactions updated, refreshing accounts...');
-          fetchAccounts(); // Refresh to get updated balances
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(accountsChannel);
-    };
-  }, [tenantId]);
+  useAccountingRealtime(() => {
+    debugLog('Accounting data updated, refreshing chart of accounts...');
+    fetchAccounts();
+    fetchAccountTypes();
+  });
 
   if (!tenantId) {
     return (

@@ -4,34 +4,34 @@
  */
 
 export const PERFORMANCE_CONFIG = {
-  // More aggressive performance settings to prevent refresh loops
+  // Disable all auto-refresh mechanisms that cause tab switching issues
   DISABLE_AUTO_REFRESH: true,
   DISABLE_FOCUS_REFRESH: true,
   
-  // Longer intervals for better stability
-  DASHBOARD_REFRESH_INTERVAL: 300000, // 5 minutes - much longer for stability
-  REALTIME_DEBOUNCE_DELAY: 3000, // 3 seconds debounce for better performance
+  // Much longer intervals for stability
+  DASHBOARD_REFRESH_INTERVAL: 600000, // 10 minutes
+  REALTIME_DEBOUNCE_DELAY: 5000, // 5 seconds
   
-  // Optimized query settings for faster loads  
-  QUERY_STALE_TIME: 300000, // 5 minutes - longer cache for better performance
-  QUERY_CACHE_TIME: 900000, // 15 minutes cache time
+  // Optimized query settings
+  QUERY_STALE_TIME: 600000, // 10 minutes
+  QUERY_CACHE_TIME: 1800000, // 30 minutes
   
   // Component render optimization
-  RENDER_DEBOUNCE_DELAY: 200, // 200ms debounce for renders
+  RENDER_DEBOUNCE_DELAY: 500, // 500ms debounce
   
   // Network request optimization
-  REQUEST_TIMEOUT: 10000, // Reduced to 10 seconds for faster perceived performance
-  MAX_RETRIES: 0, // No retries to prevent hanging
+  REQUEST_TIMEOUT: 15000, // 15 seconds
+  MAX_RETRIES: 0, // No retries
   
-  // Browser tab optimization
-  TAB_SWITCH_DELAY: 500, // Shorter delay but still prevent rapid switches
+  // Browser tab optimization - disable all tab switching logic
+  TAB_SWITCH_DELAY: 0, // No delay
   
   // Memory management
-  CLEANUP_INTERVAL: 600000, // 10 minutes cleanup interval
+  CLEANUP_INTERVAL: 1200000, // 20 minutes
   
   // New performance settings
-  MAX_CONCURRENT_REQUESTS: 3, // Limit concurrent requests
-  PREFETCH_THRESHOLD: 1000, // Threshold for prefetching
+  MAX_CONCURRENT_REQUESTS: 2, // Limit concurrent requests
+  PREFETCH_THRESHOLD: 2000, // Higher threshold
 } as const;
 
 /**

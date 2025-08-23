@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Download, FileText, Calendar, Building2, Users, Mail, Phone, MapPin } from 'lucide-react';
+import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
 
 interface Contact {
   id: string;
@@ -54,11 +55,10 @@ interface ContactStatementProps {
 
 const ContactStatement: React.FC<ContactStatementProps> = ({ contact, isOpen, onClose }) => {
   const { tenantId } = useAuth();
-  const { tenantCurrency } = useApp();
+  const { settings: businessSettings, fetchSettings } = useBusinessSettingsManager(tenantId);
   const printRef = useRef<HTMLDivElement>(null);
   
   const [loading, setLoading] = useState(false);
-  const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
   const [transactions, setTransactions] = useState<StatementTransaction[]>([]);
   const [dateRange, setDateRange] = useState({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -73,31 +73,15 @@ const ContactStatement: React.FC<ContactStatementProps> = ({ contact, isOpen, on
 
   useEffect(() => {
     if (isOpen && contact.id) {
-      fetchBusinessSettings();
+      fetchSettings();
     }
-  }, [isOpen, contact.id, tenantId]);
+  }, [isOpen, contact.id, fetchSettings]);
 
   useEffect(() => {
     if (businessSettings) {
       fetchStatementData();
     }
   }, [businessSettings, dateRange]);
-
-  const fetchBusinessSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('business_settings')
-        .select('company_name, company_logo_url, email, phone, address_line_1, address_line_2, city, state_province, postal_code, country')
-        .eq('tenant_id', tenantId)
-        .single();
-
-      if (error) throw error;
-      setBusinessSettings(data);
-    } catch (error) {
-      console.error('Error fetching business settings:', error);
-      toast.error('Failed to load business settings');
-    }
-  };
 
   const fetchStatementData = async () => {
     setLoading(true);

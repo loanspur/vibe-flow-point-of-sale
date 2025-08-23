@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
+import { usePaymentMethods, PaymentMethod } from '@/hooks/usePaymentMethods';
 
 // Schema definitions
 const paymentMethodSchema = z.object({
@@ -58,25 +59,6 @@ const integrationSchema = z.object({
 });
 
 // Interface definitions - temporary until types are regenerated
-interface PaymentMethod {
-  id: string;
-  tenant_id: string;
-  name: string;
-  type: "cash" | "card" | "mobile_money" | "bank_transfer" | "crypto" | "other";
-  account_id?: string;
-  account_name?: string;
-  account_code?: string;
-  is_active: boolean;
-  requires_reference: boolean;
-  description?: string;
-  processing_fee_percentage?: number;
-  minimum_amount?: number;
-  maximum_amount?: number;
-  display_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
 interface AssetAccount {
   id: string;
   name: string;
@@ -105,10 +87,12 @@ export function PaymentManagement() {
   const { businessSettings } = useApp();
   const { toast } = useToast();
   
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const { paymentMethods, loading, error, refetch } = usePaymentMethods({ 
+    includeInactive: true // Show all methods including inactive ones
+  });
+  
   const [integrations, setIntegrations] = useState<PaymentIntegration[]>([]);
   const [assetAccounts, setAssetAccounts] = useState<AssetAccount[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showMethodDialog, setShowMethodDialog] = useState(false);
   const [showIntegrationDialog, setShowIntegrationDialog] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
@@ -141,59 +125,9 @@ export function PaymentManagement() {
 
   useEffect(() => {
     if (tenantId) {
-      fetchPaymentMethods();
-      fetchIntegrations();
       fetchAssetAccounts();
     }
   }, [tenantId]);
-
-  const fetchPaymentMethods = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('display_order');
-
-      if (error) throw error;
-      
-      // Enhance payment methods with account information
-      const enhancedMethods = await Promise.all(
-        (data || []).map(async (method: any) => {
-          let account_name = '';
-          let account_code = '';
-          
-          if (method.account_id) {
-            const { data: accountData } = await supabase
-              .from('accounts')
-              .select('name, code')
-              .eq('id', method.account_id)
-              .maybeSingle();
-              
-            if (accountData) {
-              account_name = accountData.name;
-              account_code = accountData.code;
-            }
-          }
-          
-          return {
-            ...method,
-            account_name,
-            account_code,
-          };
-        })
-      );
-      
-      setPaymentMethods(enhancedMethods);
-    } catch (error) {
-      console.error('Error fetching payment methods:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch payment methods',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const fetchAssetAccounts = async () => {
     try {
@@ -264,7 +198,7 @@ export function PaymentManagement() {
     } catch (error) {
       console.error('Error fetching integrations:', error);
     } finally {
-      setLoading(false);
+      // setLoading(false); // This line was removed as loading state is now managed by usePaymentMethods
     }
   };
 
@@ -314,7 +248,7 @@ export function PaymentManagement() {
       if (result.error) throw result.error;
       
       // Refresh the payment methods list
-      await fetchPaymentMethods();
+      await refetch();
       
       setShowMethodDialog(false);
       setEditingMethod(null);
@@ -390,7 +324,7 @@ export function PaymentManagement() {
       if (error) throw error;
       
       // Refresh the payment methods list
-      await fetchPaymentMethods();
+      await refetch();
       
       toast({ title: 'Success', description: 'Payment method deleted successfully' });
     } catch (error) {

@@ -34,27 +34,24 @@ class TabStabilityManager {
     const handleVisibilityChange = () => {
       const now = Date.now();
       
+      // Prevent rapid visibility changes (less than 500ms apart)
+      if (now - this.state.lastVisibilityChange < 500) {
+        return;
+      }
+      
       if (document.visibilityState === 'hidden') {
-        // Mark tab as switching but don't prevent operations immediately
+        // Mark tab as switching
         this.state.isTabSwitching = true;
         this.state.lastVisibilityChange = now;
         
-        // Only prevent query refreshes briefly to avoid excessive requests
-        this.state.preventQueryRefresh = true;
-        
-        // Don't interfere with auth - authentication should always work
+        // Don't prevent any operations - let the app work normally
+        this.state.preventQueryRefresh = false;
         this.state.preventAuthRefresh = false;
       } else if (document.visibilityState === 'visible') {
-        // When tab becomes visible again, restore normal operation quickly
+        // When tab becomes visible again, restore normal operation
         this.state.isTabSwitching = false;
         this.state.preventAuthRefresh = false;
-        
-        // Allow queries after a short delay to prevent immediate flood
-        setTimeout(() => {
-          this.state.preventQueryRefresh = false;
-          this.notifyListeners();
-        }, 100);
-        
+        this.state.preventQueryRefresh = false;
         this.state.lastVisibilityChange = now;
       }
 
@@ -82,14 +79,13 @@ class TabStabilityManager {
     });
   }
 
-  // Public API - Never prevent auth operations for stability
+  // Public API - Never prevent any operations for stability
   shouldPreventAuthRefresh(): boolean {
     return false; // Always allow auth operations
   }
 
   shouldPreventQueryRefresh(): boolean {
-    // Only prevent queries briefly during tab switching to reduce load
-    return this.state.preventQueryRefresh;
+    return false; // Always allow query operations
   }
 
   isCurrentlyTabSwitching(): boolean {

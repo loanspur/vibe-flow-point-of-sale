@@ -17,6 +17,9 @@ import { Plus, FileText, Calendar, DollarSign, Trash2, Edit, Eye, CheckCircle, A
 import { UnifiedTransactionHistory } from '../UnifiedTransactionHistory';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useAccountingRealtime } from '@/hooks/useAccountingRealtime';
+import { debugLog } from '@/utils/debug';
+import { handleError } from '@/utils/errorHandler';
 
 interface AccountingTransaction {
   id: string;
@@ -137,8 +140,7 @@ export default function TransactionManagement() {
 
       setTransactions(formattedTransactions);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
-      toast({ title: "Error", description: "Failed to fetch transactions", variant: "destructive" });
+      handleError(error, 'TransactionManagement.fetchTransactions');
     }
   };
 
@@ -175,8 +177,7 @@ export default function TransactionManagement() {
 
       setAccounts(formattedAccounts);
     } catch (error) {
-      console.error('Error fetching accounts:', error);
-      toast({ title: "Error", description: "Failed to fetch accounts", variant: "destructive" });
+      handleError(error, 'TransactionManagement.fetchAccounts');
     }
   };
 
@@ -243,8 +244,7 @@ export default function TransactionManagement() {
       resetForm();
       fetchTransactions();
     } catch (error) {
-      console.error('Error creating transaction:', error);
-      toast({ title: "Error", description: "Failed to create transaction", variant: "destructive" });
+      handleError(error, 'TransactionManagement.createTransaction');
     }
   };
 
@@ -261,8 +261,7 @@ export default function TransactionManagement() {
       toast({ title: "Success", description: "Transaction posted successfully" });
       fetchTransactions();
     } catch (error) {
-      console.error('Error posting transaction:', error);
-      toast({ title: "Error", description: "Failed to post transaction", variant: "destructive" });
+      handleError(error, 'TransactionManagement.postTransaction');
     }
   };
 
@@ -291,8 +290,7 @@ export default function TransactionManagement() {
       toast({ title: "Success", description: "Transaction deleted successfully" });
       fetchTransactions();
     } catch (error) {
-      console.error('Error deleting transaction:', error);
-      toast({ title: "Error", description: "Failed to delete transaction", variant: "destructive" });
+      handleError(error, 'TransactionManagement.deleteTransaction');
     }
   };
 
@@ -355,8 +353,7 @@ export default function TransactionManagement() {
       resetForm();
       fetchTransactions();
     } catch (error) {
-      console.error('Error updating transaction:', error);
-      toast({ title: "Error", description: "Failed to update transaction", variant: "destructive" });
+      handleError(error, 'TransactionManagement.updateTransaction');
     }
   };
 
@@ -433,56 +430,11 @@ export default function TransactionManagement() {
   }, [tenantId]);
 
   // Real-time subscriptions for instant transaction updates
-  useEffect(() => {
-    if (!tenantId) return;
-
-    const transactionsChannel = supabase
-      .channel('transactions-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_transactions',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          console.log('Accounting transactions updated, refreshing...');
-          fetchTransactions();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_entries'
-        },
-        (payload) => {
-          // Check if this entry belongs to a transaction for this tenant
-          console.log('Accounting entries updated, refreshing...');
-          fetchTransactions();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounts',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          console.log('Accounts updated, refreshing...');
-          fetchAccounts();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(transactionsChannel);
-    };
-  }, [tenantId]);
+  useAccountingRealtime(() => {
+    debugLog('Accounting data updated, refreshing transactions...');
+    fetchTransactions();
+    fetchAccounts();
+  });
 
   if (!tenantId) {
     return (
