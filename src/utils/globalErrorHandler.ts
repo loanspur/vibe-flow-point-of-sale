@@ -1,3 +1,4 @@
+// Ensure proper export for setupGlobalErrorHandler
 export const setupGlobalErrorHandler = () => {
   // Only set up in browser environment
   if (typeof window === 'undefined') return;
@@ -46,6 +47,9 @@ export const setupGlobalErrorHandler = () => {
     }
   };
 };
+
+// Also export as default for compatibility
+export default setupGlobalErrorHandler;
 
 
 
