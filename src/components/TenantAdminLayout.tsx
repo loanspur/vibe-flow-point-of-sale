@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, LogOut, User } from 'lucide-react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -10,8 +10,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
+import UserProfileSettings from '@/components/UserProfileSettings';
  
 
 interface TenantAdminLayoutProps {
@@ -25,6 +33,7 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   
   // Check if we're on sales page with new-sale tab active
   const isOnAddSalePage = location.pathname === '/admin/sales' && searchParams.get('tab') === 'new-sale';
@@ -69,6 +78,10 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
                       <p className="text-muted-foreground truncate">{user?.email}</p>
                     </div>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setIsProfileOpen(true)}>
+                      <User className="mr-2 h-4 w-4" />
+                      Profile Settings
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                       Home
                     </DropdownMenuItem>
@@ -90,6 +103,26 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
         </div>
         
       </div>
+      {/* Profile Settings Dialog */}
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogContent 
+          className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-auto"
+          aria-describedby="profile-settings-description"
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Profile Settings
+            </DialogTitle>
+            <DialogDescription id="profile-settings-description">
+              Update your profile information, avatar, and account settings.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <UserProfileSettings key={isProfileOpen ? 'open' : 'closed'} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
