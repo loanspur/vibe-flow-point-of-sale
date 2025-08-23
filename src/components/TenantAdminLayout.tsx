@@ -19,11 +19,9 @@ import {
 } from '@/components/ui/dialog';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
-<<<<<<< HEAD
 import UserProfileSettings from './UserProfileSettings';
 import { LazyImage } from '@/components/ui/image-lazy';
 import { useTenantLogo } from '@/hooks/useTenantLogo';
-=======
 import UserProfileSettings from '@/components/UserProfileSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Form } from '@/components/ui/form';
@@ -45,7 +43,6 @@ import { Button as DialogFooter } from '@/components/ui/button';
 import { useTenant } from '@/contexts/TenantContext';
 import { useLocationDialog } from '@/hooks/useLocationDialog';
 
->>>>>>> 5e13acb (debugging)
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
