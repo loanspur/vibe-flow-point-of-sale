@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { BUSINESS_CONFIG } from '@/lib/business-config';
+import { useBusinessSettingsManager } from './useBusinessSettingsManager';
 
 export function useTenantLogo() {
   const { user } = useAuth();
