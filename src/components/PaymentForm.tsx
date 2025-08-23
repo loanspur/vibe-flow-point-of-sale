@@ -12,7 +12,6 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 
 interface Payment {
   id: string;
@@ -53,10 +52,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   const { tenantCurrency, formatLocalCurrency } = useApp();
   const { tenantId } = useAuth();
   const { toast } = useToast();
-  const { paymentMethods, loading: isLoadingMethods } = usePaymentMethods({ 
-    excludeCredit: true // For purchase payments
-  });
-
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [newPayment, setNewPayment] = useState({
     method: '',
     amount: 0,
@@ -68,8 +65,65 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
   // Fetch payment methods from database
   useEffect(() => {
-    // The usePaymentMethods hook now handles fetching and subscribing
+    fetchPaymentMethods();
   }, [tenantId]);
+
+  const fetchPaymentMethods = async () => {
+    if (!tenantId) {
+      setPaymentMethods([]);
+      setIsLoadingMethods(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Filter out credit sales for purchase payments (only show payment methods, not credit)
+        const purchasePaymentMethods = data.filter(method => method.type !== 'credit');
+        setPaymentMethods(purchasePaymentMethods);
+        
+        // Set first payment method as default
+        if (purchasePaymentMethods.length > 0) {
+          setNewPayment(prev => ({ 
+            ...prev, 
+            method: purchasePaymentMethods[0].type 
+          }));
+        }
+      } else {
+        // Fallback to default methods if none configured (excluding credit)
+        setPaymentMethods([
+          { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+          { id: 'default-card', name: 'Credit/Debit Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 },
+          { id: 'default-bank', name: 'Bank Transfer', type: 'bank_transfer', is_active: true, requires_reference: true, display_order: 3 },
+          { id: 'default-check', name: 'Check', type: 'check', is_active: true, requires_reference: true, display_order: 4 }
+        ]);
+        setNewPayment(prev => ({ ...prev, method: 'cash' }));
+      }
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      toast({
+        title: "Warning",
+        description: "Could not load payment methods. Using defaults.",
+        variant: "destructive",
+      });
+      // Use fallback methods
+      setPaymentMethods([
+        { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
+        { id: 'default-card', name: 'Credit/Debit Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 }
+      ]);
+      setNewPayment(prev => ({ ...prev, method: 'cash' }));
+    } finally {
+      setIsLoadingMethods(false);
+    }
+  };
 
   const handleAddPayment = async () => {
     const selectedMethod = paymentMethods.find(m => m.type === newPayment.method);

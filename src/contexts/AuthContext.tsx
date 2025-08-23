@@ -7,7 +7,7 @@ import { tabStabilityManager } from '@/lib/tab-stability-manager';
 import { PasswordChangeModal } from '@/components/PasswordChangeModal';
 
 // User roles are now dynamically managed via user_roles table
-type UserRole = 'user' | 'superadmin' | 'admin' | 'manager' | 'cashier';
+type UserRole = string; // Dynamic role from database
 
 interface AuthContextType {
   user: User | null;
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setFetchInProgress(true);
     
     try {
-      // Load profile for tenant context and base role (fallback)
+      // Get user role from profiles with optimized query
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role, tenant_id, require_password_change')
@@ -74,55 +74,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      let effectiveTenantId = profile?.tenant_id || domainManager.getDomainTenantId() || null;
-      // Normalize profile role to unified roles
-      const profileRoleRaw = (profile?.role || '').toString().toLowerCase();
-      let effectiveRole: UserRole = (
-        profileRoleRaw === 'administrator' ? 'admin' :
-        profileRoleRaw === 'admin' ? 'admin' :
-        profileRoleRaw === 'manager' ? 'manager' :
-        profileRoleRaw === 'cashier' ? 'cashier' :
-        'user'
-      );
-
-      // Prefer highest-level active role assignment for this tenant
-      if (effectiveTenantId) {
-        const { data: assignments } = await supabase
-          .from('user_role_assignments')
-          .select('is_active, role_id, user_roles!inner(name, level)')
-          .eq('user_id', userId)
-          .eq('tenant_id', effectiveTenantId)
-          .eq('is_active', true);
-
-        if (assignments && assignments.length > 0) {
-          const highest = [...assignments].sort((a: any, b: any) => (a.user_roles?.level ?? 999) - (b.user_roles?.level ?? 999))[0];
-          const name = (highest?.user_roles?.name || '').toString();
-          // Normalize and constrain to allowed roles
-          const normalized = ['administrator'].includes(name.toLowerCase()) ? 'admin' : name.toLowerCase();
-          const mapped = (['superadmin','admin','manager','cashier','user'].includes(normalized) ? normalized : 'user') as UserRole;
-          effectiveRole = mapped;
+      if (profile) {
+        // Check if we're setting the same data repeatedly
+        if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
+          return; // Skip update if data hasn't changed
         }
-      }
-
-      // Skip update if no change
-      const passwordChangeRequired = profile?.require_password_change || false;
-      if (userRole === effectiveRole && tenantId === effectiveTenantId && requirePasswordChange === passwordChangeRequired) {
-        return;
-      }
-
-      // Limit to known roles for type safety
-      type AllowedRole = 'superadmin' | 'admin' | 'manager' | 'cashier' | 'user';
-      const normalizedRole = (effectiveRole || 'user').toLowerCase();
-      const safeRole = (['superadmin','admin','manager','cashier','user'].includes(normalizedRole) 
-        ? normalizedRole 
-        : 'user') as AllowedRole;
-      setUserRole(safeRole);
-      setTenantId(effectiveTenantId);
-      setRequirePasswordChange(passwordChangeRequired);
-
-      // Show password change modal if required
-      if (passwordChangeRequired && !showPasswordChangeModal) {
-        setShowPasswordChangeModal(true);
+        
+        setUserRole(profile.role);
+        setTenantId(profile.tenant_id);
+        const passwordChangeRequired = profile.require_password_change || false;
+        setRequirePasswordChange(passwordChangeRequired);
+        
+        // Show password change modal if required
+        if (passwordChangeRequired && !showPasswordChangeModal) {
+          setShowPasswordChangeModal(true);
+        }
+      } else {
+        // Fallback if no profile found
+        setUserRole('user');
+        const domainTenantId = domainManager.getDomainTenantId();
+        setTenantId(domainTenantId || null);
+        setRequirePasswordChange(false);
       }
     } catch (error) {
       // Set default values on error
@@ -205,41 +177,60 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     
+    // Initialize tab stability manager
+    tabStabilityManager.initialize();
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         
         if (!mounted) return;
         
+        // Minimal tab stability check - only prevent during actual browser tab switching
+        if (tabStabilityManager.isCurrentlyTabSwitching() && event === 'TOKEN_REFRESHED') {
+          return; // Only prevent token refresh events during tab switching
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // User state updated
         
         if (session?.user) {
           // Check all conditions to prevent duplicate calls
           const needsProfileFetch = profileFetched !== session.user.id && !fetchInProgress;
           
           if (needsProfileFetch) {
+            // Fetching user profile
             setProfileFetched(session.user.id);
             setLoading(true);
             
-            fetchUserInfo(session.user.id, 'auth-state-change')
-              .finally(() => {
-                if (mounted) setLoading(false);
-              });
-            
-            // Log login activity and mark invitation as accepted
-            if (event === 'SIGNED_IN') {
-              logUserActivity('login', session.user.id);
-              markInvitationAccepted(session.user);
-            }
+            // Use setTimeout to prevent deadlock
+            setTimeout(() => {
+              if (mounted) {
+                fetchUserInfo(session.user.id, 'auth-state-change')
+                  .finally(() => {
+                    if (mounted) setLoading(false);
+                  });
+                
+                // Log login activity and mark invitation as accepted
+                if (event === 'SIGNED_IN') {
+                  logUserActivity('login', session.user.id);
+                  markInvitationAccepted(session.user);
+                }
+              }
+            }, 0);
           } else {
+            // Profile already fetched
             setLoading(false);
             
+            // Still mark invitation as accepted on signin
             if (event === 'SIGNED_IN') {
               markInvitationAccepted(session.user);
             }
           }
         } else {
+          // User signed out - reset everything including profile fetch tracking
           if (event === 'SIGNED_OUT' && user) {
             logUserActivity('logout', user.id);
           }
@@ -247,7 +238,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUserRole(null);
           setTenantId(null);
           setProfileFetched(null);
-          setFetchInProgress(false);
+          setFetchInProgress(false); // Reset fetch state
           setLoading(false);
         }
       }

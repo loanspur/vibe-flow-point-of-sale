@@ -22,7 +22,6 @@ import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TabStabilityProvider } from "./components/TabStabilityProvider";
-import { PaymentMethodsProvider } from '@/contexts/PaymentMethodsContext';
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -86,14 +85,8 @@ const PageLoader = () => (
   </div>
 );
 
-// Move error suppression to a component
-const ErrorSuppression = () => {
-  useEffect(() => {
-    // Only run in browser environment
-    if (typeof window === 'undefined') return;
-
 // Comprehensive error suppression for external errors and warnings
-    const errorHandler = (event: ErrorEvent) => {
+window.addEventListener('error', (event) => {
   const message = event.message?.toLowerCase() || '';
   const filename = event.filename?.toLowerCase() || '';
   
@@ -113,9 +106,9 @@ const ErrorSuppression = () => {
     event.stopPropagation();
     return false;
   }
-    };
+});
 
-    const rejectionHandler = (event: PromiseRejectionEvent) => {
+window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason?.message?.toLowerCase() || 
                 event.reason?.toString?.()?.toLowerCase() || '';
   
@@ -129,10 +122,7 @@ const ErrorSuppression = () => {
     event.preventDefault();
     return false;
   }
-    };
-
-    window.addEventListener('error', errorHandler);
-    window.addEventListener('unhandledrejection', rejectionHandler);
+});
 
 // Suppress Firebase and other noisy logs in production
 if (process.env.NODE_ENV !== 'development') {
@@ -167,29 +157,21 @@ if (process.env.NODE_ENV !== 'development') {
   };
 }
 
-    // Cleanup function
-    return () => {
-      window.removeEventListener('error', errorHandler);
-      window.removeEventListener('unhandledrejection', rejectionHandler);
-    };
-  }, []);
-
-  return null;
-};
-
 // Optimized query client configuration for better performance with tab stability
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 10 * 60 * 1000, // 10 minutes
-      gcTime: 30 * 60 * 1000, // 30 minutes
-      retry: 0, // No retries
-      refetchOnWindowFocus: false, // Disable window focus refetch
-      refetchOnMount: false, // Disable mount refetch
-      refetchOnReconnect: false, // Disable reconnect refetch
+      staleTime: 120000, // 2 minutes
+      gcTime: 300000, // 5 minutes
+      retry: 1,
+      refetchOnWindowFocus: false, // Disabled to prevent performance issues
+      refetchOnMount: false, // Disabled to prevent unnecessary refetches
+      refetchOnReconnect: false, // Disabled to prevent network spam
+      // Custom refetch condition that respects tab stability
+      queryFn: undefined, // Will be set per query
     },
     mutations: {
-      retry: 0, // No retries
+      retry: 1, // Limit mutation retries
     },
   },
 });
@@ -205,7 +187,6 @@ const DomainRouter = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    // debugLog: App Router navigation
     console.log('🔄 App Router - Current location:', {
       pathname: location.pathname,
       search: location.search,
@@ -218,7 +199,6 @@ const DomainRouter = () => {
     
     // Check if we're at root with OAuth fragments - redirect to callback
     if (location.pathname === '/' && hash && /access_token|error|type=/.test(hash)) {
-      // debugLog
       console.log('🔀 OAuth fragments detected at root - redirecting to callback');
       const callbackUrl = `/auth/callback${location.search}${hash}`;
       console.log('🎯 Redirecting to:', callbackUrl);
@@ -331,7 +311,7 @@ const DomainRouter = () => {
           <Route 
             path="/" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -345,7 +325,7 @@ const DomainRouter = () => {
           <Route 
             path="/dashboard" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
                 <SubscriptionGuard>
                   <TenantSetupCompletion />
                 </SubscriptionGuard>
@@ -357,7 +337,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -369,7 +349,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/products" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Products />
@@ -381,7 +361,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/stock" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <FeatureGuard featureName="advanced_inventory">
                     <TenantAdminLayout>
@@ -395,7 +375,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/customers" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Customers />
@@ -407,7 +387,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/sales" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Sales />
@@ -419,7 +399,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/purchases" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Purchases />
@@ -431,7 +411,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/accounting" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Accounting />
@@ -443,7 +423,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/reports" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Reports />
@@ -455,7 +435,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/team" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Team />
@@ -467,7 +447,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/settings" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantSettings />
@@ -479,7 +459,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/communications" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantCommunications />
@@ -493,7 +473,7 @@ const DomainRouter = () => {
           <Route 
             path="/profile" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Profile />
@@ -819,29 +799,31 @@ const DomainRouter = () => {
   );
 };
 
-function App() {
+const App = () => {
   return (
     <ErrorBoundary>
+      <TabStabilityProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
              <AppProvider>
-            <PaymentMethodsProvider>
-              <TabStabilityProvider>
                <TooltipProvider>
-                  <BrowserRouter>
-                    <ErrorSuppression />
-                    <DomainRouter />
+                 <>
                    <Toaster />
                    <Sonner />
+                   <PerformanceMonitor />
+                   <AppOptimizer />
+                   <CookieConsent />
+                   <BrowserRouter>
+                     <DomainRouter />
                    </BrowserRouter>
+                 </>
                </TooltipProvider>
-              </TabStabilityProvider>
-            </PaymentMethodsProvider>
              </AppProvider>
           </AuthProvider>
         </QueryClientProvider>
+      </TabStabilityProvider>
     </ErrorBoundary>
   );
-}
+};
 
 export default App;

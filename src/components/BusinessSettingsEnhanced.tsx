@@ -226,105 +226,7 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
-    const [activeTab, setActiveTab] = useState<string>(() => {
-      const tab = new URLSearchParams(window.location.search).get('tab');
-      return tab || 'company';
-    });
-    const handleTabChange = useCallback((value: string) => {
-      setActiveTab(value);
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', value);
-      window.history.replaceState(null, '', url.toString());
-    }, []);
 
-    const form = useForm<z.infer<typeof businessSettingsSchema>>({
-      resolver: zodResolver(businessSettingsSchema),
-      defaultValues: {
-        company_name: "",
-        email: "",
-        phone: "",
-        website: "",
-        currency_code: "USD",
-        timezone: "America/New_York",
-        default_tax_rate: 0,
-        tax_name: "Tax",
-        enable_brands: false,
-        enable_overselling: false,
-        enable_product_units: true,
-        enable_product_expiry: true,
-        enable_warranty: false,
-        enable_fixed_pricing: false,
-        auto_generate_sku: true,
-        enable_barcode_scanning: true,
-        enable_negative_stock: false,
-        stock_accounting_method: "FIFO",
-        default_markup_percentage: 0,
-        enable_retail_pricing: true,
-        enable_wholesale_pricing: false,
-        enable_combo_products: false,
-        pos_auto_print_receipt: true,
-        pos_ask_customer_info: false,
-        pos_enable_discounts: true,
-        pos_max_discount_percent: 100,
-        pos_enable_tips: false,
-        pos_default_payment_method: "cash",
-        sms_enable_notifications: false,
-        whatsapp_enable_notifications: false,
-        sms_provider: "",
-        sms_api_key: "",
-        sms_sender_id: "",
-        whatsapp_api_key: "",
-        whatsapp_phone_number: "",
-        whatsapp_api_url: "",
-        email_from_address: "",
-        email_from_name: "",
-        email_smtp_host: "",
-        email_smtp_port: 587,
-        email_smtp_username: "",
-        email_smtp_password: "",
-        email_enable_ssl: true,
-        invoice_template: "standard",
-        receipt_template: "standard",
-        quote_template: "standard",
-        delivery_note_template: "standard",
-        invoice_number_prefix: "INV-",
-        quote_number_prefix: "QT-",
-        delivery_note_prefix: "DN-",
-        invoice_terms_conditions: "",
-        receipt_header: "",
-        receipt_footer: "",
-        receipt_logo_url: "",
-        print_customer_copy: true,
-        print_merchant_copy: true,
-        invoice_auto_number: true,
-        quote_auto_number: true,
-        delivery_note_auto_number: true,
-        quote_validity_days: 30,
-        max_login_attempts: 3,
-        account_lockout_duration: 15,
-        session_timeout_minutes: 60,
-        require_password_change: false,
-        password_expiry_days: 90,
-        enable_loyalty_program: false,
-        enable_gift_cards: false,
-        enable_online_orders: false,
-        enable_multi_location: false,
-        enable_user_roles: true,
-        low_stock_threshold: 10,
-        low_stock_alerts: true,
-        daily_reports: true,
-        email_notifications: true,
-        purchase_default_tax_rate: 0,
-        purchase_auto_receive: false,
-        purchase_enable_partial_receive: true,
-        tax_inclusive: false,
-        currency_symbol: "$",
-        date_format: "MM/DD/YYYY",
-      },
-    });
-
-  return (
-    <>
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl animate-fade-in">
         {/* Enhanced Header with Glass Effect */}
@@ -360,7 +262,7 @@ export function BusinessSettingsEnhanced() {
 
         {/* Enhanced Navigation with Modern Glass Effect */}
         <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
-            <Tabs value={activeTab} onValueChange={handleTabChange}>
+
             <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
                 value="company" 
@@ -432,7 +334,7 @@ export function BusinessSettingsEnhanced() {
         {/* Enhanced Form Container */}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+
               
               {/* Company & Operations Combined Tab */}
               <TabsContent value="company" className="space-y-8 mt-0">
@@ -677,218 +579,6 @@ export function BusinessSettingsEnhanced() {
                               </SelectContent>
                             </Select>
                             <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  {/* Tax Configuration */}
-                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <Receipt className="h-6 w-6 text-primary" />
-                        </div>
-                        Tax Configuration
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="default_tax_rate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium flex items-center gap-2">
-                              <Receipt className="h-4 w-4 text-primary" />
-                              Default Tax Rate (%)
-                            </FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                max="100" 
-                                step="0.01" 
-                                placeholder="0.00" 
-                                className="border-2 focus:border-primary/50 transition-colors" 
-                                {...field} 
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="tax_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium flex items-center gap-2">
-                              <Tag className="h-4 w-4 text-primary" />
-                              Tax Label
-                            </FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="VAT, GST, Sales Tax, etc." 
-                                className="border-2 focus:border-primary/50 transition-colors" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="tax_inclusive"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-muted p-4 bg-gradient-to-r from-muted/20 to-transparent">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base font-medium">
-                                Tax Inclusive Pricing
-                              </FormLabel>
-                              <FormDescription>
-                                Prices include tax by default
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                     </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Company Information Tab Actions */}
-                <div className="flex justify-end gap-3 pt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => form.reset()}
-                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                  >
-                    Reset Changes
-                  </Button>
-                  <Button 
-                    onClick={() => onSubmit(form.getValues())} 
-                    disabled={isSaving}
-                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save Changes"}
-                  </Button>
-                </div>
-              </TabsContent>
-
-              {/* Payments Tab */}
-              <TabsContent value="sales-products" className="space-y-8 mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  
-                  {/* Sales Settings Card */}
-                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <ShoppingCart className="h-6 w-6 text-primary" />
-                        </div>
-                        Product Settings
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Configure sales processes and customer interactions
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="pos_ask_customer_info"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Ask Customer Info</FormLabel>
-                              <FormDescription>
-                                Prompt for customer information during sales
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="pos_enable_discounts"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Enable Discounts</FormLabel>
-                              <FormDescription>
-                                Allow discount application during sales
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="pos_max_discount_percent"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium flex items-center gap-2">
-                              <Tag className="h-4 w-4 text-primary" />
-                              Maximum Discount Percentage
-                            </FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                max="100" 
-                                placeholder="0" 
-                                className="border-2 focus:border-primary/50 transition-colors" 
-                                {...field} 
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="purchase_auto_receive"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Auto-receive Purchases</FormLabel>
-                              <FormDescription>
-                                Automatically receive purchases when they're created
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
                           </FormItem>
                         )}
                       />
@@ -1560,20 +1250,6 @@ export function BusinessSettingsEnhanced() {
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="location-address1">Address Line 1</Label>
-                        <Input
-                          id="location-address1"
-                          value={locationFormData.address_line_1 || ''}
-                          onChange={(e) => setLocationFormData(prev => ({
-                            ...prev,
-                            address_line_1: e.target.value
-                          }))}
-                          placeholder="Street address"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
                         <Label htmlFor="location-address2">Address Line 2</Label>
                         <Input
                           id="location-address2"
@@ -1625,19 +1301,6 @@ export function BusinessSettingsEnhanced() {
                             }))}
                             placeholder="12345"
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="location-country">Country</Label>
-                          <Input
-                            id="location-country"
-                            value={locationFormData.country || ''}
-                            onChange={(e) => setLocationFormData(prev => ({
-                              ...prev,
-                              country: e.target.value
-                            }))}
-                            placeholder="Country"
-                          />
-                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -1753,6 +1416,6 @@ export function BusinessSettingsEnhanced() {
 
       </div>
     </div>
-    </>
+
   );
 }
