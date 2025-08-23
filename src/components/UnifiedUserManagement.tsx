@@ -375,12 +375,7 @@ const UnifiedUserManagement = () => {
               </DialogContent>
             </Dialog>
           )}
-          {hasRoleAccess(['admin', 'manager']) && (
-            <Button onClick={forceRefreshRoles} variant="outline">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh Roles
-            </Button>
-          )}
+          {/* Single refresh covers roles and users */}
         </div>
       </div>
 
