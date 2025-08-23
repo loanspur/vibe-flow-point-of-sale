@@ -5,6 +5,7 @@ import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
 import { tabStabilityManager } from '@/lib/tab-stability-manager';
 import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
+import { useSimpleBusinessSettings } from '@/hooks/useSimpleBusinessSettings';
 
 interface BusinessSettings {
   currency_code: string;
@@ -31,27 +32,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Get tenantId from useAuth
   const { tenantId } = useAuth();
-  
-  // Add error boundary for hook
-  let settings, loading, fetchSettings;
-  
-  try {
-    const hookResult = useBusinessSettingsManager(tenantId); // Pass tenantId as parameter
-    settings = hookResult.settings;
-    loading = hookResult.loading;
-    fetchSettings = hookResult.fetchSettings;
-  } catch (error) {
-    console.error('Error initializing useBusinessSettingsManager:', error);
-    // Fallback values
-    settings = null;
-    loading = false;
-    fetchSettings = () => Promise.resolve();
-  }
-  
-  // Use settings as businessSettings for consistency
-  const businessSettings = settings;
+  const { settings, loading, fetchSettings } = useSimpleBusinessSettings(tenantId);
   
   // State for currency updates
   const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
@@ -89,14 +71,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const formatCurrency = useCallback((amount: number): string => {
-    if (!businessSettings) return formatAmountWithSymbol(amount, 'USD');
+    if (!settings) return formatAmountWithSymbol(amount, 'USD');
     
     return formatAmountWithSymbol(
       amount, 
-      businessSettings.currency_code, 
-      businessSettings.currency_symbol
+      settings.currency_code, 
+      settings.currency_symbol
     );
-  }, [businessSettings]);
+  }, [settings]);
 
   // Format currency using local conversion
   const formatCurrencyWithConversion = useCallback(async (amount: number): Promise<string> => {
@@ -153,15 +135,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      businessSettings,
+      businessSettings: settings,
       loading,
       refreshBusinessSettings,
       formatCurrency,
       formatLocalCurrency,
       convertFromKES,
       tenantCurrency: tenantCurrency?.currency || null,
-      currencySymbol: businessSettings?.currency_symbol || '$',
-      currencyCode: businessSettings?.currency_code || 'USD',
+      currencySymbol: settings?.currency_symbol || '$',
+      currencyCode: settings?.currency_code || 'USD',
       triggerCurrencyUpdate
     }}>
       {children}

@@ -1,9 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { handleError } from '@/utils/errorHandler';
-import { debugLog } from '@/utils/debug';
 
-// Add proper TypeScript interface
+// Simple interface without complex dependencies
 interface BusinessSettings {
   currency_code: string;
   currency_symbol: string;
@@ -11,10 +9,21 @@ interface BusinessSettings {
   timezone: string;
   tax_inclusive: boolean;
   default_tax_rate: number;
-  [key: string]: any; // Allow additional properties
+  [key: string]: any;
 }
 
-// Accept tenantId as parameter to avoid circular dependency
+// Simple error handler without external dependencies
+const simpleErrorHandler = (error: any, context: string) => {
+  console.error(`Error in ${context}:`, error);
+};
+
+// Simple debug logger without external dependencies
+const simpleDebugLog = (message: string, data?: any) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(message, data);
+  }
+};
+
 export const useBusinessSettingsManager = (tenantId?: string | null) => {
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +45,7 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
       if (error) throw error;
       setSettings(data);
     } catch (error) {
-      handleError(error, 'useBusinessSettingsManager');
+      simpleErrorHandler(error, 'useBusinessSettingsManager');
       // Set default settings on error
       setSettings(getDefaultSettings());
     } finally {
@@ -58,7 +67,7 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
       setSettings(data);
       return data;
     } catch (error) {
-      handleError(error, 'useBusinessSettingsManager.updateSettings');
+      simpleErrorHandler(error, 'useBusinessSettingsManager.updateSettings');
       throw error;
     }
   }, [tenantId]);
@@ -78,7 +87,7 @@ export const useBusinessSettingsManager = (tenantId?: string | null) => {
           filter: `tenant_id=eq.${tenantId}`
         },
         (payload) => {
-          debugLog('Business settings updated, refreshing...');
+          simpleDebugLog('Business settings updated, refreshing...');
           if (payload.new) {
             setSettings(payload.new);
           }
