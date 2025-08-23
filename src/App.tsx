@@ -92,80 +92,80 @@ const ErrorSuppression = () => {
     // Only run in browser environment
     if (typeof window === 'undefined') return;
 
-    // Comprehensive error suppression for external errors and warnings
+// Comprehensive error suppression for external errors and warnings
     const errorHandler = (event: ErrorEvent) => {
-      const message = event.message?.toLowerCase() || '';
-      const filename = event.filename?.toLowerCase() || '';
-      
-      if (message.includes('firebase') || 
-          message.includes('firestore') || 
-          message.includes('googleapis') ||
-          message.includes('unrecognized feature') ||
-          message.includes('iframe') ||
-          message.includes('sandbox') ||
-          message.includes('message channel closed') ||
-          message.includes('listener indicated an asynchronous response') ||
-          filename.includes('firebase') ||
-          filename.includes('firestore') ||
-          message.includes('webchannelconnection') ||
-          message.includes('quic_protocol_error')) {
-        event.preventDefault();
-        event.stopPropagation();
-        return false;
-      }
+  const message = event.message?.toLowerCase() || '';
+  const filename = event.filename?.toLowerCase() || '';
+  
+  if (message.includes('firebase') || 
+      message.includes('firestore') || 
+      message.includes('googleapis') ||
+      message.includes('unrecognized feature') ||
+      message.includes('iframe') ||
+      message.includes('sandbox') ||
+      message.includes('message channel closed') ||
+      message.includes('listener indicated an asynchronous response') ||
+      filename.includes('firebase') ||
+      filename.includes('firestore') ||
+      message.includes('webchannelconnection') ||
+      message.includes('quic_protocol_error')) {
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+  }
     };
 
     const rejectionHandler = (event: PromiseRejectionEvent) => {
-      const reason = event.reason?.message?.toLowerCase() || 
-                    event.reason?.toString?.()?.toLowerCase() || '';
-      
-      if (reason.includes('firebase') || 
-          reason.includes('firestore') || 
-          reason.includes('googleapis') ||
-          reason.includes('webchannelconnection') ||
-          reason.includes('message channel closed') ||
-          reason.includes('listener indicated an asynchronous response') ||
-          reason.includes('quic_protocol_error')) {
-        event.preventDefault();
-        return false;
-      }
+  const reason = event.reason?.message?.toLowerCase() || 
+                event.reason?.toString?.()?.toLowerCase() || '';
+  
+  if (reason.includes('firebase') || 
+      reason.includes('firestore') || 
+      reason.includes('googleapis') ||
+      reason.includes('webchannelconnection') ||
+      reason.includes('message channel closed') ||
+      reason.includes('listener indicated an asynchronous response') ||
+      reason.includes('quic_protocol_error')) {
+    event.preventDefault();
+    return false;
+  }
     };
 
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', rejectionHandler);
 
-    // Suppress Firebase and other noisy logs in production
-    if (process.env.NODE_ENV !== 'development') {
-      const originalError = console.error;
-      const originalWarn = console.warn;
-      
-      console.error = function(...args) {
-        const message = args.join(' ').toLowerCase();
-        if (message.includes('firebase') || 
-            message.includes('firestore') || 
-            message.includes('googleapis') ||
-            message.includes('webchannelconnection') ||
-            message.includes('unrecognized feature') ||
-            message.includes('iframe') ||
-            message.includes('message channel closed') ||
-            message.includes('sandbox')) {
-          return;
-        }
-        originalError.apply(console, args);
-      };
-
-      console.warn = function(...args) {
-        const message = args.join(' ').toLowerCase();
-        if (message.includes('firebase') || 
-            message.includes('firestore') || 
-            message.includes('googleapis') ||
-            message.includes('multiple gotrueclient') ||
-            message.includes('sandbox')) {
-          return;
-        }
-        originalWarn.apply(console, args);
-      };
+// Suppress Firebase and other noisy logs in production
+if (process.env.NODE_ENV !== 'development') {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  console.error = function(...args) {
+    const message = args.join(' ').toLowerCase();
+    if (message.includes('firebase') || 
+        message.includes('firestore') || 
+        message.includes('googleapis') ||
+        message.includes('webchannelconnection') ||
+        message.includes('unrecognized feature') ||
+        message.includes('iframe') ||
+        message.includes('message channel closed') ||
+        message.includes('sandbox')) {
+      return;
     }
+    originalError.apply(console, args);
+  };
+
+  console.warn = function(...args) {
+    const message = args.join(' ').toLowerCase();
+    if (message.includes('firebase') || 
+        message.includes('firestore') || 
+        message.includes('googleapis') ||
+        message.includes('multiple gotrueclient') ||
+        message.includes('sandbox')) {
+      return;
+    }
+    originalWarn.apply(console, args);
+  };
+}
 
     // Cleanup function
     return () => {
@@ -329,7 +329,7 @@ const DomainRouter = () => {
           <Route 
             path="/" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -343,7 +343,7 @@ const DomainRouter = () => {
           <Route 
             path="/dashboard" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff', 'admin']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantSetupCompletion />
                 </SubscriptionGuard>
@@ -355,7 +355,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantAdminDashboard />
@@ -367,7 +367,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/products" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Products />
@@ -379,7 +379,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/stock" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <FeatureGuard featureName="advanced_inventory">
                     <TenantAdminLayout>
@@ -393,7 +393,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/customers" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Customers />
@@ -405,7 +405,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/sales" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Sales />
@@ -417,7 +417,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/purchases" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Purchases />
@@ -429,7 +429,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/accounting" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Accounting />
@@ -441,7 +441,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/reports" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Reports />
@@ -453,7 +453,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/team" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Team />
@@ -465,7 +465,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/settings" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantSettings />
@@ -477,7 +477,7 @@ const DomainRouter = () => {
           <Route 
             path="/admin/communications" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <TenantCommunications />
@@ -491,7 +491,7 @@ const DomainRouter = () => {
           <Route 
             path="/profile" 
             element={
-              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <ProtectedRoute allowedRoles={['admin', 'Store Manager', 'Sales Staff']}>
                 <SubscriptionGuard>
                   <TenantAdminLayout>
                     <Profile />
@@ -820,24 +820,24 @@ const DomainRouter = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <AppProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+             <AppProvider>
             <PaymentMethodsProvider>
               <TabStabilityProvider>
-                <TooltipProvider>
+               <TooltipProvider>
                   <BrowserRouter>
                     <ErrorSuppression />
                     <DomainRouter />
-                    <Toaster />
-                    <Sonner />
-                  </BrowserRouter>
-                </TooltipProvider>
+                   <Toaster />
+                   <Sonner />
+                   </BrowserRouter>
+               </TooltipProvider>
               </TabStabilityProvider>
             </PaymentMethodsProvider>
-          </AppProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+             </AppProvider>
+          </AuthProvider>
+        </QueryClientProvider>
     </ErrorBoundary>
   );
 }
