@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
@@ -120,12 +121,18 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
         
         {/* Enhanced Profile Settings Dialog */}
         <Dialog open={isProfileOpen} onOpenChange={handleProfileDialogClose}>
-          <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-auto">
+          <DialogContent 
+            className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-auto"
+            aria-describedby="profile-settings-description"
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
                 Profile Settings
               </DialogTitle>
+              <DialogDescription id="profile-settings-description">
+                Update your profile information and account settings.
+              </DialogDescription>
             </DialogHeader>
             <div className="mt-4">
               <UserProfileSettings />

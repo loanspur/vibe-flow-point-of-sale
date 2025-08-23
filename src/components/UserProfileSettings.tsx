@@ -69,7 +69,7 @@ interface LoginActivity {
 
 export default function UserProfileSettings() {
   const { user, userRole, tenantId, signOut, refreshUserInfo } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [contactProfile, setContactProfile] = useState<ContactProfile | null>(null);
   const [loginActivity, setLoginActivity] = useState<LoginActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,11 +125,12 @@ export default function UserProfileSettings() {
       setError(null);
       console.log('Fetching profile for user:', user.id);
       
+      // Fix: Add proper headers and error handling
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid 406 error
 
       if (error) {
         console.error('Error fetching profile:', error);
@@ -145,9 +146,15 @@ export default function UserProfileSettings() {
         return;
       }
 
-      console.log('Profile fetched successfully:', data);
-      setProfile(data);
-      setFullName(data.full_name || '');
+      if (data) {
+        console.log('Profile fetched successfully:', data);
+        setProfile(data);
+        setFullName(data.full_name || '');
+      } else {
+        // No profile found, create one
+        console.log('No profile found, creating new profile...');
+        await createUserProfile();
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
       setError('Failed to load profile data');
@@ -157,20 +164,27 @@ export default function UserProfileSettings() {
   };
 
   const createUserProfile = async () => {
-    if (!user) return;
+    if (!user || !tenantId) {
+      setError('Missing user or tenant information');
+      return;
+    }
 
     try {
+      console.log('Creating new profile for user:', user.id);
+      
+      const newProfile = {
+        user_id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        role: userRole || 'user',
+        tenant_id: tenantId,
+        avatar_url: user.user_metadata?.avatar_url || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from('profiles')
-        .insert({
-          user_id: user.id,
-          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-          email: user.email,
-          role: userRole || 'user',
-          tenant_id: tenantId,
-          email_verified: user.email_confirmed_at ? true : false,
-          email_verified_at: user.email_confirmed_at
-        })
+        .insert([newProfile])
         .select()
         .single();
 
@@ -183,7 +197,6 @@ export default function UserProfileSettings() {
       console.log('Profile created successfully:', data);
       setProfile(data);
       setFullName(data.full_name || '');
-      toast.success('Profile created successfully');
     } catch (error) {
       console.error('Error creating user profile:', error);
       setError('Failed to create profile');
