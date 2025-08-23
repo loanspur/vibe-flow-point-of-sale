@@ -179,4 +179,39 @@ BEGIN
 END;
 $$;
 
+-- 1) Inspect existing overloads
+select oid::regprocedure as fn from pg_proc where proname = 'get_tenant_users_with_roles';
+
+-- 2) Drop any stray overloads (run a DROP for each row returned above)
+-- Example:
+-- drop function public.get_tenant_users_with_roles(uuid, text, text, integer, integer);
+-- drop function public.get_tenant_users_with_roles(uuid, integer, integer); -- if it exists, drop it too
+
+-- 3) Recreate the expected function (matches frontend usage)
+create or replace function public.get_tenant_users_with_roles(
+  p_tenant_id uuid default null,
+  p_search text default null,
+  p_role_filter text default null,
+  p_limit integer default 50,
+  p_offset integer default 0
+)
+returns table(
+  user_id uuid,
+  email text,
+  full_name text,
+  primary_role text,
+  role_names text[],
+  invited boolean,
+  last_sign_in_at timestamptz,
+  created_at timestamptz,
+  status text,
+  total_count bigint
+)
+language plpgsql stable security definer
+set search_path = public
+as $$
+-- paste the latest definition you applied in your migration here (the one we added),
+-- ensuring it selects last_sign_in_at and supports tenant_users + profiles fallback.
+$$;
+
 

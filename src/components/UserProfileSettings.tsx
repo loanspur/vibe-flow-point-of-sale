@@ -308,17 +308,17 @@ export default function UserProfileSettings() {
         if (error.code === 'PGRST116') {
           console.log('Profile not found, creating new profile...');
           await createUserProfile();
-          return;
-        }
-        
+        return;
+      }
+
         setError(`Failed to fetch profile: ${error.message}`);
         return;
       }
 
       if (data) {
         console.log('Profile fetched successfully:', data);
-        setProfile(data);
-        setFullName(data.full_name || '');
+      setProfile(data);
+      setFullName(data.full_name || '');
       } else {
         console.log('No profile found, creating new profile...');
         await createUserProfile();
@@ -646,7 +646,7 @@ export default function UserProfileSettings() {
       const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(path);
       const avatarUrl = publicUrlData.publicUrl;
 
-      const { error: updateError } = await supabase
+        const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
         .eq('user_id', user.id);
@@ -926,13 +926,13 @@ export default function UserProfileSettings() {
             <div className="flex-1">
               <CardTitle className="text-xl">{profile?.full_name || 'User'}</CardTitle>
               <CardDescription className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
+                  <Mail className="h-4 w-4" />
                 {user?.email}
                 {profile?.email_verified && (
                   <Badge variant="secondary" className="text-xs">
                     <CheckCircle className="h-3 w-3 mr-1" />
                     Verified
-                  </Badge>
+                </Badge>
                 )}
               </CardDescription>
               <div className="flex items-center gap-2 mt-2">
@@ -971,7 +971,7 @@ export default function UserProfileSettings() {
                         +{harmonizedRole.privileges.length - 3} more
                       </span>
                     )}
-                  </div>
+              </div>
                 </div>
               )}
             </div>
@@ -1021,10 +1021,10 @@ export default function UserProfileSettings() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Email address cannot be changed from this form
-                  </p>
+                    </p>
+                  </div>
                 </div>
-              </div>
-              
+
               <div className="flex items-center gap-2 pt-4">
                 <Button onClick={handleUpdateProfile} disabled={saving}>
                   {saving ? (
@@ -1064,7 +1064,7 @@ export default function UserProfileSettings() {
                 <Button onClick={() => setShowPasswordChange(true)} variant="outline">
                   <Key className="h-4 w-4 mr-2" />
                   Change Password
-                </Button>
+                  </Button>
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1078,38 +1078,38 @@ export default function UserProfileSettings() {
                         placeholder="Enter current password"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="newPassword">New Password</Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
+                     <div className="space-y-2">
+                       <Label htmlFor="newPassword">New Password</Label>
+                       <Input
+                         id="newPassword"
+                         type="password"
+                         value={newPassword}
+                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Enter new password"
                       />
+                           </div>
+                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm new password"
+                      />
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                    />
-                  </div>
 
                   {newPassword && (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Password Strength</span>
                         <span>{getPasswordStrengthText(passwordStrength)}</span>
-                      </div>
-                      <Progress value={passwordStrength} className="h-2" />
                     </div>
-                  )}
+                      <Progress value={passwordStrength} className="h-2" />
+                  </div>
+                )}
 
                   <div className="flex items-center gap-2">
                     <Button onClick={handlePasswordChange} disabled={saving}>
@@ -1117,28 +1117,28 @@ export default function UserProfileSettings() {
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           Updating...
-                        </>
-                      ) : (
-                        <>
+                         </>
+                       ) : (
+                         <>
                           <Save className="h-4 w-4 mr-2" />
                           Update Password
-                        </>
-                      )}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
+                         </>
+                       )}
+                     </Button>
+                         <Button
+                           variant="outline"
+                           onClick={() => {
                         setShowPasswordChange(false);
                         setCurrentPassword('');
                         setNewPassword('');
                         setConfirmPassword('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
+                           }}
+                         >
+                           Cancel
+                         </Button>
+                     </div>
+                   </div>
+                 )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1165,19 +1165,19 @@ export default function UserProfileSettings() {
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="Enter contact name"
                   />
-                </div>
-                <div className="space-y-2">
+                   </div>
+                     <div className="space-y-2">
                   <Label htmlFor="contactEmail">Contact Email</Label>
-                  <Input
+                       <Input
                     id="contactEmail"
-                    type="email"
+                         type="email"
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     placeholder="Enter contact email"
                   />
                 </div>
-              </div>
-              
+                     </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="contactPhone">Phone Number</Label>
@@ -1187,7 +1187,7 @@ export default function UserProfileSettings() {
                     onChange={(e) => setContactPhone(e.target.value)}
                     placeholder="Enter phone number"
                   />
-                </div>
+                     </div>
                 <div className="space-y-2">
                   <Label htmlFor="contactCompany">Company</Label>
                   <Input
@@ -1196,9 +1196,9 @@ export default function UserProfileSettings() {
                     onChange={(e) => setContactCompany(e.target.value)}
                     placeholder="Enter company name"
                   />
-                </div>
-              </div>
-              
+                   </div>
+               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="contactAddress">Address</Label>
                 <Input
@@ -1218,7 +1218,7 @@ export default function UserProfileSettings() {
                   placeholder="Enter any additional notes"
                 />
               </div>
-              
+               
               <div className="flex items-center gap-2 pt-4">
                 <Button onClick={handleContactUpdate} disabled={saving}>
                   {saving ? (
@@ -1232,30 +1232,30 @@ export default function UserProfileSettings() {
                       Save Contact Info
                     </>
                   )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                 </Button>
+               </div>
+             </CardContent>
+           </Card>
+         </TabsContent>
 
         {/* Enhanced Activity Tab with Real Data */}
         <TabsContent value="activity" className="space-y-4">
-          <Card>
-            <CardHeader>
+           <Card>
+             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
+                 <Activity className="h-5 w-5" />
                 Login Activity
-              </CardTitle>
-              <CardDescription>
+               </CardTitle>
+               <CardDescription>
                 Recent login activity and account access from audit trail
-              </CardDescription>
-            </CardHeader>
+               </CardDescription>
+             </CardHeader>
             <CardContent>
               {loginActivity.length === 0 ? (
-                <div className="text-center py-8">
-                  <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                 <div className="text-center py-8">
+                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No login activity recorded</p>
-                </div>
+                 </div>
               ) : (
                 <div className="overflow-auto">
                   <table className="w-full text-sm">
@@ -1286,12 +1286,12 @@ export default function UserProfileSettings() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                       </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+             </CardContent>
+           </Card>
+         </TabsContent>
+       </Tabs>
+     </div>
   );
 }
