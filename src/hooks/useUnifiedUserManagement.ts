@@ -181,7 +181,7 @@ export const useUnifiedUserManagement = () => {
       });
 
       // Combine all data with unified status handling
-      const combined: UnifiedUser[] = (tenantUsers || []).map(tu => {
+      let combined: UnifiedUser[] = (tenantUsers || []).map(tu => {
         const profile = profileMap.get(tu.user_id);
         const emailInfo = emailMap.get(tu.user_id);
         const userRoles = userRolesMap.get(tu.user_id) || [];
@@ -219,8 +219,39 @@ export const useUnifiedUserManagement = () => {
         };
       });
 
+      // Supplement with profiles in this tenant that are missing from tenant_users
+      try {
+        const { data: tenantProfiles, error: profErr } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url, created_at, role')
+          .eq('tenant_id', tenantId);
+
+        if (!profErr && tenantProfiles) {
+          const existingIds = new Set(combined.map(u => u.user_id));
+          const supplemental: UnifiedUser[] = tenantProfiles
+            .filter(p => !existingIds.has(p.user_id))
+            .map(p => ({
+              id: p.user_id,
+              user_id: p.user_id,
+              full_name: p.full_name || (emailMap.get(p.user_id) as any)?.email || 'Unknown User',
+              email: (emailMap.get(p.user_id) as any)?.email,
+              role: p.role || 'user',
+              roles: [p.role || 'user'],
+              tenant_id: tenantId!,
+              created_at: p.created_at,
+              status: 'active',
+              invitation_status: 'accepted',
+              avatar_url: p.avatar_url,
+            }));
+          if (supplemental.length > 0) {
+            combined = [...combined, ...supplemental];
+          }
+        }
+      } catch (e) {
+        // Non-fatal: keep combined as-is
+      }
+
       setUsers(combined);
-      if ((tenantUsers || []).length > 0) return;
 
       // Fallback method B: profiles-only (covers cases where tenant_users is not populated)
       const { data: tenantProfiles, error: profErr } = await supabase
