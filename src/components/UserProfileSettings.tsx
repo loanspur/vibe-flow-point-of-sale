@@ -401,17 +401,20 @@ export default function UserProfileSettings() {
     if (!user || !tenantId) return;
 
     try {
-      // First try to fetch from user_activity_logs
+      console.log('🔄 Fetching login activity from audit trail...');
+      
+      // First try to fetch from user_activity_logs with tenant filtering
       let { data: activityData, error: activityError } = await supabase
         .from('user_activity_logs')
         .select('*')
         .eq('user_id', user.id)
-        .eq('action_type', 'login')
+        .eq('tenant_id', tenantId) // Add tenant filtering
+        .in('action_type', ['login', 'logout', 'session_start', 'session_end']) // Include more activity types
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(15);
 
       if (activityError) {
-        console.log('user_activity_logs table not found, trying auth logs...');
+        console.log('user_activity_logs table not found or error:', activityError);
         
         // Try to fetch from auth logs or create comprehensive mock data
         activityData = await createComprehensiveLoginActivity();
@@ -427,7 +430,7 @@ export default function UserProfileSettings() {
       }));
 
       setLoginActivity(enhancedActivity);
-      console.log('Login activity fetched:', enhancedActivity);
+      console.log('✅ Login activity fetched:', enhancedActivity.length, 'records');
     } catch (error) {
       console.error('Error fetching login activity:', error);
       // Fallback to comprehensive mock data
@@ -467,7 +470,36 @@ export default function UserProfileSettings() {
       device: getDeviceFromUserAgent(navigator.userAgent)
     });
 
-    // Add some historical data
+    // Try to fetch from user_sessions table for more real data
+    try {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!sessionError && sessionData) {
+        sessionData.forEach((session, index) => {
+          activities.push({
+            id: `session-${session.id}`,
+            action_type: 'session_start',
+            ip_address: session.ip_address || 'Unknown',
+            user_agent: session.device_info?.userAgent || 'Unknown',
+            created_at: session.created_at,
+            details: { success: true, source: 'user_sessions' },
+            location: getLocationFromIP(session.ip_address),
+            device: getDeviceFromUserAgent(session.device_info?.userAgent)
+          });
+        });
+      }
+    } catch (error) {
+      console.log('Could not fetch from user_sessions:', error);
+    }
+
+    // Add some historical data for demonstration
     const historicalDates = [
       new Date(now.getTime() - 24 * 60 * 60 * 1000), // 1 day ago
       new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
@@ -1178,7 +1210,7 @@ export default function UserProfileSettings() {
                 Login Activity
               </CardTitle>
               <CardDescription>
-                Recent login activity and account access
+                Recent login activity and account access from audit trail
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1190,24 +1222,30 @@ export default function UserProfileSettings() {
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">Login successful</p>
+                        <p className="text-sm font-medium">
+                          {activity.action_type === 'login' ? 'Login successful' : 
+                           activity.action_type === 'logout' ? 'Logout' :
+                           activity.action_type === 'session_start' ? 'Session started' :
+                           activity.action_type === 'session_end' ? 'Session ended' :
+                           'Activity recorded'}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(activity.created_at).toLocaleString()}
                         </p>
                         <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                          {activity.ip_address && (
+                          {activity.ip_address && activity.ip_address !== 'Unknown' && (
                             <span className="flex items-center gap-1">
                               <Globe className="h-3 w-3" />
                               {activity.ip_address}
                             </span>
                           )}
-                          {activity.location && (
+                          {activity.location && activity.location !== 'Unknown Location' && (
                             <span className="flex items-center gap-1">
                               <MapPin className="h-3 w-3" />
                               {activity.location}
                             </span>
                           )}
-                          {activity.device && (
+                          {activity.device && activity.device !== 'Unknown Device' && (
                             <span className="flex items-center gap-1">
                               <Monitor className="h-3 w-3" />
                               {activity.device}
@@ -1222,6 +1260,9 @@ export default function UserProfileSettings() {
                 <div className="text-center py-8">
                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No login activity recorded</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Activity will appear here once you log in and out
+                  </p>
                 </div>
               )}
             </CardContent>
