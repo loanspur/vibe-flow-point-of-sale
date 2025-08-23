@@ -23,10 +23,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TabStabilityProvider } from "./components/TabStabilityProvider";
 import { PaymentMethodsProvider } from '@/contexts/PaymentMethodsContext';
-import { setupGlobalErrorHandler } from '@/utils/globalErrorHandler';
-
-// Temporarily comment out this line to fix the build error
-// setupGlobalErrorHandler();
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -802,15 +798,6 @@ const DomainRouter = () => {
   );
 };
 
-// Add this component to handle global error setup
-const GlobalErrorHandler = () => {
-  useEffect(() => {
-    setupGlobalErrorHandler();
-  }, []);
-  
-  return null;
-};
-
 function App() {
   return (
     <ErrorBoundary>
@@ -821,7 +808,6 @@ function App() {
               <TabStabilityProvider>
                 <TooltipProvider>
                   <BrowserRouter>
-                    <GlobalErrorHandler /> {/* Add this component */}
                     <Routes>
                       {/* ... your routes ... */}
                     </Routes>

@@ -30,7 +30,9 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Monitor
+  Monitor,
+  RefreshCw,
+  Edit
 } from 'lucide-react';
 
 interface UserProfile {
@@ -75,6 +77,7 @@ export default function UserProfileSettings() {
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [showEmailChange, setShowEmailChange] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   
   // Form states
   const [fullName, setFullName] = useState('');
@@ -112,9 +115,16 @@ export default function UserProfileSettings() {
   }, [newPassword]);
 
   const fetchUserProfile = async () => {
-    if (!user) return;
+    if (!user) {
+      setError('User not authenticated');
+      setLoading(false);
+      return;
+    }
 
     try {
+      setError(null);
+      console.log('Fetching profile for user:', user.id);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -123,15 +133,60 @@ export default function UserProfileSettings() {
 
       if (error) {
         console.error('Error fetching profile:', error);
+        
+        // If profile doesn't exist, create one
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, creating new profile...');
+          await createUserProfile();
+          return;
+        }
+        
+        setError(`Failed to fetch profile: ${error.message}`);
         return;
       }
 
+      console.log('Profile fetched successfully:', data);
       setProfile(data);
       setFullName(data.full_name || '');
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      setError('Failed to load profile data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createUserProfile = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: user.id,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          email: user.email,
+          role: userRole || 'user',
+          tenant_id: tenantId,
+          email_verified: user.email_confirmed_at ? true : false,
+          email_verified_at: user.email_confirmed_at
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        setError(`Failed to create profile: ${error.message}`);
+        return;
+      }
+
+      console.log('Profile created successfully:', data);
+      setProfile(data);
+      setFullName(data.full_name || '');
+      toast.success('Profile created successfully');
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+      setError('Failed to create profile');
     }
   };
 
@@ -204,18 +259,11 @@ export default function UserProfileSettings() {
     if (/[0-9]/.test(password)) strength += 15;
     if (/[^A-Za-z0-9]/.test(password)) strength += 15;
     
-    return Math.min(100, strength);
-  };
-
-  const getPasswordStrengthColor = (strength: number): string => {
-    if (strength < 30) return 'bg-red-500';
-    if (strength < 60) return 'bg-yellow-500';
-    if (strength < 80) return 'bg-blue-500';
-    return 'bg-green-500';
+    return Math.min(strength, 100);
   };
 
   const getPasswordStrengthText = (strength: number): string => {
-    if (strength < 30) return 'Weak';
+    if (strength < 40) return 'Weak';
     if (strength < 60) return 'Fair';
     if (strength < 80) return 'Good';
     return 'Strong';
@@ -285,9 +333,7 @@ export default function UserProfileSettings() {
       }
 
       // Refresh data without page reload
-      if (refreshUserInfo) {
-        await refreshUserInfo();
-      }
+      window.location.reload();
     } catch (error: any) {
       console.error('Unexpected error updating profile:', error);
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);
@@ -296,62 +342,9 @@ export default function UserProfileSettings() {
     }
   };
 
-  const handleUpdateContactProfile = async () => {
-    if (!user || !tenantId) return;
-
-    setSaving(true);
-    try {
-      const contactData = {
-        name: contactName.trim(),
-        email: contactEmail.trim() || null,
-        phone: contactPhone.trim() || null,
-        company: contactCompany.trim() || null,
-        address: contactAddress.trim() || null,
-        notes: contactNotes.trim() || null,
-        type: 'customer', // Valid type from the database constraint
-        tenant_id: tenantId,
-        user_id: user.id,
-        updated_at: new Date().toISOString()
-      };
-
-      let error;
-      if (contactProfile) {
-        // Update existing contact
-        const { error: updateError } = await supabase
-          .from('contacts')
-          .update(contactData)
-          .eq('id', contactProfile.id);
-        error = updateError;
-      } else {
-        // Create new contact
-        const { error: insertError } = await supabase
-          .from('contacts')
-          .insert({
-            ...contactData,
-            created_at: new Date().toISOString()
-          });
-        error = insertError;
-      }
-
-      if (error) {
-        toast.error('Failed to update contact profile');
-        console.error('Error updating contact profile:', error);
-        return;
-      }
-
-      toast.success('Contact profile updated successfully');
-      await fetchContactProfile();
-    } catch (error) {
-      toast.error('Failed to update contact profile');
-      console.error('Error updating contact profile:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handlePasswordChange = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error('Please fill in all password fields');
+    if (!user) {
+      toast.error('User not found');
       return;
     }
 
@@ -360,8 +353,8 @@ export default function UserProfileSettings() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error('New password must be at least 6 characters');
+    if (passwordStrength < 60) {
+      toast.error('Password is too weak. Please choose a stronger password.');
       return;
     }
 
@@ -372,270 +365,287 @@ export default function UserProfileSettings() {
       });
 
       if (error) {
-        toast.error('Failed to change password');
-        console.error('Error changing password:', error);
+        toast.error(`Failed to update password: ${error.message}`);
         return;
       }
 
-      toast.success('Password changed successfully');
-      setCurrentPassword('');
+      toast.success('Password updated successfully');
       setNewPassword('');
       setConfirmPassword('');
+      setCurrentPassword('');
       setShowPasswordChange(false);
     } catch (error) {
-      toast.error('Failed to change password');
-      console.error('Error changing password:', error);
+      console.error('Error updating password:', error);
+      toast.error('Failed to update password. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleEmailChange = async () => {
-    if (!newEmail.trim()) {
-      toast.error('Please enter a new email address');
+    if (!user) {
+      toast.error('User not found');
       return;
     }
 
-    if (newEmail === user?.email) {
-      toast.error('New email is the same as current email');
+    if (!newEmail || newEmail === user.email) {
+      toast.error('Please enter a different email address');
       return;
     }
 
     setSaving(true);
     try {
       const { error } = await supabase.auth.updateUser({
-        email: newEmail.trim()
+        email: newEmail
       });
 
       if (error) {
-        toast.error('Failed to update email');
-        console.error('Error updating email:', error);
+        toast.error(`Failed to update email: ${error.message}`);
         return;
       }
 
-      toast.success('Email update initiated. Please check your new email for verification.');
-      setNewEmail('');
-      setShowEmailChange(false);
-    } catch (error) {
-      toast.error('Failed to update email');
-      console.error('Error updating email:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSendVerificationOTP = async () => {
-    if (!user?.email) {
-      toast.error('No email address found');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { error } = await supabase.functions.invoke('send-otp-verification', {
-        body: {
-          email: user.email,
-          otpType: 'email_verification',
-          userId: user.id
-        }
-      });
-
-      if (error) {
-        toast.error('Failed to send verification code');
-        console.error('Error sending OTP:', error);
-        return;
-      }
-
-      toast.success('Verification code sent to your email');
-      setOtpSent(true);
+      toast.success('Email update request sent. Please check your new email for verification.');
       setShowEmailVerification(true);
-      
-      // Start resend timeout
+      setOtpSent(true);
       setResendTimeout(60);
-      const timer = setInterval(() => {
-        setResendTimeout(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
     } catch (error) {
-      toast.error('Failed to send verification code');
-      console.error('Error sending OTP:', error);
+      console.error('Error updating email:', error);
+      toast.error('Failed to update email. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleVerifyEmail = async () => {
-    if (!verificationOTP || verificationOTP.length !== 6) {
-      toast.error('Please enter a valid 6-digit code');
+    if (!verificationOTP) {
+      toast.error('Please enter the verification code');
       return;
     }
 
     setSaving(true);
     try {
-      const { error } = await supabase.functions.invoke('verify-otp', {
-        body: {
-          userId: user?.id,
-          otpCode: verificationOTP,
-          otpType: 'email_verification'
-        }
+      const { error } = await supabase.auth.verifyOtp({
+        email: newEmail,
+        token: verificationOTP,
+        type: 'email_change'
       });
 
       if (error) {
-        toast.error('Invalid or expired verification code');
-        console.error('Error verifying OTP:', error);
+        toast.error(`Verification failed: ${error.message}`);
         return;
       }
 
-      toast.success('Email verified successfully!');
+      toast.success('Email updated successfully');
       setShowEmailVerification(false);
       setVerificationOTP('');
-      setOtpSent(false);
-      await fetchUserProfile(); // Refresh profile to show verification status
+      setNewEmail('');
+      setShowEmailChange(false);
+      
+      // Refresh user info
+      if (refreshUserInfo) {
+        await refreshUserInfo();
+      }
     } catch (error) {
-      toast.error('Failed to verify email');
       console.error('Error verifying email:', error);
+      toast.error('Verification failed. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAccountDeactivation = async () => {
-    const confirmed = window.confirm(
-      'Are you sure you want to deactivate your account? This action cannot be undone and you will be signed out immediately.'
-    );
+  const handleResendOTP = async () => {
+    if (!newEmail) {
+      toast.error('No email address to resend to');
+      return;
+    }
 
-    if (!confirmed) return;
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'email_change',
+        email: newEmail
+      });
+
+      if (error) {
+        toast.error(`Failed to resend verification: ${error.message}`);
+        return;
+      }
+
+      toast.success('Verification code resent');
+      setResendTimeout(60);
+    } catch (error) {
+      console.error('Error resending OTP:', error);
+      toast.error('Failed to resend verification code');
+    }
+  };
+
+  const handleContactUpdate = async () => {
+    if (!user) {
+      toast.error('User not found');
+      return;
+    }
 
     setSaving(true);
     try {
-      // Log the deactivation activity
-      if (tenantId) {
-        await supabase
-          .from('user_activity_logs')
-          .insert({
-            tenant_id: tenantId,
-            user_id: user?.id,
-            action_type: 'account_deactivation',
-            details: {
-              timestamp: new Date().toISOString(),
-              self_deactivated: true
-            }
-          });
+      const contactData = {
+        user_id: user.id,
+        name: contactName.trim(),
+        email: contactEmail.trim() || null,
+        phone: contactPhone.trim() || null,
+        company: contactCompany.trim() || null,
+        address: contactAddress.trim() || null,
+        notes: contactNotes.trim() || null
+      };
+
+      let result;
+      if (contactProfile) {
+        // Update existing contact
+        result = await supabase
+          .from('contacts')
+          .update(contactData)
+          .eq('id', contactProfile.id)
+          .select();
+      } else {
+        // Create new contact
+        result = await supabase
+          .from('contacts')
+          .insert(contactData)
+          .select();
       }
 
-      // Sign out the user
-      await signOut();
-      toast.success('Account deactivated successfully');
+      if (result.error) {
+        toast.error(`Failed to update contact: ${result.error.message}`);
+        return;
+      }
+
+      toast.success('Contact information updated successfully');
+      await fetchContactProfile();
     } catch (error) {
-      toast.error('Failed to deactivate account');
-      console.error('Error deactivating account:', error);
+      console.error('Error updating contact:', error);
+      toast.error('Failed to update contact information');
     } finally {
       setSaving(false);
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'superadmin': return 'bg-destructive text-destructive-foreground';
-      case 'admin': return 'bg-primary text-primary-foreground';
-      case 'manager': return 'bg-accent text-accent-foreground';
-      case 'cashier': return 'bg-secondary text-secondary-foreground';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const formatUserAgent = (userAgent: string | null): string => {
-    if (!userAgent) return 'Unknown device';
-    
-    if (userAgent.includes('Chrome')) return 'Chrome Browser';
-    if (userAgent.includes('Firefox')) return 'Firefox Browser';
-    if (userAgent.includes('Safari')) return 'Safari Browser';
-    if (userAgent.includes('Edge')) return 'Edge Browser';
-    if (userAgent.includes('Mobile')) return 'Mobile Device';
-    
-    return 'Desktop Browser';
-  };
-
+  // Show loading state
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
+  // Show error state
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2"
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                fetchUserProfile();
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show profile not found state
   if (!profile) {
     return (
-      <div className="text-center p-8">
-        <p className="text-muted-foreground">Profile not found</p>
+      <div className="p-6">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Profile not found. 
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2"
+              onClick={createUserProfile}
+            >
+              <User className="h-4 w-4 mr-2" />
+              Create Profile
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       {/* Profile Header */}
       <Card>
         <CardHeader>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
               <AvatarImage src={profile.avatar_url || undefined} />
-              <AvatarFallback className="text-lg">
-                {profile.full_name ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 
-                 user?.email?.charAt(0).toUpperCase()}
+              <AvatarFallback>
+                {profile.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
-            <div className="space-y-1">
-              <CardTitle className="text-2xl">
-                {profile.full_name || 'No Name Set'}
-              </CardTitle>
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span>{user?.email}</span>
-                </div>
-                <Badge className={getRoleColor(profile.role)}>
-                  <Shield className="h-3 w-3 mr-1" />
-                  {profile.role}
-                </Badge>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Member since {new Date(profile.created_at).toLocaleDateString()}</span>
+            <div className="flex-1">
+              <CardTitle className="text-xl">{profile.full_name || 'User'}</CardTitle>
+              <CardDescription className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                {user?.email}
+                {profile.email_verified && (
+                  <Badge variant="secondary" className="text-xs">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Verified
+                  </Badge>
+                )}
+              </CardDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground capitalize">{userRole || 'User'}</span>
+                <Badge variant="outline">{tenantId ? 'Tenant User' : 'System User'}</Badge>
               </div>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Profile Management Tabs */}
-      <Tabs defaultValue="personal" className="space-y-6">
+      {/* Profile Tabs */}
+      <Tabs defaultValue="profile" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="personal">Personal Info</TabsTrigger>
-          <TabsTrigger value="contact">Contact Profile</TabsTrigger>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
-        {/* Personal Information Tab */}
-        <TabsContent value="personal">
+        {/* Profile Tab */}
+        <TabsContent value="profile" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
+              <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                <span>Personal Information</span>
+                Basic Information
               </CardTitle>
               <CardDescription>
-                Update your personal details and profile information
+                Update your personal information and profile details
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
                   <Input
@@ -645,154 +655,36 @@ export default function UserProfileSettings() {
                     placeholder="Enter your full name"
                   />
                 </div>
-                
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <Input
                     id="email"
                     value={user?.email || ''}
                     disabled
-                    className="bg-muted text-muted-foreground"
+                    className="bg-muted"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Email cannot be changed. Contact your administrator if needed.
+                    Email address cannot be changed from this form
                   </p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <div className="flex items-center space-x-2">
-                    <Badge className={getRoleColor(profile.role)}>
-                      <Shield className="h-3 w-3 mr-1" />
-                      {profile.role}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">
-                      Role is managed by your administrator
-                    </p>
-                  </div>
-                </div>
-
-                {tenantId && (
-                  <div className="space-y-2">
-                    <Label htmlFor="tenant">Organization</Label>
-                    <div className="flex items-center space-x-2">
-                      <Building className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        Tenant ID: {tenantId}
-                      </span>
-                    </div>
-                  </div>
-                )}
               </div>
-
-              <Separator />
-
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleUpdateProfile}
-                  disabled={saving}
-                  className="flex items-center space-x-2"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+              
+              <div className="flex items-center gap-2 pt-4">
+                <Button onClick={handleUpdateProfile} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Contact Profile Tab */}
-        <TabsContent value="contact">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <User className="h-5 w-5" />
-                <span>Contact Profile</span>
-              </CardTitle>
-              <CardDescription>
-                {contactProfile ? 
-                  'Update your contact information visible to other team members' :
-                  'Create a contact profile to be visible to other team members'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contactName">Display Name *</Label>
-                  <Input
-                    id="contactName"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    placeholder="How you want to appear to others"
-                    required
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contactEmail">Contact Email</Label>
-                    <Input
-                      id="contactEmail"
-                      type="email"
-                      value={contactEmail}
-                      onChange={(e) => setContactEmail(e.target.value)}
-                      placeholder="your@email.com"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="contactPhone">Phone Number</Label>
-                    <Input
-                      id="contactPhone"
-                      value={contactPhone}
-                      onChange={(e) => setContactPhone(e.target.value)}
-                      placeholder="+1 (555) 123-4567"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contactCompany">Company/Department</Label>
-                  <Input
-                    id="contactCompany"
-                    value={contactCompany}
-                    onChange={(e) => setContactCompany(e.target.value)}
-                    placeholder="Your department or company division"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contactAddress">Address</Label>
-                  <Input
-                    id="contactAddress"
-                    value={contactAddress}
-                    onChange={(e) => setContactAddress(e.target.value)}
-                    placeholder="Work address or location"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contactNotes">Notes</Label>
-                  <Input
-                    id="contactNotes"
-                    value={contactNotes}
-                    onChange={(e) => setContactNotes(e.target.value)}
-                    placeholder="Additional information about yourself"
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleUpdateContactProfile}
-                  disabled={saving || !contactName.trim()}
-                  className="flex items-center space-x-2"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>{saving ? 'Saving...' : (contactProfile ? 'Update Profile' : 'Create Profile')}</span>
+                <Button variant="outline" onClick={() => setFullName(profile.full_name || '')}>
+                  Reset
                 </Button>
               </div>
             </CardContent>
@@ -800,38 +692,26 @@ export default function UserProfileSettings() {
         </TabsContent>
 
         {/* Security Tab */}
-        <TabsContent value="security">
+        <TabsContent value="security" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Key className="h-5 w-5" />
-                <span>Security Settings</span>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Password & Security
               </CardTitle>
               <CardDescription>
-                Manage your account security and password
+                Update your password and security settings
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Password</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Last updated: {new Date(profile.updated_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowPasswordChange(!showPasswordChange)}
-                    className="flex items-center space-x-2"
-                  >
-                    {showPasswordChange ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    <span>{showPasswordChange ? 'Cancel' : 'Change Password'}</span>
-                  </Button>
-                </div>
-
-                {showPasswordChange && (
-                  <div className="border rounded-lg p-4 space-y-4">
+            <CardContent className="space-y-4">
+              {!showPasswordChange ? (
+                <Button onClick={() => setShowPasswordChange(true)} variant="outline">
+                  <Key className="h-4 w-4 mr-2" />
+                  Change Password
+                </Button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="currentPassword">Current Password</Label>
                       <Input
@@ -842,356 +722,210 @@ export default function UserProfileSettings() {
                         placeholder="Enter current password"
                       />
                     </div>
-
-                     <div className="space-y-2">
-                       <Label htmlFor="newPassword">New Password</Label>
-                       <Input
-                         id="newPassword"
-                         type="password"
-                         value={newPassword}
-                         onChange={(e) => setNewPassword(e.target.value)}
-                         placeholder="Enter new password (min. 8 characters)"
-                       />
-                       {newPassword && (
-                         <div className="space-y-2">
-                           <div className="flex items-center justify-between text-sm">
-                             <span className="text-muted-foreground">Password strength:</span>
-                             <span className={`font-medium ${
-                               passwordStrength < 30 ? 'text-red-500' :
-                               passwordStrength < 60 ? 'text-yellow-500' :
-                               passwordStrength < 80 ? 'text-blue-500' : 'text-green-500'
-                             }`}>
-                               {getPasswordStrengthText(passwordStrength)}
-                             </span>
-                           </div>
-                           <Progress 
-                             value={passwordStrength} 
-                             className="h-2"
-                           />
-                         </div>
-                       )}
-                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Label htmlFor="newPassword">New Password</Label>
                       <Input
-                        id="confirmPassword"
+                        id="newPassword"
                         type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm new password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password"
                       />
                     </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                    />
+                  </div>
 
-                    <div className="flex justify-end space-x-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowPasswordChange(false);
-                          setCurrentPassword('');
-                          setNewPassword('');
-                          setConfirmPassword('');
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handlePasswordChange}
-                        disabled={saving}
-                      >
-                        {saving ? 'Updating...' : 'Update Password'}
-                      </Button>
+                  {newPassword && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Password Strength</span>
+                        <span>{getPasswordStrengthText(passwordStrength)}</span>
+                      </div>
+                      <Progress value={passwordStrength} className="h-2" />
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
 
-               <Separator />
-
-               {/* Email Verification Section */}
-               <div className="space-y-4">
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <h4 className="font-medium">Email Verification</h4>
-                     <div className="flex items-center space-x-2">
-                       {profile.email_verified ? (
-                         <>
-                           <CheckCircle className="h-4 w-4 text-green-500" />
-                           <span className="text-sm text-green-600">Email verified</span>
-                           {profile.email_verified_at && (
-                             <span className="text-xs text-muted-foreground">
-                               on {new Date(profile.email_verified_at).toLocaleDateString()}
-                             </span>
-                           )}
-                         </>
-                       ) : (
-                         <>
-                           <XCircle className="h-4 w-4 text-red-500" />
-                           <span className="text-sm text-red-600">Email not verified</span>
-                         </>
-                       )}
-                     </div>
-                   </div>
-                   {!profile.email_verified && (
-                     <Button
-                       variant="outline"
-                       onClick={handleSendVerificationOTP}
-                       disabled={saving || resendTimeout > 0}
-                       className="flex items-center space-x-2"
-                     >
-                       <Mail className="h-4 w-4" />
-                       <span>
-                         {resendTimeout > 0 ? `Resend in ${resendTimeout}s` : 'Verify Email'}
-                       </span>
-                     </Button>
-                   )}
-                 </div>
-
-                 {showEmailVerification && (
-                   <div className="border rounded-lg p-4 space-y-4">
-                     <Alert>
-                       <Mail className="h-4 w-4" />
-                       <AlertDescription>
-                         We've sent a 6-digit verification code to {user?.email}. Please enter it below.
-                       </AlertDescription>
-                     </Alert>
-                     
-                     <div className="space-y-2">
-                       <Label htmlFor="verificationOTP">Verification Code</Label>
-                       <Input
-                         id="verificationOTP"
-                         value={verificationOTP}
-                         onChange={(e) => setVerificationOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                         placeholder="Enter 6-digit code"
-                         maxLength={6}
-                         className="text-center text-lg tracking-wider"
-                       />
-                       <p className="text-xs text-muted-foreground">
-                         Code expires in 10 minutes
-                       </p>
-                     </div>
-
-                     <div className="flex justify-between">
-                       <Button
-                         variant="ghost"
-                         onClick={handleSendVerificationOTP}
-                         disabled={saving || resendTimeout > 0}
-                         size="sm"
-                       >
-                         {resendTimeout > 0 ? `Resend in ${resendTimeout}s` : 'Resend Code'}
-                       </Button>
-                       <div className="flex space-x-2">
-                         <Button
-                           variant="outline"
-                           onClick={() => {
-                             setShowEmailVerification(false);
-                             setVerificationOTP('');
-                           }}
-                         >
-                           Cancel
-                         </Button>
-                         <Button 
-                           onClick={handleVerifyEmail}
-                           disabled={saving || verificationOTP.length !== 6}
-                         >
-                           {saving ? 'Verifying...' : 'Verify Email'}
-                         </Button>
-                       </div>
-                     </div>
-                   </div>
-                 )}
-               </div>
-
-               <Separator />
-
-               {/* Email Change Section */}
-               <div className="space-y-4">
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <h4 className="font-medium">Email Address</h4>
-                     <p className="text-sm text-muted-foreground">
-                       Current: {user?.email}
-                     </p>
-                   </div>
-                   <Button
-                     variant="outline"
-                     onClick={() => setShowEmailChange(!showEmailChange)}
-                     className="flex items-center space-x-2"
-                   >
-                     <Mail className="h-4 w-4" />
-                     <span>{showEmailChange ? 'Cancel' : 'Change Email'}</span>
-                   </Button>
-                 </div>
-
-                 {showEmailChange && (
-                   <div className="border rounded-lg p-4 space-y-4">
-                     <Alert>
-                       <AlertTriangle className="h-4 w-4" />
-                       <AlertDescription>
-                         Changing your email will require verification. You'll receive a confirmation email at your new address.
-                       </AlertDescription>
-                     </Alert>
-                     
-                     <div className="space-y-2">
-                       <Label htmlFor="newEmail">New Email Address</Label>
-                       <Input
-                         id="newEmail"
-                         type="email"
-                         value={newEmail}
-                         onChange={(e) => setNewEmail(e.target.value)}
-                         placeholder="Enter new email address"
-                       />
-                     </div>
-
-                     <div className="flex justify-end space-x-2">
-                       <Button
-                         variant="outline"
-                         onClick={() => {
-                           setShowEmailChange(false);
-                           setNewEmail('');
-                         }}
-                       >
-                         Cancel
-                       </Button>
-                       <Button 
-                         onClick={handleEmailChange}
-                         disabled={saving || !newEmail.trim()}
-                       >
-                         {saving ? 'Updating...' : 'Update Email'}
-                       </Button>
-                     </div>
-                   </div>
-                 )}
-               </div>
-
-               <Separator />
-
-              <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-medium mb-2">Account Information</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">User ID:</span>
-                    <span className="font-mono text-xs">{user?.id}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Account Created:</span>
-                    <span>{new Date(profile.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Last Updated:</span>
-                    <span>{new Date(profile.updated_at).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-2">
+                    <Button onClick={handlePasswordChange} disabled={saving}>
+                      {saving ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Update Password
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowPasswordChange(false);
+                        setCurrentPassword('');
+                        setNewPassword('');
+                        setConfirmPassword('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Contact Tab */}
+        <TabsContent value="contact" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Contact Information
+              </CardTitle>
+              <CardDescription>
+                Update your contact details and business information
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contactName">Contact Name</Label>
+                  <Input
+                    id="contactName"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Enter contact name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactEmail">Contact Email</Label>
+                  <Input
+                    id="contactEmail"
+                    type="email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="Enter contact email"
+                  />
+                </div>
               </div>
-               
-               {/* Account Deactivation */}
-               <div className="border border-red-200 rounded-lg p-4 bg-red-50/50">
-                 <h4 className="font-medium text-red-800 mb-2">Danger Zone</h4>
-                 <p className="text-sm text-red-600 mb-4">
-                   Deactivating your account will sign you out and may restrict access to some features.
-                 </p>
-                 <Button 
-                   variant="destructive" 
-                   onClick={handleAccountDeactivation}
-                   disabled={saving}
-                   className="flex items-center space-x-2"
-                 >
-                   <XCircle className="h-4 w-4" />
-                   <span>{saving ? 'Deactivating...' : 'Deactivate Account'}</span>
-                 </Button>
-               </div>
-             </CardContent>
-           </Card>
-         </TabsContent>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contactPhone">Phone Number</Label>
+                  <Input
+                    id="contactPhone"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactCompany">Company</Label>
+                  <Input
+                    id="contactCompany"
+                    value={contactCompany}
+                    onChange={(e) => setContactCompany(e.target.value)}
+                    placeholder="Enter company name"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="contactAddress">Address</Label>
+                <Input
+                  id="contactAddress"
+                  value={contactAddress}
+                  onChange={(e) => setContactAddress(e.target.value)}
+                  placeholder="Enter address"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="contactNotes">Notes</Label>
+                <Input
+                  id="contactNotes"
+                  value={contactNotes}
+                  onChange={(e) => setContactNotes(e.target.value)}
+                  placeholder="Enter any additional notes"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2 pt-4">
+                <Button onClick={handleContactUpdate} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Contact Info
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-         {/* Activity Tab */}
-         <TabsContent value="activity">
-           <Card>
-             <CardHeader>
-               <CardTitle className="flex items-center space-x-2">
-                 <Activity className="h-5 w-5" />
-                 <span>Login Activity</span>
-               </CardTitle>
-               <CardDescription>
-                 View your recent login activity and session information
-               </CardDescription>
-             </CardHeader>
-             <CardContent className="space-y-6">
-               {loginActivity.length > 0 ? (
-                 <div className="space-y-4">
-                   {loginActivity.map((activity) => (
-                     <div key={activity.id} className="flex items-center justify-between p-4 border rounded-lg">
-                       <div className="flex items-center space-x-3">
-                         <div className="p-2 bg-green-100 rounded-full">
-                           <CheckCircle className="h-4 w-4 text-green-600" />
-                         </div>
-                         <div>
-                           <div className="flex items-center space-x-2">
-                             <Monitor className="h-4 w-4 text-muted-foreground" />
-                             <span className="font-medium">
-                               {formatUserAgent(activity.user_agent)}
-                             </span>
-                           </div>
-                           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                             <span>IP: {activity.ip_address || 'Unknown'}</span>
-                             <span className="flex items-center space-x-1">
-                               <Clock className="h-3 w-3" />
-                               <span>{new Date(activity.created_at).toLocaleString()}</span>
-                             </span>
-                           </div>
-                         </div>
-                       </div>
-                       <Badge variant="outline" className="text-green-600 border-green-200">
-                         Successful
-                       </Badge>
-                     </div>
-                   ))}
-                 </div>
-               ) : (
-                 <div className="text-center py-8">
-                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                   <p className="text-muted-foreground">No recent login activity found</p>
-                 </div>
-               )}
-
-               <Separator />
-
-               {/* Session Information */}
-               <div className="space-y-4">
-                 <h4 className="font-medium">Current Session</h4>
-                 <div className="border rounded-lg p-4 space-y-3">
-                   <div className="flex items-center justify-between">
-                     <div className="flex items-center space-x-3">
-                       <div className="p-2 bg-blue-100 rounded-full">
-                         <Smartphone className="h-4 w-4 text-blue-600" />
-                       </div>
-                       <div>
-                         <p className="font-medium">This Device</p>
-                         <p className="text-sm text-muted-foreground">Current session</p>
-                       </div>
-                     </div>
-                     <Badge className="bg-green-100 text-green-800">
-                       Active
-                     </Badge>
-                   </div>
-                   
-                   <div className="flex justify-end">
-                     <Button 
-                       variant="outline" 
-                       size="sm"
-                       onClick={() => signOut()}
-                       className="flex items-center space-x-2"
-                     >
-                       <LogOut className="h-4 w-4" />
-                       <span>Sign Out</span>
-                     </Button>
-                   </div>
-                 </div>
-               </div>
-             </CardContent>
-           </Card>
-         </TabsContent>
-       </Tabs>
-     </div>
+        {/* Activity Tab */}
+        <TabsContent value="activity" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Login Activity
+              </CardTitle>
+              <CardDescription>
+                Recent login activity and account access
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loginActivity.length > 0 ? (
+                <div className="space-y-3">
+                  {loginActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="flex-shrink-0">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Login successful</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(activity.created_at).toLocaleString()}
+                        </p>
+                        {activity.ip_address && (
+                          <p className="text-xs text-muted-foreground">
+                            IP: {activity.ip_address}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No login activity recorded</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
