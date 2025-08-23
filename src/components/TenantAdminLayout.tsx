@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, Search, Plus, LogOut, User, Settings } from 'lucide-react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -43,6 +43,22 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   // Sidebar should be open by default except on add sale page
   const shouldSidebarBeOpen = !isOnAddSalePage;
 
+  // Enhanced profile settings handler with debugging
+  const handleProfileSettingsClick = () => {
+    console.log('Profile Settings clicked, opening dialog...');
+    setIsProfileOpen(true);
+  };
+
+  // Enhanced dialog close handler
+  const handleProfileDialogClose = (open: boolean) => {
+    console.log('Profile dialog state changed:', open);
+    setIsProfileOpen(open);
+  };
+
+  useEffect(() => {
+    console.log('Profile dialog state:', isProfileOpen);
+  }, [isProfileOpen]);
+
   return (
     <SidebarProvider defaultOpen={shouldSidebarBeOpen}>
       <div className="min-h-screen flex w-full bg-background">
@@ -78,7 +94,7 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
                       <p className="text-muted-foreground truncate">{user?.email}</p>
                     </div>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setIsProfileOpen(true)}>
+                    <DropdownMenuItem onClick={handleProfileSettingsClick}>
                       <User className="mr-2 h-4 w-4" />
                       Profile Settings
                     </DropdownMenuItem>
@@ -102,13 +118,18 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
           </main>
         </div>
         
-        {/* Mobile-optimized Profile Settings Dialog */}
-        <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        {/* Enhanced Profile Settings Dialog */}
+        <Dialog open={isProfileOpen} onOpenChange={handleProfileDialogClose}>
           <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-auto">
             <DialogHeader>
-              <DialogTitle>Profile Settings</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Profile Settings
+              </DialogTitle>
             </DialogHeader>
-            <UserProfileSettings />
+            <div className="mt-4">
+              <UserProfileSettings />
+            </div>
           </DialogContent>
         </Dialog>
       </div>
