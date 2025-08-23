@@ -828,9 +828,7 @@ function App() {
                 <TooltipProvider>
                   <BrowserRouter>
                     <ErrorSuppression />
-                    <Routes>
-                      {/* ... your routes ... */}
-                    </Routes>
+                    <DomainRouter />
                     <Toaster />
                     <Sonner />
                   </BrowserRouter>
