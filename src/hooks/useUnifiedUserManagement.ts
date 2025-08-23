@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { debugLog } from '@/utils/debug';
 
 // Unified interfaces
 export interface UnifiedUser {
@@ -91,7 +92,7 @@ export const useUnifiedUserManagement = () => {
         fetchUserSessions(),
       ]);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      debugLog('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -282,7 +283,7 @@ export const useUnifiedUserManagement = () => {
         setUsers(profilesCombined);
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
+      debugLog('Error fetching users:', error);
       toast.error('Failed to load users');
     }
   };
@@ -325,7 +326,7 @@ export const useUnifiedUserManagement = () => {
 
       setRoles(rolesWithPermissions);
     } catch (error) {
-      console.error('Error fetching roles:', error);
+      debugLog('Error fetching roles:', error);
       toast.error('Failed to load roles');
     }
   };
@@ -343,7 +344,7 @@ export const useUnifiedUserManagement = () => {
       if (error) throw error;
       setPermissions(data || []);
     } catch (error) {
-      console.error('Error fetching permissions:', error);
+      debugLog('Error fetching permissions:', error);
       toast.error('Failed to load permissions');
     }
   };
@@ -384,7 +385,7 @@ export const useUnifiedUserManagement = () => {
 
       setActivityLogs(mappedLogs);
     } catch (error) {
-      console.error('Error fetching activity logs:', error);
+      debugLog('Error fetching activity logs:', error);
     }
   };
 
@@ -425,7 +426,7 @@ export const useUnifiedUserManagement = () => {
 
       setUserSessions(mappedSessions);
     } catch (error) {
-      console.error('Error fetching user sessions:', error);
+      debugLog('Error fetching user sessions:', error);
     }
   };
 
@@ -449,7 +450,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      console.error('Error inviting user:', error);
+      debugLog('Error inviting user:', error);
       toast.error('Failed to send invitation');
       return false;
     }
@@ -481,7 +482,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      console.error('Error updating user role:', error);
+      debugLog('Error updating user role:', error);
       toast.error('Failed to update user role');
       return false;
     }
@@ -501,7 +502,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      console.error('Error deactivating user:', error);
+      debugLog('Error deactivating user:', error);
       toast.error('Failed to deactivate user');
       return false;
     }
@@ -521,7 +522,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      console.error('Error activating user:', error);
+      debugLog('Error activating user:', error);
       toast.error('Failed to activate user');
       return false;
     }
@@ -545,7 +546,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      console.error('Error resending invitation:', error);
+      debugLog('Error resending invitation:', error);
       toast.error('Failed to resend invitation');
       return false;
     }
@@ -567,7 +568,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      console.error('Error updating user profile:', error);
+      debugLog('Error updating user profile:', error);
       toast.error('Failed to update user profile');
       return false;
     }
@@ -597,7 +598,7 @@ export const useUnifiedUserManagement = () => {
       await fetchUsers();
       return true;
     } catch (error) {
-      console.error('Error deleting user:', error);
+      debugLog('Error deleting user:', error);
       toast.error('Failed to delete user');
       return false;
     }
@@ -649,7 +650,7 @@ export const useUnifiedUserManagement = () => {
       await fetchRoles();
       return true;
     } catch (error) {
-      console.error('Error creating role:', error);
+      debugLog('Error creating role:', error);
       toast.error('Failed to create role');
       return false;
     }
@@ -707,7 +708,7 @@ export const useUnifiedUserManagement = () => {
       await fetchRoles();
       return true;
     } catch (error) {
-      console.error('Error updating role:', error);
+      debugLog('Error updating role:', error);
       toast.error('Failed to update role');
       return false;
     }
@@ -747,7 +748,7 @@ export const useUnifiedUserManagement = () => {
       await fetchRoles();
       return true;
     } catch (error) {
-      console.error('Error deleting role:', error);
+      debugLog('Error deleting role:', error);
       toast.error('Failed to delete role');
       return false;
     }

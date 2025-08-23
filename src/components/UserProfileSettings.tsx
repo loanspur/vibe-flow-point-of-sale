@@ -198,7 +198,8 @@ export default function UserProfileSettings() {
       'Administrator': 'admin',
       'Tenant Admin': 'admin',
       'Tenant Administrator': 'admin',
-      'Owner': 'Business Owner'
+      'Owner': 'admin',
+      'Business Owner': 'admin'
     };
     return map[roleName] || roleName;
   };
@@ -207,7 +208,6 @@ export default function UserProfileSettings() {
       'superadmin': 'System Administrator with full access',
       'admin': 'Administrator with tenant-wide access',
       'Administrator': 'Administrator with tenant-wide access',
-      'Business Owner': 'Business Owner with full tenant privileges',
       'Store Manager': 'Store Manager with operational access',
       'Sales Staff': 'Sales Staff with sales access',
       'Cashier': 'Cashier with POS access',
@@ -221,7 +221,6 @@ export default function UserProfileSettings() {
       'superadmin': 100,
       'admin': 90,
       'Administrator': 90,
-      'Business Owner': 80,
       'Store Manager': 70,
       'Sales Staff': 60,
       'Cashier': 50,
@@ -235,7 +234,6 @@ export default function UserProfileSettings() {
       'superadmin': '#dc2626', // Red
       'admin': '#ea580c', // Orange
       'Administrator': '#ea580c', // Orange
-      'Business Owner': '#059669', // Green
       'Store Manager': '#2563eb', // Blue
       'Sales Staff': '#7c3aed', // Purple
       'Cashier': '#0891b2', // Cyan
@@ -258,20 +256,6 @@ export default function UserProfileSettings() {
         'User Management',
         'Settings Management',
         'Reports Access',
-        'All Business Features'
-      ],
-      'Administrator': [
-        'Tenant Administration',
-        'User Management',
-        'Settings Management',
-        'Reports Access',
-        'All Business Features'
-      ],
-      'Business Owner': [
-        'Business Administration',
-        'User Management',
-        'Settings Management',
-        'Financial Reports',
         'All Business Features'
       ],
       'Store Manager': [

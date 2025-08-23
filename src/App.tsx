@@ -205,6 +205,7 @@ const DomainRouter = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
+    // debugLog: App Router navigation
     console.log('🔄 App Router - Current location:', {
       pathname: location.pathname,
       search: location.search,
@@ -217,6 +218,7 @@ const DomainRouter = () => {
     
     // Check if we're at root with OAuth fragments - redirect to callback
     if (location.pathname === '/' && hash && /access_token|error|type=/.test(hash)) {
+      // debugLog
       console.log('🔀 OAuth fragments detected at root - redirecting to callback');
       const callbackUrl = `/auth/callback${location.search}${hash}`;
       console.log('🎯 Redirecting to:', callbackUrl);

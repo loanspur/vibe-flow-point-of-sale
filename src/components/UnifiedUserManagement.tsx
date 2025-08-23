@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Textarea } from '@/components/ui/textarea';
 import { useUnifiedUserManagement, UnifiedUser, UnifiedRole } from '@/hooks/useUnifiedUserManagement';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
+import { debugLog } from '@/utils/debug';
 import { useAuth } from '@/contexts/AuthContext';
 
 
@@ -50,7 +51,7 @@ const UnifiedUserManagement = () => {
 
   const { logActivity } = useActivityLogger();
 
-  console.log('UnifiedUserManagement Debug:', {
+  debugLog('UnifiedUserManagement Debug:', {
     loading,
     usersCount: users.length,
     rolesCount: roles.length,
