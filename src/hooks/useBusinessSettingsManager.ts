@@ -4,19 +4,33 @@ import { useAuth } from '@/contexts/AuthContext';
 import { handleError } from '@/utils/errorHandler';
 import { debugLog } from '@/utils/debug';
 
+// Add proper TypeScript interface
+interface BusinessSettings {
+  currency_code: string;
+  currency_symbol: string;
+  company_name: string;
+  timezone: string;
+  tax_inclusive: boolean;
+  default_tax_rate: number;
+  [key: string]: any; // Allow additional properties
+}
+
 export const useBusinessSettingsManager = () => {
   const { tenantId } = useAuth();
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('business_settings')
-        .select('*') // Select all fields to support all components
+        .select('*')
         .eq('tenant_id', tenantId)
         .single();
 
@@ -24,12 +38,14 @@ export const useBusinessSettingsManager = () => {
       setSettings(data);
     } catch (error) {
       handleError(error, 'useBusinessSettingsManager');
+      // Set default settings on error
+      setSettings(getDefaultSettings());
     } finally {
       setLoading(false);
     }
   }, [tenantId]);
 
-  const updateSettings = useCallback(async (updates: any) => {
+  const updateSettings = useCallback(async (updates: Partial<BusinessSettings>) => {
     if (!tenantId) return;
     
     try {
@@ -76,11 +92,21 @@ export const useBusinessSettingsManager = () => {
     };
   }, [tenantId]);
 
-  return { settings, loading, fetchSettings, updateSettings };
+  // Initial fetch
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  return { 
+    settings, 
+    loading, 
+    fetchSettings, 
+    updateSettings 
+  };
 };
 
 // Centralized default settings
-const getDefaultSettings = () => ({
+const getDefaultSettings = (): BusinessSettings => ({
   currency_code: 'USD',
   currency_symbol: '$',
   company_name: 'Your Business',

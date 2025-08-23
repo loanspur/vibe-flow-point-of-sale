@@ -31,8 +31,21 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { settings, loading, fetchSettings } = useBusinessSettingsManager();
-  const { tenantId } = useAuth();
+  // Add error boundary for hook
+  let settings, loading, fetchSettings;
+  
+  try {
+    const hookResult = useBusinessSettingsManager();
+    settings = hookResult.settings;
+    loading = hookResult.loading;
+    fetchSettings = hookResult.fetchSettings;
+  } catch (error) {
+    console.error('Error initializing useBusinessSettingsManager:', error);
+    // Fallback values
+    settings = null;
+    loading = false;
+    fetchSettings = () => Promise.resolve();
+  }
   
   // Use settings as businessSettings for consistency
   const businessSettings = settings;
