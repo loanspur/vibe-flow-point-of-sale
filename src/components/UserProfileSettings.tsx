@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -86,6 +86,8 @@ export default function UserProfileSettings() {
   const [showEmailChange, setShowEmailChange] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   // Form states
   const [fullName, setFullName] = useState('');
@@ -123,7 +125,7 @@ export default function UserProfileSettings() {
     }
   }, [newPassword]);
 
-  // Harmonized user role fetching - ensures single role with all privileges
+  // Harmonized user role fetching - prefer role from profiles table
   const fetchHarmonizedUserRole = async () => {
     if (!user || !tenantId) return;
 
@@ -153,9 +155,20 @@ export default function UserProfileSettings() {
 
       // Harmonize roles into a single primary role
       let harmonizedRole: HarmonizedUserRole | null = null;
-      
-      // Check for enhanced roles first (higher priority)
-      if (roleAssignmentsResult.data && roleAssignmentsResult.data.length > 0) {
+
+      // Prefer explicit role stored on profiles table
+      if (profileResult.data?.role) {
+        const roleName = normalizeRoleName(profileResult.data.role);
+        harmonizedRole = {
+          id: 'profile-role',
+          name: roleName,
+          description: getRoleDescription(roleName),
+          level: getRoleLevel(roleName),
+          color: getRoleColor(roleName),
+          isPrimary: true,
+          privileges: getPrivilegesForRole(roleName, getRoleLevel(roleName))
+        };
+      } else if (roleAssignmentsResult.data && roleAssignmentsResult.data.length > 0) {
         // Find the highest level role
         const highestRole = roleAssignmentsResult.data.reduce((highest: any, current: any) => {
           return (current.user_roles.level > highest.user_roles.level) ? current : highest;
@@ -163,24 +176,12 @@ export default function UserProfileSettings() {
         
         harmonizedRole = {
           id: highestRole.user_roles.id,
-          name: highestRole.user_roles.name,
+          name: normalizeRoleName(highestRole.user_roles.name),
           description: highestRole.user_roles.description,
           level: highestRole.user_roles.level,
           color: highestRole.user_roles.color,
           isPrimary: true,
-          privileges: getPrivilegesForRole(highestRole.user_roles.name, highestRole.user_roles.level)
-        };
-      } else if (profileResult.data?.role) {
-        // Fallback to simple role system
-        const roleName = profileResult.data.role;
-        harmonizedRole = {
-          id: 'simple-role',
-          name: roleName,
-          description: getRoleDescription(roleName),
-          level: getRoleLevel(roleName),
-          color: getRoleColor(roleName),
-          isPrimary: true,
-          privileges: getPrivilegesForRole(roleName, getRoleLevel(roleName))
+          privileges: getPrivilegesForRole(normalizeRoleName(highestRole.user_roles.name), highestRole.user_roles.level)
         };
       }
 
@@ -192,10 +193,20 @@ export default function UserProfileSettings() {
   };
 
   // Helper functions for role harmonization
+  const normalizeRoleName = (roleName: string): string => {
+    const map: Record<string, string> = {
+      'Administrator': 'admin',
+      'Tenant Admin': 'admin',
+      'Tenant Administrator': 'admin',
+      'Owner': 'Business Owner'
+    };
+    return map[roleName] || roleName;
+  };
   const getRoleDescription = (roleName: string): string => {
     const descriptions: Record<string, string> = {
       'superadmin': 'System Administrator with full access',
       'admin': 'Administrator with tenant-wide access',
+      'Administrator': 'Administrator with tenant-wide access',
       'Business Owner': 'Business Owner with full tenant privileges',
       'Store Manager': 'Store Manager with operational access',
       'Sales Staff': 'Sales Staff with sales access',
@@ -209,6 +220,7 @@ export default function UserProfileSettings() {
     const levels: Record<string, number> = {
       'superadmin': 100,
       'admin': 90,
+      'Administrator': 90,
       'Business Owner': 80,
       'Store Manager': 70,
       'Sales Staff': 60,
@@ -222,6 +234,7 @@ export default function UserProfileSettings() {
     const colors: Record<string, string> = {
       'superadmin': '#dc2626', // Red
       'admin': '#ea580c', // Orange
+      'Administrator': '#ea580c', // Orange
       'Business Owner': '#059669', // Green
       'Store Manager': '#2563eb', // Blue
       'Sales Staff': '#7c3aed', // Purple
@@ -241,6 +254,13 @@ export default function UserProfileSettings() {
         'All Features'
       ],
       'admin': [
+        'Tenant Administration',
+        'User Management',
+        'Settings Management',
+        'Reports Access',
+        'All Business Features'
+      ],
+      'Administrator': [
         'Tenant Administration',
         'User Management',
         'Settings Management',
@@ -413,7 +433,7 @@ export default function UserProfileSettings() {
         .order('created_at', { ascending: false })
         .limit(15);
 
-      if (activityError) {
+      if (activityError || !activityData || activityData.length === 0) {
         console.log('user_activity_logs table not found or error:', activityError);
         
         // Try to fetch from auth logs or create comprehensive mock data
@@ -613,17 +633,50 @@ export default function UserProfileSettings() {
 
       toast.success('Profile updated successfully');
       await fetchUserProfile();
-      
       if (refreshUserInfo) {
         await refreshUserInfo();
       }
-
-      window.location.reload();
     } catch (error: any) {
       console.error('Unexpected error updating profile:', error);
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const triggerAvatarSelect = () => fileInputRef.current?.click();
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setAvatarUploading(true);
+    try {
+      const path = `avatars/${user.id}/${Date.now()}-${file.name}`;
+      // Try primary bucket 'avatars', fallback to 'public'
+      let upload = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+      if (upload.error && upload.error.message) {
+        upload = await supabase.storage.from('public').upload(path, file, { upsert: true, contentType: file.type });
+      }
+      if (upload.error) throw upload.error;
+      const bucket = upload.data?.Key?.startsWith('public') ? 'public' : 'avatars';
+      const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(path);
+      const avatarUrl = publicUrlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+      if (updateError) throw updateError;
+
+      await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
+      setProfile((prev: any) => ({ ...prev, avatar_url: avatarUrl }));
+      toast.success('Profile photo updated');
+    } catch (err: any) {
+      console.error('Avatar upload failed:', err);
+      toast.error(`Failed to upload avatar: ${err.message || 'Unknown error'}`);
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
