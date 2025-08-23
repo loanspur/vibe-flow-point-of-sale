@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCurrencySettings } from "@/lib/currency";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
 
 interface Sale {
   id: string;
@@ -104,6 +105,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
   const receiptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { formatAmount } = useCurrencySettings();
+  const { settings } = useBusinessSettingsManager();
 
   const document = sale || quote;
 
@@ -119,10 +121,11 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
 
   useEffect(() => {
     if (isOpen && document) {
-      fetchBusinessSettings();
-      fetchItems();
+      // Use settings directly from the centralized manager
+      setBusinessSettings(settings);
+      loadTemplate(settings);
     }
-  }, [isOpen, document]);
+  }, [isOpen, document, settings]);
 
   // Set up real-time subscription for business settings changes
   useEffect(() => {
@@ -141,7 +144,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
         (payload) => {
           console.log('Business settings changed in receipt preview:', payload);
           // Reload business settings when they change
-          fetchBusinessSettings();
+          setBusinessSettings(settings);
         }
       )
       .subscribe();
@@ -149,58 +152,7 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId, isOpen]);
-
-  const fetchBusinessSettings = async () => {
-    if (!tenantId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('business_settings')
-        .select(`
-          company_name,
-          email,
-          phone,
-          website,
-          address_line_1,
-          address_line_2,
-          city,
-          state_province,
-          postal_code,
-          country,
-          receipt_header,
-          receipt_footer,
-          receipt_logo_url,
-          company_logo_url,
-          receipt_template,
-          invoice_template,
-          quote_template
-        `)
-        .eq('tenant_id', tenantId)
-        .single();
-
-      if (error) throw error;
-      setBusinessSettings(data);
-      
-      // Load the appropriate template content
-      loadTemplate(data);
-    } catch (error: any) {
-      console.error('Error fetching business settings:', error);
-      // Use fallback data if settings not found
-      const fallbackSettings = {
-        company_name: "VibePOS",
-        address_line_1: "123 Business Street",
-        city: "Business City",
-        phone: "(555) 123-4567",
-        email: "info@vibepos.com",
-        website: "www.vibepos.com",
-        receipt_header: "",
-        receipt_footer: "Thank you for your business!"
-      };
-      setBusinessSettings(fallbackSettings);
-      loadTemplate(fallbackSettings);
-    }
-  };
+  }, [tenantId, isOpen, settings]);
 
   const loadTemplate = (settings: any) => {
     const defaultTemplate = `{{receipt_header}}
@@ -496,10 +448,10 @@ Powered by VibePOS | {{company_phone}}
     
     // Replace template variables with actual data
     const replacements: Record<string, string> = {
-      '{{company_name}}': businessSettings?.company_name || "VibePOS",
-      '{{company_address}}': formatBusinessAddress(businessSettings),
-      '{{company_phone}}': businessSettings?.phone || '',
-      '{{company_email}}': businessSettings?.email || '',
+      '{{company_name}}': settings?.company_name || "VibePOS",
+      '{{company_address}}': formatBusinessAddress(settings),
+      '{{company_phone}}': settings?.phone || '',
+      '{{company_email}}': settings?.email || '',
       '{{receipt_number}}': sale?.receipt_number || quote?.quote_number || '',
       '{{date}}': formatDate(document?.created_at || ''),
       '{{time}}': new Date(document?.created_at || '').toLocaleTimeString(),
@@ -515,8 +467,8 @@ Powered by VibePOS | {{company_phone}}
       '{{payment_method}}': type === "receipt" && sale?.payment_method ? sale.payment_method.toUpperCase() : '',
       '{{amount_paid}}': type === "receipt" && sale?.amount_paid ? formatAmount(sale.amount_paid) : '',
       '{{change_amount}}': type === "receipt" && sale?.change_amount ? formatAmount(sale.change_amount) : '',
-      '{{receipt_header}}': businessSettings?.receipt_header || 'Welcome to our store!',
-      '{{receipt_footer}}': businessSettings?.receipt_footer || 'Thank you for shopping with us!'
+      '{{receipt_header}}': settings?.receipt_header || 'Welcome to our store!',
+      '{{receipt_footer}}': settings?.receipt_footer || 'Thank you for shopping with us!'
     };
 
     Object.entries(replacements).forEach(([variable, value]) => {
@@ -568,35 +520,35 @@ Powered by VibePOS | {{company_phone}}
     return (
       <div className="thermal-receipt bg-white p-6 border rounded-lg">
         {/* Custom Header */}
-        {businessSettings.receipt_header && (
+        {settings.receipt_header && (
           <div className="company-info center">
-            <div className="small">{businessSettings.receipt_header}</div>
+            <div className="small">{settings.receipt_header}</div>
           </div>
         )}
 
         {/* Logo */}
-        {(businessSettings.receipt_logo_url || businessSettings.company_logo_url) && (
+        {(settings.receipt_logo_url || settings.company_logo_url) && (
           <div className="company-info center">
-            <img src={businessSettings.receipt_logo_url || businessSettings.company_logo_url} alt={`${businessSettings.company_name || 'Company'} logo`} style={{ height: '40px', margin: '0 auto' }} />
+            <img src={settings.receipt_logo_url || settings.company_logo_url} alt={`${settings.company_name || 'Company'} logo`} style={{ height: '40px', margin: '0 auto' }} />
           </div>
         )}
 
         {/* Company Header */}
         <div className="company-info center">
-          <div className="bold large">{businessSettings.company_name || "VibePOS"}</div>
-          {businessSettings.address_line_1 && (
-            <div className="small">{businessSettings.address_line_1}</div>
+          <div className="bold large">{settings.company_name || "VibePOS"}</div>
+          {settings.address_line_1 && (
+            <div className="small">{settings.address_line_1}</div>
           )}
-          {businessSettings.address_line_2 && (
-            <div className="small">{businessSettings.address_line_2}</div>
+          {settings.address_line_2 && (
+            <div className="small">{settings.address_line_2}</div>
           )}
           <div className="small">
-            {[businessSettings.city, businessSettings.state_province, businessSettings.postal_code].filter(Boolean).join(', ')}
-            {businessSettings.country && `, ${businessSettings.country}`}
+            {[settings.city, settings.state_province, settings.postal_code].filter(Boolean).join(', ')}
+            {settings.country && `, ${settings.country}`}
           </div>
-          {businessSettings.phone && <div className="small">{businessSettings.phone}</div>}
-          {businessSettings.email && <div className="small">{businessSettings.email}</div>}
-          {businessSettings.website && <div className="small">{businessSettings.website}</div>}
+          {settings.phone && <div className="small">{settings.phone}</div>}
+          {settings.email && <div className="small">{settings.email}</div>}
+          {settings.website && <div className="small">{settings.website}</div>}
         </div>
 
         <div className="separator"></div>
@@ -722,8 +674,8 @@ Powered by VibePOS | {{company_phone}}
         
         <div className="footer-section center small">
           {/* Custom Footer */}
-          {businessSettings.receipt_footer ? (
-            <div>{businessSettings.receipt_footer}</div>
+          {settings.receipt_footer ? (
+            <div>{settings.receipt_footer}</div>
           ) : (
             <div>Thank you for your business!</div>
           )}
@@ -753,7 +705,7 @@ Powered by VibePOS | {{company_phone}}
     }
   };
 
-  if (!document || !businessSettings) return null;
+  if (!document || !settings) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

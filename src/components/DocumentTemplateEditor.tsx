@@ -13,6 +13,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
+import { BUSINESS_CONFIG } from '@/lib/business-config';
 
 interface DocumentTemplate {
   id: string;
@@ -260,6 +262,7 @@ export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSideBySide, setShowSideBySide] = useState(true);
   const { toast } = useToast();
+  const { settings } = useBusinessSettingsManager();
 
   useEffect(() => {
     loadTemplates();

@@ -80,6 +80,7 @@ import { PaymentManagement } from '@/components/PaymentManagement';
 import { MpesaIntegration } from '@/components/MpesaIntegration';
 import { handleError, handleSuccess } from '@/utils/errorHandler';
 import { debugLog } from '@/utils/debug';
+import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
 
 const businessSettingsSchema = z.object({
   // Basic company information
@@ -227,9 +228,7 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
-  const [settings, setSettings] = useState<BusinessSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const { settings, loading, updateSettings } = useBusinessSettingsManager();
   
   // Get initial tab from URL or default to "company"
   const getInitialTab = () => {
@@ -710,61 +709,12 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
-  const onSubmit = async (values: z.infer<typeof businessSettingsSchema>) => {
-    setIsSaving(true);
+  const onSubmit = async (data: any) => {
     try {
-      debugLog('Updating business settings:', values);
-      
-      // Get the current user's tenant ID
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user?.user?.id) {
-        throw new Error('User not authenticated');
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id, role')
-        .eq('user_id', user.user.id)
-        .single();
-
-      if (profileError) {
-        throw new Error('Failed to get user profile: ' + profileError.message);
-      }
-
-      if (!profile?.tenant_id) {
-        throw new Error('No tenant associated with user');
-      }
-
-      // Check permissions
-      if (profile.role !== 'superadmin' && profile.role !== 'admin') {
-        throw new Error('Insufficient permissions to modify business settings');
-      }
-
-      // Update business settings
-      const { error: updateError } = await supabase
-        .from('business_settings')
-        .upsert({
-          tenant_id: profile.tenant_id,
-          ...values,
-          updated_at: new Date().toISOString()
-        });
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      handleSuccess('Business settings updated successfully');
-      
-      // Refresh settings in context
-      if (refreshBusinessSettings) {
-        await refreshBusinessSettings();
-      }
-
+      await updateSettings(data);
+      toast({ title: "Success", description: "Settings updated successfully" });
     } catch (error) {
-      handleError(error, 'BusinessSettingsEnhanced');
-    } finally {
-      setIsSaving(false);
+      handleError(error, 'BusinessSettingsEnhanced.onSubmit');
     }
   };
 
@@ -785,7 +735,7 @@ export function BusinessSettingsEnhanced() {
 
   const countryOptions = COUNTRY_LIST;
 
-  if (isLoading) {
+  if (loading) {
     // Settings component still loading
     return (
       <div className="min-h-screen flex items-center justify-center">

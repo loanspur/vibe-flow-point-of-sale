@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
 import { tabStabilityManager } from '@/lib/tab-stability-manager';
+import { useBusinessSettingsManager } from '@/hooks/useBusinessSettingsManager';
 
 interface BusinessSettings {
   currency_code: string;
@@ -30,85 +31,14 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always call hooks in the same order
-  const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
-  const { formatLocalCurrency, convertFromKES, tenantCurrency } = useCurrencyConversion();
-  const refreshingRef = useRef(false);
+  const { settings, loading, fetchSettings } = useBusinessSettingsManager();
   
-  // Use AuthContext directly - it should always be available since we're wrapped by AuthProvider
-  const { tenantId, user } = useAuth();
-
-  const fetchBusinessSettings = useCallback(async () => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-
-    // Apply homepage stability - prevent business settings fetch during tab switching
-    if (tabStabilityManager.shouldPreventQueryRefresh()) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      
-      const fetchOnce = () =>
-        supabase
-          .from('business_settings')
-          .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
-
-      let settingsResponse = await fetchOnce();
-
-      if (settingsResponse.error && (settingsResponse.error.code === '42501' || settingsResponse.error.message?.toLowerCase().includes('row-level security') || settingsResponse.error.message?.toLowerCase().includes('permission denied'))) {
-        try {
-          if (user?.email) {
-            await supabase.rpc('reactivate_tenant_membership', {
-              tenant_id_param: tenantId,
-              target_email_param: user.email,
-            });
-            // Retry once after repair
-            settingsResponse = await fetchOnce();
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      if (settingsResponse.error && settingsResponse.error.code !== 'PGRST116') {
-        console.error('Error fetching business settings:', settingsResponse.error);
-        // Use default fallback settings
-        setBusinessSettings({
-          currency_code: 'USD',
-          currency_symbol: '$',
-          company_name: 'Your Business',
-          timezone: 'UTC',
-          tax_inclusive: false,
-          default_tax_rate: 0
-        });
-      } else if (!settingsResponse.data) {
-        // No settings found for tenant, use sensible defaults
-        setBusinessSettings({
-          currency_code: 'USD',
-          currency_symbol: '$',
-          company_name: 'Your Business',
-          timezone: 'UTC',
-          tax_inclusive: false,
-          default_tax_rate: 0
-        });
-      } else {
-        // Use the actual business settings from the database
-        setBusinessSettings(settingsResponse.data);
-      }
-    } catch (error) {
-      console.error('Error in fetchBusinessSettings:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantId]);
+  // Remove the existing fetchBusinessSettings and real-time subscription logic
+  // Use the centralized manager instead
+  
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const refreshBusinessSettings = useCallback(async () => {
     if (refreshingRef.current) return;
