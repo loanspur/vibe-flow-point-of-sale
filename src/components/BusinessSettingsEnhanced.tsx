@@ -373,10 +373,9 @@ export function BusinessSettingsEnhanced() {
 
         {/* Tabs wrapper around navigation and content */}
         <Tabs defaultValue="company">
-        {/* Enhanced Navigation with Modern Glass Effect */}
-        <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
-
-            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
+          {/* Enhanced Navigation with Modern Glass Effect */}
+          <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-8 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
                 value="company" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -392,6 +391,7 @@ export function BusinessSettingsEnhanced() {
                 <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Notifications</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="templates" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -399,6 +399,7 @@ export function BusinessSettingsEnhanced() {
                 <FileText className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Templates</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="payments" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -406,6 +407,7 @@ export function BusinessSettingsEnhanced() {
                 <CreditCard className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Payments</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="domains" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -413,6 +415,7 @@ export function BusinessSettingsEnhanced() {
                 <Globe className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Domains</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="billing" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -420,6 +423,7 @@ export function BusinessSettingsEnhanced() {
                 <Receipt className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Billing</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="locations" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -427,6 +431,7 @@ export function BusinessSettingsEnhanced() {
                 <MapPin className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Locations</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="migration" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -435,14 +440,13 @@ export function BusinessSettingsEnhanced() {
                 <span className="font-medium">Migration</span>
               </TabsTrigger>
             </TabsList>
-        </div>
+          </div>
 
-        {/* Enhanced Form Container */}
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-
+          {/* Enhanced Form Container */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               
-              {/* Company & Operations Combined Tab */}
+              {/* Company Tab */}
               <TabsContent value="company" className="space-y-8 mt-0">
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
                   
@@ -589,28 +593,28 @@ export function BusinessSettingsEnhanced() {
                             <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                           </div>
                         )}
-                          <div className="space-y-4 text-center">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="cursor-pointer hover:bg-primary/10 transition-colors"
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              {logoPreview ? "Change Logo" : "Upload Logo"}
-                            </Button>
-                            <Input
-                              id="logo-upload"
-                              ref={fileInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handleLogoUpload}
-                            />
-                            <p className="text-sm text-muted-foreground">
-                              Recommended: 200x200px, PNG or JPG format
-                            </p>
-                          </div>
+                        <div className="space-y-4 text-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="cursor-pointer hover:bg-primary/10 transition-colors"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {logoPreview ? "Change Logo" : "Upload Logo"}
+                          </Button>
+                          <Input
+                            id="logo-upload"
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLogoUpload}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Recommended: 200x200px, PNG or JPG format
+                          </p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -830,6 +834,7 @@ export function BusinessSettingsEnhanced() {
                           </FormItem>
                         )}
                       />
+                      
                       <FormField
                         control={form.control}
                         name="stock_accounting_method"
@@ -857,201 +862,7 @@ export function BusinessSettingsEnhanced() {
                   </Card>
                 </div>
                 
-                {/* Sales & Products Tab Actions */}
-                <div className="flex justify-end gap-3 pt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => form.reset()}
-                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                  >
-                    Reset Changes
-                  </Button>
-                  <Button 
-                    onClick={() => onSubmit(form.getValues())} 
-                    disabled={isSaving}
-                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save Changes"}
-                  </Button>
-                </div>
-              </TabsContent>
-
-
-
-
-
-
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="enable_brands"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Enable Brands</FormLabel>
-                              <FormDescription>
-                                Allow products to be organized by brands
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_product_units"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Product Units</FormLabel>
-                              <FormDescription>
-                                Enable different units for products (kg, lbs, etc.)
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_barcode_scanning"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Barcode Scanning</FormLabel>
-                              <FormDescription>
-                                Enable barcode scanning for products
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_negative_stock"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Negative Stock</FormLabel>
-                              <FormDescription>
-                                Allow products to have negative stock levels
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  {/* Inventory Settings Card */}
-                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <Package2 className="h-6 w-6 text-primary" />
-                        </div>
-                        Inventory Settings
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Configure inventory management and alerts
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="low_stock_threshold"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Low Stock Threshold</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number"
-                                placeholder="10" 
-                                className="border-2 focus:border-primary/50 transition-colors" 
-                                {...field}
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Minimum stock level before low stock alerts
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="low_stock_alerts"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Low Stock Alerts</FormLabel>
-                              <FormDescription>
-                                Receive notifications when stock is low
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_overselling"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Allow Overselling</FormLabel>
-                              <FormDescription>
-                                Allow sales when stock is insufficient
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Sales & Products Tab Actions */}
+                {/* Company Tab Actions */}
                 <div className="flex justify-end gap-3 pt-6">
                   <Button 
                     variant="outline" 
@@ -1550,6 +1361,20 @@ export function BusinessSettingsEnhanced() {
                         </div>
                       </div>
 
+                      <div className="space-y-2">
+                        <Label htmlFor="location-address1">Address Line 1</Label>
+                        <Input
+                          id="location-address1"
+                          value={locationFormData.address_line_1 || ''}
+                          onChange={(e) => setLocationFormData(prev => ({
+                            ...prev,
+                            address_line_1: e.target.value
+                          }))}
+                          placeholder="Street address"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
                         <Label htmlFor="location-address2">Address Line 2</Label>
                         <Input
                           id="location-address2"
@@ -1601,6 +1426,19 @@ export function BusinessSettingsEnhanced() {
                             }))}
                             placeholder="12345"
                           />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location-country">Country</Label>
+                          <Input
+                            id="location-country"
+                            value={locationFormData.country || ''}
+                            onChange={(e) => setLocationFormData(prev => ({
+                              ...prev,
+                              country: e.target.value
+                            }))}
+                            placeholder="Country"
+                          />
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">

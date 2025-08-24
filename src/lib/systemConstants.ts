@@ -265,3 +265,12 @@ export const ERROR_MESSAGES = {
   fileTooBig: 'File size exceeds limit',
   unsupportedFormat: 'Unsupported file format'
 } as const;
+  required: 'This field is required',
+  invalid: 'Invalid value',
+  tooShort: 'Value is too short',
+  tooLong: 'Value is too long',
+  invalidEmail: 'Invalid email address',
+  invalidPhone: 'Invalid phone number',
+  fileTooBig: 'File size exceeds limit',
+  unsupportedFormat: 'Unsupported file format'
+} as const;
