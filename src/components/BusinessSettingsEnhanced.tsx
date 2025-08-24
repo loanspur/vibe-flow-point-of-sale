@@ -53,7 +53,6 @@ import {
   Package2,
   AlertTriangle,
   Zap,
-  Mail as MailIcon,
   MessageSquare,
   Layout,
   Download,
@@ -385,13 +384,7 @@ export function BusinessSettingsEnhanced() {
                 <Building className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Company</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="sales-products" 
-                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-              >
-                <Package className="h-4 w-4 transition-transform group-hover:scale-110" />
-                <span className="font-medium hidden sm:inline">Sales</span>
-              </TabsTrigger>
+
               <TabsTrigger 
                 value="notifications" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -884,123 +877,11 @@ export function BusinessSettingsEnhanced() {
                 </div>
               </TabsContent>
 
-              {/* Sales & Products Tab */}
-              <TabsContent value="sales-products" className="space-y-8 mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                  
-                  {/* POS Settings Card */}
-                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <ShoppingCart className="h-6 w-6 text-primary" />
-                        </div>
-                        POS Settings
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Configure point of sale behavior and preferences
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="pos_auto_print_receipt"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Auto-Print Receipts</FormLabel>
-                              <FormDescription>
-                                Automatically print receipts after each sale
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="pos_ask_customer_info"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Ask Customer Info</FormLabel>
-                              <FormDescription>
-                                Prompt for customer information during sales
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="pos_enable_discounts"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Enable Discounts</FormLabel>
-                              <FormDescription>
-                                Allow discounts to be applied during sales
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="pos_enable_tips"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Enable Tips</FormLabel>
-                              <FormDescription>
-                                Allow tips to be added to transactions
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
 
-                  {/* Product Settings Card */}
-                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <Package className="h-6 w-6 text-primary" />
-                        </div>
-                        Product Settings
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Configure product management and inventory settings
-                      </CardDescription>
-                    </CardHeader>
+
+
+
+
                     <CardContent className="space-y-6">
                       <FormField
                         control={form.control}
