@@ -15,13 +15,31 @@ serve(async (req) => {
   try {
     const { tenant_id, phone_number, amount, reference, description } = await req.json();
 
-    if (!tenant_id || !phone_number || !amount || !reference) {
+    // Normalize Kenyan phone numbers to E.164 (2547XXXXXXXX)
+    const normalizePhone = (raw: string) => {
+      const digits = String(raw || '').replace(/\D/g, '');
+      if (digits.startsWith('0') && digits.length === 10) return `254${digits.substring(1)}`;
+      if (digits.startsWith('254') && digits.length === 12) return digits;
+      if (digits.length === 9) return `254${digits}`;
+      return digits;
+    };
+    const normalizedPhone = normalizePhone(phone_number);
+
+    if (!tenant_id || !normalizedPhone || !amount || !reference) {
       return new Response(
         JSON.stringify({ success: false, message: 'Missing required parameters' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
+      );
+    }
+
+    // Basic validation for Kenyan numbers
+    if (!normalizedPhone.startsWith('254') || normalizedPhone.length !== 12) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Invalid phone number format. Use 2547XXXXXXXX.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -71,7 +89,7 @@ serve(async (req) => {
     const stkResult = await initiateSTKPush({
       config,
       access_token: authResult.access_token,
-      phone_number,
+      phone_number: normalizedPhone,
       amount,
       reference,
       description,
@@ -85,7 +103,7 @@ serve(async (req) => {
           tenant_id,
           checkout_request_id: stkResult.checkout_request_id,
           merchant_request_id: stkResult.merchant_request_id,
-          phone_number,
+          phone_number: normalizedPhone,
           amount,
           reference,
           description,

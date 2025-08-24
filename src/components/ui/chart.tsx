@@ -57,6 +57,7 @@ const ChartContainer = React.forwardRef<
       >
         <ChartStyle id={chartId} config={config} />
         <RechartsPrimitive.ResponsiveContainer>
+          {/** Guard against null/NaN data arrays in children by wrapping render */}
           {children}
         </RechartsPrimitive.ResponsiveContainer>
       </div>
