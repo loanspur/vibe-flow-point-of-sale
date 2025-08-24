@@ -45,6 +45,9 @@ const CashierPWA = lazy(() => import("./components/mobile/CashierPWA"));
 const AdvancedAnalyticsDashboard = lazy(() => import("./components/analytics/AdvancedAnalyticsDashboard"));
 const ExternalIntegrationsManager = lazy(() => import("./components/integrations/ExternalIntegrationsManager"));
 
+// Advanced Customer Management for Phase 8.5
+const AdvancedCustomerManagementDashboard = lazy(() => import("./components/crm/AdvancedCustomerManagementDashboard"));
+
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Demo = lazy(() => import("./pages/Demo"));
@@ -891,6 +894,20 @@ const DomainRouter = () => {
               <SubscriptionGuard>
                 <TenantAdminLayout>
                   <ExternalIntegrationsManager />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Advanced Customer Management Routes for Phase 8.5 */}
+        <Route 
+          path="/admin/customer-management" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <AdvancedCustomerManagementDashboard />
                 </TenantAdminLayout>
               </SubscriptionGuard>
             </ProtectedRoute>

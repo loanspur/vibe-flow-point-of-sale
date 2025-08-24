@@ -10,7 +10,8 @@ import {
   Mail,
   Brain,
   Zap,
-  Activity
+  Activity,
+  Crown
 } from 'lucide-react';
 import { NavLink, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +43,7 @@ const businessItems = [
   { title: "Sales", url: "/admin/sales", icon: TrendingUp },
   { title: "Purchases", url: "/admin/purchases", icon: ShoppingCart },
   { title: "Contacts", url: "/admin/customers", icon: Users },
+  { title: "Customer Management", url: "/admin/customer-management", icon: Crown, featureRequired: "advanced_crm" },
   { title: "Accounting", url: "/admin/accounting", icon: Calculator, featureRequired: "advanced_accounting" },
   { title: "Reports", url: "/admin/reports", icon: BarChart3, featureRequired: "advanced_reporting" },
   { title: "Team", url: "/admin/team", icon: Users, featureRequired: "user_roles" },
