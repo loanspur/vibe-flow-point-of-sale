@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { OTPVerificationModal } from '@/components/OTPVerificationModal';
 import { domainManager } from '@/lib/domain-manager';
+import { getPostAuthRedirect } from '@/lib/navigationUtils';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -159,7 +160,7 @@ export default function AuthCallback() {
   const proceedAfterAuth = async () => {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('tenant_id')
+      .select('tenant_id, role')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -195,7 +196,12 @@ export default function AuthCallback() {
             title: "Welcome back!",
             description: `Welcome to ${tenantData.name}`,
           });
-          navigate('/dashboard');
+          const target = getPostAuthRedirect(profile?.role || null, domainConfig, profile?.tenant_id || null, tenantData?.subdomain || null);
+          if (target.startsWith('http')) {
+            window.location.href = target;
+          } else {
+            navigate(target);
+          }
           return;
         } else if (!domainConfig.isSubdomain) {
           // User is on main domain but has tenant - redirect to correct subdomain
@@ -212,7 +218,8 @@ export default function AuthCallback() {
           });
           
           setTimeout(() => {
-            window.location.href = `https://${targetSubdomain}/dashboard`;
+            const target = getPostAuthRedirect(profile?.role || null, domainConfig, profile?.tenant_id || null, tenantData?.subdomain || null);
+            window.location.href = target.startsWith('http') ? target : `https://${targetSubdomain}/dashboard`;
           }, 1500);
           return;
         } else {
@@ -222,7 +229,8 @@ export default function AuthCallback() {
                                  currentDomain.includes('vibenet.online') ? 'vibenet.online' : 
                                  'online'; // Default for custom domains
           const targetSubdomain = `${tenantData.subdomain}.${domainExtension}`;
-          window.location.href = `https://${targetSubdomain}/dashboard`;
+          const target = getPostAuthRedirect(profile?.role || null, domainConfig, profile?.tenant_id || null, tenantData?.subdomain || null);
+          window.location.href = target.startsWith('http') ? target : `https://${targetSubdomain}/dashboard`;
           return;
         }
       }
@@ -242,8 +250,13 @@ export default function AuthCallback() {
       return;
     }
 
-    // User without tenant on main domain
-    navigate('/dashboard');
+    // User without tenant on main domain (superadmin should go to /superadmin on apex)
+    const target = getPostAuthRedirect(profile?.role || null, domainConfig, profile?.tenant_id || null, null);
+    if (target.startsWith('http')) {
+      window.location.href = target;
+    } else {
+      navigate(target);
+    }
   };
 
 

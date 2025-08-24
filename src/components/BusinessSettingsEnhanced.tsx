@@ -226,7 +226,87 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
+  // Minimal state and handlers to ensure component compiles
+  const form = useForm<BusinessSettings>({
+    resolver: zodResolver(businessSettingsSchema),
+    defaultValues: {
+      currency_code: 'USD',
+      timezone: 'America/New_York',
+    } as any,
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [settings, setSettings] = useState<BusinessSettings | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const filteredCurrencies = useMemo(() => currencies, []);
+  const filteredTimezones = useMemo(() => timezones, []);
+  const [locations, setLocations] = useState<StoreLocation[]>([]);
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<StoreLocation | null>(null);
+  const [locationFormData, setLocationFormData] = useState<Partial<StoreLocation>>({ is_active: true });
 
+  const handleLogoUpload = (e: any) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoPreview(String(reader.result || ''));
+      form.setValue('company_logo_url', String(reader.result || ''));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddLocation = () => {
+    setEditingLocation(null);
+    setLocationFormData({ is_active: true });
+    setIsLocationDialogOpen(true);
+  };
+  const handleEditLocation = (loc: StoreLocation) => {
+    setEditingLocation(loc);
+    setLocationFormData(loc);
+    setIsLocationDialogOpen(true);
+  };
+  const handleDeleteLocation = (id: string) => {
+    setLocations(prev => prev.filter(l => l.id !== id));
+  };
+  const handleSaveLocation = () => {
+    if (editingLocation) {
+      setLocations(prev => prev.map(l => (l.id === editingLocation.id ? { ...editingLocation, ...(locationFormData as any) } : l)));
+    } else {
+      const newId = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now());
+      setLocations(prev => prev.concat({
+        id: newId,
+        name: locationFormData.name || 'New Location',
+        address_line_1: locationFormData.address_line_1 || '',
+        city: locationFormData.city || '',
+        state_province: locationFormData.state_province || '',
+        postal_code: locationFormData.postal_code || '',
+        country: locationFormData.country || '',
+        phone: locationFormData.phone || '',
+        is_primary: Boolean(locationFormData.is_primary),
+        is_active: locationFormData.is_active !== false,
+        tenant_id: settings?.tenant_id || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email: locationFormData.email,
+        manager_name: locationFormData.manager_name,
+        address_line_2: locationFormData.address_line_2,
+      } as StoreLocation));
+    }
+    setIsLocationDialogOpen(false);
+  };
+
+  const onSubmit = async (values: any) => {
+    setIsSaving(true);
+    try {
+      // TODO: Wire to Supabase upsert for business settings
+      setSettings({ ...(settings || {}), ...values });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl animate-fade-in">
         {/* Enhanced Header with Glass Effect */}
@@ -260,8 +340,10 @@ export function BusinessSettingsEnhanced() {
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-secondary/5 to-transparent rounded-full translate-y-36 -translate-x-36 blur-3xl" />
         </div>
 
-        {/* Enhanced Navigation with Modern Glass Effect */}
-        <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
+        {/* Tabs wrapper around navigation and content */}
+        <Tabs defaultValue="company">
+          {/* Enhanced Navigation with Modern Glass Effect */}
+          <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
 
             <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
@@ -328,8 +410,7 @@ export function BusinessSettingsEnhanced() {
                 <span className="font-medium">Migration</span>
               </TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
+          </div>
 
         {/* Enhanced Form Container */}
         <Form {...form}>

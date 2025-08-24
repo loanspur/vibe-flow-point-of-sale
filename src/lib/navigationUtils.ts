@@ -155,6 +155,41 @@ export function handleTenantRedirect(tenantDomain: string | null, currentDomain:
   }
 }
 
+// Centralized post-auth redirect helper
+export function getPostAuthRedirect(
+  userRole: string | null,
+  domainConfig: { isSubdomain: boolean; tenantId?: string | null },
+  profileTenantId: string | null,
+  tenantSubdomain?: string | null
+): string {
+  const roleLower = (userRole || '').toLowerCase();
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const apex = hostname.includes('vibenet.online') ? 'vibenet.online' : 'vibenet.shop';
+
+  // Superadmin should land on apex /superadmin
+  if (roleLower === 'superadmin') {
+    return `https://${apex}/superadmin`;
+  }
+
+  // Tenant user on correct subdomain
+  if (profileTenantId && domainConfig.isSubdomain && domainConfig.tenantId === profileTenantId) {
+    return '/dashboard';
+  }
+
+  // Tenant user on main domain -> redirect to subdomain
+  if (profileTenantId && !domainConfig.isSubdomain && tenantSubdomain) {
+    return `https://${tenantSubdomain}.${apex}/dashboard`;
+  }
+
+  // Tenant user on wrong subdomain -> redirect to correct one if known
+  if (profileTenantId && domainConfig.isSubdomain && tenantSubdomain) {
+    return `https://${tenantSubdomain}.${apex}/dashboard`;
+  }
+
+  // Default fallback
+  return '/dashboard';
+}
+
 // Breadcrumb utilities
 export function generateBreadcrumbs(path: string): Array<{ label: string; path: string }> {
   const segments = path.split('/').filter(Boolean);
