@@ -38,6 +38,9 @@ const AIDashboard = lazy(() => import("./components/ai/AIDashboard"));
 const AIAutomationRules = lazy(() => import("./components/ai/AIAutomationRules"));
 const AIPerformanceMetrics = lazy(() => import("./components/ai/AIPerformanceMetrics"));
 
+// Mobile Components for Phase 6
+const CashierPWA = lazy(() => import("./components/mobile/CashierPWA"));
+
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Demo = lazy(() => import("./pages/Demo"));
@@ -532,6 +535,20 @@ const DomainRouter = () => {
             } 
           />
           
+          {/* Mobile Cashier PWA Route */}
+          <Route 
+            path="/mobile" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="mobile_offline">
+                    <CashierPWA deviceId={`device_${Date.now()}`} tenantId={domainConfig.tenantId} />
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Fallback routes */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -878,6 +895,20 @@ const DomainRouter = () => {
                 <TenantAdminLayout>
                   <Profile />
                 </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Mobile Cashier PWA Route */}
+        <Route 
+          path="/mobile" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="mobile_offline">
+                  <CashierPWA deviceId={`device_${Date.now()}`} tenantId={user?.tenant_id} />
+                </FeatureGuard>
               </SubscriptionGuard>
             </ProtectedRoute>
           } 
