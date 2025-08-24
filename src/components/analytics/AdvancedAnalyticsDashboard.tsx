@@ -7,7 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { AdvancedAnalyticsEngine, CustomerSegment, PredictiveInsight, AnomalyDetection, BusinessMetric, CustomerBehavior } from '@/lib/ai/AdvancedAnalyticsEngine';
+import { AdvancedAnalyticsEngine, CustomerSegment, PredictiveInsight, AnomalyDetection, BusinessMetric, CustomerBehavior, CustomerDetail, AnomalyDetail, TimeSeriesData } from '@/lib/ai/AdvancedAnalyticsEngine';
+import { 
+  CustomerDetailModal,
+  SegmentCustomersModal,
+  AnomalyDetailModal,
+  TimeSeriesModal
+} from './DrillDownModals';
 import { 
   Brain, 
   TrendingUp, 
@@ -31,7 +37,8 @@ import {
   Lightbulb,
   ArrowUpRight,
   ArrowDownRight,
-  Minus
+  Minus,
+  MousePointer
 } from 'lucide-react';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, AreaChart, Area } from 'recharts';
 
@@ -51,6 +58,30 @@ export default function AdvancedAnalyticsDashboard() {
   const [anomalies, setAnomalies] = useState<AnomalyDetection[]>([]);
   const [businessMetrics, setBusinessMetrics] = useState<BusinessMetric[]>([]);
   const [customerBehaviors, setCustomerBehaviors] = useState<CustomerBehavior[]>([]);
+
+  // Drill-down modal states
+  const [customerDetailModal, setCustomerDetailModal] = useState<{
+    isOpen: boolean;
+    customer: CustomerDetail | null;
+  }>({ isOpen: false, customer: null });
+
+  const [segmentCustomersModal, setSegmentCustomersModal] = useState<{
+    isOpen: boolean;
+    segmentName: string;
+    customers: CustomerDetail[];
+  }>({ isOpen: false, segmentName: '', customers: [] });
+
+  const [anomalyDetailModal, setAnomalyDetailModal] = useState<{
+    isOpen: boolean;
+    anomaly: AnomalyDetail | null;
+  }>({ isOpen: false, anomaly: null });
+
+  const [timeSeriesModal, setTimeSeriesModal] = useState<{
+    isOpen: boolean;
+    data: TimeSeriesData[];
+    metric: string;
+    title: string;
+  }>({ isOpen: false, data: [], metric: '', title: '' });
 
   const analyticsEngine = AdvancedAnalyticsEngine.getInstance();
 
@@ -107,6 +138,88 @@ export default function AdvancedAnalyticsDashboard() {
       });
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  // Drill-down handlers
+  const handleSegmentClick = async (segmentName: string) => {
+    try {
+      const customers = await analyticsEngine.getSegmentCustomers(
+        user?.tenant_id || '', 
+        segmentName,
+        { limit: 50 }
+      );
+      setSegmentCustomersModal({
+        isOpen: true,
+        segmentName,
+        customers
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load segment customers',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCustomerClick = async (customerId: string) => {
+    try {
+      const customer = await analyticsEngine.getCustomerDetail(
+        user?.tenant_id || '', 
+        customerId
+      );
+      setCustomerDetailModal({
+        isOpen: true,
+        customer
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load customer details',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAnomalyClick = async (anomalyId: string) => {
+    try {
+      const anomaly = await analyticsEngine.getAnomalyDetail(
+        user?.tenant_id || '', 
+        anomalyId
+      );
+      setAnomalyDetailModal({
+        isOpen: true,
+        anomaly
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load anomaly details',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTimeSeriesClick = async (metric: string, title: string) => {
+    try {
+      const data = await analyticsEngine.getTimeSeriesData(
+        user?.tenant_id || '', 
+        metric,
+        { startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }
+      );
+      setTimeSeriesModal({
+        isOpen: true,
+        data,
+        metric,
+        title
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load time series data',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -215,9 +328,20 @@ export default function AdvancedAnalyticsDashboard() {
         </div>
       </div>
 
+      {/* Drill-down Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 text-blue-800">
+          <MousePointer className="h-4 w-4" />
+          <span className="text-sm font-medium">Drill-down Available</span>
+        </div>
+        <p className="text-sm text-blue-700 mt-1">
+          Click on charts, segments, or data points to view detailed information
+        </p>
+      </div>
+
       {/* Key Metrics Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTimeSeriesClick('revenue', 'Revenue Trend')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -233,7 +357,7 @@ export default function AdvancedAnalyticsDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTimeSeriesClick('orders', 'Order Count Trend')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Customer Segments</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -246,7 +370,7 @@ export default function AdvancedAnalyticsDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTimeSeriesClick('anomalies', 'Anomaly Trend')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Anomalies</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
@@ -259,7 +383,7 @@ export default function AdvancedAnalyticsDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleTimeSeriesClick('customer_value', 'Customer Value Trend')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Customer Value</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
@@ -315,7 +439,11 @@ export default function AdvancedAnalyticsDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   {customerSegments.map((segment) => (
-                    <div key={segment.id} className="flex items-center justify-between">
+                    <div 
+                      key={segment.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => handleSegmentClick(segment.segment_name)}
+                    >
                       <div>
                         <p className="font-medium">{segment.segment_name}</p>
                         <p className="text-sm text-muted-foreground">
@@ -328,6 +456,7 @@ export default function AdvancedAnalyticsDashboard() {
                           Avg: {formatNumber(segment.avg_order_value, 'currency')}
                         </p>
                       </div>
+                      <Eye className="h-4 w-4 text-muted-foreground ml-2" />
                     </div>
                   ))}
                 </div>
@@ -431,7 +560,11 @@ export default function AdvancedAnalyticsDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   {anomalies.filter(a => !a.resolved).slice(0, 5).map((anomaly) => (
-                    <div key={anomaly.id} className="p-3 border rounded-lg">
+                    <div 
+                      key={anomaly.id} 
+                      className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => handleAnomalyClick(anomaly.id)}
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <Badge variant={getSeverityColor(anomaly.severity)}>
                           {anomaly.severity}
@@ -444,6 +577,7 @@ export default function AdvancedAnalyticsDashboard() {
                       <p className="text-xs text-muted-foreground">
                         Score: {anomaly.anomaly_score.toFixed(2)}
                       </p>
+                      <Eye className="h-4 w-4 text-muted-foreground mt-2" />
                     </div>
                   ))}
                 </div>
@@ -559,6 +693,38 @@ export default function AdvancedAnalyticsDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Drill-down Modals */}
+      <CustomerDetailModal
+        isOpen={customerDetailModal.isOpen}
+        onClose={() => setCustomerDetailModal({ isOpen: false, customer: null })}
+        customer={customerDetailModal.customer}
+      />
+
+      <SegmentCustomersModal
+        isOpen={segmentCustomersModal.isOpen}
+        onClose={() => setSegmentCustomersModal({ isOpen: false, segmentName: '', customers: [] })}
+        segmentName={segmentCustomersModal.segmentName}
+        customers={segmentCustomersModal.customers}
+        onCustomerClick={(customer) => {
+          setCustomerDetailModal({ isOpen: true, customer });
+          setSegmentCustomersModal({ isOpen: false, segmentName: '', customers: [] });
+        }}
+      />
+
+      <AnomalyDetailModal
+        isOpen={anomalyDetailModal.isOpen}
+        onClose={() => setAnomalyDetailModal({ isOpen: false, anomaly: null })}
+        anomaly={anomalyDetailModal.anomaly}
+      />
+
+      <TimeSeriesModal
+        isOpen={timeSeriesModal.isOpen}
+        onClose={() => setTimeSeriesModal({ isOpen: false, data: [], metric: '', title: '' })}
+        data={timeSeriesModal.data}
+        metric={timeSeriesModal.metric}
+        title={timeSeriesModal.title}
+      />
     </div>
   );
 }

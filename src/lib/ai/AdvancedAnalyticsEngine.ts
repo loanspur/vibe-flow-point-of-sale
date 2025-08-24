@@ -71,6 +71,71 @@ export interface CustomerBehavior {
   total_orders: number;
 }
 
+// New interfaces for drill-down functionality
+export interface CustomerDetail {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  segment_name: string;
+  total_orders: number;
+  total_spent: number;
+  avg_order_value: number;
+  first_order_date: string;
+  last_order_date: string;
+  orders: OrderDetail[];
+}
+
+export interface OrderDetail {
+  id: string;
+  order_number: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  items: OrderItemDetail[];
+  payment_method: string;
+}
+
+export interface OrderItemDetail {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+}
+
+export interface AnomalyDetail {
+  id: string;
+  anomaly_type: string;
+  entity_type: string;
+  entity_id: string;
+  entity_name: string;
+  anomaly_score: number;
+  severity: string;
+  description: string;
+  detected_at: string;
+  resolved: boolean;
+  resolution_notes?: string;
+  related_data: any;
+}
+
+export interface TimeSeriesData {
+  date: string;
+  value: number;
+  metric: string;
+  category?: string;
+}
+
+export interface DrillDownFilter {
+  startDate?: string;
+  endDate?: string;
+  segment?: string;
+  category?: string;
+  severity?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export class AdvancedAnalyticsEngine {
   private static instance: AdvancedAnalyticsEngine;
 
@@ -706,5 +771,276 @@ export class AdvancedAnalyticsEngine {
     if (daysSinceLastOrder > 7) return 0.3;
     
     return 0.1;
+  }
+
+  // Drill-down methods for detailed analytics
+
+  // Get detailed customer information for drill-down
+  async getCustomerDetail(tenantId: string, customerId: string): Promise<CustomerDetail> {
+    try {
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select(`
+          id,
+          name,
+          email,
+          phone,
+          orders (
+            id,
+            order_number,
+            total_amount,
+            status,
+            created_at,
+            payment_method,
+            order_items (
+              id,
+              quantity,
+              unit_price,
+              products (
+                id,
+                name
+              )
+            )
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('id', customerId)
+        .single();
+
+      if (customerError) throw customerError;
+
+      const orders = customer.orders?.filter(o => o.status === 'completed') || [];
+      const totalSpent = orders.reduce((sum, order) => sum + order.total_amount, 0);
+      const avgOrderValue = orders.length > 0 ? totalSpent / orders.length : 0;
+
+      const orderDetails: OrderDetail[] = orders.map(order => ({
+        id: order.id,
+        order_number: order.order_number,
+        total_amount: order.total_amount,
+        status: order.status,
+        created_at: order.created_at,
+        payment_method: order.payment_method,
+        items: order.order_items?.map(item => ({
+          product_id: item.products?.id || '',
+          product_name: item.products?.name || '',
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.quantity * item.unit_price
+        })) || []
+      }));
+
+      // Determine segment
+      const segment = await this.getCustomerSegment(tenantId, customerId);
+
+      return {
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        segment_name: segment?.segment_name || 'Unknown',
+        total_orders: orders.length,
+        total_spent: totalSpent,
+        avg_order_value: avgOrderValue,
+        first_order_date: orders.length > 0 ? orders.reduce((earliest, order) => 
+          new Date(order.created_at) < new Date(earliest.created_at) ? order : earliest
+        ).created_at : '',
+        last_order_date: orders.length > 0 ? orders.reduce((latest, order) => 
+          new Date(order.created_at) > new Date(latest.created_at) ? order : latest
+        ).created_at : '',
+        orders: orderDetails
+      };
+    } catch (error) {
+      console.error('Error getting customer detail:', error);
+      throw error;
+    }
+  }
+
+  // Get customers in a specific segment
+  async getSegmentCustomers(tenantId: string, segmentName: string, filter?: DrillDownFilter): Promise<CustomerDetail[]> {
+    try {
+      const { data: customers, error } = await supabase
+        .from('customers')
+        .select(`
+          id,
+          name,
+          email,
+          phone,
+          orders (
+            id,
+            order_number,
+            total_amount,
+            status,
+            created_at,
+            payment_method
+          )
+        `)
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+
+      const customerDetails: CustomerDetail[] = [];
+
+      for (const customer of customers || []) {
+        const orders = customer.orders?.filter(o => o.status === 'completed') || [];
+        if (orders.length === 0) continue;
+
+        // Calculate RFM metrics
+        const now = new Date();
+        const lastOrder = orders.reduce((latest, order) => 
+          new Date(order.created_at) > new Date(latest.created_at) ? order : latest
+        );
+        
+        const recency = Math.floor((now.getTime() - new Date(lastOrder.created_at).getTime()) / (1000 * 60 * 60 * 24));
+        const frequency = orders.length;
+        const monetary = orders.reduce((sum, order) => sum + order.total_amount, 0);
+
+        const segment = this.assignRFMSegment(recency, frequency, monetary);
+        
+        if (segment.name === segmentName) {
+          const totalSpent = orders.reduce((sum, order) => sum + order.total_amount, 0);
+          const avgOrderValue = orders.length > 0 ? totalSpent / orders.length : 0;
+
+          customerDetails.push({
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            segment_name: segment.name,
+            total_orders: orders.length,
+            total_spent: totalSpent,
+            avg_order_value: avgOrderValue,
+            first_order_date: orders.reduce((earliest, order) => 
+              new Date(order.created_at) < new Date(earliest.created_at) ? order : earliest
+            ).created_at,
+            last_order_date: orders.reduce((latest, order) => 
+              new Date(order.created_at) > new Date(latest.created_at) ? order : latest
+            ).created_at,
+            orders: []
+          });
+        }
+      }
+
+      // Apply filters
+      let filteredCustomers = customerDetails;
+      if (filter?.startDate && filter?.endDate) {
+        filteredCustomers = filteredCustomers.filter(customer => {
+          const lastOrderDate = new Date(customer.last_order_date);
+          return lastOrderDate >= new Date(filter.startDate!) && lastOrderDate <= new Date(filter.endDate!);
+        });
+      }
+
+      // Apply pagination
+      if (filter?.limit) {
+        const offset = filter.offset || 0;
+        filteredCustomers = filteredCustomers.slice(offset, offset + filter.limit);
+      }
+
+      return filteredCustomers;
+    } catch (error) {
+      console.error('Error getting segment customers:', error);
+      throw error;
+    }
+  }
+
+  // Get detailed anomaly information
+  async getAnomalyDetail(tenantId: string, anomalyId: string): Promise<AnomalyDetail> {
+    try {
+      const { data: anomaly, error } = await supabase
+        .from('ai_anomalies')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('id', anomalyId)
+        .single();
+
+      if (error) throw error;
+
+      // Get related entity data based on anomaly type
+      let relatedData = {};
+      if (anomaly.entity_type === 'customer') {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id, name, email')
+          .eq('id', anomaly.entity_id)
+          .single();
+        relatedData = customer || {};
+      } else if (anomaly.entity_type === 'product') {
+        const { data: product } = await supabase
+          .from('products')
+          .select('id, name, sku')
+          .eq('id', anomaly.entity_id)
+          .single();
+        relatedData = product || {};
+      }
+
+      return {
+        id: anomaly.id,
+        anomaly_type: anomaly.anomaly_type,
+        entity_type: anomaly.entity_type,
+        entity_id: anomaly.entity_id,
+        entity_name: relatedData.name || anomaly.entity_id,
+        anomaly_score: anomaly.anomaly_score,
+        severity: anomaly.severity,
+        description: anomaly.description,
+        detected_at: anomaly.detected_at,
+        resolved: anomaly.resolved,
+        resolution_notes: anomaly.resolution_notes,
+        related_data: relatedData
+      };
+    } catch (error) {
+      console.error('Error getting anomaly detail:', error);
+      throw error;
+    }
+  }
+
+  // Get time series data for drill-down
+  async getTimeSeriesData(tenantId: string, metric: string, filter?: DrillDownFilter): Promise<TimeSeriesData[]> {
+    try {
+      let query = supabase
+        .from('orders')
+        .select('created_at, total_amount')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'completed');
+
+      if (filter?.startDate && filter?.endDate) {
+        query = query.gte('created_at', filter.startDate).lte('created_at', filter.endDate);
+      }
+
+      const { data: orders, error } = await query;
+      if (error) throw error;
+
+      // Group by date and calculate metrics
+      const dailyData: Record<string, { total: number; count: number }> = {};
+      
+      orders?.forEach(order => {
+        const date = new Date(order.created_at).toISOString().split('T')[0];
+        if (!dailyData[date]) {
+          dailyData[date] = { total: 0, count: 0 };
+        }
+        dailyData[date].total += order.total_amount;
+        dailyData[date].count += 1;
+      });
+
+      const timeSeriesData: TimeSeriesData[] = Object.entries(dailyData).map(([date, data]) => ({
+        date,
+        value: metric === 'revenue' ? data.total : data.count,
+        metric
+      }));
+
+      return timeSeriesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch (error) {
+      console.error('Error getting time series data:', error);
+      throw error;
+    }
+  }
+
+  // Get customer segment for a specific customer
+  private async getCustomerSegment(tenantId: string, customerId: string): Promise<CustomerSegment | null> {
+    try {
+      const segments = await this.generateCustomerSegments(tenantId);
+      return segments.find(segment => segment.id === customerId) || null;
+    } catch (error) {
+      console.error('Error getting customer segment:', error);
+      return null;
+    }
   }
 }
