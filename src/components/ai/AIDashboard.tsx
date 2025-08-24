@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useApp } from '@/contexts/AppContext';
 import { 
   Loader2, 
   Brain, 
@@ -84,6 +85,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'
 export default function AIDashboard() {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
+  const { formatCurrency } = useApp();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [forecastPeriod, setForecastPeriod] = useState('monthly');
@@ -247,13 +249,7 @@ export default function AIDashboard() {
     }
   }, [tenantId, forecastPeriod, forecastPeriods]);
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-    }).format(amount);
-  };
+
 
   // Format number
   const formatNumber = (num: number) => {
@@ -345,6 +341,8 @@ export default function AIDashboard() {
       revenue: segment.total_revenue,
     }));
   }, [customerSegments]);
+
+
 
   if (isLoading) {
     return (

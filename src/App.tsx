@@ -906,9 +906,11 @@ const DomainRouter = () => {
           element={
             <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
               <SubscriptionGuard>
-                <TenantAdminLayout>
-                  <AdvancedCustomerManagementDashboard />
-                </TenantAdminLayout>
+                <FeatureGuard featureName="advanced_customer_management">
+                  <TenantAdminLayout>
+                    <AdvancedCustomerManagementDashboard />
+                  </TenantAdminLayout>
+                </FeatureGuard>
               </SubscriptionGuard>
             </ProtectedRoute>
           } 
