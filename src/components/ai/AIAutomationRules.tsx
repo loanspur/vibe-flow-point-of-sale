@@ -94,7 +94,11 @@ export default function AIAutomationRules() {
         .eq('tenant_id', user?.tenant_id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('AI automation rules table not available:', error);
+        setRules([]);
+        return;
+      }
       setRules(data || []);
     } catch (error) {
       console.error('Error loading automation rules:', error);
@@ -131,7 +135,15 @@ export default function AIAutomationRules() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating rule:', error);
+        toast({
+          title: 'AI Automation Not Available',
+          description: 'AI automation features require additional setup. Please contact support.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       setRules([data, ...rules]);
       setIsDialogOpen(false);
@@ -143,8 +155,8 @@ export default function AIAutomationRules() {
     } catch (error) {
       console.error('Error creating rule:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to create automation rule',
+        title: 'AI Automation Not Available',
+        description: 'AI automation features require additional setup. Please contact support.',
         variant: 'destructive',
       });
     } finally {
@@ -174,7 +186,15 @@ export default function AIAutomationRules() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating rule:', error);
+        toast({
+          title: 'AI Automation Not Available',
+          description: 'AI automation features require additional setup. Please contact support.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       setRules(rules.map(rule => rule.id === selectedRule.id ? data : rule));
       setIsDialogOpen(false);
@@ -186,8 +206,8 @@ export default function AIAutomationRules() {
     } catch (error) {
       console.error('Error updating rule:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update automation rule',
+        title: 'AI Automation Not Available',
+        description: 'AI automation features require additional setup. Please contact support.',
         variant: 'destructive',
       });
     } finally {
@@ -204,7 +224,15 @@ export default function AIAutomationRules() {
         .delete()
         .eq('id', ruleId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting rule:', error);
+        toast({
+          title: 'AI Automation Not Available',
+          description: 'AI automation features require additional setup. Please contact support.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       setRules(rules.filter(rule => rule.id !== ruleId));
       toast({
@@ -214,8 +242,8 @@ export default function AIAutomationRules() {
     } catch (error) {
       console.error('Error deleting rule:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to delete automation rule',
+        title: 'AI Automation Not Available',
+        description: 'AI automation features require additional setup. Please contact support.',
         variant: 'destructive',
       });
     } finally {

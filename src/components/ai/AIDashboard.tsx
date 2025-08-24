@@ -101,70 +101,124 @@ export default function AIDashboard() {
   const loadAIData = async () => {
     setIsLoading(true);
     try {
-      // Load AI insights
-      const { data: insightsData, error: insightsError } = await supabase
-        .from('ai_insights')
-        .select('*')
-        .eq('tenant_id', user?.tenant_id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Load AI insights with error handling
+      try {
+        const { data: insightsData, error: insightsError } = await supabase
+          .from('ai_insights')
+          .select('*')
+          .eq('tenant_id', user?.tenant_id)
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-      if (insightsError) throw insightsError;
-      setInsights(insightsData || []);
+        if (insightsError) {
+          console.warn('AI insights table not available:', insightsError);
+          setInsights([]);
+        } else {
+          setInsights(insightsData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load AI insights:', error);
+        setInsights([]);
+      }
 
-      // Load AI recommendations
-      const { data: recommendationsData, error: recommendationsError } = await supabase
-        .from('ai_recommendations')
-        .select('*')
-        .eq('tenant_id', user?.tenant_id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Load AI recommendations with error handling
+      try {
+        const { data: recommendationsData, error: recommendationsError } = await supabase
+          .from('ai_recommendations')
+          .select('*')
+          .eq('tenant_id', user?.tenant_id)
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-      if (recommendationsError) throw recommendationsError;
-      setRecommendations(recommendationsData || []);
+        if (recommendationsError) {
+          console.warn('AI recommendations table not available:', recommendationsError);
+          setRecommendations([]);
+        } else {
+          setRecommendations(recommendationsData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load AI recommendations:', error);
+        setRecommendations([]);
+      }
 
-      // Load sales forecast
-      const { data: salesForecastData, error: salesForecastError } = await supabase.rpc('generate_sales_forecast', {
-        p_tenant_id: user?.tenant_id,
-        p_forecast_period: forecastPeriod,
-        p_periods_ahead: forecastPeriods
-      });
+      // Load sales forecast with error handling
+      try {
+        const { data: salesForecastData, error: salesForecastError } = await supabase.rpc('generate_sales_forecast', {
+          p_tenant_id: user?.tenant_id,
+          p_forecast_period: forecastPeriod,
+          p_periods_ahead: forecastPeriods
+        });
 
-      if (salesForecastError) throw salesForecastError;
-      setSalesForecast(salesForecastData || []);
+        if (salesForecastError) {
+          console.warn('Sales forecast RPC not available:', salesForecastError);
+          setSalesForecast([]);
+        } else {
+          setSalesForecast(salesForecastData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load sales forecast:', error);
+        setSalesForecast([]);
+      }
 
-      // Load demand forecast
-      const { data: demandForecastData, error: demandForecastError } = await supabase.rpc('generate_demand_forecast', {
-        p_tenant_id: user?.tenant_id,
-        p_forecast_period: forecastPeriod,
-        p_periods_ahead: forecastPeriods
-      });
+      // Load demand forecast with error handling
+      try {
+        const { data: demandForecastData, error: demandForecastError } = await supabase.rpc('generate_demand_forecast', {
+          p_tenant_id: user?.tenant_id,
+          p_forecast_period: forecastPeriod,
+          p_periods_ahead: forecastPeriods
+        });
 
-      if (demandForecastError) throw demandForecastError;
-      setDemandForecast(demandForecastData || []);
+        if (demandForecastError) {
+          console.warn('Demand forecast RPC not available:', demandForecastError);
+          setDemandForecast([]);
+        } else {
+          setDemandForecast(demandForecastData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load demand forecast:', error);
+        setDemandForecast([]);
+      }
 
-      // Load customer segments
-      const { data: segmentsData, error: segmentsError } = await supabase.rpc('generate_customer_segments', {
-        p_tenant_id: user?.tenant_id
-      });
+      // Load customer segments with error handling
+      try {
+        const { data: segmentsData, error: segmentsError } = await supabase.rpc('generate_customer_segments', {
+          p_tenant_id: user?.tenant_id
+        });
 
-      if (segmentsError) throw segmentsError;
-      setCustomerSegments(segmentsData || []);
+        if (segmentsError) {
+          console.warn('Customer segments RPC not available:', segmentsError);
+          setCustomerSegments([]);
+        } else {
+          setCustomerSegments(segmentsData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load customer segments:', error);
+        setCustomerSegments([]);
+      }
 
-      // Load anomalies
-      const { data: anomaliesData, error: anomaliesError } = await supabase.rpc('detect_anomalies', {
-        p_tenant_id: user?.tenant_id,
-        p_anomaly_type: 'sales'
-      });
+      // Load anomalies with error handling
+      try {
+        const { data: anomaliesData, error: anomaliesError } = await supabase.rpc('detect_anomalies', {
+          p_tenant_id: user?.tenant_id,
+          p_anomaly_type: 'sales'
+        });
 
-      if (anomaliesError) throw anomaliesError;
-      setAnomalies(anomaliesData || []);
+        if (anomaliesError) {
+          console.warn('Anomalies RPC not available:', anomaliesError);
+          setAnomalies([]);
+        } else {
+          setAnomalies(anomaliesData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load anomalies:', error);
+        setAnomalies([]);
+      }
 
     } catch (error) {
       console.error('Error loading AI data:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load AI insights',
+        title: 'AI Features Not Available',
+        description: 'AI features require additional setup. Please contact support.',
         variant: 'destructive',
       });
     } finally {

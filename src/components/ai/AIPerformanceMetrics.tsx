@@ -100,26 +100,44 @@ export default function AIPerformanceMetrics() {
   const loadPerformanceData = async () => {
     setIsLoading(true);
     try {
-      // Load AI models
-      const { data: modelsData, error: modelsError } = await supabase
-        .from('ai_models')
-        .select('*')
-        .eq('tenant_id', user?.tenant_id)
-        .order('created_at', { ascending: false });
+      // Load AI models with error handling
+      try {
+        const { data: modelsData, error: modelsError } = await supabase
+          .from('ai_models')
+          .select('*')
+          .eq('tenant_id', user?.tenant_id)
+          .order('created_at', { ascending: false });
 
-      if (modelsError) throw modelsError;
-      setModels(modelsData || []);
+        if (modelsError) {
+          console.warn('AI models table not available:', modelsError);
+          setModels([]);
+        } else {
+          setModels(modelsData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load AI models:', error);
+        setModels([]);
+      }
 
-      // Load performance metrics
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('ai_performance_metrics')
-        .select('*')
-        .eq('tenant_id', user?.tenant_id)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      // Load performance metrics with error handling
+      try {
+        const { data: metricsData, error: metricsError } = await supabase
+          .from('ai_performance_metrics')
+          .select('*')
+          .eq('tenant_id', user?.tenant_id)
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-      if (metricsError) throw metricsError;
-      setMetrics(metricsData || []);
+        if (metricsError) {
+          console.warn('AI performance metrics table not available:', metricsError);
+          setMetrics([]);
+        } else {
+          setMetrics(metricsData || []);
+        }
+      } catch (error) {
+        console.warn('Failed to load performance metrics:', error);
+        setMetrics([]);
+      }
 
       // Simulate system metrics (in real implementation, this would come from monitoring system)
       setSystemMetrics({
@@ -136,8 +154,8 @@ export default function AIPerformanceMetrics() {
     } catch (error) {
       console.error('Error loading performance data:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load performance metrics',
+        title: 'AI Performance Features Not Available',
+        description: 'AI performance features require additional setup. Please contact support.',
         variant: 'destructive',
       });
     } finally {
