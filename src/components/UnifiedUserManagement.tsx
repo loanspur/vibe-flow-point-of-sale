@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { 
   Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, 
   Clock, AlertTriangle, Ban, CheckCircle, XCircle, Mail,
-  UserPlus, Crown, Key
+  UserPlus, Crown, Key, BarChart3
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -370,7 +370,6 @@ const UnifiedUserManagement = () => {
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="permissions">Permissions</TabsTrigger>
           <TabsTrigger value="activity">Activity Logs</TabsTrigger>
-          <TabsTrigger value="sessions">Active Sessions</TabsTrigger>
         </TabsList>
 
         {/* Users Tab */}
@@ -956,18 +955,21 @@ const UnifiedUserManagement = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Activity Logs ({activityLogs.length})
+                <BarChart3 className="h-5 w-5" />
+                User Activity Logs
               </CardTitle>
               <CardDescription>
-                Recent user activities and system events in chronological order
+                Track user actions and system activities
               </CardDescription>
             </CardHeader>
             <CardContent>
               {activityLogs.length === 0 ? (
                 <div className="text-center py-8">
-                  <Activity className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  <BarChart3 className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                   <div className="text-muted-foreground">No activity logs found</div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Activity logs will appear here as users perform actions
+                  </div>
                 </div>
               ) : (
                 <Table>
@@ -976,57 +978,44 @@ const UnifiedUserManagement = () => {
                       <TableHead>User</TableHead>
                       <TableHead>Action</TableHead>
                       <TableHead>Resource</TableHead>
-                      <TableHead>Date & Time</TableHead>
                       <TableHead>IP Address</TableHead>
-                      <TableHead>Details</TableHead>
+                      <TableHead>Time</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {activityLogs.map(log => (
                       <TableRow key={log.id}>
                         <TableCell>
-                          <div className="font-medium">{log.user_name || 'System'}</div>
+                          <div>
+                            <div className="font-medium">{log.user_name || 'Unknown User'}</div>
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {log.action_type.replace('_', ' ').toUpperCase()}
-                          </Badge>
+                          <div>
+                            <div className="font-medium capitalize">{log.action_type?.replace('_', ' ') || 'Unknown'}</div>
+                            {log.resource_type && (
+                              <div className="text-sm text-muted-foreground capitalize">
+                                {log.resource_type.replace('_', ' ')}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {log.resource_type ? (
-                            <Badge variant="secondary" className="text-xs">
-                              {log.resource_type.toUpperCase()}
+                            <Badge variant="outline" className="capitalize">
+                              {log.resource_type.replace('_', ' ')}
                             </Badge>
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">
-                            {new Date(log.created_at).toLocaleDateString()}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(log.created_at).toLocaleTimeString()}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-xs font-mono">
-                            {log.ip_address || 'Unknown'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {log.details ? (
-                            <div className="text-xs text-muted-foreground max-w-xs truncate">
-                              {typeof log.details === 'object' 
-                                ? Object.entries(log.details).map(([key, value]) => 
-                                    `${key}: ${value}`
-                                  ).join(', ')
-                                : String(log.details)
-                              }
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
+                          {log.ip_address || (
+                            <span className="text-muted-foreground">Unknown</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(log.created_at).toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1037,55 +1026,8 @@ const UnifiedUserManagement = () => {
           </Card>
         </TabsContent>
 
-        {/* Active Sessions Tab */}
-        <TabsContent value="sessions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Active Sessions
-              </CardTitle>
-              <CardDescription>
-                Currently active user sessions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {userSessions.length === 0 ? (
-                <div className="text-center py-8">
-                  <Clock className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <div className="text-muted-foreground">No active sessions</div>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>IP Address</TableHead>
-                      <TableHead>Last Activity</TableHead>
-                      <TableHead>Device</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {userSessions.map(session => (
-                      <TableRow key={session.id}>
-                        <TableCell>{session.user_name}</TableCell>
-                        <TableCell>{session.ip_address || 'Unknown'}</TableCell>
-                        <TableCell>{new Date(session.last_activity).toLocaleString()}</TableCell>
-                        <TableCell>
-                          {session.device_info ? (
-                            <span className="text-sm">{JSON.stringify(session.device_info)}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Unknown</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Remove the sessions tab completely */}
+        {/* Active Sessions Tab - REMOVED */}
       </Tabs>
 
       {/* User Details Dialog */}

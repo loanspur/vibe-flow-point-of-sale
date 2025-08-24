@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { AdvancedCustomerManagement } from '@/lib/crm/AdvancedCustomerManagement';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Users, 
   Star, 
@@ -27,53 +27,226 @@ import {
 } from 'lucide-react';
 
 export default function AdvancedCustomerManagementDashboard() {
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('crm');
   
-  // Mock data for demonstration
+  // Real-time data state
   const [customerStats, setCustomerStats] = useState({
-    totalCustomers: 1250,
-    activeCustomers: 890,
-    vipCustomers: 45,
-    newCustomers: 23,
-    churnedCustomers: 8
+    totalCustomers: 0,
+    activeCustomers: 0,
+    vipCustomers: 0,
+    newCustomers: 0,
+    churnedCustomers: 0
   });
 
   const [loyaltyStats, setLoyaltyStats] = useState({
-    totalMembers: 890,
-    totalPointsAwarded: 125000,
-    totalPointsRedeemed: 45000,
-    activePrograms: 3
+    totalMembers: 0,
+    totalPointsAwarded: 0,
+    totalPointsRedeemed: 0,
+    activePrograms: 0
   });
 
   const [feedbackStats, setFeedbackStats] = useState({
-    totalFeedback: 156,
-    pendingResponses: 12,
-    averageRating: 4.2,
-    positiveSentiment: 78
+    totalFeedback: 0,
+    pendingResponses: 0,
+    averageRating: 0,
+    positiveSentiment: 0
   });
 
   const [marketingStats, setMarketingStats] = useState({
-    activeCampaigns: 5,
-    totalRecipients: 2500,
-    averageOpenRate: 24.5,
-    averageClickRate: 3.2
+    activeCampaigns: 0,
+    totalRecipients: 0,
+    averageOpenRate: 0,
+    averageClickRate: 0
   });
 
-  const crmManager = AdvancedCustomerManagement.getInstance();
+  const [customerData, setCustomerData] = useState({
+    profiles: [],
+    interactions: [],
+    opportunities: [],
+    loyalty: [],
+    feedback: [],
+    campaigns: []
+  });
 
   useEffect(() => {
-    loadDashboardData();
-  }, [user?.tenant_id]);
+    if (tenantId) {
+      loadDashboardData();
+    }
+  }, [tenantId]);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Load dashboard statistics
-      // In a real implementation, these would be fetched from the backend
-      console.log('Loading dashboard data...');
+      // Load all data in parallel for better performance
+      const [
+        customerProfilesRes,
+        customerInteractionsRes,
+        customerOpportunitiesRes,
+        loyaltyProgramsRes,
+        customerLoyaltyRes,
+        loyaltyTransactionsRes,
+        customerFeedbackRes,
+        marketingCampaignsRes,
+        customerLifecycleRes
+      ] = await Promise.all([
+        // Customer Profiles
+        supabase
+          .from('customer_profiles')
+          .select('*')
+          .eq('tenant_id', tenantId),
+        
+        // Customer Interactions
+        supabase
+          .from('customer_interactions')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(50),
+        
+        // Customer Opportunities
+        supabase
+          .from('customer_opportunities')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(50),
+        
+        // Loyalty Programs
+        supabase
+          .from('loyalty_programs')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true),
+        
+        // Customer Loyalty
+        supabase
+          .from('customer_loyalty')
+          .select(`
+            *,
+            loyalty_programs (name),
+            loyalty_tiers (name, color)
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('is_enrolled', true),
+        
+        // Loyalty Transactions
+        supabase
+          .from('loyalty_transactions')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        
+        // Customer Feedback
+        supabase
+          .from('customer_feedback')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(50),
+        
+        // Marketing Campaigns
+        supabase
+          .from('marketing_campaigns')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(20),
+        
+        // Customer Lifecycle
+        supabase
+          .from('customer_lifecycle')
+          .select('*')
+          .eq('tenant_id', tenantId)
+      ]);
+
+      // Process customer statistics
+      const profiles = customerProfilesRes.data || [];
+      const activeCustomers = profiles.filter(p => p.customer_status === 'active').length;
+      const vipCustomers = profiles.filter(p => p.customer_tier === 'platinum' || p.customer_tier === 'gold').length;
+      const newCustomers = profiles.filter(p => {
+        const createdDate = new Date(p.created_at);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return createdDate > thirtyDaysAgo;
+      }).length;
+      const churnedCustomers = profiles.filter(p => p.customer_status === 'churned').length;
+
+      setCustomerStats({
+        totalCustomers: profiles.length,
+        activeCustomers,
+        vipCustomers,
+        newCustomers,
+        churnedCustomers
+      });
+
+      // Process loyalty statistics
+      const loyaltyMembers = customerLoyaltyRes.data || [];
+      const loyaltyTransactions = loyaltyTransactionsRes.data || [];
+      const loyaltyPrograms = loyaltyProgramsRes.data || [];
+      
+      const totalPointsAwarded = loyaltyTransactions
+        .filter(t => t.transaction_type === 'earned')
+        .reduce((sum, t) => sum + t.points_amount, 0);
+      
+      const totalPointsRedeemed = loyaltyTransactions
+        .filter(t => t.transaction_type === 'redeemed')
+        .reduce((sum, t) => sum + t.points_amount, 0);
+
+      setLoyaltyStats({
+        totalMembers: loyaltyMembers.length,
+        totalPointsAwarded,
+        totalPointsRedeemed,
+        activePrograms: loyaltyPrograms.length
+      });
+
+      // Process feedback statistics
+      const feedback = customerFeedbackRes.data || [];
+      const pendingResponses = feedback.filter(f => f.status === 'pending').length;
+      const ratings = feedback.filter(f => f.rating).map(f => f.rating);
+      const averageRating = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
+      const positiveSentiment = feedback.filter(f => f.sentiment_score && f.sentiment_score > 0.3).length;
+
+      setFeedbackStats({
+        totalFeedback: feedback.length,
+        pendingResponses,
+        averageRating: Math.round(averageRating * 10) / 10,
+        positiveSentiment: feedback.length > 0 ? Math.round((positiveSentiment / feedback.length) * 100) : 0
+      });
+
+      // Process marketing statistics
+      const campaigns = marketingCampaignsRes.data || [];
+      const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
+      const totalRecipients = campaigns.reduce((sum, c) => sum + (c.total_recipients || 0), 0);
+      
+      const campaignsWithMetrics = campaigns.filter(c => c.sent_count > 0);
+      const averageOpenRate = campaignsWithMetrics.length > 0 
+        ? campaignsWithMetrics.reduce((sum, c) => sum + (c.opened_count / c.sent_count * 100), 0) / campaignsWithMetrics.length 
+        : 0;
+      const averageClickRate = campaignsWithMetrics.length > 0 
+        ? campaignsWithMetrics.reduce((sum, c) => sum + (c.clicked_count / c.sent_count * 100), 0) / campaignsWithMetrics.length 
+        : 0;
+
+      setMarketingStats({
+        activeCampaigns,
+        totalRecipients,
+        averageOpenRate: Math.round(averageOpenRate * 10) / 10,
+        averageClickRate: Math.round(averageClickRate * 10) / 10
+      });
+
+      // Set all data
+      setCustomerData({
+        profiles,
+        interactions: customerInteractionsRes.data || [],
+        opportunities: customerOpportunitiesRes.data || [],
+        loyalty: loyaltyMembers,
+        feedback,
+        campaigns
+      });
+
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       toast({
@@ -92,6 +265,13 @@ export default function AdvancedCustomerManagementDashboard() {
 
   const formatPercentage = (value: number) => {
     return `${value.toFixed(1)}%`;
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'KES'
+    }).format(value);
   };
 
   return (
@@ -118,6 +298,7 @@ export default function AdvancedCustomerManagementDashboard() {
 
       {/* Key Metrics Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Customer Metrics */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
@@ -126,7 +307,20 @@ export default function AdvancedCustomerManagementDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(customerStats.totalCustomers)}</div>
             <p className="text-xs text-muted-foreground">
-              +{customerStats.newCustomers} new this month
+              {customerStats.activeCustomers} active customers
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">VIP Customers</CardTitle>
+            <Crown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNumber(customerStats.vipCustomers)}</div>
+            <p className="text-xs text-muted-foreground">
+              {customerStats.totalCustomers > 0 ? formatPercentage((customerStats.vipCustomers / customerStats.totalCustomers) * 100) : '0%'} of total
             </p>
           </CardContent>
         </Card>
@@ -134,44 +328,31 @@ export default function AdvancedCustomerManagementDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Loyalty Members</CardTitle>
-            <Crown className="h-4 w-4 text-muted-foreground" />
+            <Star className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(loyaltyStats.totalMembers)}</div>
             <p className="text-xs text-muted-foreground">
-              {formatPercentage((loyaltyStats.totalMembers / customerStats.totalCustomers) * 100)} of customers
+              {formatNumber(loyaltyStats.totalPointsAwarded)} points awarded
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Feedback Rating</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{feedbackStats.averageRating}</div>
+            <div className="text-2xl font-bold">{feedbackStats.averageRating.toFixed(1)}/5</div>
             <p className="text-xs text-muted-foreground">
-              {formatPercentage(feedbackStats.positiveSentiment)} positive sentiment
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Campaign Open Rate</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPercentage(marketingStats.averageOpenRate)}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatPercentage(marketingStats.averageClickRate)} click rate
+              {formatNumber(feedbackStats.totalFeedback)} total feedback
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Tabs */}
+      {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="crm" className="flex items-center gap-2">
@@ -179,7 +360,7 @@ export default function AdvancedCustomerManagementDashboard() {
             CRM
           </TabsTrigger>
           <TabsTrigger value="loyalty" className="flex items-center gap-2">
-            <Crown className="h-4 w-4" />
+            <Star className="h-4 w-4" />
             Loyalty
           </TabsTrigger>
           <TabsTrigger value="feedback" className="flex items-center gap-2">
@@ -191,7 +372,7 @@ export default function AdvancedCustomerManagementDashboard() {
             Segments
           </TabsTrigger>
           <TabsTrigger value="marketing" className="flex items-center gap-2">
-            <Send className="h-4 w-4" />
+            <Mail className="h-4 w-4" />
             Marketing
           </TabsTrigger>
           <TabsTrigger value="lifecycle" className="flex items-center gap-2">
@@ -202,71 +383,29 @@ export default function AdvancedCustomerManagementDashboard() {
 
         {/* CRM Tab */}
         <TabsContent value="crm" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Customer Relationship Management</h2>
-              <p className="text-muted-foreground">
-                Manage customer profiles, interactions, and opportunities
-              </p>
-            </div>
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Customer
-            </Button>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Customer Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Active Customers</span>
-                  <Badge variant="default">{formatNumber(customerStats.activeCustomers)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>VIP Customers</span>
-                  <Badge variant="secondary">{formatNumber(customerStats.vipCustomers)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>New This Month</span>
-                  <Badge variant="outline">{formatNumber(customerStats.newCustomers)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Churned</span>
-                  <Badge variant="destructive">{formatNumber(customerStats.churnedCustomers)}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5" />
-                  Recent Interactions
-                </CardTitle>
+                <CardTitle>Customer Overview</CardTitle>
+                <CardDescription>Customer distribution by status</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Phone calls</span>
-                    <span className="font-medium">12</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Active</span>
+                    <span className="font-medium">{customerStats.activeCustomers}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Emails sent</span>
-                    <span className="font-medium">45</span>
+                  <div className="flex justify-between">
+                    <span>New (30 days)</span>
+                    <span className="font-medium">{customerStats.newCustomers}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Meetings</span>
-                    <span className="font-medium">8</span>
+                  <div className="flex justify-between">
+                    <span>VIP</span>
+                    <span className="font-medium">{customerStats.vipCustomers}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Support tickets</span>
-                    <span className="font-medium">23</span>
+                  <div className="flex justify-between">
+                    <span>Churned</span>
+                    <span className="font-medium">{customerStats.churnedCustomers}</span>
                   </div>
                 </div>
               </CardContent>
@@ -274,29 +413,43 @@ export default function AdvancedCustomerManagementDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Opportunities
-                </CardTitle>
+                <CardTitle>Recent Interactions</CardTitle>
+                <CardDescription>Latest customer interactions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Qualified leads</span>
-                    <Badge variant="default">15</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>In negotiation</span>
-                    <Badge variant="secondary">8</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Proposals sent</span>
-                    <Badge variant="outline">12</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Closed this month</span>
-                    <Badge variant="default">6</Badge>
-                  </div>
+                <div className="space-y-2">
+                  {customerData.interactions.slice(0, 5).map((interaction: any) => (
+                    <div key={interaction.id} className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-sm">{interaction.interaction_type}</div>
+                        <div className="text-xs text-muted-foreground">{interaction.subject}</div>
+                      </div>
+                      <Badge variant="outline">{interaction.outcome}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Sales Opportunities</CardTitle>
+                <CardDescription>Active sales pipeline</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {customerData.opportunities.slice(0, 5).map((opportunity: any) => (
+                    <div key={opportunity.id} className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-sm">{opportunity.title}</div>
+                        <div className="text-xs text-muted-foreground">{opportunity.pipeline_stage}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium text-sm">{formatCurrency(opportunity.expected_value || 0)}</div>
+                        <div className="text-xs text-muted-foreground">{opportunity.probability_percentage}%</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -305,71 +458,29 @@ export default function AdvancedCustomerManagementDashboard() {
 
         {/* Loyalty Tab */}
         <TabsContent value="loyalty" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Loyalty Programs</h2>
-              <p className="text-muted-foreground">
-                Manage loyalty programs, points, and rewards
-              </p>
-            </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Program
-            </Button>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Crown className="h-5 w-5" />
-                  Program Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Total Members</span>
-                  <Badge variant="default">{formatNumber(loyaltyStats.totalMembers)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Active Programs</span>
-                  <Badge variant="secondary">{loyaltyStats.activePrograms}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Points Awarded</span>
-                  <Badge variant="outline">{formatNumber(loyaltyStats.totalPointsAwarded)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Points Redeemed</span>
-                  <Badge variant="default">{formatNumber(loyaltyStats.totalPointsRedeemed)}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="h-5 w-5" />
-                  Tier Distribution
-                </CardTitle>
+                <CardTitle>Loyalty Program Overview</CardTitle>
+                <CardDescription>Program statistics and performance</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Bronze</span>
-                    <span className="font-medium">45%</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Total Members</span>
+                    <span className="font-medium">{formatNumber(loyaltyStats.totalMembers)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Silver</span>
-                    <span className="font-medium">35%</span>
+                  <div className="flex justify-between">
+                    <span>Points Awarded</span>
+                    <span className="font-medium">{formatNumber(loyaltyStats.totalPointsAwarded)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Gold</span>
-                    <span className="font-medium">15%</span>
+                  <div className="flex justify-between">
+                    <span>Points Redeemed</span>
+                    <span className="font-medium">{formatNumber(loyaltyStats.totalPointsRedeemed)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Platinum</span>
-                    <span className="font-medium">5%</span>
+                  <div className="flex justify-between">
+                    <span>Active Programs</span>
+                    <span className="font-medium">{loyaltyStats.activePrograms}</span>
                   </div>
                 </div>
               </CardContent>
@@ -377,28 +488,35 @@ export default function AdvancedCustomerManagementDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Recent Activity
-                </CardTitle>
+                <CardTitle>Member Tiers</CardTitle>
+                <CardDescription>Distribution by loyalty tier</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Points earned today</span>
-                    <Badge variant="default">1,250</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Redemptions today</span>
-                    <Badge variant="secondary">8</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>New members</span>
-                    <Badge variant="outline">12</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Tier upgrades</span>
-                    <Badge variant="default">3</Badge>
+                <div className="space-y-2">
+                  {customerData.loyalty.reduce((acc: any, member: any) => {
+                    const tierName = member.loyalty_tiers?.name || 'Unknown';
+                    acc[tierName] = (acc[tierName] || 0) + 1;
+                    return acc;
+                  }, {}).map((tier: any, count: number) => (
+                    <div key={tier} className="flex justify-between items-center">
+                      <span className="capitalize">{tier}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest loyalty transactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {/* This would show recent loyalty transactions */}
+                  <div className="text-center text-muted-foreground">
+                    Loyalty transaction history will be displayed here
                   </div>
                 </div>
               </CardContent>
@@ -408,71 +526,29 @@ export default function AdvancedCustomerManagementDashboard() {
 
         {/* Feedback Tab */}
         <TabsContent value="feedback" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Customer Feedback & Reviews</h2>
-              <p className="text-muted-foreground">
-                Manage customer feedback, reviews, and sentiment analysis
-              </p>
-            </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              View All Feedback
-            </Button>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Feedback Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Total Feedback</span>
-                  <Badge variant="default">{formatNumber(feedbackStats.totalFeedback)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Pending Responses</span>
-                  <Badge variant="destructive">{feedbackStats.pendingResponses}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Average Rating</span>
-                  <Badge variant="secondary">{feedbackStats.averageRating}/5</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Positive Sentiment</span>
-                  <Badge variant="default">{formatPercentage(feedbackStats.positiveSentiment)}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Feedback Types
-                </CardTitle>
+                <CardTitle>Feedback Overview</CardTitle>
+                <CardDescription>Customer feedback statistics</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Reviews</span>
-                    <span className="font-medium">45%</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Total Feedback</span>
+                    <span className="font-medium">{formatNumber(feedbackStats.totalFeedback)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Complaints</span>
-                    <span className="font-medium">25%</span>
+                  <div className="flex justify-between">
+                    <span>Average Rating</span>
+                    <span className="font-medium">{feedbackStats.averageRating}/5</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Suggestions</span>
-                    <span className="font-medium">20%</span>
+                  <div className="flex justify-between">
+                    <span>Pending Responses</span>
+                    <span className="font-medium">{feedbackStats.pendingResponses}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Praise</span>
-                    <span className="font-medium">10%</span>
+                  <div className="flex justify-between">
+                    <span>Positive Sentiment</span>
+                    <span className="font-medium">{formatPercentage(feedbackStats.positiveSentiment)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -480,29 +556,46 @@ export default function AdvancedCustomerManagementDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Response Metrics
-                </CardTitle>
+                <CardTitle>Recent Feedback</CardTitle>
+                <CardDescription>Latest customer feedback</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Avg response time</span>
-                    <Badge variant="default">2.5 hours</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Resolution rate</span>
-                    <Badge variant="secondary">94%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Customer satisfaction</span>
-                    <Badge variant="outline">4.3/5</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Follow-up rate</span>
-                    <Badge variant="default">87%</Badge>
-                  </div>
+                <div className="space-y-2">
+                  {customerData.feedback.slice(0, 5).map((feedback: any) => (
+                    <div key={feedback.id} className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-sm">{feedback.feedback_type}</div>
+                        <div className="text-xs text-muted-foreground">{feedback.title}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium text-sm">{feedback.rating}/5</div>
+                        <Badge variant={feedback.status === 'pending' ? 'destructive' : 'default'}>
+                          {feedback.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Feedback Categories</CardTitle>
+                <CardDescription>Feedback by category</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {customerData.feedback.reduce((acc: any, feedback: any) => {
+                    const category = feedback.category || 'General';
+                    acc[category] = (acc[category] || 0) + 1;
+                    return acc;
+                  }, {}).map((category: any, count: number) => (
+                    <div key={category} className="flex justify-between items-center">
+                      <span className="capitalize">{category}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -511,174 +604,44 @@ export default function AdvancedCustomerManagementDashboard() {
 
         {/* Segments Tab */}
         <TabsContent value="segments" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Customer Segmentation</h2>
-              <p className="text-muted-foreground">
-                Create and manage customer segments for targeted marketing
-              </p>
-            </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Segment
-            </Button>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Segment Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Total Segments</span>
-                  <Badge variant="default">12</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Active Segments</span>
-                  <Badge variant="secondary">8</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Dynamic Segments</span>
-                  <Badge variant="outline">5</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Members</span>
-                  <Badge variant="default">{formatNumber(customerStats.totalCustomers)}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Top Segments
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>High-Value Customers</span>
-                    <Badge variant="default">156</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Frequent Buyers</span>
-                    <Badge variant="secondary">234</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>New Customers</span>
-                    <Badge variant="outline">89</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>At Risk</span>
-                    <Badge variant="destructive">45</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Segment Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Avg engagement rate</span>
-                    <Badge variant="default">24%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Conversion rate</span>
-                    <Badge variant="secondary">8.5%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Revenue per segment</span>
-                    <Badge variant="outline">$2,450</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Growth rate</span>
-                    <Badge variant="default">+12%</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer Segments</CardTitle>
+              <CardDescription>Manage and analyze customer segments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center text-muted-foreground py-8">
+                Customer segmentation features will be implemented here
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Marketing Tab */}
         <TabsContent value="marketing" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Marketing Automation</h2>
-              <p className="text-muted-foreground">
-                Create and manage marketing campaigns and automation workflows
-              </p>
-            </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Campaign
-            </Button>
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Send className="h-5 w-5" />
-                  Campaign Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Active Campaigns</span>
-                  <Badge variant="default">{marketingStats.activeCampaigns}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Recipients</span>
-                  <Badge variant="secondary">{formatNumber(marketingStats.totalRecipients)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Open Rate</span>
-                  <Badge variant="outline">{formatPercentage(marketingStats.averageOpenRate)}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Click Rate</span>
-                  <Badge variant="default">{formatPercentage(marketingStats.averageClickRate)}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Campaign Types
-                </CardTitle>
+                <CardTitle>Campaign Overview</CardTitle>
+                <CardDescription>Marketing campaign statistics</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Email Campaigns</span>
-                    <Badge variant="default">3</Badge>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Active Campaigns</span>
+                    <span className="font-medium">{marketingStats.activeCampaigns}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>SMS Campaigns</span>
-                    <Badge variant="secondary">1</Badge>
+                  <div className="flex justify-between">
+                    <span>Total Recipients</span>
+                    <span className="font-medium">{formatNumber(marketingStats.totalRecipients)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Push Notifications</span>
-                    <Badge variant="outline">1</Badge>
+                  <div className="flex justify-between">
+                    <span>Avg Open Rate</span>
+                    <span className="font-medium">{formatPercentage(marketingStats.averageOpenRate)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Social Media</span>
-                    <Badge variant="default">0</Badge>
+                  <div className="flex justify-between">
+                    <span>Avg Click Rate</span>
+                    <span className="font-medium">{formatPercentage(marketingStats.averageClickRate)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -686,29 +649,50 @@ export default function AdvancedCustomerManagementDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Performance Metrics
-                </CardTitle>
+                <CardTitle>Recent Campaigns</CardTitle>
+                <CardDescription>Latest marketing campaigns</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Revenue generated</span>
-                    <Badge variant="default">$12,450</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Conversion rate</span>
-                    <Badge variant="secondary">3.2%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Unsubscribe rate</span>
-                    <Badge variant="outline">0.8%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Bounce rate</span>
-                    <Badge variant="default">2.1%</Badge>
-                  </div>
+                <div className="space-y-2">
+                  {customerData.campaigns.slice(0, 5).map((campaign: any) => (
+                    <div key={campaign.id} className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-sm">{campaign.name}</div>
+                        <div className="text-xs text-muted-foreground">{campaign.campaign_type}</div>
+                      </div>
+                      <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'}>
+                        {campaign.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Campaign Performance</CardTitle>
+                <CardDescription>Performance metrics by campaign type</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {customerData.campaigns.reduce((acc: any, campaign: any) => {
+                    const type = campaign.campaign_type;
+                    if (!acc[type]) {
+                      acc[type] = { count: 0, totalRecipients: 0 };
+                    }
+                    acc[type].count += 1;
+                    acc[type].totalRecipients += campaign.total_recipients || 0;
+                    return acc;
+                  }, {}).map((type: any, data: any) => (
+                    <div key={type} className="flex justify-between items-center">
+                      <span className="capitalize">{type}</span>
+                      <div className="text-right">
+                        <div className="font-medium text-sm">{data.count}</div>
+                        <div className="text-xs text-muted-foreground">{formatNumber(data.totalRecipients)} recipients</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -717,113 +701,17 @@ export default function AdvancedCustomerManagementDashboard() {
 
         {/* Lifecycle Tab */}
         <TabsContent value="lifecycle" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Customer Lifecycle Management</h2>
-              <p className="text-muted-foreground">
-                Track and manage customer journey through different lifecycle stages
-              </p>
-            </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              View Lifecycle
-            </Button>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GitBranch className="h-5 w-5" />
-                  Lifecycle Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Awareness</span>
-                  <Badge variant="default">450</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Consideration</span>
-                  <Badge variant="secondary">320</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Purchase</span>
-                  <Badge variant="outline">280</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Retention</span>
-                  <Badge variant="default">890</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Advocacy</span>
-                  <Badge variant="secondary">156</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Churn</span>
-                  <Badge variant="destructive">45</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Stage Transitions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Awareness → Consideration</span>
-                    <Badge variant="default">71%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Consideration → Purchase</span>
-                    <Badge variant="secondary">87%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Purchase → Retention</span>
-                    <Badge variant="outline">92%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Retention → Advocacy</span>
-                    <Badge variant="default">18%</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Risk & Engagement
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>High-risk customers</span>
-                    <Badge variant="destructive">23</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Low engagement</span>
-                    <Badge variant="secondary">67</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>High value</span>
-                    <Badge variant="default">89</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Ready to upgrade</span>
-                    <Badge variant="outline">34</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer Lifecycle</CardTitle>
+              <CardDescription>Customer journey and lifecycle management</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center text-muted-foreground py-8">
+                Customer lifecycle management features will be implemented here
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
