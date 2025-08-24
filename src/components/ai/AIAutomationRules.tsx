@@ -61,7 +61,7 @@ interface CreateRuleForm {
 }
 
 export default function AIAutomationRules() {
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,7 +91,7 @@ export default function AIAutomationRules() {
       const { data, error } = await supabase
         .from('ai_automation_rules')
         .select('*')
-        .eq('tenant_id', user?.tenant_id)
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -116,10 +116,10 @@ export default function AIAutomationRules() {
   const handleCreateRule = async () => {
     setIsCreating(true);
     try {
-      const { data, error } = await supabase
-        .from('ai_automation_rules')
-        .insert({
-          tenant_id: user?.tenant_id,
+              const { data, error } = await supabase
+          .from('ai_automation_rules')
+          .insert({
+            tenant_id: tenantId,
           rule_name: formData.rule_name,
           rule_description: formData.rule_description,
           rule_type: formData.rule_type,
@@ -363,10 +363,10 @@ export default function AIAutomationRules() {
 
   // Load rules on component mount
   useEffect(() => {
-    if (user?.tenant_id) {
+    if (tenantId) {
       loadRules();
     }
-  }, [user?.tenant_id]);
+  }, [tenantId]);
 
   if (isLoading) {
     return (

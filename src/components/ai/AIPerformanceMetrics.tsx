@@ -75,7 +75,7 @@ interface SystemMetrics {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 export default function AIPerformanceMetrics() {
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -105,7 +105,7 @@ export default function AIPerformanceMetrics() {
         const { data: modelsData, error: modelsError } = await supabase
           .from('ai_models')
           .select('*')
-          .eq('tenant_id', user?.tenant_id)
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (modelsError) {
@@ -124,7 +124,7 @@ export default function AIPerformanceMetrics() {
         const { data: metricsData, error: metricsError } = await supabase
           .from('ai_performance_metrics')
           .select('*')
-          .eq('tenant_id', user?.tenant_id)
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(100);
 
@@ -179,10 +179,10 @@ export default function AIPerformanceMetrics() {
 
   // Load data on component mount and when filters change
   useEffect(() => {
-    if (user?.tenant_id) {
+    if (tenantId) {
       loadPerformanceData();
     }
-  }, [user?.tenant_id, timeRange, selectedModel]);
+  }, [tenantId, timeRange, selectedModel]);
 
   // Filter metrics based on selected model
   const filteredMetrics = useMemo(() => {

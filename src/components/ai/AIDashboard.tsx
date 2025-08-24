@@ -82,7 +82,7 @@ interface AIAnomaly {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 export default function AIDashboard() {
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -106,7 +106,7 @@ export default function AIDashboard() {
         const { data: insightsData, error: insightsError } = await supabase
           .from('ai_insights')
           .select('*')
-          .eq('tenant_id', user?.tenant_id)
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(10);
 
@@ -126,7 +126,7 @@ export default function AIDashboard() {
         const { data: recommendationsData, error: recommendationsError } = await supabase
           .from('ai_recommendations')
           .select('*')
-          .eq('tenant_id', user?.tenant_id)
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(10);
 
@@ -144,7 +144,7 @@ export default function AIDashboard() {
       // Load sales forecast with error handling
       try {
         const { data: salesForecastData, error: salesForecastError } = await supabase.rpc('generate_sales_forecast', {
-          p_tenant_id: user?.tenant_id,
+          p_tenant_id: tenantId,
           p_forecast_period: forecastPeriod,
           p_periods_ahead: forecastPeriods
         });
@@ -163,7 +163,7 @@ export default function AIDashboard() {
       // Load demand forecast with error handling
       try {
         const { data: demandForecastData, error: demandForecastError } = await supabase.rpc('generate_demand_forecast', {
-          p_tenant_id: user?.tenant_id,
+          p_tenant_id: tenantId,
           p_forecast_period: forecastPeriod,
           p_periods_ahead: forecastPeriods
         });
@@ -182,7 +182,7 @@ export default function AIDashboard() {
       // Load customer segments with error handling
       try {
         const { data: segmentsData, error: segmentsError } = await supabase.rpc('generate_customer_segments', {
-          p_tenant_id: user?.tenant_id
+          p_tenant_id: tenantId
         });
 
         if (segmentsError) {
@@ -199,7 +199,7 @@ export default function AIDashboard() {
       // Load anomalies with error handling
       try {
         const { data: anomaliesData, error: anomaliesError } = await supabase.rpc('detect_anomalies', {
-          p_tenant_id: user?.tenant_id,
+          p_tenant_id: tenantId,
           p_anomaly_type: 'sales'
         });
 
@@ -242,10 +242,10 @@ export default function AIDashboard() {
 
   // Load data on component mount and when forecast parameters change
   useEffect(() => {
-    if (user?.tenant_id) {
+    if (tenantId) {
       loadAIData();
     }
-  }, [user?.tenant_id, forecastPeriod, forecastPeriods]);
+  }, [tenantId, forecastPeriod, forecastPeriods]);
 
   // Format currency
   const formatCurrency = (amount: number) => {
