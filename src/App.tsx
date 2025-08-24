@@ -33,6 +33,11 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
 const TenantRedirect = lazy(() => import("./pages/TenantRedirect"));
 
+// AI Components for Phase 5
+const AIDashboard = lazy(() => import("./components/ai/AIDashboard"));
+const AIAutomationRules = lazy(() => import("./components/ai/AIAutomationRules"));
+const AIPerformanceMetrics = lazy(() => import("./components/ai/AIPerformanceMetrics"));
+
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Demo = lazy(() => import("./pages/Demo"));
@@ -469,6 +474,50 @@ const DomainRouter = () => {
             } 
           />
           
+          {/* AI Routes for Phase 5 */}
+          <Route 
+            path="/admin/ai-dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AIDashboard />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/ai-automation" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AIAutomationRules />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/ai-performance" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AIPerformanceMetrics />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Profile Route - accessible to all authenticated users */}
           <Route 
             path="/profile" 
@@ -722,6 +771,50 @@ const DomainRouter = () => {
                 <TenantAdminLayout>
                   <TenantCommunications />
                 </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* AI Routes for Phase 5 */}
+        <Route 
+          path="/admin/ai-dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AIDashboard />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/ai-automation" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AIAutomationRules />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/ai-performance" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AIPerformanceMetrics />
+                  </TenantAdminLayout>
+                </FeatureGuard>
               </SubscriptionGuard>
             </ProtectedRoute>
           } 

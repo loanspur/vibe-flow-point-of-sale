@@ -7,7 +7,10 @@ import {
   Home,
   TrendingUp,
   Calculator,
-  Mail
+  Mail,
+  Brain,
+  Zap,
+  Activity
 } from 'lucide-react';
 import { NavLink, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +46,12 @@ const businessItems = [
   { title: "Reports", url: "/admin/reports", icon: BarChart3, featureRequired: "advanced_reporting" },
   { title: "Team", url: "/admin/team", icon: Users, featureRequired: "user_roles" },
   { title: "Communications", url: "/admin/communications", icon: Mail, featureRequired: "advanced_notifications" },
+];
+
+const aiItems = [
+  { title: "AI Dashboard", url: "/admin/ai-dashboard", icon: Brain, featureRequired: "ai_features" },
+  { title: "AI Automation", url: "/admin/ai-automation", icon: Zap, featureRequired: "ai_features" },
+  { title: "AI Performance", url: "/admin/ai-performance", icon: Activity, featureRequired: "ai_features" },
 ];
 
 const systemItems = [
@@ -156,6 +165,43 @@ export function TenantAdminSidebar() {
                             {showUpgradeBadge && (
                               <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
                                 {getUpgradeBadge()}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* AI Features */}
+        <SidebarGroup>
+          <SidebarGroupLabel>AI Features</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {aiItems.map((item) => {
+                const hasAccess = !item.featureRequired || hasFeature(item.featureRequired);
+                const showUpgradeBadge = !hasAccess && !isOnTrial; // Don't show badge if on trial
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={hasAccess || isOnTrial ? item.url : "/admin/settings?tab=billing"}
+                        className={({ isActive: navActive }) => 
+                          `${getNavCls(navActive)} ${!hasAccess && !isOnTrial ? 'opacity-60' : ''}`
+                        }
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && (
+                          <div className="flex items-center justify-between w-full">
+                            <span>{item.title}</span>
+                            {showUpgradeBadge && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                AI
                               </Badge>
                             )}
                           </div>
