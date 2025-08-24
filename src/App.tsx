@@ -41,6 +41,10 @@ const AIPerformanceMetrics = lazy(() => import("./components/ai/AIPerformanceMet
 // Mobile Components for Phase 6
 const CashierPWA = lazy(() => import("./components/mobile/CashierPWA"));
 
+// Advanced Analytics & Integrations for Phase 7
+const AdvancedAnalyticsDashboard = lazy(() => import("./components/analytics/AdvancedAnalyticsDashboard"));
+const ExternalIntegrationsManager = lazy(() => import("./components/integrations/ExternalIntegrationsManager"));
+
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Demo = lazy(() => import("./pages/Demo"));
@@ -521,6 +525,34 @@ const DomainRouter = () => {
             } 
           />
           
+          {/* Advanced Analytics & Integrations Routes for Phase 7 */}
+          <Route 
+            path="/admin/advanced-analytics" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AdvancedAnalyticsDashboard />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/integrations" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <ExternalIntegrationsManager />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Profile Route - accessible to all authenticated users */}
           <Route 
             path="/profile" 
@@ -832,6 +864,34 @@ const DomainRouter = () => {
                     <AIPerformanceMetrics />
                   </TenantAdminLayout>
                 </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Advanced Analytics & Integrations Routes for Phase 7 */}
+        <Route 
+          path="/admin/advanced-analytics" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AdvancedAnalyticsDashboard />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/integrations" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <ExternalIntegrationsManager />
+                </TenantAdminLayout>
               </SubscriptionGuard>
             </ProtectedRoute>
           } 
