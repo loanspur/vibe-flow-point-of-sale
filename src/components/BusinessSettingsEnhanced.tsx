@@ -342,8 +342,8 @@ export function BusinessSettingsEnhanced() {
 
         {/* Tabs wrapper around navigation and content */}
         <Tabs defaultValue="company">
-          {/* Enhanced Navigation with Modern Glass Effect */}
-          <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
+        {/* Enhanced Navigation with Modern Glass Effect */}
+        <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
 
             <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
@@ -410,7 +410,7 @@ export function BusinessSettingsEnhanced() {
                 <span className="font-medium">Migration</span>
               </TabsTrigger>
             </TabsList>
-          </div>
+        </div>
 
         {/* Enhanced Form Container */}
         <Form {...form}>
@@ -1491,9 +1491,9 @@ export function BusinessSettingsEnhanced() {
                   </Button>
                 </div>
               </TabsContent>
-            </Tabs>
           </form>
         </Form>
+        </Tabs>
 
       </div>
     </div>
