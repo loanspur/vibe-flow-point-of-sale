@@ -62,6 +62,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useApp } from "@/contexts/AppContext";
 import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
 import { timezones } from "@/lib/timezones";
@@ -227,6 +228,8 @@ interface StoreLocation {
 
 export function BusinessSettingsEnhanced() {
   // Minimal state and handlers to ensure component compiles
+  const { user, tenantId } = useAuth();
+  const { toast } = useToast();
   const form = useForm<BusinessSettings>({
     resolver: zodResolver(businessSettingsSchema),
     defaultValues: {
@@ -299,8 +302,37 @@ export function BusinessSettingsEnhanced() {
   const onSubmit = async (values: any) => {
     setIsSaving(true);
     try {
-      // TODO: Wire to Supabase upsert for business settings
+      if (!tenantId) {
+        throw new Error('No tenant ID available');
+      }
+
+      // Upsert business settings to Supabase
+      const { error } = await supabase
+        .from('business_settings')
+        .upsert({
+          tenant_id: tenantId,
+          ...values,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
       setSettings({ ...(settings || {}), ...values });
+      
+      toast({
+        title: "Settings Saved",
+        description: "Your business settings have been updated successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -827,6 +859,312 @@ export function BusinessSettingsEnhanced() {
                             </FormItem>
                           );
                         }}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Sales & Products Tab Actions */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => form.reset()}
+                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
+                  >
+                    Reset Changes
+                  </Button>
+                  <Button 
+                    onClick={() => onSubmit(form.getValues())} 
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Sales & Products Tab */}
+              <TabsContent value="sales-products" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                  
+                  {/* POS Settings Card */}
+                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <ShoppingCart className="h-6 w-6 text-primary" />
+                        </div>
+                        POS Settings
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure point of sale behavior and preferences
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="pos_auto_print_receipt"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Auto-Print Receipts</FormLabel>
+                              <FormDescription>
+                                Automatically print receipts after each sale
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="pos_ask_customer_info"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Ask Customer Info</FormLabel>
+                              <FormDescription>
+                                Prompt for customer information during sales
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="pos_enable_discounts"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Enable Discounts</FormLabel>
+                              <FormDescription>
+                                Allow discounts to be applied during sales
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="pos_enable_tips"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Enable Tips</FormLabel>
+                              <FormDescription>
+                                Allow tips to be added to transactions
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Product Settings Card */}
+                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Package className="h-6 w-6 text-primary" />
+                        </div>
+                        Product Settings
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure product management and inventory settings
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="enable_brands"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Enable Brands</FormLabel>
+                              <FormDescription>
+                                Allow products to be organized by brands
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_product_units"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Product Units</FormLabel>
+                              <FormDescription>
+                                Enable different units for products (kg, lbs, etc.)
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_barcode_scanning"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Barcode Scanning</FormLabel>
+                              <FormDescription>
+                                Enable barcode scanning for products
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_negative_stock"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Negative Stock</FormLabel>
+                              <FormDescription>
+                                Allow products to have negative stock levels
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Inventory Settings Card */}
+                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
+                    <CardHeader className="pb-6">
+                      <CardTitle className="flex items-center gap-3 text-2xl">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Package2 className="h-6 w-6 text-primary" />
+                        </div>
+                        Inventory Settings
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Configure inventory management and alerts
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="low_stock_threshold"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium">Low Stock Threshold</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number"
+                                placeholder="10" 
+                                className="border-2 focus:border-primary/50 transition-colors" 
+                                {...field}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Minimum stock level before low stock alerts
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="low_stock_alerts"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Low Stock Alerts</FormLabel>
+                              <FormDescription>
+                                Receive notifications when stock is low
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enable_overselling"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Allow Overselling</FormLabel>
+                              <FormDescription>
+                                Allow sales when stock is insufficient
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
                       />
                     </CardContent>
                   </Card>

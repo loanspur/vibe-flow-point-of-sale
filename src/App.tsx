@@ -484,6 +484,22 @@ const DomainRouter = () => {
             } 
           />
           
+          {/* Advanced Customer Management Routes for Phase 8.5 */}
+          <Route 
+            path="/admin/customer-management" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="advanced_customer_management">
+                    <TenantAdminLayout>
+                      <AdvancedCustomerManagementDashboard />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* AI Routes for Phase 5 */}
           <Route 
             path="/admin/ai-dashboard" 
