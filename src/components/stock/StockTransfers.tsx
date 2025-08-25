@@ -28,7 +28,8 @@ export const StockTransfers: React.FC = () => {
   const [transferItems, setTransferItems] = useState<any[]>([]);
   const [editTransferItems, setEditTransferItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
+  const { currency } = useBusinessSettings();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
 
@@ -560,6 +561,14 @@ export const StockTransfers: React.FC = () => {
     }
   };
 
+  // Format currency using unified settings
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.code
+    }).format(amount);
+  };
+
   return (
     <FeatureGuard featureName="advanced_inventory">
       <div className="space-y-6">
@@ -766,7 +775,7 @@ export const StockTransfers: React.FC = () => {
                     <TableCell>{transfer.from_location?.name}</TableCell>
                     <TableCell>{transfer.to_location?.name}</TableCell>
                     <TableCell>{transfer.total_items}</TableCell>
-                    <TableCell>KES {transfer.total_value.toFixed(2)}</TableCell>
+                    <TableCell>{formatCurrency(transfer.total_value)}</TableCell>
                     <TableCell>
                       <Badge className={`text-white ${getStatusColor(transfer.status)} flex items-center gap-1 w-fit`}>
                         {getStatusIcon(transfer.status)}
@@ -905,7 +914,7 @@ export const StockTransfers: React.FC = () => {
                 </div>
                 <div>
                   <Label>Total Value</Label>
-                  <Input value={`KES ${selectedTransfer.total_value.toFixed(2)}`} readOnly />
+                  <Input value={formatCurrency(selectedTransfer.total_value)} readOnly />
                 </div>
               </div>
               
@@ -933,8 +942,8 @@ export const StockTransfers: React.FC = () => {
                           <TableCell>{item.quantity_requested}</TableCell>
                           <TableCell>{item.quantity_shipped}</TableCell>
                           <TableCell>{item.quantity_received}</TableCell>
-                          <TableCell>KES {item.unit_cost.toFixed(2)}</TableCell>
-                          <TableCell>KES {item.total_cost.toFixed(2)}</TableCell>
+                          <TableCell>{formatCurrency(item.unit_cost)}</TableCell>
+                          <TableCell>{formatCurrency(item.total_cost)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

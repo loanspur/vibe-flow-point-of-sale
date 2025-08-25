@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { processStockAdjustment } from '@/lib/inventory-integration';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 
 export const StockAdjustments: React.FC = () => {
   const [adjustments, setAdjustments] = useState<any[]>([]);
@@ -24,6 +25,7 @@ export const StockAdjustments: React.FC = () => {
   const { user } = useAuth();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
+  const { currency } = useBusinessSettings();
 
   useEffect(() => {
     fetchAdjustments();
@@ -225,6 +227,13 @@ export const StockAdjustments: React.FC = () => {
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.code
+    }).format(amount);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header with Create Button */}
@@ -423,7 +432,7 @@ export const StockAdjustments: React.FC = () => {
                         {adjustment.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>KES {adjustment.total_value.toFixed(2)}</TableCell>
+                    <TableCell>{formatCurrency(adjustment.total_value)}</TableCell>
                     <TableCell>Admin</TableCell>
                   </TableRow>
                 ))}

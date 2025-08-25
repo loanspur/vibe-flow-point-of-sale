@@ -19,6 +19,7 @@ import { Tables } from '@/integrations/supabase/types';
 import TenantCustomPricing from '@/components/TenantCustomPricing';
 import { getBaseDomain } from '@/lib/domain-manager';
 import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 
 type Tenant = Tables<'tenants'>;
 type TenantUser = Tables<'tenant_users'>;
@@ -54,6 +55,7 @@ interface TenantCustomPricing {
 const CompactPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSubscription, tenantId?: string }) => {
   const [customPricing, setCustomPricing] = useState<TenantCustomPricing | null>(null);
   const [loading, setLoading] = useState(true);
+  const { currency } = useBusinessSettings();
 
   useEffect(() => {
     const fetchCustomPricing = async () => {
@@ -102,16 +104,16 @@ const CompactPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSu
         {customPricing ? (
           <div className="flex items-center gap-1">
             <span className="text-xs text-green-600 font-medium">
-              KES {customPricing.custom_amount.toLocaleString()}
+              {currency.symbol} {customPricing.custom_amount.toLocaleString()}
             </span>
             <span className="text-xs text-muted-foreground line-through">
-              KES {subscription.billing_plans?.price.toLocaleString()}
+              {currency.symbol} {subscription.billing_plans?.price.toLocaleString()}
             </span>
             <Badge variant="outline" className="text-xs px-1 py-0">Custom</Badge>
           </div>
         ) : (
           <span className="text-xs text-muted-foreground">
-            KES {subscription.billing_plans?.price.toLocaleString()}
+            {currency.symbol} {subscription.billing_plans?.price.toLocaleString()}
           </span>
         )}
       </div>
@@ -123,6 +125,7 @@ const CompactPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSu
 const CurrentPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSubscription, tenantId?: string }) => {
   const [customPricing, setCustomPricing] = useState<TenantCustomPricing | null>(null);
   const [loading, setLoading] = useState(true);
+  const { currency } = useBusinessSettings();
 
   useEffect(() => {
     const fetchCustomPricing = async () => {
@@ -182,10 +185,10 @@ const CurrentPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSu
               {customPricing ? (
                 <>
                   <p className="text-sm font-medium text-green-600">
-                    KES {customPricing.custom_amount.toLocaleString()} per {subscription.billing_plans?.period}
+                    {currency.symbol} {customPricing.custom_amount.toLocaleString()} per {subscription.billing_plans?.period}
                   </p>
                   <p className="text-sm text-muted-foreground line-through">
-                    KES {subscription.billing_plans?.price.toLocaleString()}
+                    {currency.symbol} {subscription.billing_plans?.price.toLocaleString()}
                   </p>
                   {customPricing.discount_percentage && (
                     <Badge variant="outline" className="text-green-600 border-green-200">
@@ -196,13 +199,13 @@ const CurrentPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSu
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  KES {subscription.billing_plans?.price.toLocaleString()} per {subscription.billing_plans?.period}
+                  {currency.symbol} {subscription.billing_plans?.price.toLocaleString()} per {subscription.billing_plans?.period}
                 </p>
               )}
             </div>
             {customPricing?.setup_fee && (
               <p className="text-xs text-muted-foreground">
-                Setup fee: KES {customPricing.setup_fee.toLocaleString()}
+                Setup fee: {currency.symbol} {customPricing.setup_fee.toLocaleString()}
               </p>
             )}
             {customPricing?.reason && (
@@ -239,7 +242,7 @@ const CurrentPlanDisplay = ({ subscription, tenantId }: { subscription: TenantSu
           <div>
             <p className="text-muted-foreground">Next Amount</p>
             <p className="font-medium">
-              KES {customPricing ? customPricing.custom_amount.toLocaleString() : subscription.next_billing_amount.toLocaleString()}
+              {currency.symbol} {customPricing ? customPricing.custom_amount.toLocaleString() : subscription.next_billing_amount.toLocaleString()}
             </p>
           </div>
         )}
@@ -282,8 +285,9 @@ export default function TenantManagement() {
   const [savingManualPayment, setSavingManualPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { sendWelcomeEmail: sendWelcomeEmailUnified, sendEmail } = useUnifiedCommunication();
+  const { currency } = useBusinessSettings();
 
   const [manualPayment, setManualPayment] = useState({
     amount: '',
@@ -1068,7 +1072,7 @@ export default function TenantManagement() {
                               )}
                             </h4>
                             <p className="text-sm text-muted-foreground">
-                              KES {plan.price.toLocaleString()} per {plan.period}
+                              {currency.symbol} {plan.price.toLocaleString()} per {plan.period}
                             </p>
                             {plan.description && (
                               <p className="text-xs text-muted-foreground mt-1">
