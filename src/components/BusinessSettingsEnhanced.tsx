@@ -226,7 +226,6 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
-  // Minimal state and handlers to ensure component compiles
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const form = useForm<BusinessSettings>({
@@ -237,6 +236,7 @@ export function BusinessSettingsEnhanced() {
     } as any,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -246,6 +246,76 @@ export function BusinessSettingsEnhanced() {
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StoreLocation | null>(null);
   const [locationFormData, setLocationFormData] = useState<Partial<StoreLocation>>({ is_active: true });
+
+  // Load existing data on component mount
+  useEffect(() => {
+    if (tenantId) {
+      loadBusinessData();
+    }
+  }, [tenantId]);
+
+  const loadBusinessData = async () => {
+    setIsLoading(true);
+    try {
+      console.log('Loading business data for tenant:', tenantId);
+      
+      // Load business settings
+      const { data: businessSettings, error: settingsError } = await supabase
+        .from('business_settings')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (settingsError) {
+        console.error('Error loading business settings:', settingsError);
+        if (settingsError.code !== 'PGRST116') { // Not found is okay
+          toast({
+            title: "Error",
+            description: "Failed to load business settings",
+            variant: "destructive",
+          });
+        }
+      }
+
+      // Load store locations
+      const { data: storeLocations, error: locationsError } = await supabase
+        .from('store_locations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true });
+
+      if (locationsError) {
+        console.error('Error loading store locations:', locationsError);
+        // Don't show error toast for locations as the table might not exist yet
+      }
+
+      // Update state
+      if (businessSettings) {
+        console.log('Loaded business settings:', businessSettings);
+        setSettings(businessSettings);
+        form.reset(businessSettings);
+        if (businessSettings.company_logo_url) {
+          setLogoPreview(businessSettings.company_logo_url);
+        }
+      }
+
+      if (storeLocations) {
+        console.log('Loaded store locations:', storeLocations);
+        setLocations(storeLocations);
+      }
+
+    } catch (error) {
+      console.error('Error loading business data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load business data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogoUpload = (e: any) => {
     const file = e.target?.files?.[0];
@@ -268,34 +338,124 @@ export function BusinessSettingsEnhanced() {
     setLocationFormData(loc);
     setIsLocationDialogOpen(true);
   };
-  const handleDeleteLocation = (id: string) => {
-    setLocations(prev => prev.filter(l => l.id !== id));
+  const handleDeleteLocation = async (id: string) => {
+    try {
+      if (!tenantId) {
+        throw new Error('No tenant ID available');
+      }
+
+      console.log('Deleting location:', id);
+
+      const { error } = await supabase
+        .from('store_locations')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        console.error('Error deleting location:', error);
+        throw error;
+      }
+
+      setLocations(prev => prev.filter(l => l.id !== id));
+
+      toast({
+        title: "Location Deleted",
+        description: "Store location has been deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      toast({
+        title: "Error",
+        description: `Failed to delete location: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   };
-  const handleSaveLocation = () => {
-    if (editingLocation) {
-      setLocations(prev => prev.map(l => (l.id === editingLocation.id ? { ...editingLocation, ...(locationFormData as any) } : l)));
-    } else {
-      const newId = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now());
-      setLocations(prev => prev.concat({
-        id: newId,
+  const handleSaveLocation = async () => {
+    try {
+      if (!tenantId) {
+        throw new Error('No tenant ID available');
+      }
+
+      console.log('Saving location:', locationFormData);
+
+      const locationData = {
         name: locationFormData.name || 'New Location',
         address_line_1: locationFormData.address_line_1 || '',
+        address_line_2: locationFormData.address_line_2 || '',
         city: locationFormData.city || '',
         state_province: locationFormData.state_province || '',
         postal_code: locationFormData.postal_code || '',
         country: locationFormData.country || '',
         phone: locationFormData.phone || '',
+        email: locationFormData.email || '',
+        manager_name: locationFormData.manager_name || '',
         is_primary: Boolean(locationFormData.is_primary),
         is_active: locationFormData.is_active !== false,
-        tenant_id: settings?.tenant_id || '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        email: locationFormData.email,
-        manager_name: locationFormData.manager_name,
-        address_line_2: locationFormData.address_line_2,
-      } as StoreLocation));
+        tenant_id: tenantId,
+        updated_at: new Date().toISOString()
+      };
+
+      if (editingLocation) {
+        // Update existing location
+        console.log('Updating location:', editingLocation.id);
+        const { data, error } = await supabase
+          .from('store_locations')
+          .update(locationData)
+          .eq('id', editingLocation.id)
+          .eq('tenant_id', tenantId)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error updating location:', error);
+          throw error;
+        }
+
+        setLocations(prev => prev.map(l => 
+          l.id === editingLocation.id ? { ...l, ...locationData } : l
+        ));
+
+        toast({
+          title: "Location Updated",
+          description: "Store location has been updated successfully.",
+        });
+      } else {
+        // Create new location
+        console.log('Creating new location');
+        const { data, error } = await supabase
+          .from('store_locations')
+          .insert({
+            ...locationData,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error creating location:', error);
+          throw error;
+        }
+
+        console.log('Created location:', data);
+        setLocations(prev => [...prev, data]);
+
+        toast({
+          title: "Location Created",
+          description: "New store location has been created successfully.",
+        });
+      }
+
+      setIsLocationDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving location:', error);
+      toast({
+        title: "Error",
+        description: `Failed to save location: ${error.message}`,
+        variant: "destructive",
+      });
     }
-    setIsLocationDialogOpen(false);
   };
 
   const onSubmit = async (values: any) => {
@@ -305,21 +465,28 @@ export function BusinessSettingsEnhanced() {
         throw new Error('No tenant ID available');
       }
 
+      console.log('Saving business settings:', values);
+
       // Upsert business settings to Supabase
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('business_settings')
         .upsert({
           tenant_id: tenantId,
           ...values,
           updated_at: new Date().toISOString()
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
+        console.error('Error saving business settings:', error);
         throw error;
       }
 
+      console.log('Saved business settings:', data);
+
       // Update local state
-      setSettings({ ...(settings || {}), ...values });
+      setSettings(data);
       
       toast({
         title: "Settings Saved",
@@ -329,13 +496,29 @@ export function BusinessSettingsEnhanced() {
       console.error('Error saving settings:', error);
       toast({
         title: "Error",
-        description: "Failed to save settings. Please try again.",
+        description: `Failed to save settings: ${error.message}`,
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading business settings...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
