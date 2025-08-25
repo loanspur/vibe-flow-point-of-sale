@@ -82,6 +82,48 @@ export const useBusinessSettings = () => {
     communication: {
       smsNotifications: (businessSettings as any)?.sms_enable_notifications ?? false,
       whatsappNotifications: (businessSettings as any)?.whatsapp_enable_notifications ?? false,
+      emailNotifications: (businessSettings as any)?.email_notifications ?? true,
+      dailyReports: (businessSettings as any)?.daily_reports ?? true,
+    },
+    
+    // Company Information
+    company: {
+      name: businessSettings?.company_name || 'Your Business',
+      email: businessSettings?.email || '',
+      phone: businessSettings?.phone || '',
+      website: businessSettings?.website || '',
+      logo: businessSettings?.company_logo_url || '',
+      address: {
+        line1: businessSettings?.address_line_1 || '',
+        line2: businessSettings?.address_line_2 || '',
+        city: businessSettings?.city || '',
+        state: businessSettings?.state_province || '',
+        postal: businessSettings?.postal_code || '',
+        country: businessSettings?.country || '',
+      },
+    },
+    
+    // Currency & Localization
+    currency: {
+      code: businessSettings?.currency_code || 'USD',
+      symbol: businessSettings?.currency_symbol || '$',
+      timezone: businessSettings?.timezone || 'UTC',
+    },
+    
+    // Security Settings
+    security: {
+      maxLoginAttempts: (businessSettings as any)?.max_login_attempts ?? 3,
+      accountLockoutDuration: (businessSettings as any)?.account_lockout_duration ?? 15,
+      sessionTimeoutMinutes: (businessSettings as any)?.session_timeout_minutes ?? 60,
+      requirePasswordChange: (businessSettings as any)?.require_password_change ?? false,
+      passwordExpiryDays: (businessSettings as any)?.password_expiry_days ?? 90,
+    },
+    
+    // Business Operations
+    operations: {
+      businessHours: (businessSettings as any)?.business_hours || {},
+      enableMultiLocation: (businessSettings as any)?.enable_multi_location ?? false,
+      enableUserRoles: (businessSettings as any)?.enable_user_roles ?? true,
     },
     
     // Raw settings for direct access when needed

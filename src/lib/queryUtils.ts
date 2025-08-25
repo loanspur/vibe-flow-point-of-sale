@@ -241,3 +241,42 @@ export const queryErrorHandler = {
     }
   }
 };
+
+// Simple retry/backoff helper for transient errors (e.g., HTTP 429)
+export async function withRetry<T>(fn: () => Promise<T>, retries = 3, baseDelayMs = 300): Promise<T> {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const status = err?.status ?? err?.response?.status;
+      if (attempt >= retries || (status && status !== 429)) {
+        throw err;
+      }
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delay));
+      attempt += 1;
+    }
+  }
+}
+
+// Client-side pagination helper with sane defaults
+export function ensurePaginated<T>(list: T[], page = 1, limit = 20): { data: T[]; page: number; limit: number; total: number } {
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
+  const start = (Math.max(page, 1) - 1) * safeLimit;
+  const data = (Array.isArray(list) ? list : []).slice(start, start + safeLimit);
+  return { data, page: Math.max(page, 1), limit: safeLimit, total: list?.length || 0 };
+}
+
+// Sanitize numeric series to avoid NaN/null in charts
+export function sanitizeSeries<T extends Record<string, any>>(rows: T[], numericKeys: string[]): T[] {
+  if (!Array.isArray(rows)) return [] as T[];
+  return rows.map((row) => {
+    const copy: any = { ...row };
+    for (const key of numericKeys) {
+      const value = Number(copy[key]);
+      copy[key] = Number.isFinite(value) ? value : 0;
+    }
+    return copy as T;
+  });
+}

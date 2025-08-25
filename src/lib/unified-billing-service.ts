@@ -363,6 +363,8 @@ class UnifiedBillingService {
       advanced_notifications: false,
       warehouse_management: false,
       advanced_analytics: false,
+      ai_features: false,
+      advanced_customer_management: false,
       custom_reports: false,
       dashboards: false,
       data_export: false,
@@ -413,6 +415,8 @@ class UnifiedBillingService {
       features['max_locations'] = 5;
       features['max_staff_users'] = 999999;
       features['max_products'] = 5000;
+      features['ai_features'] = true; // Enable AI features for Professional plan
+      features['advanced_customer_management'] = true; // Enable advanced customer management for Professional plan
     } else if (planName === 'basic' || planName === 'starter') {
       // Basic/Starter plan - keep defaults but add some features
       features['advanced_reporting'] = true;
@@ -420,6 +424,8 @@ class UnifiedBillingService {
       features['max_locations'] = 2;
       features['max_staff_users'] = 10;
       features['max_products'] = 1000;
+      features['ai_features'] = true; // Enable AI features for Basic/Starter plan
+      features['advanced_customer_management'] = true; // Enable advanced customer management for Basic/Starter plan
     }
 
     return features;

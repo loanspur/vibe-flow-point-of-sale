@@ -14,7 +14,8 @@ import { useFormState } from '@/hooks/useFormState';
 import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 import QuickCreateUnitDialog from './QuickCreateUnitDialog';
-import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useBusinessSettings as useBusinessSettingsQuery } from '@/hooks/useUnifiedDataFetching';
+
 
 interface Category {
   id: string;
@@ -79,7 +80,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { product: productSettings } = useBusinessSettings();
+  const { data: settingsData } = useBusinessSettingsQuery();
+  const productSettings = {
+  autoGenerateSku: settingsData?.[0]?.auto_generate_sku ?? true,
+  enableBarcodeScanning: settingsData?.[0]?.enable_barcode_scanning ?? true,
+  enableProductExpiry: settingsData?.[0]?.enable_product_expiry ?? true,
+};
   
   const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -136,41 +142,43 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     validator: validateForm,
     validateOnChange: true,
   });
-
+   
   const generateSKU = async (productName: string): Promise<string> => {
-    if (!productName || !tenantId) return '';
-    
-    const namePrefix = productName
-      .replace(/[^a-zA-Z0-9]/g, '') 
-      .substring(0, 3)
-      .toUpperCase();
-    
+    if (!productName) return '';
+    const namePrefix = productName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase();
+    // If tenantId not ready, produce a random SKU without DB check
+    if (!tenantId) {
+      const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+      return `${namePrefix}${fallbackSuffix}`;
+    }
+
     let attempts = 0;
     const maxAttempts = 10;
-    
+
     while (attempts < maxAttempts) {
       const timestamp = Date.now().toString().slice(-4);
       const randomSuffix = Math.floor(100 + Math.random() * 900);
       const potentialSKU = `${namePrefix}${timestamp}${randomSuffix}`;
-      
+
       const { data: existingProduct } = await supabase
         .from('products')
         .select('id')
         .eq('tenant_id', tenantId)
         .eq('sku', potentialSKU)
         .maybeSingle();
-      
+
       if (!existingProduct) {
         return potentialSKU;
       }
-      
+
       attempts++;
       await new Promise(resolve => setTimeout(resolve, 1));
     }
-    
+
     const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `${namePrefix}${fallbackSuffix}`;
-  };
+  }; 
+
 
   const generateVariantSKU = (productSku: string, variantValue: string) => {
     if (!productSku || !variantValue) return '';
@@ -464,9 +472,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       localStorage.setItem('selected_location', value);
     }
 
-    if (field === 'name' && !product && typeof value === 'string' && value.trim()) {
+  
+    if (field === 'name' && !product && productSettings.autoGenerateSku && typeof value === 'string' && value.trim()) {
       const generatedSKU = await generateSKU(value);
-      formActions.setFieldValue('sku', generatedSKU);
+      if (generatedSKU) formActions.setFieldValue('sku', generatedSKU);
     }
 
     if (field === 'sku' && typeof value === 'string' && value.trim()) {

@@ -33,6 +33,21 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
 const TenantRedirect = lazy(() => import("./pages/TenantRedirect"));
 
+// AI Components for Phase 5
+const AIDashboard = lazy(() => import("./components/ai/AIDashboard"));
+const AIAutomationRules = lazy(() => import("./components/ai/AIAutomationRules"));
+const AIPerformanceMetrics = lazy(() => import("./components/ai/AIPerformanceMetrics"));
+
+// Mobile Components for Phase 6
+const CashierPWA = lazy(() => import("./components/mobile/CashierPWA"));
+
+// Advanced Analytics & Integrations for Phase 7
+const AdvancedAnalyticsDashboard = lazy(() => import("./components/analytics/AdvancedAnalyticsDashboard"));
+const ExternalIntegrationsManager = lazy(() => import("./components/integrations/ExternalIntegrationsManager"));
+
+// Advanced Customer Management for Phase 8.5
+const AdvancedCustomerManagementDashboard = lazy(() => import("./components/crm/AdvancedCustomerManagementDashboard"));
+
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Demo = lazy(() => import("./pages/Demo"));
@@ -469,6 +484,94 @@ const DomainRouter = () => {
             } 
           />
           
+          {/* Advanced Customer Management Routes for Phase 8.5 */}
+          <Route 
+            path="/admin/customer-management" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="advanced_customer_management">
+                    <TenantAdminLayout>
+                      <AdvancedCustomerManagementDashboard />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* AI Routes for Phase 5 */}
+          <Route 
+            path="/admin/ai-dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AIDashboard />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/ai-automation" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AIAutomationRules />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/ai-performance" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AIPerformanceMetrics />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Advanced Analytics & Integrations Routes for Phase 7 */}
+          <Route 
+            path="/admin/advanced-analytics" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="ai_features">
+                    <TenantAdminLayout>
+                      <AdvancedAnalyticsDashboard />
+                    </TenantAdminLayout>
+                  </FeatureGuard>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/integrations" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+                <SubscriptionGuard>
+                  <TenantAdminLayout>
+                    <ExternalIntegrationsManager />
+                  </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Profile Route - accessible to all authenticated users */}
           <Route 
             path="/profile" 
@@ -478,6 +581,20 @@ const DomainRouter = () => {
                   <TenantAdminLayout>
                     <Profile />
                   </TenantAdminLayout>
+                </SubscriptionGuard>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Mobile Cashier PWA Route */}
+          <Route 
+            path="/mobile" 
+            element={
+              <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+                <SubscriptionGuard>
+                  <FeatureGuard featureName="mobile_offline">
+                    <CashierPWA deviceId={`device_${Date.now()}`} tenantId={domainConfig.tenantId} />
+                  </FeatureGuard>
                 </SubscriptionGuard>
               </ProtectedRoute>
             } 
@@ -726,6 +843,94 @@ const DomainRouter = () => {
             </ProtectedRoute>
           } 
         />
+        
+        {/* AI Routes for Phase 5 */}
+        <Route 
+          path="/admin/ai-dashboard" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AIDashboard />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/ai-automation" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AIAutomationRules />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/ai-performance" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AIPerformanceMetrics />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Advanced Analytics & Integrations Routes for Phase 7 */}
+        <Route 
+          path="/admin/advanced-analytics" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="ai_features">
+                  <TenantAdminLayout>
+                    <AdvancedAnalyticsDashboard />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/integrations" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <TenantAdminLayout>
+                  <ExternalIntegrationsManager />
+                </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Advanced Customer Management Routes for Phase 8.5 */}
+        <Route 
+          path="/admin/customer-management" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="advanced_customer_management">
+                  <TenantAdminLayout>
+                    <AdvancedCustomerManagementDashboard />
+                  </TenantAdminLayout>
+                </FeatureGuard>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
         <Route 
           path="/admin/sales" 
           element={
@@ -785,6 +990,20 @@ const DomainRouter = () => {
                 <TenantAdminLayout>
                   <Profile />
                 </TenantAdminLayout>
+              </SubscriptionGuard>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Mobile Cashier PWA Route */}
+        <Route 
+          path="/mobile" 
+          element={
+            <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
+              <SubscriptionGuard>
+                <FeatureGuard featureName="mobile_offline">
+                  <CashierPWA deviceId={`device_${Date.now()}`} tenantId={user?.tenant_id} />
+                </FeatureGuard>
               </SubscriptionGuard>
             </ProtectedRoute>
           } 

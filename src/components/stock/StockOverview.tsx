@@ -15,6 +15,8 @@ import { getLowStockItems, getInventoryLevels } from '@/lib/inventory-integratio
 export const StockOverview: React.FC = () => {
   const [inventoryData, setInventoryData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +128,14 @@ export const StockOverview: React.FC = () => {
     }
 
     setFilteredData(filtered);
+    setCurrentPage(1);
   }, [inventoryData, searchTerm, selectedLocation, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil((filteredData?.length || 0) / pageSize));
+  const pagedData = React.useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, currentPage, pageSize]);
 
   const getStockStatus = (currentStock: number, minLevel: number) => {
     if (currentStock <= 0) return { label: 'Out of Stock', color: 'bg-red-500' };
@@ -276,7 +285,7 @@ export const StockOverview: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((product) => {
+                {pagedData.map((product) => {
                   const status = getStockStatus(product.stock_quantity, product.min_stock_level || 0);
                   const value = (product.stock_quantity || 0) * (product.cost_price || 0);
                   
@@ -298,6 +307,31 @@ export const StockOverview: React.FC = () => {
                 })}
               </TableBody>
             </Table>
+          )}
+          {/* Pagination Controls */}
+          {filteredData.length > 0 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredData.length)} of {filteredData.length}
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25 / page</SelectItem>
+                    <SelectItem value="50">50 / page</SelectItem>
+                    <SelectItem value="100">100 / page</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</Button>
+                  <div className="text-sm">Page {currentPage} / {totalPages}</div>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

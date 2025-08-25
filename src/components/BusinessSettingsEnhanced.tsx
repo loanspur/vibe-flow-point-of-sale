@@ -53,7 +53,6 @@ import {
   Package2,
   AlertTriangle,
   Zap,
-  Mail as MailIcon,
   MessageSquare,
   Layout,
   Download,
@@ -62,6 +61,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useApp } from "@/contexts/AppContext";
 import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
 import { timezones } from "@/lib/timezones";
@@ -78,6 +78,7 @@ import DomainManagement from '@/components/DomainManagement';
 import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { PaymentManagement } from '@/components/PaymentManagement';
 import { MpesaIntegration } from '@/components/MpesaIntegration';
+
 
 const businessSettingsSchema = z.object({
   // Basic company information
@@ -225,598 +226,277 @@ interface StoreLocation {
 }
 
 export function BusinessSettingsEnhanced() {
-  const [settings, setSettings] = useState<BusinessSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  // Get initial tab from URL or default to "company"
-  const getInitialTab = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    return tabParam || "company";
-  };
-  const [activeTab, setActiveTab] = useState(getInitialTab);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [themeColors, setThemeColors] = useState({
-    primary: "#3b82f6",
-    secondary: "#64748b",
-    accent: "#f59e0b"
+  const { user, tenantId } = useAuth();
+  const { toast } = useToast();
+  const form = useForm<BusinessSettings>({
+    resolver: zodResolver(businessSettingsSchema),
+    defaultValues: {
+      currency_code: 'USD',
+      timezone: 'America/New_York',
+    } as any,
   });
-  const [currencySearch, setCurrencySearch] = useState("");
-  const [timezoneSearch, setTimezoneSearch] = useState("");
-  
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  
-  // Location management state
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [settings, setSettings] = useState<BusinessSettings | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const filteredCurrencies = useMemo(() => currencies, []);
+  const filteredTimezones = useMemo(() => timezones, []);
   const [locations, setLocations] = useState<StoreLocation[]>([]);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StoreLocation | null>(null);
-  const [locationFormData, setLocationFormData] = useState<Partial<StoreLocation>>({
-    name: "",
-    address_line_1: "",
-    address_line_2: "",
-    city: "",
-    state_province: "",
-    postal_code: "",
-    country: "",
-    phone: "",
-    email: "",
-    manager_name: "",
-    is_primary: false,
-    is_active: true
-  });
-  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
-  const [previewType, setPreviewType] = useState<"invoice" | "receipt" | "quote">("invoice");
-  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
-  const [templateEditType, setTemplateEditType] = useState<"invoice" | "receipt" | "quote">("invoice");
-  const { toast } = useToast();
-  const { formatCurrency, refreshBusinessSettings } = useApp();
-  const { formatPrice } = useCurrencyUpdate();
-  const { hasFeature, isSettingRestricted, getFeatureUpgradeMessage } = useFeatureAccess();
+  const [locationFormData, setLocationFormData] = useState<Partial<StoreLocation>>({ is_active: true });
 
-  const form = useForm<z.infer<typeof businessSettingsSchema>>({
-    resolver: zodResolver(businessSettingsSchema),
-    defaultValues: {
-      // Basic company information
-      company_name: "",
-      email: "",
-      phone: "",
-      website: "",
-      currency_code: "USD",
-      timezone: "America/New_York",
-      default_tax_rate: 0,
-      tax_name: "Tax",
-      
-      // Business registration details
-      tax_identification_number: "",
-      business_registration_number: "",
-      
-      // Product and inventory features
-      enable_brands: false,
-      enable_overselling: false,
-      enable_product_units: true,
-      enable_product_expiry: true,
-      enable_warranty: false,
-      enable_fixed_pricing: false,
-      auto_generate_sku: true,
-      enable_barcode_scanning: true,
-      enable_negative_stock: false,
-      stock_accounting_method: "FIFO",
-      default_markup_percentage: 0.00,
-      enable_retail_pricing: true,
-      enable_wholesale_pricing: false,
-      enable_combo_products: false,
-      
-      // POS settings
-      pos_auto_print_receipt: true,
-      pos_ask_customer_info: false,
-      pos_enable_discounts: true,
-      pos_max_discount_percent: 100.00,
-      pos_enable_tips: false,
-      pos_default_payment_method: "cash",
-      
-      // Notifications and communications
-      sms_enable_notifications: false,
-      whatsapp_enable_notifications: false,
-      sms_provider: "",
-      sms_api_key: "",
-      sms_sender_id: "",
-      whatsapp_api_key: "",
-      whatsapp_phone_number: "",
-      whatsapp_api_url: "",
-      
-      // Email settings
-      email_from_address: "",
-      email_from_name: "",
-      email_smtp_host: "",
-      email_smtp_port: 587,
-      email_smtp_username: "",
-      email_smtp_password: "",
-      email_enable_ssl: true,
-      
-      // Templates and documents
-      invoice_template: "standard",
-      receipt_template: "standard",
-      quote_template: "standard",
-      delivery_note_template: "standard",
-      invoice_number_prefix: "INV-",
-      quote_number_prefix: "QT-",
-      delivery_note_prefix: "DN-",
-      invoice_terms_conditions: "",
-      
-      // Receipt customization
-      receipt_header: "",
-      receipt_footer: "",
-      receipt_logo_url: "",
-      print_customer_copy: true,
-      print_merchant_copy: true,
-      
-      // Auto-numbering
-      invoice_auto_number: true,
-      quote_auto_number: true,
-      delivery_note_auto_number: true,
-      quote_validity_days: 30,
-      
-      // Security settings
-      max_login_attempts: 3,
-      account_lockout_duration: 15,
-      session_timeout_minutes: 60,
-      require_password_change: false,
-      password_expiry_days: 90,
-      
-      // Business operations
-      enable_loyalty_program: false,
-      enable_gift_cards: false,
-      enable_online_orders: false,
-      enable_multi_location: false,
-      enable_user_roles: true,
-      
-      // Inventory and stock management
-      low_stock_threshold: 10,
-      low_stock_alerts: true,
-      daily_reports: true,
-      email_notifications: true,
-      
-      // Purchase settings
-      purchase_default_tax_rate: 0.0000,
-      purchase_auto_receive: false,
-      purchase_enable_partial_receive: true,
-      
-      // Tax settings
-      tax_inclusive: false,
-      currency_symbol: "$",
-      date_format: "MM/DD/YYYY"
-    },
-  });
-
+  // Load existing data on component mount
   useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = useCallback(async () => {
-    try {
-      // Resolve tenant id first to avoid RLS race conditions
-      const { data: authUser } = await supabase.auth.getUser();
-      const userId = authUser?.user?.id;
-      if (!userId) return;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (!profile?.tenant_id) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Try to fetch settings, on RLS error attempt a self-repair then retry once
-      const fetchOnce = () =>
-        supabase
-          .from('business_settings')
-          .select('*')
-          .eq('tenant_id', profile.tenant_id)
-          .maybeSingle();
-
-      let { data, error: fetchError } = await fetchOnce();
-
-      if (fetchError && (fetchError.code === '42501' || fetchError.message?.toLowerCase().includes('row-level security') || fetchError.message?.toLowerCase().includes('permission denied'))) {
-        const email = authUser?.user?.email;
-        try {
-          if (email) {
-            await supabase.rpc('reactivate_tenant_membership', {
-              tenant_id_param: profile.tenant_id,
-              target_email_param: email,
-            });
-            // Retry once after repair
-            const retry = await fetchOnce();
-            data = retry.data;
-            fetchError = retry.error;
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // ignore, may be no row yet or lack of access
-      }
-      
-      if (data) {
-        setSettings(data);
-        form.reset(data);
-        if (data.company_logo_url) {
-          setLogoPreview(data.company_logo_url);
-        }
-      }
-    } catch (error) {
-      // Handle error silently
-    } finally {
-      setIsLoading(false);
+    if (tenantId) {
+      loadBusinessData();
     }
-  }, [form, toast]);
+  }, [tenantId]);
 
-
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
+  const loadBusinessData = async () => {
+    setIsLoading(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      console.log('Loading business data for tenant:', tenantId);
       
-      // Resolve tenant id to scope upload path
-      const { data: authUser } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', authUser?.user?.id as string)
+      // Load business settings
+      const { data: businessSettings, error: settingsError } = await supabase
+        .from('business_settings')
+        .select('*')
+        .eq('tenant_id', tenantId)
         .single();
-      const tenantId = profile?.tenant_id as string | undefined;
-      if (!tenantId) throw new Error('No tenant found');
 
-      const filePath = `${tenantId}/logo-${Date.now()}.${fileExt}`;
-      
-      const { error } = await supabase.storage
-        .from('branding')
-        .upload(filePath, file, { upsert: true });
+      if (settingsError) {
+        console.error('Error loading business settings:', settingsError);
+        if (settingsError.code !== 'PGRST116') { // Not found is okay
+          toast({
+            title: "Error",
+            description: "Failed to load business settings",
+            variant: "destructive",
+          });
+        }
+      }
 
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('branding')
-        .getPublicUrl(filePath);
-
-      setLogoPreview(publicUrl);
-      form.setValue('company_logo_url', publicUrl);
-      
-      toast({
-        title: "Logo uploaded",
-        description: "Your company logo has been uploaded successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload logo. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Location management functions
-  const fetchLocations = useCallback(async (tenantId: string) => {
-    try {
-      const { data, error } = await supabase
+      // Load store locations
+      const { data: storeLocations, error: locationsError } = await supabase
         .from('store_locations')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setLocations(data || []);
+      if (locationsError) {
+        console.error('Error loading store locations:', locationsError);
+        // Don't show error toast for locations as the table might not exist yet
+      }
+
+      // Update state
+      if (businessSettings) {
+        console.log('Loaded business settings:', businessSettings);
+        setSettings(businessSettings);
+        form.reset(businessSettings);
+        if (businessSettings.company_logo_url) {
+          setLogoPreview(businessSettings.company_logo_url);
+        }
+      }
+
+      if (storeLocations) {
+        console.log('Loaded store locations:', storeLocations);
+        setLocations(storeLocations);
+      }
+
     } catch (error) {
+      console.error('Error loading business data:', error);
       toast({
         title: "Error",
-        description: "Failed to load locations",
+        description: "Failed to load business data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogoUpload = (e: any) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoPreview(String(reader.result || ''));
+      form.setValue('company_logo_url', String(reader.result || ''));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddLocation = () => {
+    setEditingLocation(null);
+    setLocationFormData({ is_active: true });
+    setIsLocationDialogOpen(true);
+  };
+  const handleEditLocation = (loc: StoreLocation) => {
+    setEditingLocation(loc);
+    setLocationFormData(loc);
+    setIsLocationDialogOpen(true);
+  };
+  const handleDeleteLocation = async (id: string) => {
+    try {
+      if (!tenantId) {
+        throw new Error('No tenant ID available');
+      }
+
+      console.log('Deleting location:', id);
+
+      const { error } = await supabase
+        .from('store_locations')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        console.error('Error deleting location:', error);
+        throw error;
+      }
+
+      setLocations(prev => prev.filter(l => l.id !== id));
+
+      toast({
+        title: "Location Deleted",
+        description: "Store location has been deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      toast({
+        title: "Error",
+        description: `Failed to delete location: ${error.message}`,
         variant: "destructive",
       });
     }
-  }, [toast]);
-
-  // Load locations when component mounts or tenantId changes
-  useEffect(() => {
-    const loadLocations = async () => {
-      const { data: authUser } = await supabase.auth.getUser();
-      if (authUser?.user?.id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', authUser.user.id)
-          .single();
-
-        if (profile?.tenant_id) {
-          // Loading locations for tenant
-          fetchLocations(profile.tenant_id);
-        }
-      }
-    };
-    
-    loadLocations();
-  }, []);
-
-  // Load locations when the locations tab is activated
-  useEffect(() => {
-    if (activeTab === 'locations') {
-      const loadLocationsForTab = async () => {
-        const { data: authUser } = await supabase.auth.getUser();
-        if (authUser?.user?.id) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('tenant_id')
-            .eq('user_id', authUser.user.id)
-            .single();
-
-          if (profile?.tenant_id) {
-            // Locations tab activated, loading locations
-            await fetchLocations(profile.tenant_id);
-          }
-        }
-      };
-      
-      loadLocationsForTab();
-    }
-  }, [activeTab]);
-
-  const handleAddLocation = () => {
-    // Add location handler called
-    
-    setEditingLocation(null);
-    setLocationFormData({
-      name: "",
-      address_line_1: "",
-      address_line_2: "",
-      city: "",
-      state_province: "",
-      postal_code: "",
-      country: "",
-      phone: "",
-      email: "",
-      manager_name: "",
-      is_primary: locations.length === 0, // First location is primary by default
-      is_active: true
-    });
-    setIsLocationDialogOpen(true);
-    
-    // Opening location dialog
   };
-
-  const handleEditLocation = (location: StoreLocation) => {
-    setEditingLocation(location);
-    setLocationFormData(location);
-    setIsLocationDialogOpen(true);
-  };
-
   const handleSaveLocation = async () => {
     try {
-      const { data: authUser } = await supabase.auth.getUser();
-      if (!authUser?.user?.id) return;
+      if (!tenantId) {
+        throw new Error('No tenant ID available');
+      }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', authUser.user.id)
-        .single();
-
-      if (!profile?.tenant_id) throw new Error('No tenant found');
+      console.log('Saving location:', locationFormData);
 
       const locationData = {
-        name: locationFormData.name || '',
-        address_line_1: locationFormData.address_line_1,
-        address_line_2: locationFormData.address_line_2,
-        city: locationFormData.city,
-        state_province: locationFormData.state_province,
-        postal_code: locationFormData.postal_code,
-        country: locationFormData.country,
-        phone: locationFormData.phone,
-        email: locationFormData.email,
-        manager_name: locationFormData.manager_name,
-        is_primary: locationFormData.is_primary || false,
-        is_active: locationFormData.is_active !== false
+        name: locationFormData.name || 'New Location',
+        address_line_1: locationFormData.address_line_1 || '',
+        address_line_2: locationFormData.address_line_2 || '',
+        city: locationFormData.city || '',
+        state_province: locationFormData.state_province || '',
+        postal_code: locationFormData.postal_code || '',
+        country: locationFormData.country || '',
+        phone: locationFormData.phone || '',
+        email: locationFormData.email || '',
+        manager_name: locationFormData.manager_name || '',
+        is_primary: Boolean(locationFormData.is_primary),
+        is_active: locationFormData.is_active !== false,
+        tenant_id: tenantId,
+        updated_at: new Date().toISOString()
       };
 
       if (editingLocation) {
         // Update existing location
-        const { error } = await supabase
+        console.log('Updating location:', editingLocation.id);
+        const { data, error } = await supabase
           .from('store_locations')
           .update(locationData)
-          .eq('id', editingLocation.id);
+          .eq('id', editingLocation.id)
+          .eq('tenant_id', tenantId)
+          .select()
+          .single();
 
-        if (error) throw error;
-        
+        if (error) {
+          console.error('Error updating location:', error);
+          throw error;
+        }
+
+        setLocations(prev => prev.map(l => 
+          l.id === editingLocation.id ? { ...l, ...locationData } : l
+        ));
+
         toast({
-          title: "Success",
-          description: "Location updated successfully",
+          title: "Location Updated",
+          description: "Store location has been updated successfully.",
         });
       } else {
         // Create new location
-        const { error } = await supabase
+        console.log('Creating new location');
+        const { data, error } = await supabase
           .from('store_locations')
           .insert({
             ...locationData,
-            tenant_id: profile.tenant_id
-          });
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
 
-        if (error) throw error;
-        
+        if (error) {
+          console.error('Error creating location:', error);
+          throw error;
+        }
+
+        console.log('Created location:', data);
+        setLocations(prev => [...prev, data]);
+
         toast({
-          title: "Success",
-          description: "Location created successfully",
+          title: "Location Created",
+          description: "New store location has been created successfully.",
         });
       }
 
       setIsLocationDialogOpen(false);
-      await fetchLocations(profile.tenant_id);
     } catch (error) {
-      console.error('❌ Error saving location:', error);
+      console.error('Error saving location:', error);
       toast({
         title: "Error",
-        description: "Failed to save location",
+        description: `Failed to save location: ${error.message}`,
         variant: "destructive",
       });
     }
   };
 
-  const handleDeleteLocation = async (locationId: string) => {
-    if (!confirm('Are you sure you want to delete this location?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('store_locations')
-        .delete()
-        .eq('id', locationId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Location deleted successfully",
-      });
-
-      // Refresh locations
-      const { data: authUser } = await supabase.auth.getUser();
-      if (authUser?.user?.id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', authUser.user.id)
-          .single();
-
-        if (profile?.tenant_id) {
-          await fetchLocations(profile.tenant_id);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error deleting location:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete location",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const onSubmit = async (values: z.infer<typeof businessSettingsSchema>) => {
+  const onSubmit = async (values: any) => {
     setIsSaving(true);
     try {
-      // Get the current user's tenant ID
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user?.user?.id) {
-        throw new Error('User not authenticated');
+      if (!tenantId) {
+        throw new Error('No tenant ID available');
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id, role')
-        .eq('user_id', user.user.id)
-        .single();
+      console.log('Saving business settings:', values);
 
-      if (profileError) {
-        throw new Error('Failed to get user profile: ' + profileError.message);
-      }
-
-      if (!profile?.tenant_id) {
-        throw new Error('No tenant associated with user');
-      }
-
-      // Check if user has permission to modify settings
-      if (profile.role !== 'superadmin' && profile.role !== 'admin') {
-        // Attempt membership repair to grant admin if needed
-        try {
-          if (user.user.email) {
-            await supabase.rpc('reactivate_tenant_membership', {
-              tenant_id_param: profile.tenant_id,
-              target_email_param: user.user.email,
-            });
-            // Re-fetch profile role after repair
-            const { data: repairedProfile } = await supabase
-              .from('profiles')
-              .select('tenant_id, role')
-              .eq('user_id', user.user.id)
-              .single();
-            if (repairedProfile?.role === 'admin' || repairedProfile?.role === 'superadmin') {
-              // proceed
-            } else {
-              throw new Error('Insufficient permissions to modify business settings');
-            }
-          } else {
-            throw new Error('Insufficient permissions to modify business settings');
-          }
-        } catch (e) {
-          throw new Error('Insufficient permissions to modify business settings');
-        }
-      }
-
-      // Prepare the data for update/insert
-      const normalizedValues = {
-        ...values,
-        // If a specific receipt logo isn't set, fall back to the company logo
-        receipt_logo_url: values.receipt_logo_url || values.company_logo_url || values.receipt_logo_url,
-      };
-      const settingsData = {
-        ...normalizedValues,
-        tenant_id: profile.tenant_id
-      };
-
-      // Check if settings already exist
-      const { data: existingSettings } = await supabase
+      // Upsert business settings to Supabase
+      const { data, error } = await supabase
         .from('business_settings')
-        .select('id')
-        .eq('tenant_id', profile.tenant_id)
+        .upsert({
+          tenant_id: tenantId,
+          ...values,
+          updated_at: new Date().toISOString()
+        })
+        .select()
         .single();
 
-      let result;
-      if (existingSettings) {
-        // Update existing settings
-        result = await supabase
-          .from('business_settings')
-          .update(settingsData)
-          .eq('tenant_id', profile.tenant_id)
-          .select();
-      } else {
-        // Insert new settings
-        result = await supabase
-          .from('business_settings')
-          .insert([settingsData])
-          .select();
+      if (error) {
+        console.error('Error saving business settings:', error);
+        throw error;
       }
 
-      if (result.error) {
-        throw result.error;
-      }
+      console.log('Saved business settings:', data);
 
-      setSettings(result.data[0]);
-
-      // Clear currency cache to refresh with new settings
-      clearCurrencyCache();
+      // Update local state
+      setSettings(data);
       
-      // Trigger app-wide currency update
-      if (refreshBusinessSettings) {
-        await refreshBusinessSettings();
-      }
-
       toast({
-        title: "Settings saved",
+        title: "Settings Saved",
         description: "Your business settings have been updated successfully.",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving settings:', error);
       toast({
-        title: "Error saving settings",
-        description: error.message || "An unexpected error occurred",
+        title: "Error",
+        description: `Failed to save settings: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -824,30 +504,17 @@ export function BusinessSettingsEnhanced() {
     }
   };
 
-
-  const filteredCurrencies = useMemo(() => currencySearch
-    ? currencies.filter(currency => 
-        currency.code && currency.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
-        currency.name && currency.name.toLowerCase().includes(currencySearch.toLowerCase())
-      ).filter(currency => currency.code && currency.code.trim() !== '')
-    : currencies.filter(currency => currency.code && currency.code.trim() !== ''), [currencySearch]);
-
-  const filteredTimezones = useMemo(() => timezoneSearch
-    ? timezones.filter(timezone => 
-        timezone.label && timezone.label.toLowerCase().includes(timezoneSearch.toLowerCase()) ||
-        timezone.value && timezone.value.toLowerCase().includes(timezoneSearch.toLowerCase())
-      ).filter(timezone => timezone.value && timezone.value.trim() !== '')
-    : timezones.filter(timezone => timezone.value && timezone.value.trim() !== ''), [timezoneSearch]);
-
-  const countryOptions = COUNTRY_LIST;
-
+  // Show loading state
   if (isLoading) {
-    // Settings component still loading
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading Business Settings...</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading business settings...</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -887,10 +554,11 @@ export function BusinessSettingsEnhanced() {
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-secondary/5 to-transparent rounded-full translate-y-36 -translate-x-36 blur-3xl" />
         </div>
 
-        {/* Enhanced Navigation with Modern Glass Effect */}
-        <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto bg-transparent gap-2 p-0">
+        {/* Tabs wrapper around navigation and content */}
+        <Tabs defaultValue="company">
+          {/* Enhanced Navigation with Modern Glass Effect */}
+          <div className="sticky top-4 z-30 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl p-3 shadow-xl mb-8">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-8 h-auto bg-transparent gap-2 p-0">
               <TabsTrigger 
                 value="company" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -898,13 +566,7 @@ export function BusinessSettingsEnhanced() {
                 <Building className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Company</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="sales-products" 
-                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-              >
-                <Package className="h-4 w-4 transition-transform group-hover:scale-110" />
-                <span className="font-medium hidden sm:inline">Sales</span>
-              </TabsTrigger>
+
               <TabsTrigger 
                 value="notifications" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -912,6 +574,7 @@ export function BusinessSettingsEnhanced() {
                 <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Notifications</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="templates" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -919,6 +582,7 @@ export function BusinessSettingsEnhanced() {
                 <FileText className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium hidden sm:inline">Templates</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="payments" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -926,6 +590,7 @@ export function BusinessSettingsEnhanced() {
                 <CreditCard className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Payments</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="domains" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -933,6 +598,7 @@ export function BusinessSettingsEnhanced() {
                 <Globe className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Domains</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="billing" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -940,6 +606,7 @@ export function BusinessSettingsEnhanced() {
                 <Receipt className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Billing</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="locations" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -947,6 +614,7 @@ export function BusinessSettingsEnhanced() {
                 <MapPin className="h-4 w-4 transition-transform group-hover:scale-110" />
                 <span className="font-medium">Locations</span>
               </TabsTrigger>
+              
               <TabsTrigger 
                 value="migration" 
                 className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
@@ -955,15 +623,13 @@ export function BusinessSettingsEnhanced() {
                 <span className="font-medium">Migration</span>
               </TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
+          </div>
 
-        {/* Enhanced Form Container */}
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          {/* Enhanced Form Container */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               
-              {/* Company & Operations Combined Tab */}
+              {/* Company Tab */}
               <TabsContent value="company" className="space-y-8 mt-0">
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
                   
@@ -1110,28 +776,28 @@ export function BusinessSettingsEnhanced() {
                             <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                           </div>
                         )}
-                          <div className="space-y-4 text-center">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="cursor-pointer hover:bg-primary/10 transition-colors"
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              {logoPreview ? "Change Logo" : "Upload Logo"}
-                            </Button>
-                            <Input
-                              id="logo-upload"
-                              ref={fileInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handleLogoUpload}
-                            />
-                            <p className="text-sm text-muted-foreground">
-                              Recommended: 200x200px, PNG or JPG format
-                            </p>
-                          </div>
+                        <div className="space-y-4 text-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="cursor-pointer hover:bg-primary/10 transition-colors"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {logoPreview ? "Change Logo" : "Upload Logo"}
+                          </Button>
+                          <Input
+                            id="logo-upload"
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLogoUpload}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Recommended: 200x200px, PNG or JPG format
+                          </p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1206,218 +872,6 @@ export function BusinessSettingsEnhanced() {
                               </SelectContent>
                             </Select>
                             <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  {/* Tax Configuration */}
-                  <Card className="group border-0 shadow-xl bg-gradient-to-br from-card to-card/50 hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <Receipt className="h-6 w-6 text-primary" />
-                        </div>
-                        Tax Configuration
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="default_tax_rate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium flex items-center gap-2">
-                              <Receipt className="h-4 w-4 text-primary" />
-                              Default Tax Rate (%)
-                            </FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                max="100" 
-                                step="0.01" 
-                                placeholder="0.00" 
-                                className="border-2 focus:border-primary/50 transition-colors" 
-                                {...field} 
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="tax_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium flex items-center gap-2">
-                              <Tag className="h-4 w-4 text-primary" />
-                              Tax Label
-                            </FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="VAT, GST, Sales Tax, etc." 
-                                className="border-2 focus:border-primary/50 transition-colors" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="tax_inclusive"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-muted p-4 bg-gradient-to-r from-muted/20 to-transparent">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base font-medium">
-                                Tax Inclusive Pricing
-                              </FormLabel>
-                              <FormDescription>
-                                Prices include tax by default
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                     </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Company Information Tab Actions */}
-                <div className="flex justify-end gap-3 pt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => form.reset()}
-                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                  >
-                    Reset Changes
-                  </Button>
-                  <Button 
-                    onClick={() => onSubmit(form.getValues())} 
-                    disabled={isSaving}
-                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save Changes"}
-                  </Button>
-                </div>
-              </TabsContent>
-
-              {/* Payments Tab */}
-              <TabsContent value="sales-products" className="space-y-8 mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  
-                  {/* Sales Settings Card */}
-                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <ShoppingCart className="h-6 w-6 text-primary" />
-                        </div>
-                        Product Settings
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Configure sales processes and customer interactions
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="pos_ask_customer_info"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Ask Customer Info</FormLabel>
-                              <FormDescription>
-                                Prompt for customer information during sales
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="pos_enable_discounts"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Enable Discounts</FormLabel>
-                              <FormDescription>
-                                Allow discount application during sales
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="pos_max_discount_percent"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium flex items-center gap-2">
-                              <Tag className="h-4 w-4 text-primary" />
-                              Maximum Discount Percentage
-                            </FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                max="100" 
-                                placeholder="0" 
-                                className="border-2 focus:border-primary/50 transition-colors" 
-                                {...field} 
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="purchase_auto_receive"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Auto-receive Purchases</FormLabel>
-                              <FormDescription>
-                                Automatically receive purchases when they're created
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
                           </FormItem>
                         )}
                       />
@@ -1563,6 +1017,7 @@ export function BusinessSettingsEnhanced() {
                           </FormItem>
                         )}
                       />
+                      
                       <FormField
                         control={form.control}
                         name="stock_accounting_method"
@@ -1590,7 +1045,7 @@ export function BusinessSettingsEnhanced() {
                   </Card>
                 </div>
                 
-                {/* Sales & Products Tab Actions */}
+                {/* Company Tab Actions */}
                 <div className="flex justify-end gap-3 pt-6">
                   <Button 
                     variant="outline" 
@@ -2276,11 +1731,12 @@ export function BusinessSettingsEnhanced() {
                   </Button>
                 </div>
               </TabsContent>
-            </Tabs>
           </form>
         </Form>
+        </Tabs>
 
       </div>
     </div>
+
   );
 }

@@ -22,6 +22,27 @@ import { TenantAdminSidebar } from './TenantAdminSidebar';
 import UserProfileSettings from './UserProfileSettings';
 import { LazyImage } from '@/components/ui/image-lazy';
 import { useTenantLogo } from '@/hooks/useTenantLogo';
+import UserProfileSettings from '@/components/UserProfileSettings';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Form } from '@/components/ui/form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { useEffect } from 'react';
+import { Tenant } from '@/types/tenant';
+import { TenantService } from '@/services/tenantService';
+import { Location } from '@/types/location';
+import { LocationService } from '@/services/locationService';
+import { FormField } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button as DialogFooter } from '@/components/ui/button';
+import { useTenant } from '@/contexts/TenantContext';
+import { useLocationDialog } from '@/hooks/useLocationDialog';
+
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
