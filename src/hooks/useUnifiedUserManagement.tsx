@@ -383,7 +383,7 @@ export const useUnifiedUserManagement = () => {
         throw new Error('Invalid role ID');
       }
 
-      const { error } = await supabase.functions.invoke('send-user-invitation', {
+      const { data, error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email,
           fullName: fullName || email.split('@')[0], // Use email prefix if no fullName
@@ -392,14 +392,74 @@ export const useUnifiedUserManagement = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle structured error response
+        const errorData = error as any;
+        const errorMessage = errorData.error || errorData.message || 'Failed to send invitation';
+        const errorCode = errorData.code || 'INVITATION_ERROR';
+        const instructions = errorData.instructions || '';
+        
+        // Show enhanced error toast with instructions
+        toast.error(
+          <div className="flex flex-col gap-2">
+            <div className="font-medium">Invitation Failed</div>
+            <div className="text-sm text-gray-600">{errorMessage}</div>
+            {instructions && (
+              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                💡 {instructions}
+              </div>
+            )}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(errorData, null, 2));
+                toast.success('Error details copied to clipboard');
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              Copy error details
+            </button>
+          </div>,
+          { duration: 15000 }
+        );
+        
+        console.error('Invitation error details:', errorData);
+        return false;
+      }
+
+      // Success case
+      const successMessage = data?.status === 'reinvited' 
+        ? `Re-invitation sent successfully to ${email}`
+        : `Invitation sent successfully to ${email}`;
       
-      toast.success('User invitation sent successfully');
+      toast.success(successMessage);
       await fetchUsers();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error inviting user:', error);
-      toast.error('Failed to send invitation');
+      
+      // Show enhanced generic error with copy option
+      toast.error(
+        <div className="flex flex-col gap-2">
+          <div className="font-medium">Invitation Failed</div>
+          <div className="text-sm text-gray-600">
+            {error.message || 'An unexpected error occurred'}
+          </div>
+          <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+            💡 Please check your internet connection and try again. If the problem persists, contact support.
+          </div>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(JSON.stringify(error, null, 2));
+              toast.success('Error details copied to clipboard');
+            }}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            Copy error details
+          </button>
+        </div>,
+        { duration: 15000 }
+      );
+      
       return false;
     }
   };
@@ -490,7 +550,7 @@ export const useUnifiedUserManagement = () => {
         throw new Error('Invalid role ID');
       }
 
-      const { error } = await supabase.functions.invoke('send-user-invitation', {
+      const { data, error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email,
           fullName: fullName || email.split('@')[0], // Use email prefix if no fullName
@@ -500,14 +560,54 @@ export const useUnifiedUserManagement = () => {
         }
       });
 
-      if (error) throw error;
-      
-      toast.success('Invitation resent successfully');
+      if (error) {
+        const errorData = error as any;
+        const errorMessage = errorData.message || 'Failed to resend invitation';
+        
+        toast.error(
+          <div className="flex flex-col gap-2">
+            <div className="font-medium">Re-invitation Failed</div>
+            <div className="text-sm text-gray-600">{errorMessage}</div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(errorData, null, 2));
+                toast.success('Error details copied to clipboard');
+              }}
+              className="text-xs text-blue-600 hover:text-blue-800 underline"
+            >
+              Copy error details
+            </button>
+          </div>,
+          { duration: 10000 }
+        );
+        
+        console.error('Re-invitation error details:', errorData);
+        return false;
+      }
+
+      toast.success(`Re-invitation sent successfully to ${email}`);
       await fetchUsers();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resending invitation:', error);
-      toast.error('Failed to resend invitation');
+      
+      toast.error(
+        <div className="flex flex-col gap-2">
+          <div className="font-medium">Re-invitation Failed</div>
+          <div className="text-sm text-gray-600">An unexpected error occurred</div>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(JSON.stringify(error, null, 2));
+              toast.success('Error details copied to clipboard');
+            }}
+            className="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            Copy error details
+          </button>
+        </div>,
+        { duration: 10000 }
+      );
+      
       return false;
     }
   };

@@ -22,6 +22,7 @@ import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TabStabilityProvider } from "./components/TabStabilityProvider";
+import { DebugEnv } from "./components/DebugEnv";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
@@ -1044,6 +1045,7 @@ const App = () => {
                    <PerformanceMonitor />
                    <AppOptimizer />
                    <CookieConsent />
+                   <DebugEnv />
                    <BrowserRouter>
                      <DomainRouter />
                    </BrowserRouter>
