@@ -17,7 +17,7 @@ The existing email functionality has been enhanced to provide better error handl
   - Communication logging
 
 ### 2. Frontend Integration
-- **Hook**: `src/hooks/useUnifiedUserManagement.ts`
+- **Hook**: `src/hooks/useUnifiedUserManagement.tsx`
 - **Component**: `src/components/UnifiedUserManagement.tsx`
 - **Features**:
   - Invite user functionality
@@ -187,7 +187,7 @@ EMAIL_DRIVER=CONSOLE  # Uses console logging instead of sending emails
 ## Files Modified
 
 1. `supabase/functions/send-user-invitation/index.ts` - Enhanced error handling and validation
-2. `src/hooks/useUnifiedUserManagement.ts` - Improved UI error display
+2. `src/hooks/useUnifiedUserManagement.tsx` - Improved UI error display
 3. `scripts/test-existing-email.ts` - Comprehensive testing script
 4. `package.json` - Added test script
 
