@@ -295,6 +295,29 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Request method:', req.method);
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     
+    // Validate required environment variables
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const resendFrom = Deno.env.get('RESEND_FROM');
+    
+    if (!resendApiKey || !resendFrom) {
+      const errorMessage = `Resend misconfig: ${!resendApiKey ? 'RESEND_API_KEY' : 'RESEND_FROM'} missing`;
+      console.error(errorMessage);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          code: 'RESEND_MISCONFIG',
+          status: 500
+        }),
+        {
+          status: 500,
+          headers: { 
+            "Content-Type": "application/json", 
+            ...corsHeaders 
+          },
+        }
+      );
+    }
+    
     const requestBody = await req.json();
     console.log('Request body received:', requestBody);
     console.log('Invitation request received for email:', requestBody.email);

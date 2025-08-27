@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": "18.x"
+    "node": "18.x",
+    "npm": "9.x"
   },
   "scripts": {
     "dev": "vite",
@@ -13,7 +14,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "npx serve dist -s -l 8080",
-    "test:invite": "tsx scripts/test-invite.ts"
+    "test:invite": "tsx scripts/test-invite.ts",
+    "ci:build": "npm ci && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
