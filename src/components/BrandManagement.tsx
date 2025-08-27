@@ -42,9 +42,6 @@ import * as z from 'zod';
 const brandSchema = z.object({
   name: z.string().min(1, 'Brand name is required'),
   description: z.string().optional(),
-  website: z.string().url().optional().or(z.literal('')),
-  contact_email: z.string().email().optional().or(z.literal('')),
-  contact_phone: z.string().optional(),
   logo_url: z.string().optional(),
 });
 
@@ -54,10 +51,8 @@ interface Brand {
   id: string;
   name: string;
   description?: string;
-  website?: string;
-  contact_email?: string;
-  contact_phone?: string;
   logo_url?: string;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
   tenant_id: string;
@@ -78,9 +73,6 @@ export default function BrandManagement() {
     defaultValues: {
       name: '',
       description: '',
-      website: '',
-      contact_email: '',
-      contact_phone: '',
       logo_url: '',
     },
   });
@@ -94,6 +86,7 @@ export default function BrandManagement() {
         .from('brands')
         .select('*')
         .eq('tenant_id', tenantId)
+        .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
@@ -142,6 +135,7 @@ export default function BrandManagement() {
           .insert({
             ...data,
             tenant_id: tenantId,
+            is_active: true,
           });
 
         if (error) throw error;
@@ -156,11 +150,11 @@ export default function BrandManagement() {
       setEditingBrand(null);
       form.reset();
       fetchBrands();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving brand:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save brand',
+        description: error.message || 'Failed to save brand',
         variant: 'destructive',
       });
     }
@@ -171,9 +165,6 @@ export default function BrandManagement() {
     form.reset({
       name: brand.name,
       description: brand.description || '',
-      website: brand.website || '',
-      contact_email: brand.contact_email || '',
-      contact_phone: brand.contact_phone || '',
       logo_url: brand.logo_url || '',
     });
     setShowForm(true);
@@ -201,9 +192,10 @@ export default function BrandManagement() {
         return;
       }
 
+      // Soft delete by setting is_active to false
       const { error } = await supabase
         .from('brands')
-        .delete()
+        .update({ is_active: false })
         .eq('id', deletingBrand.id)
         .eq('tenant_id', tenantId);
 
@@ -216,11 +208,11 @@ export default function BrandManagement() {
 
       setDeletingBrand(null);
       fetchBrands();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting brand:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete brand',
+        description: error.message || 'Failed to delete brand',
         variant: 'destructive',
       });
     }
@@ -284,36 +276,6 @@ export default function BrandManagement() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    {...form.register('website')}
-                    placeholder="https://example.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact_email">Contact Email</Label>
-                  <Input
-                    id="contact_email"
-                    type="email"
-                    {...form.register('contact_email')}
-                    placeholder="contact@brand.com"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contact_phone">Contact Phone</Label>
-                <Input
-                  id="contact_phone"
-                  {...form.register('contact_phone')}
-                  placeholder="+1234567890"
-                />
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="logo_url">Logo URL</Label>
                 <Input
@@ -368,8 +330,7 @@ export default function BrandManagement() {
                 <TableRow>
                   <TableHead>Brand Name</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Website</TableHead>
+                  <TableHead>Logo</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -389,30 +350,14 @@ export default function BrandManagement() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        {brand.contact_email && (
-                          <div>{brand.contact_email}</div>
-                        )}
-                        {brand.contact_phone && (
-                          <div className="text-muted-foreground">{brand.contact_phone}</div>
-                        )}
-                        {!brand.contact_email && !brand.contact_phone && (
-                          <span className="text-muted-foreground">No contact info</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {brand.website ? (
-                        <a
-                          href={brand.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                        >
-                          Visit
-                        </a>
+                      {brand.logo_url ? (
+                        <img
+                          src={brand.logo_url}
+                          alt={`${brand.name} logo`}
+                          className="w-8 h-8 object-contain rounded"
+                        />
                       ) : (
-                        <span className="text-sm text-muted-foreground">No website</span>
+                        <span className="text-sm text-muted-foreground">No logo</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">

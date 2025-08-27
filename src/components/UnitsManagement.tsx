@@ -69,7 +69,7 @@ function UnitForm({
   baseUnits: UnitRecord[];
   existingCodes: string[];
 }) {
-const form = useForm<UnitFormData>({
+  const form = useForm<UnitFormData>({
     resolver: zodResolver(unitSchema),
     defaultValues: {
       name: "",
@@ -79,9 +79,34 @@ const form = useForm<UnitFormData>({
       base_unit_id: null,
       conversion_factor: 1,
       is_active: true,
-      ...initialData,
     },
   });
+
+  // Reset form when initialData changes (for editing)
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name || "",
+        abbreviation: initialData.abbreviation || "",
+        code: initialData.code || "",
+        is_base_unit: initialData.is_base_unit || false,
+        base_unit_id: initialData.base_unit_id || null,
+        conversion_factor: initialData.conversion_factor || 1,
+        is_active: initialData.is_active ?? true,
+      });
+    } else {
+      // Reset to defaults for new unit
+      form.reset({
+        name: "",
+        abbreviation: "",
+        code: "",
+        is_base_unit: false,
+        base_unit_id: null,
+        conversion_factor: 1,
+        is_active: true,
+      });
+    }
+  }, [initialData, form]);
 
   const isBase = form.watch("is_base_unit");
 
@@ -120,7 +145,16 @@ const form = useForm<UnitFormData>({
     if (!current || current === (initialData?.code || "")) {
       form.setValue("code", makeUniqueCode(String(base)));
     }
-  }, [abbrVal, nameVal, manualCode, makeUniqueCode]);
+  }, [abbrVal, nameVal, manualCode, makeUniqueCode, form, initialData?.code]);
+
+  // Reset manual code flag when form is reset
+  useEffect(() => {
+    if (initialData?.code) {
+      setManualCode(true);
+    } else {
+      setManualCode(false);
+    }
+  }, [initialData?.code]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,17 +168,26 @@ const form = useForm<UnitFormData>({
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" {...form.register("name")} />
+              {form.formState.errors.name && (
+                <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="abbreviation">Abbreviation</Label>
               <Input id="abbreviation" {...form.register("abbreviation")} />
+              {form.formState.errors.abbreviation && (
+                <p className="text-sm text-red-500">{form.formState.errors.abbreviation.message}</p>
+              )}
             </div>
           </div>
 
-<div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="code">Code (unique)</Label>
               <Input id="code" {...codeReg} onChange={(e) => { setManualCode(true); codeReg.onChange(e); }} />
+              {form.formState.errors.code && (
+                <p className="text-sm text-red-500">{form.formState.errors.code.message}</p>
+              )}
             </div>
           </div>
 
@@ -189,6 +232,9 @@ const form = useForm<UnitFormData>({
               <div className="space-y-2">
                 <Label htmlFor="conversion_factor">Conversion Factor</Label>
                 <Input id="conversion_factor" type="number" step="0.0001" min={0.000001} {...form.register("conversion_factor", { valueAsNumber: true })} />
+                {form.formState.errors.conversion_factor && (
+                  <p className="text-sm text-red-500">{form.formState.errors.conversion_factor.message}</p>
+                )}
               </div>
             </div>
           )}
@@ -198,8 +244,16 @@ const form = useForm<UnitFormData>({
           <DialogClose asChild>
             <Button variant="secondary">Cancel</Button>
           </DialogClose>
-          <Button onClick={form.handleSubmit((data) => onSubmit(data))}>
-            {initialData?.id ? "Save Changes" : "Create Unit"}
+          <Button 
+            onClick={form.handleSubmit((data) => onSubmit(data))}
+            disabled={form.formState.isSubmitting}
+          >
+            {form.formState.isSubmitting 
+              ? "Saving..." 
+              : initialData?.id 
+                ? "Save Changes" 
+                : "Create Unit"
+            }
           </Button>
         </DialogFooter>
       </DialogContent>
