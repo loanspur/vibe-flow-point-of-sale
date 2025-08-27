@@ -14,7 +14,9 @@ import { useFormState } from '@/hooks/useFormState';
 import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 import QuickCreateUnitDialog from './QuickCreateUnitDialog';
-import { useBusinessSettings as useBusinessSettingsQuery } from '@/hooks/useUnifiedDataFetching';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useProductSettingsValidation } from '@/hooks/useProductSettingsValidation';
+import { ProductSettingsRestrictions } from './ProductSettingsRestrictions';
 
 
 interface Category {
@@ -80,12 +82,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: settingsData } = useBusinessSettingsQuery();
-  const productSettings = {
-  autoGenerateSku: settingsData?.[0]?.auto_generate_sku ?? true,
-  enableBarcodeScanning: settingsData?.[0]?.enable_barcode_scanning ?? true,
-  enableProductExpiry: settingsData?.[0]?.enable_product_expiry ?? true,
-};
+  const { product: productSettings } = useBusinessSettings();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -99,6 +96,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [variantImages, setVariantImages] = useState<{[key: number]: { file: File | null, preview: string }}>({});
 
+  const { validateProductCreation, isFeatureEnabled, getRequiredFields } = useProductSettingsValidation();
+
   const validateForm = useCallback((data: Partial<ProductFormData>) => {
     const errors: Record<string, string> = {};
     
@@ -109,16 +108,34 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     
     if (currentStep === 1) {
       if (!data.category_id) errors.category_id = 'Category is required';
-      if (!data.unit_id) errors.unit_id = 'Unit is required';
+      
+      // Validate unit if product units are enabled
+      if (isFeatureEnabled('enableProductUnits') && !data.unit_id) {
+        errors.unit_id = 'Product unit is required when unit management is enabled';
+      }
     }
     
     if (currentStep === 3) {
-      if (!data.price) errors.price = 'Selling price is required';
-      if (parseFloat(data.price || '0') <= 0) errors.price = 'Price must be greater than 0';
+      // Validate pricing based on settings
+      if (isFeatureEnabled('enableRetailPricing') && !data.price) {
+        errors.price = 'Retail price is required when retail pricing is enabled';
+      } else if (data.price && parseFloat(data.price) <= 0) {
+        errors.price = 'Price must be greater than 0';
+      }
+
+      // Validate SKU if auto-generate is enabled
+      if (isFeatureEnabled('autoGenerateSku') && !data.sku) {
+        errors.sku = 'SKU is required when auto-generate SKU is enabled';
+      }
+
+      // Validate expiry date if enabled
+      if (isFeatureEnabled('enableProductExpiry') && data.has_expiry_date && !data.expiry_date) {
+        errors.expiry_date = 'Expiry date is required when product expiry tracking is enabled';
+      }
     }
     
     return errors;
-  }, [currentStep]);
+  }, [currentStep, isFeatureEnabled]);
 
   const [formState, formActions] = useFormState<ProductFormData>({
     initialData: {

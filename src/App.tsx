@@ -25,6 +25,7 @@ import { TabStabilityProvider } from "./components/TabStabilityProvider";
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
+import Index from "./pages/Index";
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const CurrencyDebug = lazy(() => import("./pages/CurrencyDebug"));
@@ -78,7 +79,7 @@ const SuperAdminCommunications = lazy(() => import("./pages/SuperAdminCommunicat
 const SuperAdminPlanManagement = lazy(() => import("./pages/SuperAdminPlanManagement"));
 import Products from "./pages/Products";
 const Reports = lazy(() => import("./pages/Reports"));
-const Team = lazy(() => import("./pages/Team"));
+import Team from "./pages/Team";
 const Customers = lazy(() => import("./pages/Customers"));
 const Sales = lazy(() => import("./pages/Sales"));
 const Purchases = lazy(() => import("./pages/Purchases"));
@@ -1009,8 +1010,19 @@ const DomainRouter = () => {
           } 
         />
         
-        {/* Fallback - redirect to appropriate dashboard */}
-        <Route path="/dashboard" element={<ProtectedRoute><div /></ProtectedRoute>} />
+        {/* Dashboard route - redirect to appropriate dashboard based on role */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              {userRole === 'superadmin' ? (
+                <Navigate to="/superadmin" replace />
+              ) : (
+                <Navigate to="/admin" replace />
+              )}
+            </ProtectedRoute>
+          } 
+        />
         
         <Route path="*" element={<NotFound />} />
       </Routes>

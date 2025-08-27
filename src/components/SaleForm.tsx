@@ -199,7 +199,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     try {
       const { data, error } = await supabase
         .from('business_settings')
-        .select('tax_inclusive, default_tax_rate')
+        .select('tax_inclusive, default_tax_rate, enable_overselling, enable_negative_stock')
         .eq('tenant_id', tenantId)
         .maybeSingle();
 
@@ -561,6 +561,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     
     // Check business settings for negative stock - use both inventory and product settings  
     const allowNegativeStock = inventorySettings.enableNegativeStock || false;
+    const allowOverselling = businessSettings?.enable_overselling || false;
     console.log('Negative stock settings:', { allowNegativeStock, currentStock, quantity });
     
     if (!allowNegativeStock && currentStock < quantity) {
@@ -607,6 +608,41 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     });
 
     if (existingItemIndex !== -1) {
+      // Check if the new total quantity would exceed stock
+      const newTotalQuantity = saleItems[existingItemIndex].quantity + quantity;
+      
+      // Check oversell setting for existing item updates
+      if (!allowOverselling && newTotalQuantity > currentStock) {
+        const locationName = locations.find(loc => loc.id === selectedLocation)?.name || 'selected location';
+        toast({
+          title: "Overselling Disabled",
+          description: `Cannot increase quantity to ${newTotalQuantity}. Only ${currentStock} available at ${locationName}. Enable overselling in business settings to allow this.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Show warning when overselling is enabled but quantity exceeds stock for existing items
+      if (allowOverselling && newTotalQuantity > currentStock) {
+        const locationName = locations.find(loc => loc.id === selectedLocation)?.name || 'selected location';
+        toast({
+          title: "Overselling Warning",
+          description: `Warning: Increasing quantity to ${newTotalQuantity} but only ${currentStock} available at ${locationName}. This will result in negative stock.`,
+          variant: "default",
+        });
+      }
+      
+      // Check negative stock setting for existing item updates
+      if (!allowNegativeStock && newTotalQuantity > currentStock) {
+        const locationName = locations.find(loc => loc.id === selectedLocation)?.name || 'selected location';
+        toast({
+          title: "Insufficient Stock at Location",
+          description: `Cannot increase quantity to ${newTotalQuantity}. Only ${currentStock} available at ${locationName}. Enable negative stock in business settings to oversell.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Update existing item quantity
       const updatedItems = [...saleItems];
       updatedItems[existingItemIndex].quantity += quantity;

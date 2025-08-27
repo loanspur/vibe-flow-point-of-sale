@@ -334,7 +334,7 @@ export function PaymentManagement() {
       // For demonstration purposes - simulate saving to database
       const newIntegration: PaymentIntegration = {
         id: editingIntegration?.id || Date.now().toString(),
-        tenant_id: tenantId || '',
+        tenant_id: user?.id || '',
         name: values.name,
         provider: values.provider,
         is_active: values.is_active,

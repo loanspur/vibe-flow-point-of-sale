@@ -1,152 +1,168 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Plus, Edit, Trash2, Tag } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { FeatureGuard } from '@/components/FeatureGuard';
+import * as z from 'zod';
+
+const brandSchema = z.object({
+  name: z.string().min(1, 'Brand name is required'),
+  description: z.string().optional(),
+  website: z.string().url().optional().or(z.literal('')),
+  contact_email: z.string().email().optional().or(z.literal('')),
+  contact_phone: z.string().optional(),
+  logo_url: z.string().optional(),
+});
+
+type BrandFormData = z.infer<typeof brandSchema>;
 
 interface Brand {
   id: string;
   name: string;
   description?: string;
+  website?: string;
+  contact_email?: string;
+  contact_phone?: string;
   logo_url?: string;
-  is_active: boolean;
   created_at: string;
+  updated_at: string;
+  tenant_id: string;
 }
 
-const brandSchema = z.object({
-  name: z.string().min(1, 'Brand name is required'),
-  description: z.string().optional(),
-  logo_url: z.string().url().optional().or(z.literal('')),
-});
-
-type BrandFormData = z.infer<typeof brandSchema>;
-
-export const BrandManagement = () => {
+export default function BrandManagement() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showForm, setShowForm] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
 
   const form = useForm<BrandFormData>({
     resolver: zodResolver(brandSchema),
     defaultValues: {
       name: '',
       description: '',
+      website: '',
+      contact_email: '',
+      contact_phone: '',
       logo_url: '',
     },
   });
 
-  const { data: brands, isLoading } = useQuery({
-    queryKey: ['brands', tenantId],
-    queryFn: async () => {
+  const fetchBrands = async () => {
+    if (!tenantId) return;
+
+    try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('brands')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('name');
-      
-      if (error) throw error;
-      return data as Brand[];
-    },
-    enabled: !!tenantId,
-  });
 
-  const createBrandMutation = useMutation({
-    mutationFn: async (data: BrandFormData) => {
-      const { error } = await supabase
-        .from('brands')
-        .insert({
-          name: data.name,
-          description: data.description || null,
-          logo_url: data.logo_url || null,
-          tenant_id: tenantId,
-        });
-      
       if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brands'] });
-      toast({ title: 'Brand created successfully' });
-      setIsDialogOpen(false);
-      form.reset();
-    },
-    onError: (error) => {
-      toast({ 
-        title: 'Error creating brand', 
-        description: error.message,
-        variant: 'destructive' 
+      setBrands(data || []);
+    } catch (error) {
+      console.error('Error fetching brands:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch brands',
+        variant: 'destructive',
       });
-    },
-  });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const updateBrandMutation = useMutation({
-    mutationFn: async (data: BrandFormData) => {
-      if (!editingBrand) return;
-      
-      const { error } = await supabase
-        .from('brands')
-        .update(data)
-        .eq('id', editingBrand.id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brands'] });
-      toast({ title: 'Brand updated successfully' });
-      setIsDialogOpen(false);
+  useEffect(() => {
+    fetchBrands();
+  }, [tenantId]);
+
+  const onSubmit = async (data: BrandFormData) => {
+    if (!tenantId) return;
+
+    try {
+      if (editingBrand) {
+        // Update existing brand
+        const { error } = await supabase
+          .from('brands')
+          .update({
+            ...data,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingBrand.id)
+          .eq('tenant_id', tenantId);
+
+        if (error) throw error;
+
+        toast({
+          title: 'Success',
+          description: 'Brand updated successfully',
+        });
+      } else {
+        // Create new brand
+        const { error } = await supabase
+          .from('brands')
+          .insert({
+            ...data,
+            tenant_id: tenantId,
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: 'Success',
+          description: 'Brand created successfully',
+        });
+      }
+
+      setShowForm(false);
       setEditingBrand(null);
       form.reset();
-    },
-    onError: (error) => {
-      toast({ 
-        title: 'Error updating brand', 
-        description: error.message,
-        variant: 'destructive' 
+      fetchBrands();
+    } catch (error) {
+      console.error('Error saving brand:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save brand',
+        variant: 'destructive',
       });
-    },
-  });
-
-  const deleteBrandMutation = useMutation({
-    mutationFn: async (brandId: string) => {
-      const { error } = await supabase
-        .from('brands')
-        .update({ is_active: false })
-        .eq('id', brandId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brands'] });
-      toast({ title: 'Brand deleted successfully' });
-    },
-    onError: (error) => {
-      toast({ 
-        title: 'Error deleting brand', 
-        description: error.message,
-        variant: 'destructive' 
-      });
-    },
-  });
-
-  const onSubmit = (data: BrandFormData) => {
-    if (editingBrand) {
-      updateBrandMutation.mutate(data);
-    } else {
-      createBrandMutation.mutate(data);
     }
   };
 
@@ -155,168 +171,295 @@ export const BrandManagement = () => {
     form.reset({
       name: brand.name,
       description: brand.description || '',
+      website: brand.website || '',
+      contact_email: brand.contact_email || '',
+      contact_phone: brand.contact_phone || '',
       logo_url: brand.logo_url || '',
     });
-    setIsDialogOpen(true);
+    setShowForm(true);
   };
 
-  const handleDelete = (brandId: string) => {
-    if (confirm('Are you sure you want to delete this brand?')) {
-      deleteBrandMutation.mutate(brandId);
+  const handleDelete = async () => {
+    if (!deletingBrand || !tenantId) return;
+
+    try {
+      // Check if brand is used by any products
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('brand_id', deletingBrand.id)
+        .eq('tenant_id', tenantId);
+
+      if (productsError) throw productsError;
+
+      if (products && products.length > 0) {
+        toast({
+          title: 'Cannot Delete',
+          description: `This brand is used by ${products.length} product(s). Remove the brand from all products first.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('brands')
+        .delete()
+        .eq('id', deletingBrand.id)
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Brand deleted successfully',
+      });
+
+      setDeletingBrand(null);
+      fetchBrands();
+    } catch (error) {
+      console.error('Error deleting brand:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete brand',
+        variant: 'destructive',
+      });
     }
   };
 
+  const filteredBrands = brands.filter(brand =>
+    brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (brand.description && brand.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const resetForm = () => {
+    setEditingBrand(null);
+    form.reset();
+    setShowForm(false);
+  };
+
   return (
-    <FeatureGuard featureName="enable_brands">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Brand Management</h2>
+          <p className="text-muted-foreground">Manage your product brands</p>
+        </div>
+        <Dialog open={showForm} onOpenChange={setShowForm}>
+          <DialogTrigger asChild>
+            <Button onClick={() => resetForm()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Brand
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>
+                {editingBrand ? 'Edit Brand' : 'Add New Brand'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingBrand ? 'Update brand information' : 'Create a new brand for your products'}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Brand Name *</Label>
+                <Input
+                  id="name"
+                  {...form.register('name')}
+                  placeholder="Enter brand name"
+                />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  {...form.register('description')}
+                  placeholder="Enter brand description"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="website">Website</Label>
+                  <Input
+                    id="website"
+                    {...form.register('website')}
+                    placeholder="https://example.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contact_email">Contact Email</Label>
+                  <Input
+                    id="contact_email"
+                    type="email"
+                    {...form.register('contact_email')}
+                    placeholder="contact@brand.com"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contact_phone">Contact Phone</Label>
+                <Input
+                  id="contact_phone"
+                  {...form.register('contact_phone')}
+                  placeholder="+1234567890"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="logo_url">Logo URL</Label>
+                <Input
+                  id="logo_url"
+                  {...form.register('logo_url')}
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? 'Saving...' : editingBrand ? 'Update Brand' : 'Create Brand'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search brands..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Brands Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Tag className="h-5 w-5" />
-                Brand Management
-              </CardTitle>
-              <CardDescription>
-                Manage product brands for better organization
-              </CardDescription>
-            </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Brand
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingBrand ? 'Edit Brand' : 'Add New Brand'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingBrand ? 'Update brand information' : 'Create a new product brand'}
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Brand Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter brand name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Enter brand description" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="logo_url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Logo URL</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter logo URL" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => {
-                          setIsDialogOpen(false);
-                          setEditingBrand(null);
-                          form.reset();
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={createBrandMutation.isPending || updateBrandMutation.isPending}
-                      >
-                        {editingBrand ? 'Update' : 'Create'}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <CardTitle>Brands ({filteredBrands.length})</CardTitle>
+          <CardDescription>
+            Manage your product brands and their information
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-4">Loading brands...</div>
-          ) : !brands?.length ? (
+          {loading ? (
+            <div className="text-center py-8">Loading brands...</div>
+          ) : filteredBrands.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No brands found. Create your first brand to get started.
+              {searchTerm ? 'No brands found matching your search' : 'No brands created yet'}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {brands.map((brand) => (
-                <div 
-                  key={brand.id} 
-                  className="border rounded-lg p-4 space-y-2"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-medium">{brand.name}</h3>
-                      {brand.description && (
-                        <p className="text-sm text-muted-foreground">{brand.description}</p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Brand Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Website</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredBrands.map((brand) => (
+                  <TableRow key={brand.id}>
+                    <TableCell className="font-medium">{brand.name}</TableCell>
+                    <TableCell>
+                      {brand.description ? (
+                        <span className="text-sm text-muted-foreground">
+                          {brand.description.length > 50
+                            ? `${brand.description.substring(0, 50)}...`
+                            : brand.description}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No description</span>
                       )}
-                    </div>
-                    <Badge variant={brand.is_active ? 'default' : 'secondary'}>
-                      {brand.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </div>
-                  {brand.logo_url && (
-                    <img 
-                      src={brand.logo_url} 
-                      alt={brand.name}
-                      className="w-16 h-16 object-contain rounded"
-                    />
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(brand)}
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDelete(brand.id)}
-                      disabled={deleteBrandMutation.isPending}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {brand.contact_email && (
+                          <div>{brand.contact_email}</div>
+                        )}
+                        {brand.contact_phone && (
+                          <div className="text-muted-foreground">{brand.contact_phone}</div>
+                        )}
+                        {!brand.contact_email && !brand.contact_phone && (
+                          <span className="text-muted-foreground">No contact info</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {brand.website ? (
+                        <a
+                          href={brand.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          Visit
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No website</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(brand)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeletingBrand(brand)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Brand</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{brand.name}"? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setDeletingBrand(null)}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction onClick={handleDelete}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
-    </FeatureGuard>
+    </div>
   );
-};
+}

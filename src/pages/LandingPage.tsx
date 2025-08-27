@@ -12,7 +12,7 @@ export default function LandingPage() {
 
   const { isMainDevDomain, shouldRedirect, isApexShop, isApexOnline } = useMemo(() => {
     const domain = getCurrentDomain();
-    const isMainDev = domain === "vibenet.online" || domain === "www.vibenet.online";
+    const isMainDev = domain === "vibenet.online" || domain === "www.vibenet.online" || domain === "localhost";
     const apexShop = domain === "vibenet.shop" || domain === "www.vibenet.shop";
     // isApexOnline should NOT include vibenet.online as it's the main dev domain
     const apexOnline = false; // No apex online domains currently

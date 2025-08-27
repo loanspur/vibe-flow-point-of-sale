@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PaymentForm } from './PaymentForm';
 import { createEnhancedPurchaseJournalEntry } from '@/lib/accounting-integration';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useProductSettingsValidation } from '@/hooks/useProductSettingsValidation';
 
 interface PurchaseFormProps {
   onPurchaseCompleted?: () => void;
@@ -35,6 +36,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   const { formatLocalCurrency } = useApp();
   const { toast } = useToast();
   const { purchase: purchaseSettings, tax: taxSettings } = useBusinessSettings();
+  const { validatePurchase, showValidationErrors } = useProductSettingsValidation();
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -338,6 +340,13 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         description: "Please add at least one item to the purchase",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Validate purchase based on product settings
+    const validation = validatePurchase(purchaseItems);
+    if (!validation.isValid) {
+      showValidationErrors(validation.errors);
       return;
     }
 

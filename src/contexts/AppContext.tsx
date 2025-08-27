@@ -6,12 +6,42 @@ import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency
 import { tabStabilityManager } from '@/lib/tab-stability-manager';
 
 interface BusinessSettings {
+  // Basic company information
   currency_code: string;
   currency_symbol: string;
   company_name: string;
   timezone: string;
   tax_inclusive: boolean;
   default_tax_rate: number;
+  
+  // Product and inventory features
+  enable_brands?: boolean;
+  enable_overselling?: boolean;
+  enable_product_units?: boolean;
+  enable_product_expiry?: boolean;
+  enable_warranty?: boolean;
+  enable_fixed_pricing?: boolean;
+  auto_generate_sku?: boolean;
+  enable_barcode_scanning?: boolean;
+  enable_negative_stock?: boolean;
+  stock_accounting_method?: string;
+  default_markup_percentage?: number;
+  enable_retail_pricing?: boolean;
+  enable_wholesale_pricing?: boolean;
+  enable_combo_products?: boolean;
+  
+  // Inventory and stock management
+  low_stock_threshold?: number;
+  low_stock_alerts?: boolean;
+  
+  // POS settings
+  pos_auto_print_receipt?: boolean;
+  pos_ask_customer_info?: boolean;
+  pos_enable_discounts?: boolean;
+  pos_max_discount_percent?: number;
+  
+  // Additional fields for backward compatibility
+  [key: string]: any;
 }
 
 interface AppContextType {
@@ -57,7 +87,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const fetchOnce = () =>
         supabase
           .from('business_settings')
-          .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
+          .select('*')
           .eq('tenant_id', tenantId)
           .maybeSingle();
 
@@ -87,7 +117,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           company_name: 'Your Business',
           timezone: 'UTC',
           tax_inclusive: false,
-          default_tax_rate: 0
+          default_tax_rate: 0,
+          // Product settings defaults
+          enable_brands: false,
+          enable_overselling: false,
+          enable_product_units: true,
+          enable_product_expiry: true,
+          enable_warranty: false,
+          enable_fixed_pricing: false,
+          auto_generate_sku: true,
+          enable_barcode_scanning: true,
+          enable_negative_stock: false,
+          stock_accounting_method: 'FIFO',
+          default_markup_percentage: 0,
+          enable_retail_pricing: true,
+          enable_wholesale_pricing: false,
+          enable_combo_products: false,
+          low_stock_threshold: 10,
+          low_stock_alerts: true,
+          // POS settings defaults
+          pos_auto_print_receipt: true,
+          pos_ask_customer_info: false,
+          pos_enable_discounts: true,
+          pos_max_discount_percent: 100
         });
       } else if (!settingsResponse.data) {
         // No settings found for tenant, use sensible defaults
@@ -97,7 +149,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           company_name: 'Your Business',
           timezone: 'UTC',
           tax_inclusive: false,
-          default_tax_rate: 0
+          default_tax_rate: 0,
+          // Product settings defaults
+          enable_brands: false,
+          enable_overselling: false,
+          enable_product_units: true,
+          enable_product_expiry: true,
+          enable_warranty: false,
+          enable_fixed_pricing: false,
+          auto_generate_sku: true,
+          enable_barcode_scanning: true,
+          enable_negative_stock: false,
+          stock_accounting_method: 'FIFO',
+          default_markup_percentage: 0,
+          enable_retail_pricing: true,
+          enable_wholesale_pricing: false,
+          enable_combo_products: false,
+          low_stock_threshold: 10,
+          low_stock_alerts: true,
+          // POS settings defaults
+          pos_auto_print_receipt: true,
+          pos_ask_customer_info: false,
+          pos_enable_discounts: true,
+          pos_max_discount_percent: 100
         });
       } else {
         // Use the actual business settings from the database
@@ -193,7 +267,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 company_name: newSettings.company_name || 'Your Business',
                 timezone: newSettings.timezone || 'UTC',
                 tax_inclusive: newSettings.tax_inclusive || false,
-                default_tax_rate: newSettings.default_tax_rate || 0
+                default_tax_rate: newSettings.default_tax_rate || 0,
+                // Product settings
+                enable_brands: newSettings.enable_brands ?? false,
+                enable_overselling: newSettings.enable_overselling ?? false,
+                enable_product_units: newSettings.enable_product_units ?? true,
+                enable_product_expiry: newSettings.enable_product_expiry ?? true,
+                enable_warranty: newSettings.enable_warranty ?? false,
+                enable_fixed_pricing: newSettings.enable_fixed_pricing ?? false,
+                auto_generate_sku: newSettings.auto_generate_sku ?? true,
+                enable_barcode_scanning: newSettings.enable_barcode_scanning ?? true,
+                enable_negative_stock: newSettings.enable_negative_stock ?? false,
+                stock_accounting_method: newSettings.stock_accounting_method ?? 'FIFO',
+                default_markup_percentage: newSettings.default_markup_percentage ?? 0,
+                enable_retail_pricing: newSettings.enable_retail_pricing ?? true,
+                enable_wholesale_pricing: newSettings.enable_wholesale_pricing ?? false,
+                enable_combo_products: newSettings.enable_combo_products ?? false,
+                low_stock_threshold: newSettings.low_stock_threshold ?? 10,
+                low_stock_alerts: newSettings.low_stock_alerts ?? true,
+                // POS settings
+                pos_auto_print_receipt: newSettings.pos_auto_print_receipt ?? true,
+                pos_ask_customer_info: newSettings.pos_ask_customer_info ?? false,
+                pos_enable_discounts: newSettings.pos_enable_discounts ?? true,
+                pos_max_discount_percent: newSettings.pos_max_discount_percent ?? 100,
+                // Include all other fields from the database
+                ...newSettings
               });
             }
           }, 2000); // Extended to 2 second debounce for better stability

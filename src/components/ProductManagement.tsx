@@ -27,6 +27,7 @@ import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
+
 import {
   Dialog,
   DialogContent,
@@ -72,7 +73,21 @@ interface Product {
   product_variants?: any[];
 }
 
-export default function ProductManagement({ refreshSignal }: { refreshSignal?: number }) {
+interface ProductManagementProps {
+  refreshSignal?: number;
+  onShowProductForm?: (show: boolean) => void;
+  onSetSelectedProduct?: (product: Product | null) => void;
+  showProductForm?: boolean;
+  selectedProduct?: Product | null;
+}
+
+export default function ProductManagement({ 
+  refreshSignal, 
+  onShowProductForm, 
+  onSetSelectedProduct,
+  showProductForm: externalShowProductForm,
+  selectedProduct: externalSelectedProduct
+}: ProductManagementProps) {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const { formatCurrency } = useApp();
@@ -81,6 +96,26 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const finalSelectedProduct = externalSelectedProduct !== undefined ? externalSelectedProduct : selectedProduct;
+  const finalShowProductForm = externalShowProductForm !== undefined ? externalShowProductForm : showProductForm;
+  
+  const setFinalSelectedProduct = (product: Product | null) => {
+    if (onSetSelectedProduct) {
+      onSetSelectedProduct(product);
+    } else {
+      setSelectedProduct(product);
+    }
+  };
+  
+  const setFinalShowProductForm = (show: boolean) => {
+    if (onShowProductForm) {
+      onShowProductForm(show);
+    } else {
+      setShowProductForm(show);
+    }
+  };
   const [activeTab, setActiveTab] = useState('products');
   const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
   const location = useLocation();
@@ -380,10 +415,10 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                    <Button 
                      variant="outline" 
                      size="sm"
-                     onClick={() => {
-                       setSelectedProduct(product);
-                       setShowProductForm(true);
-                     }}
+                                 onClick={() => {
+              setFinalSelectedProduct(product);
+              setFinalShowProductForm(true);
+            }}
                      className="h-8 w-8 sm:w-auto px-2"
                    >
                      <Edit className="h-3 w-3 sm:mr-1" />
@@ -481,39 +516,6 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Product Management</h2>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={refetch}
-            disabled={loading}
-            title="Refresh product data"
-            className="shrink-0"
-          >
-            <RotateCcw 
-              className={`h-4 w-4 mr-2 transition-transform duration-300 ${
-                loading ? 'animate-spin' : ''
-              }`} 
-            />
-            <span className="whitespace-nowrap">Refresh</span>
-          </Button>
-          <Button 
-            onClick={() => {
-              setSelectedProduct(null);
-              setShowProductForm(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
-        </div>
-      </div>
-
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
         <Card className="border-orange-200 bg-orange-50">
@@ -592,8 +594,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 </p>
                 <Button 
                   onClick={() => {
-                    setSelectedProduct(null);
-                    setShowProductForm(true);
+                    setFinalSelectedProduct(null);
+                    setFinalShowProductForm(true);
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -622,21 +624,21 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       </Tabs>
 
       {/* Product Form Dialog */}
-      <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+              <Dialog open={finalShowProductForm} onOpenChange={setFinalShowProductForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedProduct ? 'Edit Product' : 'Add New Product'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedProduct ? 'Update product information' : 'Create a new product with details, variants, and images'}
-            </DialogDescription>
+                          <DialogTitle>
+                {finalSelectedProduct ? 'Edit Product' : 'Add New Product'}
+              </DialogTitle>
+              <DialogDescription>
+                {finalSelectedProduct ? 'Update product information' : 'Create a new product with details, variants, and images'}
+              </DialogDescription>
           </DialogHeader>
           <ProductForm
-            product={selectedProduct}
+            product={finalSelectedProduct}
             onSuccess={() => {
-              setShowProductForm(false);
-              setSelectedProduct(null);
+              setFinalShowProductForm(false);
+              setFinalSelectedProduct(null);
               // Refresh products after successful form submission
               if (refreshTimeoutRef.current) {
                 clearTimeout(refreshTimeoutRef.current);
@@ -644,8 +646,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
             }}
             onCancel={() => {
-              setShowProductForm(false);
-              setSelectedProduct(null);
+              setFinalShowProductForm(false);
+              setFinalSelectedProduct(null);
             }}
           />
         </DialogContent>
