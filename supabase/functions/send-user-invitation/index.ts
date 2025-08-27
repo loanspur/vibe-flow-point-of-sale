@@ -295,17 +295,48 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Request method:', req.method);
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     
-    // Validate required environment variables
+    // Enhanced environment variable validation
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const resendFrom = Deno.env.get('RESEND_FROM');
+    const resendFromName = Deno.env.get('RESEND_FROM_NAME') || 'VibePOS Team';
     
-    if (!resendApiKey || !resendFrom) {
-      const errorMessage = `Resend misconfig: ${!resendApiKey ? 'RESEND_API_KEY' : 'RESEND_FROM'} missing`;
+    // Validate email configuration
+    const emailConfigErrors = [];
+    if (!resendApiKey) emailConfigErrors.push('RESEND_API_KEY');
+    if (!resendFrom) emailConfigErrors.push('RESEND_FROM');
+    
+    if (emailConfigErrors.length > 0) {
+      const errorMessage = `Email configuration missing: ${emailConfigErrors.join(', ')}`;
       console.error(errorMessage);
       return new Response(
         JSON.stringify({ 
           error: errorMessage,
-          code: 'RESEND_MISCONFIG',
+          code: 'EMAIL_CONFIG_MISSING',
+          details: {
+            missing: emailConfigErrors,
+            instructions: 'Please configure the required email environment variables in your Supabase project settings'
+          },
+          status: 500
+        }),
+        {
+          status: 500,
+          headers: { 
+            "Content-Type": "application/json", 
+            ...corsHeaders 
+          },
+        }
+      );
+    }
+    
+    // Validate email format
+    if (!resendFrom.includes('@')) {
+      const errorMessage = 'RESEND_FROM must be a valid email address';
+      console.error(errorMessage);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          code: 'INVALID_FROM_EMAIL',
+          details: { provided: resendFrom },
           status: 500
         }),
         {
@@ -329,11 +360,79 @@ const handler = async (req: Request): Promise<Response> => {
       tenantId
     }: InviteUserRequest = requestBody;
 
-    // Validate required fields
-    if (!email || !fullName || !role || !tenantId) {
-      throw new Error('Missing required fields: email, fullName, role, tenantId');
+    // Enhanced input validation
+    const validationErrors = [];
+    
+    if (!email) validationErrors.push('email');
+    if (!fullName) validationErrors.push('fullName');
+    if (!role) validationErrors.push('role');
+    if (!tenantId) validationErrors.push('tenantId');
+    
+    if (validationErrors.length > 0) {
+      const errorMessage = `Missing required fields: ${validationErrors.join(', ')}`;
+      console.error(errorMessage);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          code: 'MISSING_REQUIRED_FIELDS',
+          details: { missing: validationErrors },
+          status: 400
+        }),
+        {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json", 
+            ...corsHeaders 
+          },
+        }
+      );
     }
-    console.log('Invitation request received for email:', requestBody.email);
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      const errorMessage = 'Invalid email format';
+      console.error(errorMessage);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          code: 'INVALID_EMAIL_FORMAT',
+          details: { provided: email },
+          status: 400
+        }),
+        {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json", 
+            ...corsHeaders 
+          },
+        }
+      );
+    }
+    
+    // Validate tenant ID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(tenantId)) {
+      const errorMessage = 'Invalid tenant ID format';
+      console.error(errorMessage);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          code: 'INVALID_TENANT_ID',
+          details: { provided: tenantId },
+          status: 400
+        }),
+        {
+          status: 400,
+          headers: { 
+            "Content-Type": "application/json", 
+            ...corsHeaders 
+          },
+        }
+      );
+    }
+    
+    console.log('Input validation passed for email:', email);
 
 
     console.log('Processing invitation for:', email, 'to tenant:', tenantId);
@@ -744,27 +843,48 @@ const handler = async (req: Request): Promise<Response> => {
     
     let errorMessage = error.message || 'Failed to send user invitation';
     let statusCode = 500;
+    let errorCode = 'INVITATION_ERROR';
     
-    // Handle specific error types
-    if (error.message?.includes('Missing required fields')) {
-      statusCode = 400; // Bad Request
-    } else if (error.message?.includes('Invalid tenant ID')) {
-      statusCode = 400; // Bad Request
+    // Enhanced error classification
+    if (error.message?.includes('Missing required fields') || error.message?.includes('MISSING_REQUIRED_FIELDS')) {
+      statusCode = 400;
+      errorCode = 'MISSING_REQUIRED_FIELDS';
+    } else if (error.message?.includes('Invalid tenant ID') || error.message?.includes('INVALID_TENANT_ID')) {
+      statusCode = 400;
+      errorCode = 'INVALID_TENANT_ID';
+    } else if (error.message?.includes('Invalid email format') || error.message?.includes('INVALID_EMAIL_FORMAT')) {
+      statusCode = 400;
+      errorCode = 'INVALID_EMAIL_FORMAT';
+    } else if (error.message?.includes('Email configuration missing') || error.message?.includes('EMAIL_CONFIG_MISSING')) {
+      statusCode = 500;
+      errorCode = 'EMAIL_CONFIG_MISSING';
     } else if (
       /already\s*(been\s*)?registered|already\s*exists/i.test(error.message || '') ||
       (error.code && (error.code === 'email_exists' || error.code === '422'))
     ) {
-      statusCode = 409; // Conflict
+      statusCode = 409;
+      errorCode = 'USER_ALREADY_EXISTS';
+    } else if (error.message?.includes('Email sending failed') || error.message?.includes('RESEND_ERROR')) {
+      statusCode = 500;
+      errorCode = 'EMAIL_SENDING_FAILED';
+    } else if (error.message?.includes('Failed to generate verification link')) {
+      statusCode = 500;
+      errorCode = 'VERIFICATION_LINK_GENERATION_FAILED';
     }
     
-    console.error("Returning error response with status:", statusCode);
+    console.error("Returning error response with status:", statusCode, "code:", errorCode);
     
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
-        details: error.toString(),
-        code: error.code || 'INVITATION_ERROR',
-        status: error.status || error.statusCode || 500
+        code: errorCode,
+        details: {
+          originalError: error.toString(),
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID()
+        },
+        status: statusCode,
+        instructions: getErrorInstructions(errorCode)
       }),
       {
         status: statusCode,
@@ -775,6 +895,29 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   }
+};
+
+// Helper function to provide user-friendly error instructions
+function getErrorInstructions(errorCode: string): string {
+  switch (errorCode) {
+    case 'MISSING_REQUIRED_FIELDS':
+      return 'Please provide all required fields: email, fullName, role, and tenantId';
+    case 'INVALID_EMAIL_FORMAT':
+      return 'Please provide a valid email address';
+    case 'INVALID_TENANT_ID':
+      return 'Please provide a valid tenant ID';
+    case 'EMAIL_CONFIG_MISSING':
+      return 'Email service is not properly configured. Please contact your system administrator';
+    case 'USER_ALREADY_EXISTS':
+      return 'A user with this email already exists. You can resend the invitation if needed';
+    case 'EMAIL_SENDING_FAILED':
+      return 'Failed to send invitation email. Please try again or contact support';
+    case 'VERIFICATION_LINK_GENERATION_FAILED':
+      return 'Failed to generate invitation link. Please try again';
+    default:
+      return 'An unexpected error occurred. Please try again or contact support';
+  }
+}
 };
 
 serve(handler);
