@@ -1,62 +1,98 @@
-You are reviewing the repo at ./ (vibe-flow-point-of-sale). Tech: Vite + TypeScript + React + shadcn-ui + Tailwind + Supabase (DB/Auth). We use Resend for invite emails. Symptom: “Invite new user” triggers but email fails to send via Resend even though API keys are configured.
+You are reviewing the repo at ./ (vibe-flow-point-of-sale). This app is deployed on DigitalOcean App Platform. Build is failing with npm ci and prints generic “npm error Options:” help text. Logs also oddly mention Heroku help URLs. We must: (1) make DigitalOcean build succeed reliably, (2) KEEP the existing email system exactly as is (no new mail adapters), only fix misconfig/handling so invites work, (3) produce minimal diffs.
 
-GOAL
-- Make the “Invite user” flow reliable. If Resend fails, we should surface a precise error, log it, and gracefully fall back (to console transport or Supabase email if configured), so the UI never gets stuck in a false “sent” state.
+CONTEXT / SYMPTOM
+- DigitalOcean build fails around “npm ci”. The log shows a generic npm help printout (likely caused by an invalid flag, unsupported npm version, or a script exiting with the wrong status).
+- We previously set up invite emails via the current system (Resend). API keys are configured, but emails fail in production. We will NOT introduce a new driver—only ensure the current implementation works with proper env, sender, and error reporting.
 
-WHAT TO DO (step-by-step)
-1) Locate the invite/email flow:
-   - Search for files/functions containing: resend, sendEmail, invite, invitation, mail, email, magic link, supabase.auth.admin.inviteUserByEmail, createClient, API routes/edge functions/serverless handlers.
-   - Identify the single entry point when I click “Invite” in the UI (component + handler + API/server code).
+GOALS
+A) Pass DigitalOcean build consistently.
+B) Use the existing invite email flow (Resend) with no architectural change, just correctness:
+   - Fail early if env is missing.
+   - Use a verified sender/from.
+   - Return & show precise error messages in UI.
+   - Do NOT add new adapters, transports, or 3rd-party services.
 
-2) Validate environment & config:
-   - List all env vars referenced for email: RESEND_API_KEY, RESEND_FROM (must be a verified domain sender), RESEND_BCC/CC (if any), APP_BASE_URL, SUPABASE_*.
-   - Add a runtime guard that throws a descriptive error if RESEND_API_KEY or RESEND_FROM are missing/blank.
+STEP-BY-STEP CHANGES
 
-3) Harden the Resend integration:
-   - Wrap the Resend call in try/catch and log the FULL error object (status, name/code, message, response body). Do not swallow errors.
-   - After calling Resend.emails.send, check the returned object: id, error fields, and HTTP status if exposed. If there’s an error, return it to the client in a typed error payload.
-   - Ensure the From header uses a verified sender (e.g., "VibePOS <no-reply@YOUR_VERIFIED_DOMAIN>") and reply_to if needed. Validate the to: email is RFC5322-safe.
-   - Add a tiny retry (exponential backoff: 3 attempts, 200ms/600ms/1200ms) only on transient status codes (429/5xx).
+[1] LOCKFILE & ENGINES
+- Inspect package.json and package-lock.json for mismatches:
+  - Ensure package-lock.json is present, V2+ if npm 7+ is used. If engines.node is declared, match it to a stable LTS (e.g., ">=18 <19" or exact "18.x").
+  - Add `"engines": { "node": "18.x", "npm": "9.x" }` to package.json (adjust to what the project actually supports).
+  - If lockfile was generated on a different major npm than the one in the build env, bump the lockfile by running `npm i --package-lock-only` locally and committing.
+- Confirm no stray flags in .npmrc that break npm ci on CI (remove deprecated config there).
 
-4) Add a pluggable mail adapter:
-   - Create an interface Mailer { sendInvite(params): Promise<MailerResult> } with implementations:
-     a) ResendMailer (default in production)
-     b) ConsoleMailer (development/test fallback; logs the email payload instead of sending)
-     c) (Optional) SupabaseInviteMailer: uses supabase.auth.admin.inviteUserByEmail if that’s our intended behavior
-   - Choose adapter via NODE_ENV or EMAIL_DRIVER env (RESEND | CONSOLE | SUPABASE).
+[2] SCRIPTS SANITY
+- In package.json scripts:
+  - Keep only the scripts needed by App Platform:
+    - "build": Vite build for production
+    - "start": a proper production start (e.g., serve build OR node server entry)
+  - If there is a "prepare" (husky) or "postinstall" script that runs dev-only tools, guard them:
+    - Either remove them or make them conditional: skip on CI (e.g., `if [ "$CI" != "true" ]; then husky install; fi`).
+- Ensure “build” does not rely on dev-only env variables that are missing in DO.
 
-5) Improve the UI/UX around invite:
-   - In the invite modal/form submit:
-     - Disable the submit button during the request; show a spinner/loading state.
-     - On success, show a distinct success toast with the recipient email.
-     - On failure, show a toast with the exact error.short (e.g., "Resend: 403 – domain not verified") and a “Copy details” button that copies the full error JSON to clipboard.
-   - Prevent the “changes may not be saved” browser alert by ensuring we’re not navigating/re-rendering modals incorrectly after submit; confirm controlled modal state resets only after a successful send.
+[3] DIGITALOCEAN APP PLATFORM SETTINGS (Docker or Runtime)
+- If we use a Dockerfile:
+  - Ensure the Dockerfile uses a Node 18 base, sets `ENV CI=true`, and runs:
+    RUN npm ci
+    RUN npm run build
+    CMD ["npm","run","start"]
+  - If peer dep issues exist, allow a fallback:
+    RUN npm ci || npm ci --legacy-peer-deps
+  - Avoid caching node_modules across stages incorrectly.
+- If we’re using DO’s Node runtime (no Dockerfile):
+  - Ensure Node version via "engines" field.
+  - Ensure "build command" is `npm ci && npm run build`.
+  - Ensure "run command" matches package.json "start".
+  - Set NPM_CONFIG_LOGLEVEL=warn (optional). Do not pass odd flags to npm.
 
-6) Add structured logging:
-   - Create a utilities/logger (console + levels). Log requestId, userId (if available), email, template id, driver, and the result (success/error).
-   - Ensure no secrets (API keys) are logged.
+[4] REMOVE HEROKU-SPECIFIC ARTIFACTS
+- Search the repo for Procfile, app.json, or Heroku-specific buildpack configs.
+- If a Procfile exists, keep it if harmless, but make sure DO config is not trying to use Heroku buildpacks. Add a README note that DO uses Node runtime or Docker, not Heroku buildpacks.
 
-7) Create a minimal test harness:
-   - Add a simple script (e.g., scripts/test-invite.ts or an API route /api/dev/test-invite) that sends a test email to a SAFE non-customer address when EMAIL_DRIVER=CONSOLE and prints the rendered payload.
-   - Add a Playwright/Vitest test that mocks the mail adapter and asserts:
-     - Success path updates UI state.
-     - Error path shows error toast and does NOT close the modal prematurely.
+[5] VITE / ENV VARIABLES
+- Verify Vite build uses only `VITE_*` env vars at build time. If the code references non-VITE vars in client code, inline them via import.meta.env.VITE_...
+- Ensure DO App Platform has the required env vars set for build and runtime. Document which are BUILD-TIME vs RUNTIME.
 
-8) Common Resend pitfalls to check (code assertions + README notes):
-   - RESEND_FROM must be a domain/address verified in Resend; fail early if not matching a verified sender.
-   - If using templates, confirm template exists; if using HTML, ensure minimal valid HTML; no dangerous inline scripts.
-   - Avoid empty subject or from; set a default subject like “You’re invited to VibePOS”.
-   - If we generate magic links, ensure APP_BASE_URL and Supabase redirect URLs are correct and whitelisted.
+[6] KEEP EXISTING EMAIL FLOW (RESEND)
+- Do NOT introduce a new mail system. Keep current Resend usage.
+- Add minimal guards ONLY:
+  - At the server/API edge where the email is sent:
+    - Before calling Resend, assert RESEND_API_KEY and RESEND_FROM are non-empty. If missing, throw a descriptive 500 with `"Resend misconfig: RESEND_API_KEY/RESEND_FROM missing"`.
+    - Ensure FROM header matches a verified sender (domain already verified in Resend).
+  - Wrap the send call in try/catch and return the exact Resend error (status/code/message) to the client; do not swallow errors.
+  - Don’t add retries/adapters; keep behavior identical aside from accurate errors.
 
-9) Produce diffs:
-   - Implement the adapter, retries, error surfacing, and UI improvements.
-   - Add a README “Email Setup” section listing required env vars, verified sender steps, and how to switch drivers.
-   - Output a final patch diff of all changed files.
+[7] UI ERROR SURFACING (SMALL CHANGE)
+- In the invite modal submit handler:
+  - Disable the button while awaiting.
+  - On error, show toast: `Invite failed: <short error, e.g., "Resend 403: domain not verified">`.
+  - Keep the modal open on failure.
+  - On success, show toast and close modal.
+- This does not change email system; it only exposes the current system’s real error.
+
+[8] CI REPRO / LOCAL CHECK
+- Add a lightweight script "ci:build" in package.json that mirrors DO build:
+  - "ci:build": "npm ci && npm run build"
+- Run locally to ensure it mirrors DO behavior.
+- If peerDeps conflicts are unavoidable, document `npm ci --legacy-peer-deps` as a fallback, but prefer fixing versions in package.json.
+
+[9] OUTPUT
+- Implement the minimum edits:
+  - package.json ("engines", scripts cleanup, optional "ci:build")
+  - Remove/guard postinstall/prepare that break CI
+  - Server/API file for email: add guards + precise error return
+  - Invite UI: disable/enable + error toast
+  - README: small “DigitalOcean deploy” notes: Node version, build/start commands, required env vars; “Email setup” notes (verified sender).
+- Produce a final patch diff of all files you changed.
 
 ACCEPTANCE CRITERIA
-- When “Invite” is clicked with valid env + verified sender: success toast appears; Resend returns an id; UI closes modal only on success.
-- On failure (e.g., 403/422/429/5xx): a visible error toast with the short reason appears; modal remains open; console/log shows full structured error; no infinite modal reopen or unsaved-changes alert.
-- With EMAIL_DRIVER=CONSOLE: the email payload prints to console and success toast appears, allowing manual verification in dev.
-- A Playwright/Vitest test demonstrates both success and failure flows.
+- DigitalOcean build succeeds with Node 18 LTS and `npm ci && npm run build` (or Dockerfile equivalent).
+- No Heroku buildpack assumptions in the DO pipeline.
+- The invite flow uses the same existing Resend integration; if env/sender is wrong it shows a clear error; if correct, it sends and the UI confirms success.
+- No new email adapters or alternate providers added.
+- One-command local check: `npm run ci:build` passes.
 
-Now scan the repo, implement all of the above, and show me the complete diffs + any key code snippets changed (mailer adapter, API handler, UI component).
+Now:
+1) Scan the repo for the places described.
+2) Make the minimal changes above.
+3) Show me the complete diffs and a short note explaining what caused the npm ci failure and how we fixed it.
