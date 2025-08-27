@@ -137,6 +137,10 @@ const UnifiedUserManagement = () => {
           details: { email: newUserEmail, role: newUserRole }
         });
       }
+      // Note: Modal will only close on success due to the success check above
+    } catch (error: any) {
+      // Error is already handled in the hook, but we ensure modal stays open
+      console.error('Invite user error:', error);
     } finally {
       setCreating(false);
     }
@@ -294,7 +298,11 @@ const UnifiedUserManagement = () => {
             Refresh
           </Button>
           {hasRoleAccess(['admin', 'manager']) && (
-            <Dialog open={isCreatingUser} onOpenChange={setIsCreatingUser}>
+            <Dialog open={isCreatingUser} onOpenChange={(open) => {
+              // Prevent closing during loading
+              if (!open && creating) return;
+              setIsCreatingUser(open);
+            }}>
               <DialogTrigger asChild>
                 <Button>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -347,7 +355,17 @@ const UnifiedUserManagement = () => {
                       disabled={creating}
                       className="flex-1"
                     >
-                      {creating ? 'Sending...' : 'Send Invitation'}
+                      {creating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Sending Invitation...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-4 w-4 mr-2" />
+                          Send Invitation
+                        </>
+                      )}
                     </Button>
                     <Button 
                       variant="outline" 

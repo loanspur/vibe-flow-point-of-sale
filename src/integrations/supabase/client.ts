@@ -15,6 +15,21 @@ export const supabase = (() => {
   if (!supabaseInstance) {
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       console.warn('Supabase env vars are missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+      // Return a mock client to prevent crashes
+      return {
+        auth: {
+          signIn: () => Promise.resolve({ error: { message: 'Supabase not configured' } }),
+          signOut: () => Promise.resolve({ error: null }),
+          getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
+        },
+        from: () => ({
+          select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }),
+          insert: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+          update: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+          delete: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } })
+        })
+      } as any;
     }
     supabaseInstance = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       auth: {
