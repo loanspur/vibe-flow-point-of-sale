@@ -10,15 +10,15 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContaine
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencyIcon } from "@/components/ui/currency-icon";
-import { useCurrencyConversion } from "@/hooks/useCurrencyConversion";
+import { useApp } from "@/contexts/AppContext";
 
 export default function SuperAdminAnalytics() {
   const [timeRange, setTimeRange] = useState("30d");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { formatCurrency } = useApp();
   // Use base currency (KES) for all superadmin analytics
-  const formatBaseCurrency = (amount: number) => 
-    `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatBaseCurrency = (amount: number) => formatCurrency(amount);
   const [analyticsData, setAnalyticsData] = useState({
     totalRevenue: 0,
     activeTenants: 0,

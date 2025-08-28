@@ -8,7 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDomainContext, isDevelopmentDomain, isSubdomain, getBaseDomain } from "@/lib/domain-manager";
-import { tabStabilityManager } from "@/lib/tab-stability-manager";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { FeatureGuard } from "./components/FeatureGuard";
@@ -20,16 +20,17 @@ import CookieConsent from "./components/CookieConsent";
 import { AuthSessionFix } from "./components/AuthSessionFix";
 import { AppOptimizer } from "./components/AppOptimizer";
 import { supabase } from "@/integrations/supabase/client";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { EnhancedErrorBoundary } from "./components/EnhancedErrorBoundary";
 import { TabStabilityProvider } from "./components/TabStabilityProvider";
-import { DebugEnv } from "./components/DebugEnv";
+import { GlobalErrorHandler } from "./components/GlobalErrorHandler";
+
 
 // Import critical components directly to avoid dynamic import failures
 import LandingPage from "./pages/LandingPage";
 import Index from "./pages/Index";
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
-const CurrencyDebug = lazy(() => import("./pages/CurrencyDebug"));
+
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const TrialSignup = lazy(() => import("./pages/TrialSignup"));
@@ -102,77 +103,7 @@ const PageLoader = () => (
   </div>
 );
 
-// Comprehensive error suppression for external errors and warnings
-window.addEventListener('error', (event) => {
-  const message = event.message?.toLowerCase() || '';
-  const filename = event.filename?.toLowerCase() || '';
-  
-  if (message.includes('firebase') || 
-      message.includes('firestore') || 
-      message.includes('googleapis') ||
-      message.includes('unrecognized feature') ||
-      message.includes('iframe') ||
-      message.includes('sandbox') ||
-      message.includes('message channel closed') ||
-      message.includes('listener indicated an asynchronous response') ||
-      filename.includes('firebase') ||
-      filename.includes('firestore') ||
-      message.includes('webchannelconnection') ||
-      message.includes('quic_protocol_error')) {
-    event.preventDefault();
-    event.stopPropagation();
-    return false;
-  }
-});
-
-window.addEventListener('unhandledrejection', (event) => {
-  const reason = event.reason?.message?.toLowerCase() || 
-                event.reason?.toString?.()?.toLowerCase() || '';
-  
-  if (reason.includes('firebase') || 
-      reason.includes('firestore') || 
-      reason.includes('googleapis') ||
-      reason.includes('webchannelconnection') ||
-      reason.includes('message channel closed') ||
-      reason.includes('listener indicated an asynchronous response') ||
-      reason.includes('quic_protocol_error')) {
-    event.preventDefault();
-    return false;
-  }
-});
-
-// Suppress Firebase and other noisy logs in production
-if (process.env.NODE_ENV !== 'development') {
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  
-  console.error = function(...args) {
-    const message = args.join(' ').toLowerCase();
-    if (message.includes('firebase') || 
-        message.includes('firestore') || 
-        message.includes('googleapis') ||
-        message.includes('webchannelconnection') ||
-        message.includes('unrecognized feature') ||
-        message.includes('iframe') ||
-        message.includes('message channel closed') ||
-        message.includes('sandbox')) {
-      return;
-    }
-    originalError.apply(console, args);
-  };
-
-  console.warn = function(...args) {
-    const message = args.join(' ').toLowerCase();
-    if (message.includes('firebase') || 
-        message.includes('firestore') || 
-        message.includes('googleapis') ||
-        message.includes('multiple gotrueclient') ||
-        message.includes('sandbox')) {
-      return;
-    }
-    originalWarn.apply(console, args);
-  };
-}
+// Global error handling is now managed by GlobalErrorHandler component
 
 // Optimized query client configuration for better performance with tab stability
 const queryClient = new QueryClient({
@@ -204,30 +135,19 @@ const DomainRouter = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    console.log('🔄 App Router - Current location:', {
-      pathname: location.pathname,
-      search: location.search,
-      hash: window.location.hash,
-      href: window.location.href
-    });
-    
     const hash = window.location.hash;
     const searchParams = new URLSearchParams(location.search || '');
     
     // Check if we're at root with OAuth fragments - redirect to callback
     if (location.pathname === '/' && hash && /access_token|error|type=/.test(hash)) {
-      console.log('🔀 OAuth fragments detected at root - redirecting to callback');
       const callbackUrl = `/auth/callback${location.search}${hash}`;
-      console.log('🎯 Redirecting to:', callbackUrl);
       window.location.replace(callbackUrl);
       return;
     }
     
     // Also handle OAuth fragments on /auth path (some OAuth providers redirect here)
     if (location.pathname === '/auth' && hash && /access_token|error/.test(hash)) {
-      console.log('🔀 OAuth fragments detected on /auth - redirecting to callback');
       const callbackUrl = `/auth/callback${location.search}${hash}`;
-      console.log('🎯 Redirecting to:', callbackUrl);
       window.location.replace(callbackUrl);
       return;
     }
@@ -236,22 +156,17 @@ const DomainRouter = () => {
     const isInviteCallback = hash && /type=invite|type=recovery/i.test(hash);
     const isGoogleOAuth = searchParams.get('type') === 'google' || location.pathname === '/auth/callback';
     
-    console.log('🔍 Router checks:', {
-      isInviteCallback,
-      isGoogleOAuth,
-      currentPath: location.pathname
-    });
-    
     if (isInviteCallback && !isGoogleOAuth && location.pathname !== '/reset-password') {
       const search = new URLSearchParams(location.search || '');
       if (!search.get('from')) search.set('from', 'invite');
       const qs = search.toString();
       
-      console.log('🔀 Redirecting to reset-password');
       // Use setTimeout to avoid hydration mismatch
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         window.location.href = `/reset-password${qs ? `?${qs}` : ''}${hash}`;
       }, 0);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [location.pathname, location.search]);
   
@@ -631,7 +546,7 @@ const DomainRouter = () => {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/company-info" element={<CompanyInfo />} />
-        <Route path="/currency-debug" element={<CurrencyDebug />} />
+        
         <Route path="/careers" element={<Careers />} />
         
         {/* Super Admin Routes */}
@@ -1004,7 +919,7 @@ const DomainRouter = () => {
             <ProtectedRoute allowedRoles={['Business Owner', 'Store Manager', 'Sales Staff']}>
               <SubscriptionGuard>
                 <FeatureGuard featureName="mobile_offline">
-                  <CashierPWA deviceId={`device_${Date.now()}`} tenantId={user?.tenant_id} />
+                  <CashierPWA deviceId={`device_${Date.now()}`} tenantId={domainConfig.tenantId} />
                 </FeatureGuard>
               </SubscriptionGuard>
             </ProtectedRoute>
@@ -1033,29 +948,30 @@ const DomainRouter = () => {
 
 const App = () => {
   return (
-    <ErrorBoundary>
+    <EnhancedErrorBoundary>
       <TabStabilityProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
              <AppProvider>
                <TooltipProvider>
                  <>
+                   <GlobalErrorHandler />
                    <Toaster />
                    <Sonner />
                    <PerformanceMonitor />
-                   <AppOptimizer />
+                   <AppOptimizer>
+                     <BrowserRouter>
+                       <DomainRouter />
+                     </BrowserRouter>
+                   </AppOptimizer>
                    <CookieConsent />
-                   <DebugEnv />
-                   <BrowserRouter>
-                     <DomainRouter />
-                   </BrowserRouter>
                  </>
                </TooltipProvider>
              </AppProvider>
           </AuthProvider>
         </QueryClientProvider>
       </TabStabilityProvider>
-    </ErrorBoundary>
+    </EnhancedErrorBoundary>
   );
 };
 

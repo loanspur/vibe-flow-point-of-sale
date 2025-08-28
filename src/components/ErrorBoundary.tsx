@@ -2,7 +2,7 @@ import { Component, ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -12,21 +12,30 @@ interface Props {
 interface State {
   hasError: boolean;
   error?: Error;
+  retryCount: number;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, retryCount: 0 };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, retryCount: 0 };
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
+
+  handleRetry = () => {
+    this.setState(prevState => ({
+      hasError: false,
+      error: undefined,
+      retryCount: prevState.retryCount + 1
+    }));
+  };
 
   render() {
     if (this.state.hasError) {
@@ -56,10 +65,12 @@ export class ErrorBoundary extends Component<Props, State> {
                 </Alert>
               )}
               <Button 
-                onClick={() => window.location.reload()} 
+                onClick={this.handleRetry} 
                 className="w-full"
+                disabled={this.state.retryCount >= 3}
               >
-                Refresh Page
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {this.state.retryCount >= 3 ? 'Max Retries Reached' : 'Try Again'}
               </Button>
             </CardContent>
           </Card>

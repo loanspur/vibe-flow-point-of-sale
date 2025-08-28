@@ -1,5 +1,5 @@
 import { useUnifiedBilling } from '@/hooks/useUnifiedBilling';
-import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+import { useApp } from '@/contexts/AppContext';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import {
 // Interfaces now imported from unified billing service
 
 export default function BillingManagement() {
-  const { formatPrice, currencyCode, updateCounter } = useCurrencyUpdate();
+  const { formatCurrency, currencyCode } = useApp();
   
   // Use unified billing hook instead of local state
   const {
@@ -41,9 +41,7 @@ export default function BillingManagement() {
 
   // All data fetching is now handled by useUnifiedBilling hook
 
-
   // handleUpgrade and verifyPayment are now provided by useUnifiedBilling hook
-
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -63,7 +61,7 @@ export default function BillingManagement() {
   }
 
   return (
-    <div key={`billing-${currencyCode}-${updateCounter}`} className="space-y-6">{/* Add key to force re-render */}
+    <div key={`billing-${currencyCode}`} className="space-y-6">
       {currentSubscription ? (
         <Card className="border-green-200 bg-green-50">
           <CardHeader>
@@ -97,10 +95,8 @@ export default function BillingManagement() {
                   <p className="text-sm font-medium text-green-800">Current Plan Rate</p>
                   <p className="text-lg font-bold text-green-600">
                     {effectivePricing ? 
-                      formatPrice(effectivePricing.effective_amount) :
-                      (currentSubscription.billing_plans?.price ? 
-                        formatPrice(currentSubscription.billing_plans.price) : 'N/A')
-                    }
+                      formatCurrency(effectivePricing.effective_amount) :
+                      (currentSubscription.billing_plans?.price ? formatCurrency(currentSubscription.billing_plans.price) : 'N/A')}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     per {currentSubscription.billing_plans?.period}
@@ -108,7 +104,7 @@ export default function BillingManagement() {
                   {effectivePricing?.is_custom && (
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground line-through">
-                        Original: {formatPrice(effectivePricing.original_amount)}
+                        Original: {formatCurrency(effectivePricing.original_amount)}
                       </p>
                       {effectivePricing.discount_percentage && (
                         <Badge variant="outline" className="text-green-600 text-xs">
@@ -125,13 +121,26 @@ export default function BillingManagement() {
                 </div>
               </div>
 
+              {/* Original Rate (if custom pricing) */}
+              {effectivePricing?.is_custom && (
+                <div className="flex items-center space-x-2">
+                  <CurrencyIcon currency={currencyCode} className="h-4 w-4 text-gray-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Original Rate</p>
+                    <p className="text-lg font-bold text-gray-500 line-through">
+                      {formatCurrency(effectivePricing.original_amount)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Setup Fee */}
               <div className="flex items-center space-x-2">
-                <DollarSign className="h-4 w-4 text-green-600" />
+                <CurrencyIcon currency={currencyCode} className="h-4 w-4 text-blue-600" />
                 <div>
-                  <p className="text-sm font-medium text-green-800">Setup Fee</p>
-                  <p className="text-lg font-bold text-green-600">
-                    {formatPrice(effectivePricing?.setup_fee || currentSubscription.setup_fee || 0)}
+                  <p className="text-sm font-medium text-blue-800">Setup Fee</p>
+                  <p className="text-lg font-bold text-blue-600">
+                    {formatCurrency(effectivePricing?.setup_fee || currentSubscription.setup_fee || 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {(effectivePricing?.setup_fee || currentSubscription.setup_fee) ? 'One-time fee' : 'No setup fee'}
@@ -145,7 +154,7 @@ export default function BillingManagement() {
                 <div>
                   <p className="text-sm font-medium text-orange-800">Next Billing</p>
                   <p className="text-lg font-bold text-orange-600">
-                    {formatPrice((effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0) + (effectivePricing?.setup_fee || currentSubscription.setup_fee || 0))}
+                    {formatCurrency((effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0) + (effectivePricing?.setup_fee || currentSubscription.setup_fee || 0))}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Due: {currentSubscription.next_billing_date ? 
@@ -157,6 +166,16 @@ export default function BillingManagement() {
                     Setup fee + recurring charge
                   </p>
                 </div>
+              </div>
+            </div>
+
+            {/* Total Cost */}
+            <div className="bg-green-100 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-green-800 font-medium">Total Cost</span>
+                <span className="text-green-800 font-bold text-lg">
+                  {formatCurrency((effectivePricing?.effective_amount || currentSubscription.billing_plans?.price || 0) + (effectivePricing?.setup_fee || currentSubscription.setup_fee || 0))}
+                </span>
               </div>
             </div>
 
@@ -184,9 +203,9 @@ export default function BillingManagement() {
                         ) : (
                             <>
                               Pay {effectivePricing ? 
-                                formatPrice(effectivePricing.effective_amount) :
+                                formatCurrency(effectivePricing.effective_amount) :
                                 (currentSubscription.billing_plans?.price ? 
-                                  formatPrice(currentSubscription.billing_plans.price) : 
+                                  formatCurrency(currentSubscription.billing_plans.price) : 
                                   'Current Plan')
                               }
                               <ExternalLink className="h-4 w-4 ml-2" />
@@ -219,9 +238,9 @@ export default function BillingManagement() {
                          ) : (
                              <>
                                Pay {effectivePricing ? 
-                                 formatPrice(effectivePricing.effective_amount) :
+                                 formatCurrency(effectivePricing.effective_amount) :
                                  (currentSubscription.billing_plans?.price ? 
-                                   formatPrice(currentSubscription.billing_plans.price) : 
+                                   formatCurrency(currentSubscription.billing_plans.price) : 
                                    'Current Plan')
                                }
                                <ExternalLink className="h-4 w-4 ml-2" />
@@ -330,14 +349,14 @@ export default function BillingManagement() {
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <div className="space-y-1">
                      <div className="text-3xl font-bold">
-                       {formatPrice(plan.price)}
+                       {formatCurrency(plan.price)}
                      </div>
                     <div className="text-sm text-muted-foreground">
                       per {plan.period}
                     </div>
                      {plan.original_price && plan.original_price > plan.price && (
                        <div className="text-sm text-muted-foreground line-through">
-                         {formatPrice(plan.original_price)}
+                         {formatCurrency(plan.original_price)}
                        </div>
                      )}
                   </div>
@@ -502,11 +521,11 @@ export default function BillingManagement() {
                   </div>
                   <div className="text-right">
                      <p className="font-semibold">
-                       {formatPrice(payment.amount)}
+                       {formatCurrency(payment.amount)}
                      </p>
                      {payment.is_prorated && payment.full_period_amount && (
                        <p className="text-xs text-muted-foreground line-through">
-                         Full: {formatPrice(payment.full_period_amount)}
+                         Full: {formatCurrency(payment.full_period_amount)}
                        </p>
                      )}
                     <Badge 

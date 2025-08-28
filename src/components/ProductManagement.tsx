@@ -19,9 +19,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
+import { useSoftWarnings } from '@/hooks/useSoftWarnings';
 import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
@@ -94,6 +95,27 @@ export default function ProductManagement({
   const { canDelete, logDeletionAttempt } = useDeletionControl();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [locations, setLocations] = useState<any[]>([]);
+
+  // Centralized warning system
+  const {
+    showLowStockWarning,
+    showNegativeStockWarning,
+    showOutOfStockWarning,
+  } = useSoftWarnings();
+
+  // Function to show soft warnings for products
+  const showProductWarnings = (product: Product) => {
+    // Use centralized warning system
+    showLowStockWarning(product.name, product.stock_quantity);
+    showNegativeStockWarning(product.name, product.stock_quantity);
+    
+    // Out of stock warning
+    if (product.stock_quantity === 0) {
+      showOutOfStockWarning(product.name);
+    }
+  };
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   
@@ -151,6 +173,29 @@ export default function ProductManagement({
       });
    }, [activeFilter, tenantId]);
 
+  // Fetch locations for filter
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const fetchLocations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('store_locations')
+          .select('id, name')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) throw error;
+        setLocations(data || []);
+      } catch (error) {
+        console.error('Error fetching locations:', error);
+      }
+    };
+
+    fetchLocations();
+  }, [tenantId]);
+
   // Pagination and data fetching with optimized query
   const {
     data: products = [],
@@ -182,6 +227,8 @@ export default function ProductManagement({
       is_combo_product,
       allow_negative_stock,
       cost_price,
+      retail_price,
+      wholesale_price,
       created_at,
       updated_at,
       product_categories(name),
@@ -200,7 +247,10 @@ export default function ProductManagement({
     {
       enabled: !!tenantId,
       searchTerm: searchTerm,
-      filters: { tenant_id: tenantId },
+      filters: { 
+        tenant_id: tenantId,
+        ...(locationFilter !== 'all' && { location_id: locationFilter })
+      },
       orderBy: { column: 'created_at', ascending: false },
       initialPageSize: 50
     }
@@ -310,7 +360,11 @@ export default function ProductManagement({
           </TableHeader>
         <TableBody>
            {products.map((product) => (
-            <TableRow key={product.id}>
+            <TableRow 
+              key={product.id} 
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => showProductWarnings(product)}
+            >
               <TableCell>
                 <div className="flex items-center space-x-2 sm:space-x-3">
                   {product.image_url ? (
@@ -568,15 +622,30 @@ export default function ProductManagement({
                 className="pl-10"
               />
             </div>
-             <Select value={productTypeFilter} onValueChange={(value: 'all' | 'product') => setProductTypeFilter(value)}>
-               <SelectTrigger className="w-48">
-                 <SelectValue placeholder="Filter by type" />
+             <Select value={locationFilter} onValueChange={setLocationFilter}>
+               <SelectTrigger className="w-[180px]">
+                 <SelectValue placeholder="All Locations" />
                </SelectTrigger>
                <SelectContent>
-                 <SelectItem value="all">All Products</SelectItem>
-                 <SelectItem value="product">Active Products</SelectItem>
+                 <SelectItem value="all">All Locations</SelectItem>
+                 {locations.map((location) => (
+                   <SelectItem key={location.id} value={location.id}>
+                     {location.name}
+                   </SelectItem>
+                 ))}
                </SelectContent>
              </Select>
+            <Select value={activeFilter} onValueChange={setActiveFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                <SelectItem value="low-stock">Low Stock</SelectItem>
+                <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                <SelectItem value="expiring">Expiring Soon</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline">
               <Filter className="h-4 w-4 mr-2" />
               More Filters

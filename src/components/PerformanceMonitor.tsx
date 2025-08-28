@@ -19,7 +19,7 @@ export const PerformanceMonitor = () => {
         const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
         const loadTime = navigation.loadEventEnd - navigation.fetchStart;
         
-        // Only log if significantly slow
+        // Only log if significantly slow - increased threshold for better performance
         if (loadTime > 5000) {
           console.warn('Slow page load detected:', `${loadTime.toFixed(2)}ms`);
         }

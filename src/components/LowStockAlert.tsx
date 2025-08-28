@@ -57,23 +57,22 @@ export function LowStockAlert() {
   useEffect(() => {
     if (!tenantId) return;
 
-    const channel = supabase
-      .channel('low-stock-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'products',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => fetchLowStockItems()
-      )
-      .subscribe();
+    // DISABLED: Real-time subscription to prevent refresh triggers
+    // const channel = supabase
+    //   .channel('low-stock-alerts')
+    //   .on('postgres_changes', {
+    //     event: '*',
+    //     schema: 'public',
+    //     table: 'products',
+    //     filter: `tenant_id=eq.${tenantId}`
+    //   }, () => {
+    //     checkLowStock();
+    //   })
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [tenantId]);
 
   if (loading || lowStockItems.length === 0) {

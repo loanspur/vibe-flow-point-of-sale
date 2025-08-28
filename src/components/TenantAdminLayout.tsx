@@ -1,9 +1,8 @@
 import { ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, Search, Plus, LogOut, User, Settings } from 'lucide-react';
-import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Bell, LogOut, User } from 'lucide-react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Input } from '@/components/ui/input';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -16,31 +15,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TenantAdminSidebar } from './TenantAdminSidebar';
 import UserProfileSettings from './UserProfileSettings';
-import { LazyImage } from '@/components/ui/image-lazy';
-import { useTenantLogo } from '@/hooks/useTenantLogo';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Form } from '@/components/ui/form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
-import { useEffect } from 'react';
-import { Tenant } from '@/types/tenant';
-import { TenantService } from '@/services/tenantService';
-import { Location } from '@/types/location';
-import { LocationService } from '@/services/locationService';
-import { FormField } from '@/components/ui/form';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button as DialogFooter } from '@/components/ui/button';
-import { useTenant } from '@/contexts/TenantContext';
-import { useLocationDialog } from '@/hooks/useLocationDialog';
-
 
 interface TenantAdminLayoutProps {
   children: ReactNode;
@@ -53,8 +32,6 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
   const [searchParams] = useSearchParams();
   
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const tenantLogo = useTenantLogo();
-  const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
   
   // Check if we're on sales page with new-sale tab active
   const isOnAddSalePage = location.pathname === '/admin/sales' && searchParams.get('tab') === 'new-sale';
@@ -126,6 +103,9 @@ export function TenantAdminLayout({ children }: TenantAdminLayoutProps) {
           <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Profile Settings</DialogTitle>
+              <DialogDescription>
+                Manage your account settings, profile information, and security preferences.
+              </DialogDescription>
             </DialogHeader>
             <UserProfileSettings />
           </DialogContent>

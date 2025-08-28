@@ -42,6 +42,9 @@ interface ProductVariant {
   min_stock_level: string;
   default_profit_margin: string;
   sale_price: string;
+  wholesale_price: string;
+  retail_price: string;
+  cost_price: string;
   image_url?: string;
   is_active: boolean;
 }
@@ -57,6 +60,9 @@ interface ProductFormData {
   sku: string;
   description: string;
   price: string;
+  wholesale_price: string;
+  retail_price: string;
+  cost_price: string;
   default_profit_margin: string;
   barcode: string;
   category_id: string;
@@ -119,19 +125,31 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
     
     if (currentStep === 3) {
-      // Validate pricing based on settings
-      if (isFeatureEnabled('enableRetailPricing') && !data.price) {
-        errors.price = 'Retail price is required when retail pricing is enabled';
-      } else if (data.price && parseFloat(data.price) <= 0) {
-        errors.price = 'Price must be greater than 0';
+      // Validate pricing based on settings - only for simple products
+      if (!data.has_variants) {
+        if (!data.cost_price) {
+          errors.cost_price = 'Cost price is required';
+        } else if (data.cost_price && parseFloat(data.cost_price) < 0) {
+          errors.cost_price = 'Cost price must be 0 or greater';
+        }
+        
+        if (isFeatureEnabled('enableRetailPricing') && !data.retail_price) {
+          errors.retail_price = 'Retail price is required when retail pricing is enabled';
+        } else if (data.retail_price && parseFloat(data.retail_price) <= 0) {
+          errors.retail_price = 'Retail price must be greater than 0';
+        }
+        
+        if (!data.wholesale_price) {
+          errors.wholesale_price = 'Wholesale price is required';
+        } else if (data.wholesale_price && parseFloat(data.wholesale_price) <= 0) {
+          errors.wholesale_price = 'Wholesale price must be greater than 0';
+        }
       }
 
       // Validate SKU if auto-generate is enabled
       if (isFeatureEnabled('autoGenerateSku') && !data.sku) {
         errors.sku = 'SKU is required when auto-generate SKU is enabled';
       }
-
-
     }
     
     return errors;
@@ -143,6 +161,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       sku: '',
       description: '',
       price: '',
+      wholesale_price: '',
+      retail_price: '',
+      cost_price: '',
       default_profit_margin: '',
       barcode: '',
       category_id: '',
@@ -398,6 +419,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         sku: product.sku || '',
         description: product.description || '',
         price: product.price?.toString() || '',
+        wholesale_price: product.wholesale_price?.toString() || '',
+        retail_price: product.retail_price?.toString() || '',
+        cost_price: product.cost_price?.toString() || '',
         default_profit_margin: product.default_profit_margin?.toString() || '',
         barcode: product.barcode || '',
         category_id: product.category_id || '',
@@ -448,7 +472,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     try {
       const { data, error } = await supabase
         .from('product_variants')
-        .select('*, sale_price, image_url')
+        .select('*, sale_price, retail_price, wholesale_price, image_url')
         .eq('product_id', productId)
         .order('created_at');
 
@@ -464,6 +488,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         min_stock_level: (variant as any).min_stock_level?.toString() || '0',
         default_profit_margin: variant.default_profit_margin?.toString() || '',
         sale_price: variant.sale_price?.toString() || '0',
+        wholesale_price: variant.wholesale_price?.toString() || '0',
+        retail_price: variant.retail_price?.toString() || '0',
+        cost_price: (variant as any).cost_price?.toString() || '0',
         image_url: variant.image_url || '',
         is_active: variant.is_active ?? true,
       }));
@@ -495,34 +522,37 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }, [formActions, toast]);
 
-  const handleInputChange = async (field: keyof ProductFormData, value: string | boolean) => {
-    // Prevent accidental immediate saves during variant type selection
-    if (field === 'has_variants') {
-      console.log('Variant type selection changed:', value);
-      // Add small delay to prevent any race conditions with form validation
-      setTimeout(() => {
-        formActions.setFieldValue(field, value);
-      }, 100);
-      return;
+  // Function to calculate profit margin percentage
+  const calculateProfitMargin = (costPrice: number, retailPrice: number): string => {
+    if (!costPrice || !retailPrice || costPrice <= 0 || retailPrice <= 0) {
+      return '';
     }
     
-    formActions.setFieldValue(field, value);
+    const profit = retailPrice - costPrice;
+    const profitMargin = (profit / costPrice) * 100;
+    return profitMargin.toFixed(2);
+  };
 
-    if (field === 'location_id' && typeof value === 'string') {
-      localStorage.setItem('selected_location', value);
+  // Enhanced handleInputChange to auto-calculate profit margin
+  const handleInputChange = (field: keyof ProductFormData, value: any) => {
+    const newData = { ...formState.data, [field]: value };
+    
+    // Auto-calculate profit margin when cost_price or retail_price changes
+    if (field === 'cost_price' || field === 'retail_price') {
+      const costPrice = field === 'cost_price' ? parseFloat(value) || 0 : parseFloat(newData.cost_price) || 0;
+      const retailPrice = field === 'retail_price' ? parseFloat(value) || 0 : parseFloat(newData.retail_price) || 0;
+      
+      if (costPrice > 0 && retailPrice > 0) {
+        const calculatedMargin = calculateProfitMargin(costPrice, retailPrice);
+        newData.default_profit_margin = calculatedMargin;
+      }
     }
-
-  
-    if (field === 'name' && !product && productSettings.autoGenerateSku && typeof value === 'string' && value.trim()) {
-      const generatedSKU = await generateSKU(value);
-      if (generatedSKU) formActions.setFieldValue('sku', generatedSKU);
-    }
-
-    if (field === 'sku' && typeof value === 'string' && value.trim()) {
-      setVariants(prev => prev.map(variant => ({
-        ...variant,
-        sku: variant.value ? generateVariantSKU(value, variant.value) : variant.sku
-      })));
+    
+    formActions.updateField(field, value);
+    
+    // Update profit margin if it was auto-calculated
+    if ((field === 'cost_price' || field === 'retail_price') && newData.default_profit_margin !== formState.data.default_profit_margin) {
+      formActions.updateField('default_profit_margin', newData.default_profit_margin);
     }
   };
 
@@ -598,6 +628,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       min_stock_level: '0',
       default_profit_margin: '',
       sale_price: '0',
+    wholesale_price: '0',
+    retail_price: '0',
+    cost_price: '0',
       image_url: '',
       is_active: true,
     };
@@ -757,6 +790,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             min_stock_level: parseInt(variant.min_stock_level) || 0,
             default_profit_margin: variant.default_profit_margin ? parseFloat(variant.default_profit_margin) : null,
             sale_price: parseFloat(variant.sale_price) || 0,
+            retail_price: parseFloat(variant.retail_price) || 0,
+            wholesale_price: parseFloat(variant.wholesale_price) || 0,
+            cost_price: parseFloat(variant.cost_price) || 0,
             image_url: imageUrl || null,
             is_active: variant.is_active,
           };
@@ -885,7 +921,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         name: formState.data.name,
         sku: finalSKU || null,
         description: formState.data.description || null,
-        price: formState.data.has_variants ? 0 : parseFloat(formState.data.price || '0'),
+        price: formState.data.has_variants ? 0 : parseFloat(formState.data.retail_price || '0'),
+        retail_price: formState.data.has_variants ? null : parseFloat(formState.data.retail_price || '0'),
+        wholesale_price: formState.data.has_variants ? null : parseFloat(formState.data.wholesale_price || '0'),
+        cost_price: formState.data.has_variants ? null : parseFloat(formState.data.cost_price || '0'),
         default_profit_margin: formState.data.default_profit_margin ? parseFloat(formState.data.default_profit_margin) : null,
         barcode: formState.data.barcode || null,
         category_id: formState.data.category_id || null,
@@ -1011,11 +1050,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       case 2:
         // For variable products, ensure at least one variant is configured with pricing
         if (formState.data.has_variants && variants.length > 0) {
-          return variants.some(v => v.name.trim() && v.value.trim() && parseFloat(v.sale_price || '0') > 0);
+          return variants.some(v => v.name.trim() && v.value.trim() && parseFloat(v.retail_price || '0') > 0 && parseFloat(v.wholesale_price || '0') > 0);
         }
         return true; // For simple products, no validation needed
       case 3:
-        return formState.data.price && parseFloat(formState.data.price) > 0;
+        // For variant products, pricing is managed per variant, so no main product price validation needed
+        if (formState.data.has_variants) {
+          return true; // Variant products don't need main product pricing
+        }
+        // For simple products, validate the pricing
+        return formState.data.retail_price && parseFloat(formState.data.retail_price) > 0 && 
+               formState.data.wholesale_price && parseFloat(formState.data.wholesale_price) > 0;
       default:
         return true;
     }
@@ -1342,16 +1387,43 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                                 </div>
                               </div>
                               
+                              <div className="grid grid-cols-3 gap-4">
                               <div className="space-y-2">
-                                <Label>Variant Price *</Label>
+                                  <Label>Cost Price *</Label>
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  value={variant.sale_price}
-                                  onChange={(e) => updateVariant(index, 'sale_price', e.target.value)}
+                                    value={variant.cost_price}
+                                    onChange={(e) => updateVariant(index, 'cost_price', e.target.value)}
                                   placeholder="0.00"
                                   required
                                 />
+                                  <p className="text-xs text-muted-foreground">
+                                    Cost for profit calculations
+                                  </p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Retail Price *</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={variant.retail_price}
+                                    onChange={(e) => updateVariant(index, 'retail_price', e.target.value)}
+                                    placeholder="0.00"
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Wholesale Price *</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={variant.wholesale_price}
+                                    onChange={(e) => updateVariant(index, 'wholesale_price', e.target.value)}
+                                    placeholder="0.00"
+                                    required
+                                  />
+                                </div>
                               </div>
                               
                               <div className="space-y-2">
@@ -1458,47 +1530,98 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       case 3: // Product Details (Pricing, Inventory, Image)
         return (
           <div className="space-y-6">
-            {/* Pricing */}
+            {/* Pricing - Only show for simple products */}
+            {!formState.data.has_variants && (
             <Card>
               <CardHeader>
                 <CardTitle>Pricing</CardTitle>
-                <CardDescription>Set the selling price for this product</CardDescription>
+                <CardDescription>Set the pricing structure for this product</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Selling Price *</Label>
+                      <Label htmlFor="cost_price">Purchase Price (Cost) *</Label>
                     <Input
-                      id="price"
-                      type="number"
-                      step="0.01"
-                      value={formState.data.price}
-                      onChange={(e) => handleInputChange('price', e.target.value)}
-                      placeholder="0.00"
-                      required
-                    />
-                    {formState.errors.price && (
-                      <p className="text-sm text-destructive">{formState.errors.price}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="default_profit_margin">Profit Margin %</Label>
-                    <Input
-                      id="default_profit_margin"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={formState.data.default_profit_margin}
-                      onChange={(e) => handleInputChange('default_profit_margin', e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  id="cost_price"
+                  type="number"
+                  step="0.01"
+                    value={formState.data.cost_price}
+                    onChange={(e) => handleInputChange('cost_price', e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+                  <p className="text-sm text-muted-foreground">
+                    The price you paid to purchase this product
+                  </p>
+                  {formState.errors.cost_price && (
+                    <p className="text-sm text-destructive">{formState.errors.cost_price}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="retail_price">Retail Price (Sale Price) *</Label>
+                <Input
+                  id="retail_price"
+                  type="number"
+                  step="0.01"
+                  value={formState.data.retail_price}
+                  onChange={(e) => handleInputChange('retail_price', e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+                <p className="text-sm text-muted-foreground">
+                  The price customers pay when purchasing
+                </p>
+                {formState.errors.retail_price && (
+                  <p className="text-sm text-destructive">{formState.errors.retail_price}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="default_profit_margin">Profit Margin %</Label>
+                <Input
+                  id="default_profit_margin"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formState.data.default_profit_margin}
+                  onChange={(e) => handleInputChange('default_profit_margin', e.target.value)}
+                  placeholder="0.00"
+                  readOnly={!!(parseFloat(formState.data.cost_price) > 0 && parseFloat(formState.data.retail_price) > 0)}
+                  className={parseFloat(formState.data.cost_price) > 0 && parseFloat(formState.data.retail_price) > 0 ? "bg-muted" : ""}
+                />
+                <p className="text-sm text-muted-foreground">
+                  {parseFloat(formState.data.cost_price) > 0 && parseFloat(formState.data.retail_price) > 0 
+                    ? "Auto-calculated from cost and retail prices" 
+                    : "Enter manually or set cost and retail prices to auto-calculate"}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wholesale_price">Wholesale Price *</Label>
+                <Input
+                  id="wholesale_price"
+                  type="number"
+                  step="0.01"
+                  value={formState.data.wholesale_price}
+                  onChange={(e) => handleInputChange('wholesale_price', e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+                <p className="text-sm text-muted-foreground">
+                  Special price for reseller customers
+                </p>
+                {formState.errors.wholesale_price && (
+                  <p className="text-sm text-destructive">{formState.errors.wholesale_price}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        )}
 
-            {/* Inventory */}
+            {/* Inventory - Only show for simple products */}
+            {!formState.data.has_variants && (
             <Card>
               <CardHeader>
                 <CardTitle>Inventory</CardTitle>
@@ -1549,6 +1672,25 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 )}
               </CardContent>
             </Card>
+            )}
+
+            {/* Variant Products Notice */}
+            {formState.data.has_variants && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Variants</CardTitle>
+                  <CardDescription>Pricing and inventory are managed per variant</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Since this is a variable product, pricing and inventory levels are managed individually for each variant. 
+                      You can configure these settings when adding or editing variants in the previous step.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Product Image */}
             <Card>

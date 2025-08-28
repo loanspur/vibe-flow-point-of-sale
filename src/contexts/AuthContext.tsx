@@ -3,7 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 // CACHE BUST v2 - Multiple profile load prevention
 import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
-import { tabStabilityManager } from '@/lib/tab-stability-manager';
+
 import { PasswordChangeModal } from '@/components/PasswordChangeModal';
 
 // User roles are now dynamically managed via user_roles table
@@ -48,9 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Optimized user info fetching with performance checks
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
     // Performance check - don't fetch if tab is switching
-    if (tabStabilityManager.shouldPreventQueryRefresh()) {
-      return;
-    }
+
     
     if (fetchInProgress || profileFetched === userId) {
       return;
@@ -178,7 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let mounted = true;
     
     // Initialize tab stability manager
-    tabStabilityManager.initialize();
+
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -186,10 +184,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (!mounted) return;
         
-        // Minimal tab stability check - only prevent during actual browser tab switching
-        if (tabStabilityManager.isCurrentlyTabSwitching() && event === 'TOKEN_REFRESHED') {
-          return; // Only prevent token refresh events during tab switching
-        }
+
         
         setSession(session);
         setUser(session?.user ?? null);

@@ -7,65 +7,22 @@ interface AutoRefreshOptions {
   visibilityBased?: boolean; // Only refresh when tab is visible
 }
 
+/**
+ * DISABLED: Auto-refresh hook to prevent unwanted refreshes
+ * This hook is completely disabled to prevent flickering and auto-refreshes
+ */
 export const useAutoRefresh = (options: AutoRefreshOptions = {}) => {
-  const {
-    interval = 60000, // Increased to 60 seconds to reduce load
-    enabled = false, // Disabled by default to prevent performance issues
-    onRefresh,
-    visibilityBased = true
-  } = options;
-
-  const intervalRef = useRef<NodeJS.Timeout>();
-  const isVisibleRef = useRef(true);
-
-  // Handle visibility change
-  useEffect(() => {
-    if (!visibilityBased) return;
-
-    const handleVisibilityChange = () => {
-      isVisibleRef.current = !document.hidden;
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [visibilityBased]);
-
-  const startAutoRefresh = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    intervalRef.current = setInterval(() => {
-      if (!visibilityBased || isVisibleRef.current) {
-        onRefresh?.();
-      }
-    }, interval);
-  }, [interval, onRefresh, visibilityBased]);
-
-  const stopAutoRefresh = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = undefined;
-    }
-  }, []);
+  // Completely disabled to prevent auto-refreshes
+  console.log('Auto-refresh disabled to prevent unwanted refreshes');
 
   const manualRefresh = useCallback(() => {
-    onRefresh?.();
-  }, [onRefresh]);
-
-  useEffect(() => {
-    if (enabled && onRefresh) {
-      startAutoRefresh();
-    } else {
-      stopAutoRefresh();
-    }
-
-    return () => stopAutoRefresh();
-  }, [enabled, onRefresh, startAutoRefresh, stopAutoRefresh]);
+    // Only allow manual refresh when explicitly called
+    options.onRefresh?.();
+  }, [options.onRefresh]);
 
   return {
-    startAutoRefresh,
-    stopAutoRefresh,
+    startAutoRefresh: () => {}, // No-op
+    stopAutoRefresh: () => {}, // No-op
     manualRefresh
   };
 };

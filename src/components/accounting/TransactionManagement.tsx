@@ -436,52 +436,22 @@ export default function TransactionManagement() {
   useEffect(() => {
     if (!tenantId) return;
 
-    const transactionsChannel = supabase
-      .channel('transactions-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_transactions',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          console.log('Accounting transactions updated, refreshing...');
-          fetchTransactions();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_entries'
-        },
-        (payload) => {
-          // Check if this entry belongs to a transaction for this tenant
-          console.log('Accounting entries updated, refreshing...');
-          fetchTransactions();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounts',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          console.log('Accounts updated, refreshing...');
-          fetchAccounts();
-        }
-      )
-      .subscribe();
+    // DISABLED: Real-time subscription to prevent refresh triggers
+    // const channel = supabase
+    //   .channel('transaction-updates')
+    //   .on('postgres_changes', {
+    //     event: '*',
+    //     schema: 'public',
+    //     table: 'transactions',
+    //     filter: `tenant_id=eq.${tenantId}`
+    //   }, () => {
+    //     fetchTransactions();
+    //   })
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(transactionsChannel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [tenantId]);
 
   if (!tenantId) {

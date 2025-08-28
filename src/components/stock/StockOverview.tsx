@@ -6,11 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, Package, TrendingUp, Search, Download, Filter } from 'lucide-react';
+import { AlertTriangle, Package, TrendingUp, Search, Download, Filter, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { getLowStockItems, getInventoryLevels } from '@/lib/inventory-integration';
+import { useToast } from '@/hooks/use-toast';
+import { useApp } from '@/contexts/AppContext';
+import { useSoftWarnings } from '@/hooks/useSoftWarnings';
 
 export const StockOverview: React.FC = () => {
   const [inventoryData, setInventoryData] = useState<any[]>([]);
@@ -24,7 +27,37 @@ export const StockOverview: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { user } = useAuth();
+  const { toast } = useToast();
+  const { formatCurrency } = useApp();
   useEnsureBaseUnitPcs();
+  
+  // Centralized warning system
+  const {
+    showLowStockWarning,
+    showNegativeStockWarning,
+    showOutOfStockWarning,
+  } = useSoftWarnings();
+
+  // Function to show soft warnings for stock items
+  const showStockWarnings = (item: any) => {
+    // Use centralized warning system
+    showLowStockWarning(item.name, item.stock_quantity);
+    showNegativeStockWarning(item.name, item.stock_quantity);
+    
+    // Out of stock warning
+    if (item.stock_quantity === 0) {
+      showOutOfStockWarning(item.name);
+    }
+
+    // Cost price warning
+    if (!item.cost_price || item.cost_price <= 0) {
+      toast({
+        title: "Missing Cost Price",
+        description: `${item.name} has no cost price set. This may affect profit calculations.`,
+        variant: "default",
+      });
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -290,7 +323,11 @@ export const StockOverview: React.FC = () => {
                   const value = (product.stock_quantity || 0) * (product.cost_price || 0);
                   
                   return (
-                    <TableRow key={product.id}>
+                    <TableRow 
+                      key={product.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => showStockWarnings(product)}
+                    >
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.sku || '-'}</TableCell>
                       <TableCell>{product.store_locations?.name || 'N/A'}</TableCell>
@@ -301,7 +338,7 @@ export const StockOverview: React.FC = () => {
                           {status.label}
                         </Badge>
                       </TableCell>
-                      <TableCell>KES {value.toFixed(2)}</TableCell>
+                                             <TableCell>{formatCurrency(value)}</TableCell>
                     </TableRow>
                   );
                 })}

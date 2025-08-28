@@ -32,7 +32,7 @@ import {
   Filter,
   Download
 } from 'lucide-react';
-import { useCurrencySettings } from "@/lib/currency";
+import { useApp } from '@/contexts/AppContext';
 import { fetchAllCustomers } from '@/lib/customerUtils';
 
 interface AccountsReceivable {
@@ -90,6 +90,7 @@ interface PaymentRecord {
 const AccountsReceivablePayable: React.FC = () => {
   const { tenantId, user } = useAuth();
   const { toast } = useToast();
+  const { formatCurrency } = useApp();
   const [searchParams] = useSearchParams();
 
   // Get URL parameters for filtering
@@ -552,7 +553,7 @@ const AccountsReceivablePayable: React.FC = () => {
     setIsPaymentOpen(true);
   };
 
-  const { formatAmount } = useCurrencySettings();
+  const formatAmount = formatCurrency;
 
   const getTransactionReference = (referenceType: string, referenceId: string) => {
     if (!referenceId) return '-';
@@ -681,7 +682,7 @@ const AccountsReceivablePayable: React.FC = () => {
           }
         }
       )
-      .subscribe();
+      // .subscribe(); // DISABLED
 
     return () => {
       supabase.removeChannel(arApChannel);

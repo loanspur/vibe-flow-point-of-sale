@@ -7,6 +7,9 @@ export interface CustomerData {
   phone?: string;
   address?: string;
   created_at?: string;
+  is_reseller?: boolean;
+  credit_limit?: number | null;
+  current_credit_balance?: number | null;
 }
 
 export interface CustomerWithEmailMap {
@@ -19,7 +22,7 @@ export interface CustomerWithEmailMap {
 export const fetchCustomersFromContacts = async (tenantId: string): Promise<CustomerData[]> => {
   const { data, error } = await supabase
     .from("contacts")
-    .select("id, name, email, phone, address, created_at")
+    .select("id, name, email, phone, address, created_at, is_reseller, credit_limit, current_credit_balance")
     .eq("tenant_id", tenantId)
     .eq("type", "customer")
     .eq("is_active", true)

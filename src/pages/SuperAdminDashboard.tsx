@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +19,12 @@ import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 
 export default function SuperAdminDashboard() {
   const { user, userRole } = useAuth();
-  // Use base currency (KES) for all superadmin views
-  const formatBaseCurrency = (amount: number) => 
-    `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const { formatCurrency } = useApp();
+  // Use base currency for all superadmin views
+  const formatBaseCurrency = (amount: number) => formatCurrency(amount);
   const [dashboardData, setDashboardData] = useState({
     totalTenants: 0,
     activeUsers: 0,

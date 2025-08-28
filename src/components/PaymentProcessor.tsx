@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useCurrencySettings } from "@/lib/currency";
+import { useApp } from "@/contexts/AppContext";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, CreditCard, Banknote, Smartphone, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -36,7 +36,7 @@ interface PaymentProcessorProps {
 }
 
 export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment, isProcessing = false }: PaymentProcessorProps) {
-  const { formatAmount } = useCurrencySettings();
+  const { formatCurrency } = useApp();
   const { tenantId } = useAuth();
   const { currentDrawer } = useCashDrawer();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -191,7 +191,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
     const paymentTypeText = newPayment.method === "credit" ? "Credit sale" : payment.method.toUpperCase();
     toast({
       title: "Payment Added",
-      description: `${paymentTypeText} payment of ${formatAmount(payment.amount)} added`,
+      description: `${paymentTypeText} payment of ${formatCurrency(payment.amount)} added`,
     });
   };
 
@@ -231,8 +231,8 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
 
   const getStatusText = () => {
     if (remainingBalance === 0) return "Fully Paid";
-    if (remainingBalance < 0) return `Overpaid by ${formatAmount(Math.abs(remainingBalance))}`;
-    return `Balance Due: ${formatAmount(remainingBalance)}`;
+    if (remainingBalance < 0) return `Overpaid by ${formatCurrency(Math.abs(remainingBalance))}`;
+    return `Balance Due: ${formatCurrency(remainingBalance)}`;
   };
 
   return (
@@ -250,15 +250,15 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
          <div className="grid grid-cols-3 gap-4 text-center">
            <div>
              <p className="text-sm text-muted-foreground">Total</p>
-             <p className="font-bold">{formatAmount(totalAmount)}</p>
+             <p className="font-bold">{formatCurrency(totalAmount)}</p>
            </div>
            <div>
              <p className="text-sm text-muted-foreground">Paid</p>
-             <p className="font-bold text-green-600">{formatAmount(paidAmount)}</p>
+             <p className="font-bold text-green-600">{formatCurrency(paidAmount)}</p>
            </div>
            <div>
              <p className="text-sm text-muted-foreground">Balance</p>
-             <p className={`font-bold ${getStatusColor()}`}>{formatAmount(remainingBalance)}</p>
+             <p className={`font-bold ${getStatusColor()}`}>{formatCurrency(remainingBalance)}</p>
            </div>
          </div>
 
@@ -268,7 +268,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
         {currentDrawer && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="text-sm text-blue-800">
-              <strong>Cash Drawer:</strong> {currentDrawer.drawer_name || 'Main Drawer'} - Balance: {formatAmount(currentDrawer.current_balance)}
+              <strong>Cash Drawer:</strong> {currentDrawer.drawer_name || 'Main Drawer'} - Balance: {formatCurrency(currentDrawer.current_balance)}
             </div>
           </div>
         )}
@@ -394,7 +394,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold">{formatAmount(payment.amount)}</span>
+                  <span className="font-bold">{formatCurrency(payment.amount)}</span>
                   <Button
                     variant="outline"
                     size="sm"
@@ -413,7 +413,7 @@ export function PaymentProcessor({ totalAmount, onPaymentsChange, onCashPayment,
         {remainingBalance < 0 && (
            <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
              <p className="text-center font-bold text-green-700 dark:text-green-300">
-               Change Due: {formatAmount(Math.abs(remainingBalance))}
+               Change Due: {formatCurrency(Math.abs(remainingBalance))}
             </p>
           </div>
         )}

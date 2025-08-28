@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -211,7 +212,7 @@ Powered by VibePOS | 0727638940
 `
 };
 
-const SAMPLE_DATA: Record<string, string> = {
+const getSampleData = (formatCurrency: (amount: number) => string): Record<string, string> => ({
   '{{company_name}}': 'Sample Company Ltd.',
   '{{company_address}}': '123 Business Street\nSuite 456\nBusiness City, State 12345\nUnited States',
   '{{company_phone}}': '+1 (555) 123-4567',
@@ -236,24 +237,25 @@ const SAMPLE_DATA: Record<string, string> = {
   '{{cashier_name}}': 'Jane Smith',
   '{{driver_name}}': 'Mike Wilson',
   '{{vehicle_number}}': 'ABC-123',
-  '{{items}}': `📦 Gaming Laptop Pro x1     │  1  │ $1,299.99 │ $1,299.99
-🖱️ Wireless Mouse (Black)  │  2  │   $29.99 │    $59.98
-⌨️ Mechanical Keyboard     │  1  │   $89.99 │    $89.99
-🎧 Headset Premium         │  1  │  $149.99 │   $149.99`,
-  '{{subtotal}}': '$40.00',
-  '{{tax_amount}}': '$4.00',
-  '{{discount_amount}}': '$2.00',
-  '{{total_amount}}': '$42.00',
+  '{{items}}': `📦 Gaming Laptop Pro x1     │  1  │ ${formatCurrency(1299.99)} │ ${formatCurrency(1299.99)}
+🖱️ Wireless Mouse (Black)  │  2  │   ${formatCurrency(29.99)} │    ${formatCurrency(59.98)}
+⌨️ Mechanical Keyboard     │  1  │   ${formatCurrency(89.99)} │    ${formatCurrency(89.99)}
+🎧 Headset Premium         │  1  │  ${formatCurrency(149.99)} │   ${formatCurrency(149.99)}`,
+  '{{subtotal}}': formatCurrency(40.00),
+  '{{tax_amount}}': formatCurrency(4.00),
+  '{{discount_amount}}': formatCurrency(2.00),
+  '{{total_amount}}': formatCurrency(42.00),
   '{{payment_method}}': 'Cash',
-  '{{amount_paid}}': '$50.00',
-  '{{change_amount}}': '$8.00',
+  '{{amount_paid}}': formatCurrency(50.00),
+  '{{change_amount}}': formatCurrency(8.00),
   '{{receipt_header}}': 'Welcome to our store!',
   '{{receipt_footer}}': 'Thank you for shopping with us!',
   '{{terms_conditions}}': 'Payment is due within 30 days. Late payments may incur additional charges.',
   '{{notes}}': 'Thank you for your business. We appreciate your prompt payment.'
-};
+});
 
 export const DocumentTemplateEditor: React.FC<DocumentTemplateEditorProps> = ({ tenantId }) => {
+  const { formatCurrency } = useApp();
   const [templates, setTemplates] = useState<Record<string, DocumentTemplate>>({});
   const [activeTemplate, setActiveTemplate] = useState<'receipt' | 'invoice' | 'quote' | 'delivery_note'>('receipt');
   const [isLoading, setIsLoading] = useState(false);
@@ -481,11 +483,12 @@ https://vibenet.shop - 0733638940
 
   const getPreviewContent = useCallback((content: string) => {
     let preview = content;
-    Object.entries(SAMPLE_DATA).forEach(([variable, value]) => {
+    const sampleData = getSampleData(formatCurrency);
+    Object.entries(sampleData).forEach(([variable, value]) => {
       preview = preview.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
     });
     return preview;
-  }, []);
+  }, [formatCurrency]);
 
   const copyTemplate = () => {
     const template = templates[activeTemplate];

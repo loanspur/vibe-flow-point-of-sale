@@ -3,6 +3,7 @@ import ProductManagement from '@/components/ProductManagement';
 import { StockManagement } from '@/components/StockManagement';
 import UnitsManagement from '@/components/UnitsManagement';
 import BrandManagement from '@/components/BrandManagement';
+import { ProductMigration } from '@/components/ProductMigration';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SafeWrapper } from '@/components/SafeWrapper';
 import { useAuth } from '@/contexts/AuthContext';
@@ -74,13 +75,14 @@ return (
       </div>
       
       <Tabs defaultValue="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="stock">Stock Management</TabsTrigger>
           {productSettings.enableProductUnits && (
             <TabsTrigger value="units">Units</TabsTrigger>
           )}
           <TabsTrigger value="brands">Brands</TabsTrigger>
+          <TabsTrigger value="migration">Migration</TabsTrigger>
         </TabsList>
         <TabsContent value="products">
           <SafeWrapper>
@@ -108,6 +110,11 @@ return (
         <TabsContent value="brands">
           <SafeWrapper>
             <BrandManagement />
+          </SafeWrapper>
+        </TabsContent>
+        <TabsContent value="migration">
+          <SafeWrapper>
+            <ProductMigration />
           </SafeWrapper>
         </TabsContent>
       </Tabs>

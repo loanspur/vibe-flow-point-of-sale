@@ -18,7 +18,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+import { useApp } from '@/contexts/AppContext';
 
 interface BillingPlan {
   id: string;
@@ -51,7 +51,7 @@ const TEST_CARDS = [
 export default function PaystackTestingInterface() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { formatPrice, currencyCode, currencySymbol } = useCurrencyUpdate();
+  const { formatCurrency, currencyCode, currencySymbol } = useApp();
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -323,14 +323,14 @@ export default function PaystackTestingInterface() {
                     </CardHeader>
                     <CardContent>
                       <div className="mb-3">
-                        <span className="text-2xl font-bold">{formatPrice(plan.price)}</span>
+                        <span className="text-2xl font-bold">{formatCurrency(plan.price)}</span>
                         <span className="text-muted-foreground">/{plan.period}</span>
                       </div>
                       
                       {plan.pricing && (
                         <div className="text-xs text-muted-foreground mb-3">
-                          <div>Quarterly: {formatPrice(plan.pricing.quarterly || 0)}</div>
-                          <div>Annually: {formatPrice(plan.pricing.annually || 0)}</div>
+                          <div>Quarterly: {formatCurrency(plan.pricing.quarterly || 0)}</div>
+                          <div>Annually: {formatCurrency(plan.pricing.annually || 0)}</div>
                         </div>
                       )}
 
@@ -359,7 +359,7 @@ export default function PaystackTestingInterface() {
                       <div className="space-y-2">
                         <div className="text-lg font-semibold">{selectedPlanData.name}</div>
                         <div className="text-2xl font-bold text-primary">
-                          {formatPrice(selectedPlanData.price)}
+                          {formatCurrency(selectedPlanData.price)}
                           <span className="text-sm text-muted-foreground font-normal">/{selectedPlanData.period}</span>
                         </div>
                         <p className="text-sm text-muted-foreground">{selectedPlanData.description}</p>

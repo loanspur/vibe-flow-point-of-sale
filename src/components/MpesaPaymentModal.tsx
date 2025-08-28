@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Smartphone, DollarSign, Clock, CheckCircle, XCircle, AlertTriangle, RefreshCw, X } from 'lucide-react';
-import { useCurrencySettings } from '@/lib/currency';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePaymentMethods, type PaymentMethod } from '@/hooks/usePaymentMethods';

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffectivePricing } from "@/hooks/useEffectivePricing";
-import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { useApp } from "@/contexts/AppContext";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -89,7 +89,7 @@ export default function EnhancedSubscriptionDialog({
   });
 
   const { toast } = useToast();
-  const { formatPrice } = useCurrencyUpdate();
+  const { formatCurrency } = useApp();
   const { 
     effectivePricing, 
     loading: pricingLoading, 
@@ -98,7 +98,7 @@ export default function EnhancedSubscriptionDialog({
     refetch: refetchPricing
   } = useEffectivePricing(
     tenant?.id,
-    selectedPlanId || subscription?.billing_plan_id
+    subscription?.billing_plan_id
   );
 
   useEffect(() => {
@@ -205,7 +205,7 @@ export default function EnhancedSubscriptionDialog({
                 </div>
                 <div>
                   <span className="text-muted-foreground">Price: </span>
-                  <span className="font-medium">{formatPrice(currentPlanPrice)}</span>
+                  <span className="font-medium">{formatCurrency(currentPlanPrice)}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Period: </span>
@@ -253,7 +253,7 @@ export default function EnhancedSubscriptionDialog({
                             )}
                           </h4>
                           <p className="text-sm text-muted-foreground">
-                            {formatPrice(plan.price)} per {plan.period}
+                            {formatCurrency(plan.price)} per {plan.period}
                           </p>
                           {plan.description && (
                             <p className="text-xs text-muted-foreground mt-1">
@@ -309,12 +309,12 @@ export default function EnhancedSubscriptionDialog({
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">Standard Price: </span>
-                      <span className="font-medium">{formatPrice(effectivePricing.original_amount)}</span>
+                      <span className="font-medium">{formatCurrency(effectivePricing.original_amount)}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Effective Price: </span>
                       <span className={`font-medium ${effectivePricing.is_custom ? 'text-green-600' : ''}`}>
-                        {formatPrice(effectivePricing.effective_amount)}
+                        {formatCurrency(effectivePricing.effective_amount)}
                       </span>
                     </div>
                     {effectivePricing.is_custom && effectivePricing.discount_percentage && (
@@ -371,7 +371,7 @@ export default function EnhancedSubscriptionDialog({
                             ...customPricingForm, 
                             custom_amount: e.target.value
                           })}
-                          placeholder={`Standard: ${formatPrice(selectedPlan.price)}`}
+                          placeholder={`Standard: ${formatCurrency(selectedPlan.price)}`}
                         />
                       </div>
                       <div>

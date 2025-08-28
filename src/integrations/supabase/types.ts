@@ -1537,15 +1537,22 @@ export type Database = {
         Row: {
           address: string | null
           company: string | null
+          contact_type: string
           created_at: string
           email: string | null
           id: string
           is_active: boolean
           is_commission_agent: boolean | null
+          is_reseller: boolean | null
+          credit_limit: number | null
+          current_credit_balance: number | null
           location_id: string | null
           name: string
           notes: string | null
           phone: string | null
+          shipping_documents: Json | null
+          shipping_fee: number | null
+          shipping_zones: string[] | null
           tenant_id: string | null
           type: string
           updated_at: string
@@ -1554,15 +1561,22 @@ export type Database = {
         Insert: {
           address?: string | null
           company?: string | null
+          contact_type?: string
           created_at?: string
           email?: string | null
           id?: string
           is_active?: boolean
           is_commission_agent?: boolean | null
+          is_reseller?: boolean | null
+          credit_limit?: number | null
+          current_credit_balance?: number | null
           location_id?: string | null
           name: string
           notes?: string | null
           phone?: string | null
+          shipping_documents?: Json | null
+          shipping_fee?: number | null
+          shipping_zones?: string[] | null
           tenant_id?: string | null
           type: string
           updated_at?: string
@@ -1571,15 +1585,22 @@ export type Database = {
         Update: {
           address?: string | null
           company?: string | null
+          contact_type?: string
           created_at?: string
           email?: string | null
           id?: string
           is_active?: boolean
           is_commission_agent?: boolean | null
+          is_reseller?: boolean | null
+          credit_limit?: number | null
+          current_credit_balance?: number | null
           location_id?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
+          shipping_documents?: Json | null
+          shipping_fee?: number | null
+          shipping_zones?: string[] | null
           tenant_id?: string | null
           type?: string
           updated_at?: string
@@ -3183,6 +3204,7 @@ export type Database = {
       product_variants: {
         Row: {
           created_at: string
+          cost_price: number | null
           default_profit_margin: number | null
           id: string
           image_url: string | null
@@ -3191,14 +3213,17 @@ export type Database = {
           name: string
           price_adjustment: number | null
           product_id: string
+          retail_price: number | null
           sale_price: number | null
           sku: string | null
           stock_quantity: number | null
           updated_at: string
           value: string
+          wholesale_price: number | null
         }
         Insert: {
           created_at?: string
+          cost_price?: number | null
           default_profit_margin?: number | null
           id?: string
           image_url?: string | null
@@ -3207,14 +3232,17 @@ export type Database = {
           name: string
           price_adjustment?: number | null
           product_id: string
+          retail_price?: number | null
           sale_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
           updated_at?: string
           value: string
+          wholesale_price?: number | null
         }
         Update: {
           created_at?: string
+          cost_price?: number | null
           default_profit_margin?: number | null
           id?: string
           image_url?: string | null
@@ -3223,11 +3251,13 @@ export type Database = {
           name?: string
           price_adjustment?: number | null
           product_id?: string
+          retail_price?: number | null
           sale_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
           updated_at?: string
           value?: string
+          wholesale_price?: number | null
         }
         Relationships: [
           {
@@ -3261,12 +3291,14 @@ export type Database = {
           price: number
           purchase_price: number | null
           revenue_account_id: string | null
+          retail_price: number | null
           sku: string | null
           stock_quantity: number | null
           subcategory_id: string | null
           tenant_id: string | null
           unit_id: string | null
           updated_at: string
+          wholesale_price: number | null
         }
         Insert: {
           allow_negative_stock?: boolean | null
@@ -3289,12 +3321,14 @@ export type Database = {
           price: number
           purchase_price?: number | null
           revenue_account_id?: string | null
+          retail_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
           subcategory_id?: string | null
           tenant_id?: string | null
           unit_id?: string | null
           updated_at?: string
+          wholesale_price?: number | null
         }
         Update: {
           allow_negative_stock?: boolean | null
@@ -3317,12 +3351,14 @@ export type Database = {
           price?: number
           purchase_price?: number | null
           revenue_account_id?: string | null
+          retail_price?: number | null
           sku?: string | null
           stock_quantity?: number | null
           subcategory_id?: string | null
           tenant_id?: string | null
           unit_id?: string | null
           updated_at?: string
+          wholesale_price?: number | null
         }
         Relationships: [
           {
@@ -4387,7 +4423,13 @@ export type Database = {
           payment_method: string
           receipt_number: string
           sale_type: string
+          shipping_address: string | null
+          shipping_agent_id: string | null
           shipping_amount: number
+          shipping_fee: number | null
+          shipping_included_in_total: boolean | null
+          shipping_payment_status: string | null
+          shipping_tracking_number: string | null
           status: string
           tax_amount: number | null
           tenant_id: string | null
@@ -4406,7 +4448,13 @@ export type Database = {
           payment_method?: string
           receipt_number: string
           sale_type?: string
+          shipping_address?: string | null
+          shipping_agent_id?: string | null
           shipping_amount?: number
+          shipping_fee?: number | null
+          shipping_included_in_total?: boolean | null
+          shipping_payment_status?: string | null
+          shipping_tracking_number?: string | null
           status?: string
           tax_amount?: number | null
           tenant_id?: string | null
@@ -4425,7 +4473,13 @@ export type Database = {
           payment_method?: string
           receipt_number?: string
           sale_type?: string
+          shipping_address?: string | null
+          shipping_agent_id?: string | null
           shipping_amount?: number
+          shipping_fee?: number | null
+          shipping_included_in_total?: boolean | null
+          shipping_payment_status?: string | null
+          shipping_tracking_number?: string | null
           status?: string
           tax_amount?: number | null
           tenant_id?: string | null
@@ -4449,6 +4503,181 @@ export type Database = {
           },
           {
             foreignKeyName: "sales_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_methods: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          requires_reference: boolean | null
+          tenant_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          requires_reference?: boolean | null
+          tenant_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requires_reference?: boolean | null
+          tenant_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      multiple_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          notes: string | null
+          payment_method_id: string
+          reference_number: string | null
+          sale_id: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method_id: string
+          reference_number?: string | null
+          sale_id: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method_id?: string
+          reference_number?: string | null
+          sale_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multiple_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multiple_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multiple_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipping_orders: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          sale_id: string
+          shipping_address: string | null
+          shipping_agent_id: string
+          shipping_fee: number
+          status: string
+          tenant_id: string
+          tracking_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string
+          sale_id: string
+          shipping_address?: string | null
+          shipping_agent_id: string
+          shipping_fee: number
+          status?: string
+          tenant_id: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string
+          sale_id?: string
+          shipping_address?: string | null
+          shipping_agent_id?: string
+          shipping_fee?: number
+          status?: string
+          tenant_id?: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipping_orders_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_orders_shipping_agent_id_fkey"
+            columns: ["shipping_agent_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -7797,7 +8026,13 @@ export const Constants = {
         "pricing_rules",
       ],
       ssl_status: ["none", "pending", "issued", "expired", "failed"],
-      user_role: ["superadmin", "admin", "manager", "cashier", "user"],
+      user_role: ["superadmin", "admin", "manager", "cashier", "user"      ],
+      invoice_status: [
+        "pending",
+        "paid", 
+        "overdue",
+        "cancelled"
+      ],
     },
   },
 } as const

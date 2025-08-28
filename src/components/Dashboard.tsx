@@ -143,12 +143,13 @@ const Dashboard = () => {
 
   // Listen for dashboard refresh events and manual refresh
   useEffect(() => {
-    const handleDashboardRefresh = () => {
-      refresh();
-    };
+    // DISABLED: Window event listeners to prevent refresh triggers
+    // const handleDashboardRefresh = () => {
+    //   refresh();
+    // };
 
-    window.addEventListener('dashboardRefresh', handleDashboardRefresh);
-    return () => window.removeEventListener('dashboardRefresh', handleDashboardRefresh);
+    // window.addEventListener('dashboardRefresh', handleDashboardRefresh);
+    // return () => window.removeEventListener('dashboardRefresh', handleDashboardRefresh);
   }, [refresh]);
 
   return (

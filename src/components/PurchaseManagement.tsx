@@ -876,7 +876,7 @@ const PurchaseManagement = () => {
       
       toast({
         title: "Success", 
-        description: `Payment of $${payment.amount.toFixed(2)} recorded successfully`
+        description: `Payment of ${formatCurrency(payment.amount)} recorded successfully`
       });
 
     } catch (error) {

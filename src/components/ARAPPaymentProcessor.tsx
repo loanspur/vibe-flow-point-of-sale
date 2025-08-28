@@ -13,7 +13,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { createPaymentJournalEntry } from '@/lib/accounting-integration';
 import { format } from 'date-fns';
 import { useUnifiedCommunication } from '@/hooks/useUnifiedCommunication';
-import { useCurrencySettings } from '@/lib/currency';
 import { usePaymentMethods, type PaymentMethod } from '@/hooks/usePaymentMethods';
 
 interface ARAPItem {

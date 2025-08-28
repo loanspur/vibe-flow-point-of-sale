@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
-import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
-import { tabStabilityManager } from '@/lib/tab-stability-manager';
+import { formatAmountWithSymbol, getCurrencySymbol } from '@/lib/currency-symbols';
+
 
 interface BusinessSettings {
   // Basic company information
@@ -59,27 +58,27 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Stable currency cache to prevent switching
+let currencyCache: { code: string; symbol: string } | null = null;
+let cacheExpiry = 0;
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always call hooks in the same order
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
-  const { formatLocalCurrency, convertFromKES, tenantCurrency } = useCurrencyConversion();
   const refreshingRef = useRef(false);
+  const settingsFetchedRef = useRef(false);
   
-  // Use AuthContext directly - it should always be available since we're wrapped by AuthProvider
   const { tenantId, user } = useAuth();
 
   const fetchBusinessSettings = useCallback(async () => {
-    if (!tenantId) {
+    if (!tenantId || settingsFetchedRef.current) {
       setLoading(false);
       return;
     }
 
-    // Apply homepage stability - prevent business settings fetch during tab switching
-    if (tabStabilityManager.shouldPreventQueryRefresh()) {
-      return;
-    }
+
 
     try {
       setLoading(true);
@@ -108,12 +107,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
+      let finalSettings: BusinessSettings;
+
       if (settingsResponse.error && settingsResponse.error.code !== 'PGRST116') {
         console.error('Error fetching business settings:', settingsResponse.error);
         // Use default fallback settings
-        setBusinessSettings({
+        finalSettings = {
           currency_code: 'USD',
-          currency_symbol: '$',
+          currency_symbol: getCurrencySymbol('USD'),
           company_name: 'Your Business',
           timezone: 'UTC',
           tax_inclusive: false,
@@ -140,12 +141,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           pos_ask_customer_info: false,
           pos_enable_discounts: true,
           pos_max_discount_percent: 100
-        });
+        };
       } else if (!settingsResponse.data) {
         // No settings found for tenant, use sensible defaults
-        setBusinessSettings({
+        finalSettings = {
           currency_code: 'USD',
-          currency_symbol: '$',
+          currency_symbol: getCurrencySymbol('USD'),
           company_name: 'Your Business',
           timezone: 'UTC',
           tax_inclusive: false,
@@ -172,140 +173,109 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           pos_ask_customer_info: false,
           pos_enable_discounts: true,
           pos_max_discount_percent: 100
-        });
+        };
       } else {
         // Use the actual business settings from the database
-        setBusinessSettings(settingsResponse.data);
+        finalSettings = settingsResponse.data;
       }
+
+      // Cache currency settings to prevent switching
+      if (finalSettings.currency_code && finalSettings.currency_symbol) {
+        currencyCache = {
+          code: finalSettings.currency_code,
+          symbol: finalSettings.currency_symbol
+        };
+        cacheExpiry = Date.now() + CACHE_DURATION;
+      }
+
+      setBusinessSettings(finalSettings);
+      settingsFetchedRef.current = true;
     } catch (error) {
       console.error('Error in fetchBusinessSettings:', error);
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
-
-  const refreshBusinessSettings = useCallback(async () => {
-    if (refreshingRef.current) return;
-    refreshingRef.current = true;
-    try {
-      await fetchBusinessSettings();
-      setCurrencyUpdateTrigger(prev => prev + 1);
-    } finally {
-      refreshingRef.current = false;
-    }
-  }, [fetchBusinessSettings]);
+  }, [tenantId, user?.email]);
 
   const triggerCurrencyUpdate = useCallback(() => {
     setCurrencyUpdateTrigger(prev => prev + 1);
   }, []);
 
+  // Manual refresh function for business settings and currency
+  const refreshBusinessSettings = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    
+    try {
+      settingsFetchedRef.current = false; // Allow re-fetch
+      await fetchBusinessSettings();
+      triggerCurrencyUpdate();
+    } catch (error) {
+      console.error('Error refreshing business settings:', error);
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [fetchBusinessSettings, triggerCurrencyUpdate]);
+
+  // Stable currency formatting that uses cached values
   const formatCurrency = useCallback((amount: number): string => {
-    if (!businessSettings) return formatAmountWithSymbol(amount, 'USD');
+    // Use cached currency settings if available and valid
+    if (currencyCache && Date.now() < cacheExpiry) {
+      return formatAmountWithSymbol(
+        amount, 
+        currencyCache.code, 
+        currencyCache.symbol
+      );
+    }
+    
+    // Fallback to business settings
+    if (!businessSettings) {
+      return formatAmountWithSymbol(amount, 'USD', '$');
+    }
     
     return formatAmountWithSymbol(
       amount, 
       businessSettings.currency_code, 
-      businessSettings.currency_symbol
+      businessSettings.currency_symbol || getCurrencySymbol(businessSettings.currency_code)
     );
   }, [businessSettings]);
 
-  // Format currency using local conversion
-  const formatCurrencyWithConversion = useCallback(async (amount: number): Promise<string> => {
-    if (!tenantCurrency) {
-      return formatCurrency(amount);
-    }
-    
-    try {
-      const convertedAmount = await convertFromKES(amount);
-      return formatLocalCurrency(convertedAmount);
-    } catch (error) {
-      return formatCurrency(amount);
-    }
-  }, [tenantCurrency, convertFromKES, formatLocalCurrency, formatCurrency]);
+  // Format local currency using business settings directly - no conversion needed
+  const formatLocalCurrency = useCallback((amount: number): string => {
+    return formatCurrency(amount);
+  }, [formatCurrency]);
+
+  // No conversion needed - use business settings currency directly
+  const convertFromKES = useCallback(async (amount: number): Promise<number> => {
+    return amount; // No conversion, return as-is
+  }, []);
 
   useEffect(() => {
     fetchBusinessSettings();
   }, [fetchBusinessSettings]);
 
-  // Simplified real-time subscription - only enable if performance allows
+  // Completely disable real-time updates to prevent currency switching
   useEffect(() => {
     if (!tenantId) return;
-
-    // Skip realtime updates if performance is prioritized
-    const ENABLE_REALTIME = process.env.NODE_ENV === 'development' || window.innerWidth > 768;
-    if (!ENABLE_REALTIME) return;
-
-    let timeoutRef: NodeJS.Timeout;
-
-    const channel = supabase
-      .channel('business-settings-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'business_settings',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        (payload) => {
-          // Extended debounce for better performance
-          if (timeoutRef) clearTimeout(timeoutRef);
-          timeoutRef = setTimeout(() => {
-            if (!refreshingRef.current && payload.new) {
-              const newSettings = payload.new as any;
-              
-              // Auto-detect currency symbol if needed
-              let currencySymbol = newSettings.currency_symbol;
-              if (newSettings.currency_code && !currencySymbol) {
-                const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
-                currencySymbol = autoDetected.symbol;
-              }
-              
-              setBusinessSettings({
-                currency_code: newSettings.currency_code || 'USD',
-                currency_symbol: currencySymbol || '$',
-                company_name: newSettings.company_name || 'Your Business',
-                timezone: newSettings.timezone || 'UTC',
-                tax_inclusive: newSettings.tax_inclusive || false,
-                default_tax_rate: newSettings.default_tax_rate || 0,
-                // Product settings
-                enable_brands: newSettings.enable_brands ?? false,
-                enable_overselling: newSettings.enable_overselling ?? false,
-                enable_product_units: newSettings.enable_product_units ?? true,
-                enable_product_expiry: newSettings.enable_product_expiry ?? true,
-                enable_warranty: newSettings.enable_warranty ?? false,
-                enable_fixed_pricing: newSettings.enable_fixed_pricing ?? false,
-                auto_generate_sku: newSettings.auto_generate_sku ?? true,
-                enable_barcode_scanning: newSettings.enable_barcode_scanning ?? true,
-                enable_negative_stock: newSettings.enable_negative_stock ?? false,
-                stock_accounting_method: newSettings.stock_accounting_method ?? 'FIFO',
-                default_markup_percentage: newSettings.default_markup_percentage ?? 0,
-                enable_retail_pricing: newSettings.enable_retail_pricing ?? true,
-                enable_wholesale_pricing: newSettings.enable_wholesale_pricing ?? false,
-                enable_combo_products: newSettings.enable_combo_products ?? false,
-                low_stock_threshold: newSettings.low_stock_threshold ?? 10,
-                low_stock_alerts: newSettings.low_stock_alerts ?? true,
-                // POS settings
-                pos_auto_print_receipt: newSettings.pos_auto_print_receipt ?? true,
-                pos_ask_customer_info: newSettings.pos_ask_customer_info ?? false,
-                pos_enable_discounts: newSettings.pos_enable_discounts ?? true,
-                pos_max_discount_percent: newSettings.pos_max_discount_percent ?? 100,
-                // Include all other fields from the database
-                ...newSettings
-              });
-            }
-          }, 2000); // Extended to 2 second debounce for better stability
-        }
-      )
-      .subscribe();
-
-    return () => {
-      if (timeoutRef) clearTimeout(timeoutRef);
-      supabase.removeChannel(channel);
-    };
+    
+    // Real-time updates are completely disabled to prevent currency switching
+    console.log('Real-time business settings updates disabled to prevent currency switching');
   }, [tenantId]);
 
-  // Remove the problematic auth readiness check - AuthContext should always be available
+  // Get stable currency values
+  const getStableCurrencyCode = (): string => {
+    if (currencyCache && Date.now() < cacheExpiry) {
+      return currencyCache.code;
+    }
+    return businessSettings?.currency_code || 'USD';
+  };
+
+  const getStableCurrencySymbol = (): string => {
+    if (currencyCache && Date.now() < cacheExpiry) {
+      return currencyCache.symbol;
+    }
+    return businessSettings?.currency_symbol || getCurrencySymbol(businessSettings?.currency_code || 'USD');
+  };
 
   return (
     <AppContext.Provider value={{
@@ -315,9 +285,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       formatCurrency,
       formatLocalCurrency,
       convertFromKES,
-      tenantCurrency: tenantCurrency?.currency || null,
-      currencySymbol: businessSettings?.currency_symbol || '$',
-      currencyCode: businessSettings?.currency_code || 'USD',
+      tenantCurrency: getStableCurrencyCode(),
+      currencySymbol: getStableCurrencySymbol(),
+      currencyCode: getStableCurrencyCode(),
       triggerCurrencyUpdate
     }}>
       {children}

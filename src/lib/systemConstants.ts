@@ -134,7 +134,10 @@ export const CONTACT_TYPES = {
   customer: 'customer',
   supplier: 'supplier',
   vendor: 'vendor',
-  agent: 'agent'
+  agent: 'agent',
+  shipping_agent: 'shipping_agent',
+  sales_rep: 'sales_rep',
+  partner: 'partner'
 } as const;
 
 // Notification Types
