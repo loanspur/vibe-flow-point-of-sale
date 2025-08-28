@@ -272,7 +272,11 @@ Powered by VibePOS | {{company_phone}}
           .from("sale_items")
           .select(`
             *,
-            products (name, sku)
+            products (
+              name, 
+              sku,
+              brands (name)
+            )
           `)
           .eq("sale_id", sale.id);
 
@@ -283,7 +287,11 @@ Powered by VibePOS | {{company_phone}}
           .from("quote_items")
           .select(`
             *,
-            products (name, sku),
+            products (
+              name, 
+              sku,
+              brands (name)
+            ),
             product_variants (name, value)
           `)
           .eq("quote_id", quote.id);
@@ -537,6 +545,7 @@ Powered by VibePOS | {{company_phone}}
     
     const itemLines = items.map((item) => {
       const itemName = item.products.name;
+      const brandInfo = item.products.brands ? ` [${item.products.brands.name}]` : '';
       const variantInfo = "product_variants" in item && item.product_variants 
         ? ` (${item.product_variants.name}: ${item.product_variants.value})`
         : '';
@@ -546,7 +555,7 @@ Powered by VibePOS | {{company_phone}}
       const trimmedName = itemName.length > maxNameLength 
         ? itemName.substring(0, maxNameLength - 1) + '…'
         : itemName;
-      const fullItemName = `${trimmedName}${variantInfo}`;
+      const fullItemName = `${trimmedName}${brandInfo}${variantInfo}`;
       
       const qtyStr = item.quantity.toString().padStart(2);
       const rateStr = formatAmount(item.unit_price).padStart(8);

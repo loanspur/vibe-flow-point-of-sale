@@ -14,9 +14,10 @@ import { useFormState } from '@/hooks/useFormState';
 import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 import QuickCreateUnitDialog from './QuickCreateUnitDialog';
+import QuickCreateBrandDialog from './QuickCreateBrandDialog';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useProductSettingsValidation } from '@/hooks/useProductSettingsValidation';
-import { ProductSettingsRestrictions } from './ProductSettingsRestrictions';
+
 
 
 interface Category {
@@ -60,6 +61,7 @@ interface ProductFormData {
   barcode: string;
   category_id: string;
   subcategory_id?: string;
+  brand_id?: string;
   revenue_account_id?: string;
   unit_id?: string;
   stock_quantity: string;
@@ -87,6 +89,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [revenueAccounts, setRevenueAccounts] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -128,10 +131,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         errors.sku = 'SKU is required when auto-generate SKU is enabled';
       }
 
-      // Validate expiry date if enabled
-      if (isFeatureEnabled('enableProductExpiry') && data.has_expiry_date && !data.expiry_date) {
-        errors.expiry_date = 'Expiry date is required when product expiry tracking is enabled';
-      }
+
     }
     
     return errors;
@@ -147,6 +147,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       barcode: '',
       category_id: '',
       subcategory_id: undefined,
+      brand_id: undefined,
       revenue_account_id: undefined,
       unit_id: undefined,
       stock_quantity: '',
@@ -281,6 +282,26 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }, [tenantId, toast]);
 
+  const fetchBrands = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setBrands(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching brands",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }, [tenantId, toast]);
+
   const fetchUnits = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -355,11 +376,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   useEffect(() => {
     if (tenantId) {
       fetchCategories();
+      fetchBrands();
       fetchRevenueAccounts();
       fetchUnits();
       fetchLocations();
     }
-  }, [tenantId, fetchCategories, fetchRevenueAccounts, fetchUnits, fetchLocations]);
+  }, [tenantId, fetchCategories, fetchBrands, fetchRevenueAccounts, fetchUnits, fetchLocations]);
 
   useEffect(() => {
     if (tenantId && !product && !formState.data.location_id) {
@@ -380,6 +402,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         barcode: product.barcode || '',
         category_id: product.category_id || '',
         subcategory_id: product.subcategory_id || undefined,
+        brand_id: product.brand_id || undefined,
         revenue_account_id: product.revenue_account_id || undefined,
         unit_id: product.unit_id || undefined,
         stock_quantity: product.stock_quantity?.toString() || '',
@@ -867,6 +890,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         barcode: formState.data.barcode || null,
         category_id: formState.data.category_id || null,
         subcategory_id: formState.data.subcategory_id || null,
+        brand_id: formState.data.brand_id || null,
         revenue_account_id: formState.data.revenue_account_id || null,
         unit_id: formState.data.unit_id || null,
         stock_quantity: formState.data.stock_quantity ? parseInt(formState.data.stock_quantity) : 0,
@@ -1123,6 +1147,28 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="brand">Brand</Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={formState.data.brand_id}
+                    onValueChange={(value) => handleInputChange('brand_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <QuickCreateBrandDialog onBrandCreated={fetchBrands} />
                 </div>
               </div>
               

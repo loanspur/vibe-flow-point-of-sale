@@ -267,6 +267,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           image_url,
           is_active,
           unit_id,
+          brand_id,
+          brands (
+            id,
+            name
+          ),
           product_units (
             id,
             name,
@@ -1348,6 +1353,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                 <div className="space-y-1">
                                   <p className="font-medium text-sm">{product.name}</p>
                                   <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
+                                  {product.brands && (
+                                    <p className="text-xs text-muted-foreground">Brand: {product.brands.name}</p>
+                                  )}
                                   {product.product_units && (
                                     <p className="text-xs text-muted-foreground">Unit: {product.product_units.name} ({product.product_units.abbreviation})</p>
                                   )}
