@@ -265,17 +265,15 @@ export default function SuperAdminDatabase() {
                   idle: { label: "Idle", color: "#3b82f6" },
                   waiting: { label: "Waiting", color: "#ef4444" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={connectionMetrics}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="time" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="active" stroke="#22c55e" strokeWidth={2} />
-                      <Line type="monotone" dataKey="idle" stroke="#3b82f6" strokeWidth={2} />
-                      <Line type="monotone" dataKey="waiting" stroke="#ef4444" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <LineChart data={connectionMetrics} width={541} height={300}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="active" stroke="#22c55e" strokeWidth={2} />
+                    <Line type="monotone" dataKey="idle" stroke="#3b82f6" strokeWidth={2} />
+                    <Line type="monotone" dataKey="waiting" stroke="#ef4444" strokeWidth={2} />
+                  </LineChart>
                 </ChartContainer>
               </CardContent>
             </Card>
@@ -329,18 +327,16 @@ export default function SuperAdminDatabase() {
                 bufferHit: { label: "Buffer Hit %", color: "#22c55e" },
                 diskReads: { label: "Disk Reads", color: "#3b82f6" }
               }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={performanceMetrics}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line yAxisId="left" type="monotone" dataKey="queryTime" stroke="#ef4444" strokeWidth={2} />
-                    <Line yAxisId="right" type="monotone" dataKey="bufferHit" stroke="#22c55e" strokeWidth={2} />
-                    <Line yAxisId="left" type="monotone" dataKey="diskReads" stroke="#3b82f6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <BarChart data={performanceMetrics} width={541} height={300}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar yAxisId="left" dataKey="queryTime" fill="#ef4444" />
+                  <Bar yAxisId="right" dataKey="bufferHit" fill="#22c55e" />
+                  <Bar yAxisId="left" dataKey="diskReads" fill="#3b82f6" />
+                </BarChart>
               </ChartContainer>
             </CardContent>
           </Card>

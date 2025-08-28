@@ -1,45 +1,28 @@
-import { useCallback, useRef } from 'react';
-import { useRealtimeRefresh } from './useRealtimeRefresh';
-import { PERFORMANCE_CONFIG } from '@/lib/performance-config';
+import { useEffect, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-interface DebouncedRealtimeRefreshOptions {
+interface RealtimeRefreshOptions {
   tables: string[];
-  tenantId?: string | null;
+  tenantId?: string;
   onChange: () => void;
   enabled?: boolean;
   debounceMs?: number;
 }
 
 /**
- * Debounced version of useRealtimeRefresh to prevent excessive re-renders
- * from rapid database changes. Uses performance config for optimal debounce timing.
+ * COMPLETELY DISABLED: Debounced realtime refresh hook
+ * This hook is completely disabled to prevent unwanted refreshes
  */
-export function useDebouncedRealtimeRefresh({
-  tables,
-  tenantId,
-  onChange,
-  enabled = true,
-  debounceMs = PERFORMANCE_CONFIG.REALTIME_DEBOUNCE_DELAY // Use global performance setting
-}: DebouncedRealtimeRefreshOptions) {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+export function useDebouncedRealtimeRefresh(options: RealtimeRefreshOptions) {
+  const { enabled = false, tables, tenantId, onChange, debounceMs = 1000 } = options;
   
-  const debouncedOnChange = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    timeoutRef.current = setTimeout(() => {
-      onChange();
-    }, debounceMs);
-  }, [onChange, debounceMs]);
+  // COMPLETELY DISABLED - No realtime subscriptions
+  console.log('Debounced realtime refresh hook completely disabled to prevent refresh triggers');
   
-  // Only enable if performance config allows realtime updates
-  const realtimeEnabled = enabled && !PERFORMANCE_CONFIG.DISABLE_AUTO_REFRESH;
-  
-  useRealtimeRefresh({
-    tables,
-    tenantId,
-    onChange: debouncedOnChange,
-    enabled: realtimeEnabled
-  });
+  // Return no-op functions
+  return {
+    isEnabled: false,
+    enable: () => console.log('Realtime refresh disabled'),
+    disable: () => console.log('Realtime refresh disabled'),
+  };
 }

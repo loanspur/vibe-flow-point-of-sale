@@ -8,21 +8,20 @@ interface AutoRefreshOptions {
 }
 
 /**
- * DISABLED: Auto-refresh hook to prevent unwanted refreshes
+ * COMPLETELY DISABLED: Auto-refresh hook to prevent unwanted refreshes
  * This hook is completely disabled to prevent flickering and auto-refreshes
  */
-export const useAutoRefresh = (options: AutoRefreshOptions = {}) => {
-  // Completely disabled to prevent auto-refreshes
-  console.log('Auto-refresh disabled to prevent unwanted refreshes');
-
-  const manualRefresh = useCallback(() => {
-    // Only allow manual refresh when explicitly called
-    options.onRefresh?.();
-  }, [options.onRefresh]);
-
+export function useAutoRefresh(options: AutoRefreshOptions = {}) {
+  const { enabled = false, interval = 30000, onRefresh, visibilityBased = false } = options;
+  
+  // COMPLETELY DISABLED - No auto-refresh functionality
+  console.log('Auto-refresh hook completely disabled to prevent refresh triggers');
+  
+  // Return no-op functions
   return {
-    startAutoRefresh: () => {}, // No-op
-    stopAutoRefresh: () => {}, // No-op
-    manualRefresh
+    isEnabled: false,
+    enable: () => console.log('Auto-refresh disabled'),
+    disable: () => console.log('Auto-refresh disabled'),
+    refresh: () => console.log('Auto-refresh disabled'),
   };
-};
+}

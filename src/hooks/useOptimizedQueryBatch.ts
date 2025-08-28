@@ -56,9 +56,9 @@ export function useOptimizedQueryBatch<T>(
 ): BatchQueryResult<T> {
   const {
     enabled = true,
-    staleTime = 5 * 60 * 1000,
-    cacheKey,
-    refetchOnWindowFocus = false
+    refetchOnWindowFocus = false, // Always false to prevent refresh triggers
+    staleTime = 10 * 60 * 1000, // 10 minutes
+    cacheKey
   } = options;
 
   const [data, setData] = useState<T | null>(null);
@@ -73,13 +73,13 @@ export function useOptimizedQueryBatch<T>(
     if (cacheKey) {
       const cached = batchQueryCache.get(cacheKey, staleTime);
       if (cached) {
-        setData(cached);
+        setData(cached.data);
         setLoading(false);
         return;
       }
     }
 
-    // Cancel previous requests
+    // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -149,18 +149,17 @@ export function useOptimizedQueryBatch<T>(
     };
   }, dependencies);
 
-  useEffect(() => {
-    if (!refetchOnWindowFocus) return;
-
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        executeQueries();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleFocus);
-    return () => document.removeEventListener('visibilitychange', handleFocus);
-  }, [executeQueries, refetchOnWindowFocus]);
+  // COMPLETELY DISABLED: Window focus refresh to prevent all refresh triggers
+  // useEffect(() => {
+  //   if (!refetchOnWindowFocus) return;
+  //   const handleFocus = () => {
+  //     if (document.visibilityState === 'visible') {
+  //       executeQueries();
+  //     }
+  //   };
+  //   document.addEventListener('visibilitychange', handleFocus);
+  //   return () => document.removeEventListener('visibilitychange', handleFocus);
+  // }, [executeQueries, refetchOnWindowFocus]);
 
   return { data, loading, error, refetch };
 }

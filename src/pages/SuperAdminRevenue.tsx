@@ -23,7 +23,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencyIcon } from "@/components/ui/currency-icon";
 import { useApp } from "@/contexts/AppContext";
@@ -322,48 +322,45 @@ export default function SuperAdminRevenue() {
                   mrr: { label: "MRR", color: "hsl(var(--primary))" },
                   netMrr: { label: "Net New MRR", color: "hsl(var(--secondary))" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthlyRevenueData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="mrr" stroke="hsl(var(--primary))" strokeWidth={3} />
-                      <Line type="monotone" dataKey="netMrr" stroke="hsl(var(--secondary))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <LineChart data={monthlyRevenueData} width={533} height={300}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="mrr" stroke="hsl(var(--primary))" strokeWidth={3} />
+                    <Line type="monotone" dataKey="netMrr" stroke="hsl(var(--secondary))" strokeWidth={2} />
+                  </LineChart>
                 </ChartContainer>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Revenue by Subscription Plan</CardTitle>
-                <CardDescription>MRR distribution across plans</CardDescription>
+                <CardTitle>Revenue by Plan</CardTitle>
+                <CardDescription>Distribution of revenue across plans</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer config={{
                   basic: { label: "Basic", color: "#8884d8" },
-                  pro: { label: "Pro", color: "#82ca9d" },
+                  professional: { label: "Professional", color: "#82ca9d" },
                   enterprise: { label: "Enterprise", color: "#ffc658" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={revenueByPlan}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="mrr"
-                        label={({ plan, mrr }) => `${plan}: ${formatCurrency(mrr)}`}
-                      >
-                        {revenueByPlan.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <PieChart width={533} height={300}>
+                    <Pie
+                      data={revenueByPlan}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="mrr"
+                      label={({ plan, mrr }) => `${plan}: ${formatCurrency(mrr)}`}
+                    >
+                      {revenueByPlan.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                  </PieChart>
                 </ChartContainer>
               </CardContent>
             </Card>
@@ -380,17 +377,15 @@ export default function SuperAdminRevenue() {
                 churnMrr: { label: "Churned MRR", color: "#ef4444" },
                 netMrr: { label: "Net MRR", color: "hsl(var(--primary))" }
               }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyRevenueData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="newMrr" fill="#22c55e" />
-                    <Bar dataKey="churnMrr" fill="#ef4444" />
-                    <Bar dataKey="netMrr" fill="hsl(var(--primary))" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <BarChart data={monthlyRevenueData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="newMrr" fill="#22c55e" />
+                  <Bar dataKey="churnMrr" fill="#ef4444" />
+                  <Bar dataKey="netMrr" fill="hsl(var(--primary))" />
+                </BarChart>
               </ChartContainer>
             </CardContent>
           </Card>
@@ -520,15 +515,13 @@ export default function SuperAdminRevenue() {
                 <ChartContainer config={{
                   churnRate: { label: "Churn Rate %", color: "#ef4444" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={churnData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="churnRate" stroke="#ef4444" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <LineChart data={churnData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="churnRate" stroke="#ef4444" strokeWidth={2} />
+                  </LineChart>
                 </ChartContainer>
               </CardContent>
             </Card>
@@ -543,16 +536,14 @@ export default function SuperAdminRevenue() {
                   retained: { label: "Retained", color: "#22c55e" },
                   churned: { label: "Churned", color: "#ef4444" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={churnData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="retained" fill="#22c55e" />
-                      <Bar dataKey="churned" fill="#ef4444" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <BarChart data={churnData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="retained" fill="#22c55e" />
+                    <Bar dataKey="churned" fill="#ef4444" />
+                  </BarChart>
                 </ChartContainer>
               </CardContent>
             </Card>

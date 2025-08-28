@@ -48,7 +48,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Optimized user info fetching with performance checks
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
     // Performance check - don't fetch if tab is switching
-
     
     if (fetchInProgress || profileFetched === userId) {
       return;
@@ -57,14 +56,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setFetchInProgress(true);
     
     try {
-      // Get user role from profiles with optimized query
+      // FIXED: Use correct table name 'profiles' instead of 'user_profiles'
       const { data: profile, error } = await supabase
-        .from('profiles')
+        .from('profiles') // Changed from 'user_profiles' to 'profiles'
         .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
+        console.warn('Error fetching user profile:', error);
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
@@ -95,6 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setRequirePasswordChange(false);
       }
     } catch (error) {
+      console.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
@@ -134,6 +135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Only set initial profile state, remove focus refreshing to prevent flickering
     if (!profileFetched || profileFetched !== user.id) {
       setProfileFetched(user.id);
+      fetchUserInfo(user.id, 'initial');
     }
   }, [user, profileFetched]);
 

@@ -958,7 +958,6 @@ const App = () => {
                    <GlobalErrorHandler />
                    <Toaster />
                    <Sonner />
-                   <PerformanceMonitor />
                    <AppOptimizer>
                      <BrowserRouter>
                        <DomainRouter />
