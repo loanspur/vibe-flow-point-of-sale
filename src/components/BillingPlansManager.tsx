@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { useApp } from "@/contexts/AppContext";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -118,16 +118,20 @@ export default function BillingPlansManager() {
   const [loading, setLoading] = useState(true);
   const [tabConfig, setTabConfig] = useState(defaultTabConfig);
   const { toast } = useToast();
-  const { formatPrice, currencySymbol, currencyCode } = useCurrencyUpdate();
+  const { formatCurrency, currencySymbol, currencyCode } = useApp();
 
-  // Format currency with current business settings
-  const formatCurrency = (amount: number): string => {
-    return formatPrice(amount);
+  // Helper functions for formatting
+  const formatAmount = (amount: number) => {
+    return formatCurrency(amount);
+  };
+
+  const formatPrice = (amount: number) => {
+    return formatCurrency(amount);
   };
 
   // Use business settings currency formatting
   const formatPlanCurrency = (amount: number): string => {
-    return formatPrice(amount);
+    return formatCurrency(amount);
   };
 
   // Get enabled tabs sorted by order
@@ -854,8 +858,9 @@ export default function BillingPlansManager() {
                 professional: { label: "Professional", color: "#82ca9d" },
                 enterprise: { label: "Enterprise", color: "#ffc658" }
               }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={planPerformanceData}>
+                {/* Fix: Remove ResponsiveContainer for fixed dimensions */}
+                <div style={{ width: '100%', height: '300px' }}>
+                  <AreaChart data={planPerformanceData} width={1180} height={300}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
@@ -864,7 +869,7 @@ export default function BillingPlansManager() {
                     <Area type="monotone" dataKey="professional" stackId="1" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
                     <Area type="monotone" dataKey="enterprise" stackId="1" stroke="#ffc658" fill="#ffc658" fillOpacity={0.6} />
                   </AreaChart>
-                </ResponsiveContainer>
+                </div>
               </ChartContainer>
             </CardContent>
           </Card>
@@ -916,12 +921,12 @@ export default function BillingPlansManager() {
                     <div key={plan.id} className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>{plan.name}</span>
-                        <span className="font-medium">{plan.conversionRate}%</span>
+                        <span className="font-medium">{plan.conversion_rate || 0}%</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2">
                         <div 
                           className="bg-primary h-2 rounded-full" 
-                          style={{ width: `${(plan.conversionRate / 35) * 100}%` }}
+                          style={{ width: `${(plan.conversion_rate / 35) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -944,7 +949,7 @@ export default function BillingPlansManager() {
                         <div className="text-sm text-muted-foreground">{plan.customers} customers</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-medium">{plan.churnRate}%</div>
+                        <div className="font-medium">{plan.churn_rate || 0}%</div>
                         <div className="text-xs text-muted-foreground">churn rate</div>
                       </div>
                     </div>
@@ -1019,8 +1024,8 @@ export default function BillingPlansManager() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Revenue Distribution</CardTitle>
-                <CardDescription>MRR breakdown by plan</CardDescription>
+                <CardTitle>Revenue Trends</CardTitle>
+                <CardDescription>Monthly revenue by plan</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer config={{
@@ -1028,40 +1033,9 @@ export default function BillingPlansManager() {
                   professional: { label: "Professional", color: "#82ca9d" },
                   enterprise: { label: "Enterprise", color: "#ffc658" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={plans}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="mrr"
-                        label={({ name, mrr }) => `${name}: ${formatPrice(mrr)}`}
-                      >
-                        {plans.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={["#8884d8", "#82ca9d", "#ffc658"][index]} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Plan Popularity Trends</CardTitle>
-                <CardDescription>Customer acquisition by plan over time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={{
-                  basic: { label: "Basic", color: "#8884d8" },
-                  professional: { label: "Professional", color: "#82ca9d" },
-                  enterprise: { label: "Enterprise", color: "#ffc658" }
-                }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={planPerformanceData}>
+                  {/* Fix: Remove ResponsiveContainer for fixed dimensions */}
+                  <div style={{ width: '100%', height: '300px' }}>
+                    <LineChart data={planPerformanceData} width={1180} height={300}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -1070,7 +1044,41 @@ export default function BillingPlansManager() {
                       <Line type="monotone" dataKey="professional" stroke="#82ca9d" strokeWidth={2} />
                       <Line type="monotone" dataKey="enterprise" stroke="#ffc658" strokeWidth={2} />
                     </LineChart>
-                  </ResponsiveContainer>
+                  </div>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Plan Distribution</CardTitle>
+                <CardDescription>Current subscription distribution</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={{
+                  basic: { label: "Basic", color: "#8884d8" },
+                  professional: { label: "Professional", color: "#82ca9d" },
+                  enterprise: { label: "Enterprise", color: "#ffc658" }
+                }}>
+                  {/* Fix: Remove ResponsiveContainer for fixed dimensions */}
+                  <div style={{ width: '100%', height: '300px' }}>
+                    <PieChart width={1180} height={300}>
+                      <Pie
+                        data={planPerformanceData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="basic"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {planPerformanceData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={["#8884d8", "#82ca9d", "#ffc658"][index]} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </div>
                 </ChartContainer>
               </CardContent>
             </Card>

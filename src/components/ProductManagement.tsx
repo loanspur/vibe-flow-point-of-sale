@@ -19,14 +19,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
+import { useSoftWarnings } from '@/hooks/useSoftWarnings';
 import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
+
 import {
   Dialog,
   DialogContent,
@@ -72,15 +74,70 @@ interface Product {
   product_variants?: any[];
 }
 
-export default function ProductManagement({ refreshSignal }: { refreshSignal?: number }) {
+interface ProductManagementProps {
+  refreshSignal?: number;
+  onShowProductForm?: (show: boolean) => void;
+  onSetSelectedProduct?: (product: Product | null) => void;
+  showProductForm?: boolean;
+  selectedProduct?: Product | null;
+}
+
+export default function ProductManagement({ 
+  refreshSignal, 
+  onShowProductForm, 
+  onSetSelectedProduct,
+  showProductForm: externalShowProductForm,
+  selectedProduct: externalSelectedProduct
+}: ProductManagementProps) {
   const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const { formatCurrency } = useApp();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [locations, setLocations] = useState<any[]>([]);
+
+  // Centralized warning system
+  const {
+    showLowStockWarning,
+    showNegativeStockWarning,
+    showOutOfStockWarning,
+  } = useSoftWarnings();
+
+  // Function to show soft warnings for products
+  const showProductWarnings = (product: Product) => {
+    // Use centralized warning system
+    showLowStockWarning(product.name, product.stock_quantity);
+    showNegativeStockWarning(product.name, product.stock_quantity);
+    
+    // Out of stock warning
+    if (product.stock_quantity === 0) {
+      showOutOfStockWarning(product.name);
+    }
+  };
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const finalSelectedProduct = externalSelectedProduct !== undefined ? externalSelectedProduct : selectedProduct;
+  const finalShowProductForm = externalShowProductForm !== undefined ? externalShowProductForm : showProductForm;
+  
+  const setFinalSelectedProduct = (product: Product | null) => {
+    if (onSetSelectedProduct) {
+      onSetSelectedProduct(product);
+    } else {
+      setSelectedProduct(product);
+    }
+  };
+  
+  const setFinalShowProductForm = (show: boolean) => {
+    if (onShowProductForm) {
+      onShowProductForm(show);
+    } else {
+      setShowProductForm(show);
+    }
+  };
   const [activeTab, setActiveTab] = useState('products');
   const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
   const location = useLocation();
@@ -116,6 +173,29 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       });
    }, [activeFilter, tenantId]);
 
+  // Fetch locations for filter
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const fetchLocations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('store_locations')
+          .select('id, name')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) throw error;
+        setLocations(data || []);
+      } catch (error) {
+        console.error('Error fetching locations:', error);
+      }
+    };
+
+    fetchLocations();
+  }, [tenantId]);
+
   // Pagination and data fetching with optimized query
   const {
     data: products = [],
@@ -147,6 +227,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       is_combo_product,
       allow_negative_stock,
       cost_price,
+      retail_price,
+      wholesale_price,
       created_at,
       updated_at,
       product_categories(name),
@@ -165,7 +247,10 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
     {
       enabled: !!tenantId,
       searchTerm: searchTerm,
-      filters: { tenant_id: tenantId },
+      filters: { 
+        tenant_id: tenantId,
+        ...(locationFilter !== 'all' && { location_id: locationFilter })
+      },
       orderBy: { column: 'created_at', ascending: false },
       initialPageSize: 50
     }
@@ -275,7 +360,11 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           </TableHeader>
         <TableBody>
            {products.map((product) => (
-            <TableRow key={product.id}>
+            <TableRow 
+              key={product.id} 
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => showProductWarnings(product)}
+            >
               <TableCell>
                 <div className="flex items-center space-x-2 sm:space-x-3">
                   {product.image_url ? (
@@ -380,10 +469,10 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                    <Button 
                      variant="outline" 
                      size="sm"
-                     onClick={() => {
-                       setSelectedProduct(product);
-                       setShowProductForm(true);
-                     }}
+                                 onClick={() => {
+              setFinalSelectedProduct(product);
+              setFinalShowProductForm(true);
+            }}
                      className="h-8 w-8 sm:w-auto px-2"
                    >
                      <Edit className="h-3 w-3 sm:mr-1" />
@@ -481,39 +570,6 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Product Management</h2>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={refetch}
-            disabled={loading}
-            title="Refresh product data"
-            className="shrink-0"
-          >
-            <RotateCcw 
-              className={`h-4 w-4 mr-2 transition-transform duration-300 ${
-                loading ? 'animate-spin' : ''
-              }`} 
-            />
-            <span className="whitespace-nowrap">Refresh</span>
-          </Button>
-          <Button 
-            onClick={() => {
-              setSelectedProduct(null);
-              setShowProductForm(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
-        </div>
-      </div>
-
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
         <Card className="border-orange-200 bg-orange-50">
@@ -566,15 +622,30 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 className="pl-10"
               />
             </div>
-             <Select value={productTypeFilter} onValueChange={(value: 'all' | 'product') => setProductTypeFilter(value)}>
-               <SelectTrigger className="w-48">
-                 <SelectValue placeholder="Filter by type" />
+             <Select value={locationFilter} onValueChange={setLocationFilter}>
+               <SelectTrigger className="w-[180px]">
+                 <SelectValue placeholder="All Locations" />
                </SelectTrigger>
                <SelectContent>
-                 <SelectItem value="all">All Products</SelectItem>
-                 <SelectItem value="product">Active Products</SelectItem>
+                 <SelectItem value="all">All Locations</SelectItem>
+                 {locations.map((location) => (
+                   <SelectItem key={location.id} value={location.id}>
+                     {location.name}
+                   </SelectItem>
+                 ))}
                </SelectContent>
              </Select>
+            <Select value={activeFilter} onValueChange={setActiveFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                <SelectItem value="low-stock">Low Stock</SelectItem>
+                <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                <SelectItem value="expiring">Expiring Soon</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline">
               <Filter className="h-4 w-4 mr-2" />
               More Filters
@@ -592,8 +663,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                 </p>
                 <Button 
                   onClick={() => {
-                    setSelectedProduct(null);
-                    setShowProductForm(true);
+                    setFinalSelectedProduct(null);
+                    setFinalShowProductForm(true);
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -622,21 +693,21 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       </Tabs>
 
       {/* Product Form Dialog */}
-      <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+              <Dialog open={finalShowProductForm} onOpenChange={setFinalShowProductForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedProduct ? 'Edit Product' : 'Add New Product'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedProduct ? 'Update product information' : 'Create a new product with details, variants, and images'}
-            </DialogDescription>
+                          <DialogTitle>
+                {finalSelectedProduct ? 'Edit Product' : 'Add New Product'}
+              </DialogTitle>
+              <DialogDescription>
+                {finalSelectedProduct ? 'Update product information' : 'Create a new product with details, variants, and images'}
+              </DialogDescription>
           </DialogHeader>
           <ProductForm
-            product={selectedProduct}
+            product={finalSelectedProduct}
             onSuccess={() => {
-              setShowProductForm(false);
-              setSelectedProduct(null);
+              setFinalShowProductForm(false);
+              setFinalSelectedProduct(null);
               // Refresh products after successful form submission
               if (refreshTimeoutRef.current) {
                 clearTimeout(refreshTimeoutRef.current);
@@ -644,8 +715,8 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
             }}
             onCancel={() => {
-              setShowProductForm(false);
-              setSelectedProduct(null);
+              setFinalShowProductForm(false);
+              setFinalSelectedProduct(null);
             }}
           />
         </DialogContent>

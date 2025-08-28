@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import BillingManagement from "./BillingManagement";
 import { DocumentTemplateEditor } from "./DocumentTemplateEditor";
-import { DataMigration } from "./DataMigration";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -61,7 +61,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
 import { currencies, stockAccountingMethods, smsProviders, templateOptions } from "@/lib/currencies";
 import { timezones } from "@/lib/timezones";
@@ -70,8 +70,6 @@ const COUNTRY_LIST = [
   'United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Australia', 
   'Japan', 'China', 'India', 'Brazil', 'Mexico', 'South Africa', 'Nigeria', 'Kenya'
 ];
-import { clearCurrencyCache } from "@/lib/currency";
-import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { RestrictedSetting } from "@/components/FeatureRestriction";
 import DomainManagement from '@/components/DomainManagement';
@@ -615,13 +613,7 @@ export function BusinessSettingsEnhanced() {
                 <span className="font-medium">Locations</span>
               </TabsTrigger>
               
-              <TabsTrigger 
-                value="migration" 
-                className="group relative flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all duration-300 hover:scale-105 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50"
-              >
-                <Database className="h-4 w-4 transition-transform group-hover:scale-110" />
-                <span className="font-medium">Migration</span>
-              </TabsTrigger>
+
             </TabsList>
           </div>
 
@@ -878,171 +870,7 @@ export function BusinessSettingsEnhanced() {
                     </CardContent>
                   </Card>
 
-                  {/* Product Settings Card */}
-                  <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                    <CardHeader className="pb-6">
-                      <CardTitle className="flex items-center gap-3 text-2xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                          <Package className="h-6 w-6 text-primary" />
-                        </div>
-                        Product Settings
-                      </CardTitle>
-                      <CardDescription className="text-base">
-                        Configure product features and inventory settings
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="enable_brands"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Product Brands</FormLabel>
-                              <FormDescription>
-                                Enable brand management for products
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_product_units"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Product Units</FormLabel>
-                              <FormDescription>
-                                Enable units of measure and conversions
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_product_expiry"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Product Expiry Tracking</FormLabel>
-                              <FormDescription>
-                                Track expiry dates for products across the system
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_barcode_scanning"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Barcode Scanning</FormLabel>
-                              <FormDescription>
-                                Enable barcode scanning for products
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="auto_generate_sku"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Auto Generate SKU</FormLabel>
-                              <FormDescription>
-                                Automatically generate SKUs for new products
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="enable_negative_stock"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Allow Negative Stock</FormLabel>
-                              <FormDescription>
-                                Allow products to have negative inventory
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="stock_accounting_method"
-                        render={({ field }) => {
-                          const isFifo = (field.value || 'FIFO') === 'FIFO';
-                          return (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">Use FIFO Costing</FormLabel>
-                                <FormDescription>
-                                  When enabled, Cost of Goods uses FIFO (First-In, First-Out). When off, uses Weighted Average Cost.
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={isFifo}
-                                  onCheckedChange={(checked) => field.onChange(checked ? 'FIFO' : 'WAC')}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          );
-                        }}
-                      />
-                    </CardContent>
-                  </Card>
+
                 </div>
                 
                 {/* Company Tab Actions */}
@@ -1693,44 +1521,7 @@ export function BusinessSettingsEnhanced() {
                 </Dialog>
               </TabsContent>
 
-              {/* Data Migration Tab */}
-              <TabsContent value="migration" className="space-y-8 mt-0">
-                <Card className="border-0 shadow-xl bg-gradient-to-br from-card to-card/50">
-                  <CardHeader className="pb-6">
-                    <CardTitle className="flex items-center gap-3 text-2xl">
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                        <Database className="h-6 w-6 text-primary" />
-                      </div>
-                      Data Migration
-                    </CardTitle>
-                    <CardDescription className="text-base">
-                      Import and export your business data including contacts, products, and categories
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <DataMigration />
-                  </CardContent>
-                </Card>
-                
-                {/* Migration Tab Actions */}
-                <div className="flex justify-end gap-3 pt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => form.reset()}
-                    className="hover:bg-muted/80 border-dashed transition-all duration-300 hover:scale-105"
-                  >
-                    Reset Changes
-                  </Button>
-                  <Button 
-                    onClick={() => onSubmit(form.getValues())} 
-                    disabled={isSaving}
-                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg transition-all duration-300 hover:scale-105"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save Changes"}
-                  </Button>
-                </div>
-              </TabsContent>
+
           </form>
         </Form>
         </Tabs>

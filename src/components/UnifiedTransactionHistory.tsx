@@ -351,7 +351,7 @@ export function UnifiedTransactionHistory({
         },
         () => fetchTransactions()
       )
-      .subscribe();
+      // .subscribe(); // DISABLED
 
     return () => {
       supabase.removeChannel(channel);

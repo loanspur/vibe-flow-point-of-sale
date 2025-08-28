@@ -22,6 +22,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useEnsureBaseUnitPcs } from "@/hooks/useEnsureBaseUnitPcs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PaymentProcessor } from "./PaymentProcessor";
+import { EnhancedPaymentProcessor } from "./EnhancedPaymentProcessor";
+import { ShippingSection } from "./ShippingSection";
+import { InvoiceGenerator } from "./InvoiceGenerator";
 import { MpesaPaymentModal } from "./MpesaPaymentModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,17 +32,29 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useAuth } from "@/contexts/AuthContext";
-
+import { useApp } from "@/contexts/AppContext";
 
 import { sendCommunicationWithSettings } from '@/lib/communicationSettingsIntegration';
 import { fetchCustomersFromContacts } from '@/lib/customerUtils';
-// Remove unused imports related to old inventory system
 import { getInventoryLevels } from "@/lib/inventory-integration";
-import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useSoftWarnings } from "@/hooks/useSoftWarnings";
+import { useCommonData } from "@/hooks/useCommonData";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, WARNING_MESSAGES } from '@/utils/errorMessages';
 import { generateReceiptNumber, calculateSaleTotal, validateSaleData, prepareSaleItemsData, updateCashDrawer } from '@/utils/saleHelpers';
 import type { SaleItem as SaleItemType, PaymentRecord } from '@/utils/saleHelpers';
+import { 
+  validateQuantity, 
+  validateLocation, 
+  validateProduct, 
+  calculateTotalPrice, 
+  calculateSubtotal, 
+  calculateTotal,
+  validateStockAvailability,
+  validateCustomerCredit,
+  generateUniqueId
+} from '@/utils/commonUtils';
 
 // Enhanced StockBadge component with stable state management
 const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, locationName }: {
@@ -126,17 +141,32 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const { tenantId } = useAuth();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
-  const { formatAmount } = useCurrencyUpdate();
+  const { formatCurrency } = useApp();
   
   const { pos: posSettings, tax: taxSettings, inventory: inventorySettings, documents: docSettings } = useBusinessSettings();
   
+  // Centralized warning system
+  const {
+    showLowStockWarning,
+    showNegativeStockWarning,
+    showOutOfStockWarning,
+    showWholesalePricingWarning,
+    showCreditLimitWarning,
+    showCreditLimitAlert,
+    showOversellingWarning,
+    showInsufficientStockError,
+    showCustomerCreditInfo,
+    showOversellingConfirmation,
+    showWholesalePricingInfo,
+  } = useSoftWarnings();
+  
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [locations, setLocations] = useState<any[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>(localStorage.getItem('selected_location') || '');
+  
+  // Centralized data management
+  const { products, customers, locations, loading: dataLoading, error: dataError, refreshData } = useCommonData();
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   
   // Location handler with persistence
   const handleLocationChange = (value: string) => {
@@ -158,11 +188,22 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const [showMpesaModal, setShowMpesaModal] = useState(false);
   const [mpesaEnabled, setMpesaEnabled] = useState(false);
   const [cashAmountPaid, setCashAmountPaid] = useState(0);
+  
+  // Enhanced payment and shipping state
+  const [enhancedPayments, setEnhancedPayments] = useState<any[]>([]);
+  const [shippingAgentId, setShippingAgentId] = useState<string | null>(null);
+  const [shippingFee, setShippingFee] = useState(0);
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [shippingIncludedInTotal, setShippingIncludedInTotal] = useState(true);
+  const [showInvoiceGenerator, setShowInvoiceGenerator] = useState(false);
+  const [generatedInvoiceId, setGeneratedInvoiceId] = useState<string | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>({ id: 'walk-in', name: 'Walk-in Customer' });
 
   const form = useForm<z.infer<typeof saleSchema>>({
     resolver: zodResolver(saleSchema),
     defaultValues: {
       sale_type: "in_store",
+      customer_id: "walk-in",
       discount_amount: 0,
       tax_amount: 0,
       shipping_amount: 0,
@@ -175,16 +216,15 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
   useEffect(() => {
     if (tenantId) {
-      fetchProducts();
-      fetchCustomers();
-      fetchLocations();
-      checkMpesaConfig();
-      fetchBusinessSettings();
+      // Parallel data fetching for better performance
+      Promise.all([
+        checkMpesaConfig(),
+        fetchBusinessSettings()
+      ]).catch(error => {
+        console.error('Error during data fetching:', error);
+      });
     } else {
-      setProducts([]);
       setFilteredProducts([]);
-      setCustomers([]);
-      setLocations([]);
       setMpesaEnabled(false);
       setBusinessSettings(null);
     }
@@ -199,7 +239,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     try {
       const { data, error } = await supabase
         .from('business_settings')
-        .select('tax_inclusive, default_tax_rate')
+        .select('tax_inclusive, default_tax_rate, enable_overselling, enable_negative_stock')
         .eq('tenant_id', tenantId)
         .maybeSingle();
 
@@ -237,141 +277,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     return () => clearTimeout(timeoutId);
   }, [filteredProductsStable]);
 
-  const fetchProducts = async () => {
-    if (!tenantId) {
-      console.warn('No tenant ID available for fetching products');
-      toast({
-        title: "Authentication Issue",
-        description: "Please refresh the page and log in again.",
-        variant: "destructive",
-      });
-      setProducts([]);
-      setFilteredProducts([]);
-      setIsLoadingProducts(false);
-      return;
-    }
-    
-    setIsLoadingProducts(true);
-    
-    try {
-      const { data: products, error } = await supabase
-        .from('products')
-        .select(`
-          id,
-          name,
-          sku,
-          barcode,
-          price,
-          stock_quantity,
-          min_stock_level,
-          image_url,
-          is_active,
-          unit_id,
-          product_units (
-            id,
-            name,
-            abbreviation
-          ),
-          product_variants (
-            id,
-            name,
-            value,
-            sku,
-            sale_price,
-            stock_quantity
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('name');
 
-      if (error) {
-        console.error('Error fetching products:', error);
-        throw error;
-      }
-      
-      console.log(`Loaded ${products?.length || 0} products`);
-      
-      if (products && Array.isArray(products)) {
-        setProducts(products);
-        setFilteredProducts(products);
-      } else {
-        console.warn('No products data received');
-        setProducts([]);
-        setFilteredProducts([]);
-      }
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      
-      let errorMessage = "Failed to fetch products. Please try again.";
-      if (error?.message?.includes('JWT')) {
-        errorMessage = "Session expired. Please refresh the page and try again.";
-      } else if (error?.message?.includes('permission')) {
-        errorMessage = "You don't have permission to view products.";
-      }
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      
-      setProducts([]);
-      setFilteredProducts([]);
-    } finally {
-      setIsLoadingProducts(false);
-    }
-  };
-
-  const fetchCustomers = async () => {
-    if (!tenantId) {
-      console.warn('No tenant ID available for fetching customers');
-      setCustomers([]);
-      return;
-    }
-    
-    try {
-      const customersData = await fetchCustomersFromContacts(tenantId);
-      setCustomers(customersData);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      setCustomers([]);
-    }
-  };
-
-  const fetchLocations = async () => {
-    if (!tenantId) {
-      setLocations([]);
-      return;
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from("store_locations")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("is_active", true)
-        .order("name");
-      
-      if (error) {
-        console.error('Error fetching locations:', error);
-        return;
-      }
-      
-      if (data && Array.isArray(data)) {
-        setLocations(data);
-        // Set first location as default if no location is selected
-        if (data.length > 0 && !selectedLocation) {
-          setSelectedLocation(data[0].id);
-        }
-      } else {
-        setLocations([]);
-      }
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-      setLocations([]);
-    }
-  };
 
 // Remove redundant inventory fetching - now using direct stock calculation
 
@@ -507,32 +413,44 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       saleItemsLength: saleItems.length
     });
 
-    const product = products.find(p => p.id === selectedProduct);
-    if (!product) {
-      console.error('Product not found:', selectedProduct);
+    // Centralized validation
+    const productValidation = validateProduct(selectedProduct);
+    if (!productValidation.isValid) {
       toast({
         title: "Error",
-        description: "Please select a valid product",
+        description: productValidation.error,
         variant: "destructive",
       });
       return;
     }
 
-    if (quantity <= 0) {
-      console.error('Invalid quantity:', quantity);
+    const quantityValidation = validateQuantity(quantity);
+    if (!quantityValidation.isValid) {
       toast({
         title: "Invalid Quantity",
-        description: "Please enter a valid quantity greater than 0",
+        description: quantityValidation.error,
         variant: "destructive",
       });
       return;
     }
 
-    if (!selectedLocation) {
-      console.error('No location selected');
+    const locationValidation = validateLocation(selectedLocation);
+    if (!locationValidation.isValid) {
       toast({
         title: "Location Required",
-        description: "Please select a location before adding products to the sale",
+        description: locationValidation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const product = products.find(p => p.id === selectedProduct);
+
+    // Check if product has variants but no variant is selected
+    if (product.product_variants && product.product_variants.length > 0 && (!selectedVariant || selectedVariant === "")) {
+      toast({
+        title: "Variant Required",
+        description: "This product has variants. Please select a variant before adding to sale.",
         variant: "destructive",
       });
       return;
@@ -559,18 +477,45 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       }
     }
     
-    // Check business settings for negative stock - use both inventory and product settings  
+    // Centralized stock validation and warnings
     const allowNegativeStock = inventorySettings.enableNegativeStock || false;
-    console.log('Negative stock settings:', { allowNegativeStock, currentStock, quantity });
+    const allowOverselling = businessSettings?.enable_overselling || false;
+    const locationName = locations.find(loc => loc.id === selectedLocation)?.name;
     
-    if (!allowNegativeStock && currentStock < quantity) {
-      const locationName = locations.find(loc => loc.id === selectedLocation)?.name || 'selected location';
-      toast({
-        title: "Insufficient Stock at Location",
-        description: `Only ${currentStock} units available at ${locationName}. Enable negative stock in business settings to oversell.`,
-        variant: "destructive",
-      });
+    console.log('Stock settings:', { allowNegativeStock, allowOverselling, currentStock, quantity });
+    
+    // Show low stock warning
+    showLowStockWarning(product.name, currentStock, locationName);
+    
+    // Validate stock availability
+    const stockValidation = validateStockAvailability(currentStock, quantity, allowNegativeStock, allowOverselling);
+    if (!stockValidation.isValid) {
+      showInsufficientStockError(product.name, quantity, currentStock, locationName);
       return;
+    }
+    
+    // Show enhanced overselling warning if applicable
+    if (stockValidation.warning) {
+      if (allowOverselling) {
+        // Show confirmation dialog for overselling when enabled
+        showOversellingConfirmation(
+          product.name, 
+          quantity, 
+          currentStock, 
+          () => {
+            // Continue with adding item
+            console.log('Overselling confirmed, continuing...');
+          },
+          () => {
+            // Cancel adding item
+            console.log('Overselling cancelled');
+            return;
+          }
+        );
+      } else {
+        // Show regular overselling warning
+        showOversellingWarning(product.name, quantity, currentStock, locationName);
+      }
     }
 
     let variant = null;
@@ -607,6 +552,43 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     });
 
     if (existingItemIndex !== -1) {
+      // Check if the new total quantity would exceed stock
+      const newTotalQuantity = saleItems[existingItemIndex].quantity + quantity;
+      
+      // Centralized validation for existing item updates
+      const stockValidation = validateStockAvailability(currentStock, newTotalQuantity, allowNegativeStock, allowOverselling);
+      if (!stockValidation.isValid) {
+        showInsufficientStockError(product.name, newTotalQuantity, currentStock, locationName);
+        return;
+      }
+      
+      // Show enhanced overselling warning if applicable
+      if (stockValidation.warning) {
+        if (allowOverselling) {
+          // Show confirmation dialog for overselling when enabled
+          showOversellingConfirmation(
+            product.name, 
+            newTotalQuantity, 
+            currentStock, 
+            () => {
+              // Continue with updating item
+              console.log('Overselling confirmed for existing item, continuing...');
+            },
+            () => {
+              // Cancel updating item
+              console.log('Overselling cancelled for existing item');
+              return;
+            }
+          );
+        } else {
+          // Show regular overselling warning
+          showOversellingWarning(product.name, newTotalQuantity, currentStock, locationName);
+        }
+      }
+      
+      // Show low stock warning for existing items
+      showLowStockWarning(product.name, currentStock, locationName);
+      
       // Update existing item quantity
       const updatedItems = [...saleItems];
       updatedItems[existingItemIndex].quantity += quantity;
@@ -639,10 +621,30 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       
       console.log('New sale items array:', newSaleItems);
       
-      toast({
-        title: "Item Added",
-        description: `Added ${productName} to sale`,
-      });
+      // Show out of stock warning if adding item with zero stock
+      if (currentStock === 0 && allowOverselling) {
+        showOutOfStockWarning(productName, locationName, true);
+      } else {
+        toast({
+          title: "Item Added",
+          description: `Added ${productName} to sale`,
+        });
+      }
+      
+      // Show wholesale pricing information for reseller customers
+      if (selectedCustomer?.is_reseller) {
+        const retailPrice = product.retail_price || product.price;
+        const wholesalePrice = product.wholesale_price || product.price;
+        if (retailPrice !== wholesalePrice && unitPrice === wholesalePrice) {
+          showWholesalePricingInfo(selectedCustomer.name, productName, retailPrice, wholesalePrice);
+        }
+      }
+      
+      // Check credit limit warnings for customers with credit limits
+      const newTotal = calculateSubtotal() + (form.getValues("tax_amount") || 0) + (form.getValues("shipping_amount") || 0) - (form.getValues("discount_amount") || 0);
+      if (selectedCustomer && selectedCustomer.id !== 'walk-in' && selectedCustomer.credit_limit) {
+        showCreditLimitAlert(selectedCustomer.name, selectedCustomer.current_credit_balance || 0, selectedCustomer.credit_limit, newTotal);
+      }
     }
 
     setSelectedProduct("");
@@ -728,14 +730,87 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     setRemainingBalance(newRemainingBalance);
   };
 
-  const handleCashPayment = (paymentAmount: number, totalAmount: number) => {
-    if (paymentAmount > totalAmount) {
-      setCashAmountPaid(paymentAmount);
+  const handleCashPayment = (amount: number) => {
+    const totalAmount = calculateTotal();
+    if (amount > totalAmount) {
+      setCashAmountPaid(amount);
       setShowCashChangeModal(true);
       return false; // Don't add payment yet
     }
     return true; // Proceed with normal payment
   };
+
+  // Enhanced payment and shipping handlers
+  const handleEnhancedPaymentsChange = (newPayments: any[], newRemainingBalance: number) => {
+    setEnhancedPayments(newPayments);
+    setRemainingBalance(newRemainingBalance);
+  };
+
+  const handleShippingChange = (data: {
+    agentId: string | null;
+    fee: number;
+    address: string;
+    includedInTotal: boolean;
+  }) => {
+    setShippingAgentId(data.agentId);
+    setShippingFee(data.fee);
+    setShippingAddress(data.address);
+    setShippingIncludedInTotal(data.includedInTotal);
+    
+    // Update form shipping amount if included in total
+    if (data.includedInTotal) {
+      form.setValue('shipping_amount', data.fee);
+    } else {
+      form.setValue('shipping_amount', 0);
+    }
+  };
+
+  const handleInvoiceGenerated = (invoiceId: string) => {
+    setGeneratedInvoiceId(invoiceId);
+    setShowInvoiceGenerator(false);
+  };
+
+  const handleCustomerChange = (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    setSelectedCustomer(customer || { id: 'walk-in', name: 'Walk-in Customer' });
+    
+    // Show enhanced wholesale pricing warning for reseller customers
+    if (customer?.is_reseller) {
+      showWholesalePricingWarning(customer.name);
+      
+      // Show detailed pricing info for the first product if available
+      if (products.length > 0) {
+        const firstProduct = products[0];
+        const retailPrice = firstProduct.retail_price || firstProduct.price;
+        const wholesalePrice = firstProduct.wholesale_price || firstProduct.price;
+        if (retailPrice !== wholesalePrice) {
+          showWholesalePricingInfo(customer.name, firstProduct.name, retailPrice, wholesalePrice);
+        }
+      }
+    }
+    
+    // Show credit limit information for customers with credit limits
+    if (customer && customer.credit_limit && customer.credit_limit > 0) {
+      showCustomerCreditInfo(customer.name, customer.current_credit_balance || 0, customer.credit_limit);
+    }
+  };
+
+  const getCustomerAppropriatePrice = (product: any, variant?: any) => {
+    if (selectedCustomer?.is_reseller) {
+      // Return wholesale price for resellers
+      if (variant) {
+        return variant.wholesale_price || variant.sale_price || product.wholesale_price || product.price;
+      }
+      return product.wholesale_price || product.price;
+    }
+    // Return retail price for regular customers
+    if (variant) {
+      return variant.retail_price || variant.sale_price || product.retail_price || product.price;
+    }
+    return product.retail_price || product.price;
+  };
+
+
 
   const confirmCashPayment = () => {
     const totalAmount = calculateTotal();
@@ -746,7 +821,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       id: Date.now().toString(),
       method: 'cash',
       amount: totalAmount, // Only record the exact amount needed
-      reference: `Cash received: ${formatAmount(cashAmountPaid)} - Change: ${formatAmount(changeAmount)}`
+      reference: `Cash received: ${formatCurrency(cashAmountPaid)} - Change: ${formatCurrency(changeAmount)}`
     };
     
     setPayments([cashPayment]);
@@ -983,7 +1058,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return;
     }
 
-    const hasCreditPayment = payments.some(p => p.method === 'credit');
+    const hasCreditPayment = payments.some(p => p.method.toLowerCase().includes('credit'));
     
     // Auto-fetch first customer (non-walk-in) for credit sales
     if (hasCreditPayment && (!values.customer_id || values.customer_id === "walk-in")) {
@@ -1023,7 +1098,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const completeSale = async () => {
     console.log('completeSale function called');
     const values = form.getValues();
-    const hasCreditPayment = payments.some(p => p.method === 'credit');
+    const hasCreditPayment = payments.some(p => p.method.toLowerCase().includes('credit'));
 
     setIsSubmitting(true);
     setShowConfirmation(false);
@@ -1082,7 +1157,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         if (paymentError) throw paymentError;
 
         // Update cash drawer for cash payments using helper
-        const cashPayments = payments.filter(p => p.method === 'cash');
+        const cashPayments = payments.filter(p => p.method.toLowerCase().includes('cash'));
         await updateCashDrawer(tenantId, user.id, cashPayments, receiptNumber, sale.id);
       }
 
@@ -1166,7 +1241,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                   customer_name: customer?.name || 'Customer',
                   total_amount: totalAmount,
                   created_at: new Date().toISOString(),
-                  payment_method: payments.length > 0 ? payments[0].method : 'cash',
+                  payment_method: payments.length > 0 ? payments[0].method : 'Cash',
                   items: saleItems.map(item => ({
                     product_name: item.product_name,
                     quantity: item.quantity,
@@ -1312,11 +1387,14 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                 <div className="space-y-1">
                                   <p className="font-medium text-sm">{product.name}</p>
                                   <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
+                                  {product.brands && (
+                                    <p className="text-xs text-muted-foreground">Brand: {product.brands.name}</p>
+                                  )}
                                   {product.product_units && (
                                     <p className="text-xs text-muted-foreground">Unit: {product.product_units.name} ({product.product_units.abbreviation})</p>
                                   )}
                                   <p className="text-sm font-semibold text-green-600">
-                                    {formatAmount(product.price)}
+                                    {formatCurrency(product.price)}
                                   </p>
                                 </div>
                                  <div className="text-right">
@@ -1354,7 +1432,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                  <div className="flex items-center gap-2">
                                    <Package className="h-4 w-4" />
                                    <span className="font-medium">{product.name}</span>
-                                    <Badge variant="secondary">{formatAmount(product.price)}</Badge>
+                                    <Badge variant="secondary">{formatCurrency(product.price)}</Badge>
                                      {selectedLocation && (
                                        <StockBadge 
                                          productId={product.id}
@@ -1391,7 +1469,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                          <SelectItem value="no-variant">No variant</SelectItem>
                                          {product.product_variants.map((variant: any) => (
                                            <SelectItem key={variant.id} value={variant.id}>
-                                             {variant.name}: {variant.value} - {formatAmount(variant.sale_price || product.price)}
+                                             {variant.name}: {variant.value} - {formatCurrency(variant.sale_price || product.price)}
                                            </SelectItem>
                                          ))}
                                        </SelectContent>
@@ -1413,7 +1491,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                            defaultPrice = variant.sale_price || product.price;
                                          }
                                        }
-                                       return `Default: ${formatAmount(defaultPrice)}`;
+                                       return `Default: ${formatCurrency(defaultPrice)}`;
                                      })()}
                                      value={customPrice || ""}
                                      onChange={(e) => setCustomPrice(e.target.value ? parseFloat(e.target.value) : null)}
@@ -1447,14 +1525,20 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                          placeholder="Enter quantity"
                                        />
                                     </div>
-                                    <Button 
-                                      onClick={async () => await addItemToSale()} 
-                                      className="mt-6"
-                                      disabled={!selectedProduct || !selectedLocation}
-                                    >
-                                      <Plus className="h-4 w-4 mr-2" />
-                                      Add
-                                    </Button>
+                                                                         <Button 
+                                       onClick={async () => await addItemToSale()} 
+                                       className="mt-6"
+                                       disabled={
+                                         !selectedProduct || 
+                                         !selectedLocation || 
+                                         (product.product_variants && 
+                                          product.product_variants.length > 0 && 
+                                          (!selectedVariant || selectedVariant === ""))
+                                       }
+                                     >
+                                       <Plus className="h-4 w-4 mr-2" />
+                                       Add
+                                     </Button>
                                  </div>
                               </div>
                             );
@@ -1477,11 +1561,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{item.product_name}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {item.quantity} × {formatAmount(item.unit_price)}
+                                    {item.quantity} × {formatCurrency(item.unit_price)}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold">{formatAmount(item.total_price)}</span>
+                                  <span className="font-semibold">{formatCurrency(item.total_price)}</span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1542,7 +1626,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                         <FormItem>
                           <FormLabel>Customer</FormLabel>
                           <div className="flex gap-1">
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={(value) => {
+                              field.onChange(value);
+                              handleCustomerChange(value);
+                            }} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select customer" />
@@ -1557,7 +1644,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                 ))}
                               </SelectContent>
                             </Select>
-                            <QuickCreateCustomerDialog onCustomerCreated={fetchCustomers} />
+                                                         <QuickCreateCustomerDialog onCustomerCreated={refreshData} />
                           </div>
                           <FormMessage />
                         </FormItem>
@@ -1616,12 +1703,12 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                   <div className="space-y-2">
                     <div className="flex justify-between text-lg">
                       <span>Subtotal</span>
-                      <span className="font-bold">{formatAmount(calculateSubtotal())}</span>
+                      <span className="font-bold">{formatCurrency(calculateSubtotal())}</span>
                     </div>
                      {posSettings.enableDiscounts && form.watch("discount_amount") > 0 && (
                        <div className="flex justify-between text-red-600">
                          <span>Discount</span>
-                         <span className="font-semibold">-{formatAmount(form.watch("discount_amount"))}</span>
+                         <span className="font-semibold">-{formatCurrency(form.watch("discount_amount"))}</span>
                        </div>
                      )}
                   </div>
@@ -1677,30 +1764,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                      />
                    </div>
 
-                   <div className="grid grid-cols-2 gap-4">
-                     <FormField
-                       control={form.control}
-                       name="shipping_amount"
-                       render={({ field }) => (
-                         <FormItem>
-                           <FormLabel className="flex items-center gap-1 text-sm">
-                             <Truck className="h-3 w-3" />
-                             Shipping
-                           </FormLabel>
-                           <FormControl>
-                             <Input
-                               type="number"
-                               min="0"
-                               step="0.01"
-                               {...field}
-                               onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                             />
-                           </FormControl>
-                           <FormMessage />
-                         </FormItem>
-                       )}
-                     />
-                   </div>
+                   
 
                   {/* Tax and Shipping amounts display */}
                   {(form.watch("tax_amount") > 0 || form.watch("shipping_amount") > 0) && (
@@ -1708,13 +1772,13 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                       {form.watch("tax_amount") > 0 && (
                         <div className="flex justify-between text-sm">
                           <span>Tax</span>
-                          <span className="font-semibold">+{formatAmount(form.watch("tax_amount"))}</span>
+                          <span className="font-semibold">+{formatCurrency(form.watch("tax_amount"))}</span>
                         </div>
                       )}
                       {form.watch("shipping_amount") > 0 && (
                         <div className="flex justify-between text-sm">
                           <span>Shipping</span>
-                          <span className="font-semibold">+{formatAmount(form.watch("shipping_amount"))}</span>
+                          <span className="font-semibold">+{formatCurrency(form.watch("shipping_amount"))}</span>
                         </div>
                       )}
                     </div>
@@ -1725,43 +1789,48 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                   {/* Final Total - before payment selection */}
                   <div className="flex justify-between text-2xl font-bold">
                     <span>Total</span>
-                    <span>{formatAmount(calculateTotal())}</span>
+                    <span>{formatCurrency(calculateTotal())}</span>
                   </div>
 
-                  {/* Payment Section - after total */}
-                  {mode === "sale" && (
-                    <div className="space-y-4">
-                      <Separator />
-                      <div>
-                        <h4 className="font-medium mb-3 flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" />
-                          Payment
-                        </h4>
-                         <PaymentProcessor
-                           totalAmount={calculateTotal()}
-                           onPaymentsChange={handlePaymentsChange}
-                           onCashPayment={handleCashPayment}
-                         />
-                         
-                         {mpesaEnabled && (
-                           <div className="mt-4">
-                             <Separator />
-                             <div className="pt-4">
-                               <Button
-                                 type="button"
-                                 onClick={handleMpesaPayment}
-                                 className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                 disabled={calculateTotal() <= 0}
-                               >
-                                 <Smartphone className="h-4 w-4 mr-2" />
-                                 Pay with M-Pesa
-                               </Button>
-                             </div>
-                           </div>
-                         )}
-                      </div>
-                    </div>
-                  )}
+                                     {/* Payment Section - after total */}
+                   {mode === "sale" && (
+                     <div className="space-y-4">
+                       <Separator />
+                       <div>
+                         <h4 className="font-medium mb-3 flex items-center gap-2">
+                           <CreditCard className="h-4 w-4" />
+                           Payment
+                         </h4>
+                          <EnhancedPaymentProcessor
+                            totalAmount={calculateTotal()}
+                            payments={enhancedPayments}
+                            onPaymentsChange={handleEnhancedPaymentsChange}
+                            selectedCustomer={selectedCustomer}
+                            onCashPayment={handleCashPayment}
+                            onMpesaPayment={handleMpesaPayment}
+                            mpesaEnabled={mpesaEnabled}
+                          />
+                       </div>
+                     </div>
+                   )}
+
+                   {/* Shipping Section */}
+                   <div className="space-y-4">
+                     <Separator />
+                     <div>
+                       <h4 className="font-medium mb-3 flex items-center gap-2">
+                         <Truck className="h-4 w-4" />
+                         Shipping
+                       </h4>
+                       <ShippingSection
+                         shippingAgentId={shippingAgentId}
+                         shippingFee={shippingFee}
+                         shippingAddress={shippingAddress}
+                         shippingIncludedInTotal={shippingIncludedInTotal}
+                         onShippingChange={handleShippingChange}
+                       />
+                     </div>
+                   </div>
 
                   <div className="flex gap-2 pt-4">
                     {mode === "sale" ? (
@@ -1804,7 +1873,6 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         onConfirm={confirmCashPayment}
         amountPaid={cashAmountPaid}
         totalAmount={calculateTotal()}
-        formatAmount={formatAmount}
       />
 
       <MpesaPaymentModal

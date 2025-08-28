@@ -320,17 +320,16 @@ export default function SuperAdminSecurity() {
                   blocked: { label: "Blocked", color: "#22c55e" },
                   resolved: { label: "Resolved", color: "#3b82f6" }
                 }}>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={securityTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="incidents" stroke="#ef4444" strokeWidth={2} />
-                      <Line type="monotone" dataKey="blocked" stroke="#22c55e" strokeWidth={2} />
-                      <Line type="monotone" dataKey="resolved" stroke="#3b82f6" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {/* Fixed: Remove ResponsiveContainer */}
+                  <LineChart data={securityTrends} width={533} height={200}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="incidents" stroke="#ef4444" strokeWidth={2} />
+                    <Line type="monotone" dataKey="blocked" stroke="#22c55e" strokeWidth={2} />
+                    <Line type="monotone" dataKey="resolved" stroke="#3b82f6" strokeWidth={2} />
+                  </LineChart>
                 </ChartContainer>
               </CardContent>
             </Card>
@@ -531,23 +530,23 @@ export default function SuperAdminSecurity() {
                   medium: { label: "Medium", color: "#eab308" },
                   low: { label: "Low", color: "#22c55e" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={vulnerabilityData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="count"
-                        label={({ severity, count }) => `${severity}: ${count}`}
-                      >
-                        {vulnerabilityData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {/* Fixed: Remove ResponsiveContainer */}
+                  <PieChart width={533} height={300}>
+                    <Pie
+                      data={vulnerabilityData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                      label={({ severity, count }) => `${severity}: ${count}`}
+                    >
+                      {vulnerabilityData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                  </PieChart>
                 </ChartContainer>
               </CardContent>
             </Card>

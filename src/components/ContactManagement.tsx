@@ -13,9 +13,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-import { Users, UserPlus, Link, Edit, Trash2, Phone, Mail, MapPin, Plus, UserCheck, Building, Eye } from 'lucide-react';
+import { Users, UserPlus, Link, Edit, Trash2, Phone, Mail, MapPin, Plus, UserCheck, Building, Eye, FileText, MoreHorizontal, ArrowUpDown, Filter, Truck } from 'lucide-react';
 import ContactDetails from './ContactDetails';
+import { CustomerStatement } from './CustomerStatement';
+import { useApp } from '@/contexts/AppContext';
 
 interface Contact {
   id: string;
@@ -24,6 +28,7 @@ interface Contact {
   phone: string;
   company: string;
   address: string;
+  shipping_address?: string;
   type: string;
   notes: string;
   is_active: boolean;
@@ -31,6 +36,13 @@ interface Contact {
   tenant_id: string;
   created_at: string;
   is_commission_agent: boolean;
+  is_reseller: boolean;
+  credit_limit: number | null;
+  current_credit_balance: number | null;
+  // Shipping agent specific fields
+  shipping_fee?: number;
+  shipping_zones?: string[];
+  shipping_documents?: any;
 }
 
 interface UserProfile {
@@ -45,13 +57,15 @@ const CONTACT_TYPES = [
   { value: 'supplier', label: 'Supplier', icon: Building },
   { value: 'sales_rep', label: 'Sales Representative', icon: UserCheck },
   { value: 'vendor', label: 'Vendor', icon: Building },
-  { value: 'partner', label: 'Partner', icon: Users }
+  { value: 'partner', label: 'Partner', icon: Users },
+  { value: 'shipping_agent', label: 'Shipping Agent', icon: Truck }
 ];
 
 const ContactManagement = () => {
   const { tenantId, userRole, user } = useAuth();
   const { toast } = useToast();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
+  const { formatCurrency } = useApp();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,9 +74,16 @@ const ContactManagement = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [userContact, setUserContact] = useState<Contact | null>(null);
   const [isContactDetailsOpen, setIsContactDetailsOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isStatementOpen, setIsStatementOpen] = useState(false);
+  const [statementCustomerId, setStatementCustomerId] = useState<string | undefined>();
+  
+  // Table states for each contact type
+  const [sortField, setSortField] = useState<string>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterCompany, setFilterCompany] = useState<string>('');
   
   // Form states
   const [formData, setFormData] = useState({
@@ -71,16 +92,22 @@ const ContactManagement = () => {
     phone: '',
     company: '',
     address: '',
+    shipping_address: '',
     type: 'customer',
     notes: '',
-    is_commission_agent: false
+    is_commission_agent: false,
+    is_reseller: false,
+    credit_limit: 0,
+    // Shipping agent specific fields
+    shipping_fee: 0,
+    shipping_zones: [] as string[],
+    shipping_documents: {}
   });
 
   useEffect(() => {
     if (tenantId) {
       fetchContacts();
       fetchUsers();
-      fetchUserContact();
     }
   }, [tenantId]);
 
@@ -122,23 +149,7 @@ const ContactManagement = () => {
     }
   };
 
-  const fetchUserContact = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
 
-      if (error) throw error;
-      setUserContact(data);
-    } catch (error) {
-      // Error handled silently
-    }
-  };
 
   const createContact = async () => {
     if (!formData.name.trim() || !formData.type) {
@@ -171,9 +182,16 @@ const ContactManagement = () => {
         phone: '',
         company: '',
         address: '',
+        shipping_address: '',
         type: 'customer',
         notes: '',
-        is_commission_agent: false
+        is_commission_agent: false,
+        is_reseller: false,
+        credit_limit: 0,
+        // Shipping agent specific fields
+        shipping_fee: 0,
+        shipping_zones: [] as string[],
+        shipping_documents: {}
       });
       setIsCreateOpen(false);
       fetchContacts();
@@ -220,9 +238,6 @@ const ContactManagement = () => {
       setIsEditOpen(false);
       setEditingContact(null);
       fetchContacts();
-      if (editingContact.user_id === user?.id) {
-        fetchUserContact();
-      }
     } catch (error: any) {
       console.error('Error updating contact:', error);
       if (error.code === '23505' && error.constraint === 'unique_email_per_tenant') {
@@ -277,6 +292,11 @@ const ContactManagement = () => {
     }
   };
 
+  const openCustomerStatement = (contactId: string) => {
+    setStatementCustomerId(contactId);
+    setIsStatementOpen(true);
+  };
+
   const linkUserToContact = async (contactId: string) => {
     try {
       const { data, error } = await supabase.rpc('link_user_to_contact', {
@@ -291,7 +311,6 @@ const ContactManagement = () => {
           description: "Successfully linked to your profile",
         });
         fetchContacts();
-        fetchUserContact();
       } else {
         toast({
           title: "Error",
@@ -324,7 +343,6 @@ const ContactManagement = () => {
         description: "Contact unlinked from your profile",
       });
       fetchContacts();
-      fetchUserContact();
     } catch (error) {
       console.error('Error unlinking contact:', error);
       toast({
@@ -343,9 +361,16 @@ const ContactManagement = () => {
       phone: contact.phone || '',
       company: contact.company || '',
       address: contact.address || '',
+      shipping_address: contact.shipping_address || '',
       type: contact.type,
       notes: contact.notes || '',
-      is_commission_agent: contact.is_commission_agent || false
+      is_commission_agent: contact.is_commission_agent || false,
+      is_reseller: contact.is_reseller || false,
+      credit_limit: contact.credit_limit || 0,
+      // Shipping agent specific fields
+      shipping_fee: contact.shipping_fee || 0,
+      shipping_zones: contact.shipping_zones || [],
+      shipping_documents: contact.shipping_documents || {}
     });
     setIsEditOpen(true);
   };
@@ -357,24 +382,60 @@ const ContactManagement = () => {
       phone: '',
       company: '',
       address: '',
+      shipping_address: '',
       type: 'customer',
       notes: '',
-      is_commission_agent: false
+      is_commission_agent: false,
+      is_reseller: false,
+      credit_limit: 0,
+      // Shipping agent specific fields
+      shipping_fee: 0,
+      shipping_zones: [] as string[],
+      shipping_documents: {}
     });
   };
 
-  const filteredContacts = contacts.filter(contact => {
+  // Sorting function
+  const sortContacts = (contacts: Contact[]) => {
+    return contacts.sort((a, b) => {
+      let aValue = a[sortField as keyof Contact];
+      let bValue = b[sortField as keyof Contact];
+      
+      if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+      if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // Filtering function
+  const filterContacts = (contacts: Contact[]) => {
+    return contacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          contact.company?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = selectedType === 'all' || contact.type === selectedType;
-    return matchesSearch && matchesType;
-  });
+      const matchesStatus = filterStatus === 'all' || 
+                           (filterStatus === 'linked' && contact.user_id) ||
+                           (filterStatus === 'unlinked' && !contact.user_id);
+      const matchesCompany = !filterCompany || contact.company?.toLowerCase().includes(filterCompany.toLowerCase());
+      
+      return matchesSearch && matchesType && matchesStatus && matchesCompany;
+    });
+  };
+
+  const filteredContacts = filterContacts(contacts);
+  const sortedContacts = sortContacts(filteredContacts);
 
   const getContactsByType = (type: string) => contacts.filter(contact => contact.type === type);
   const customers = getContactsByType('customer');
   const suppliers = getContactsByType('supplier');
   const salesReps = getContactsByType('sales_rep');
+  const vendors = getContactsByType('vendor');
+  const partners = getContactsByType('partner');
+  const shippingAgents = getContactsByType('shipping_agent');
   const linkedSalesReps = salesReps.filter(contact => contact.user_id);
   const unlinkedSalesReps = salesReps.filter(contact => !contact.user_id);
 
@@ -384,51 +445,35 @@ const ContactManagement = () => {
     return <Icon className="h-4 w-4" />;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Contact Management</h1>
-        </div>
-      </div>
-
-      <Tabs defaultValue="all-contacts" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all-contacts">All Contacts</TabsTrigger>
-          <TabsTrigger value="customers">Customers ({customers.length})</TabsTrigger>
-          <TabsTrigger value="suppliers">Suppliers ({suppliers.length})</TabsTrigger>
-          <TabsTrigger value="sales-reps">Sales Reps ({salesReps.length})</TabsTrigger>
-          <TabsTrigger value="my-profile">My Profile</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all-contacts" className="space-y-4">
+  const renderContactTable = (contacts: Contact[], title: string, description: string, showCustomerActions = false, showShippingAgentInfo = false) => (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  All Contacts
+            {getTypeIcon(contacts[0]?.type || 'customer')}
+            {title}
                 </div>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
                     <Button onClick={resetForm}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Contact
+                Add {title.slice(0, -1)}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Create New Contact</DialogTitle>
+                <DialogTitle>Create New {title.slice(0, -1)}</DialogTitle>
                       <DialogDescription>
-                        Add a new contact to your directory
+                  Add a new {title.slice(0, -1).toLowerCase()} to your directory
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -500,6 +545,19 @@ const ContactManagement = () => {
                         </div>
                       </div>
                       <div>
+                        <Label htmlFor="shipping_address">Shipping Address</Label>
+                        <Textarea
+                          id="shipping_address"
+                          value={formData.shipping_address}
+                          onChange={(e) => setFormData({...formData, shipping_address: e.target.value})}
+                          placeholder="Shipping address (optional)"
+                          rows={3}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          Separate shipping address for deliveries (optional)
+                        </p>
+                      </div>
+                      <div>
                         <Label htmlFor="notes">Notes</Label>
                         <Textarea
                           id="notes"
@@ -508,6 +566,97 @@ const ContactManagement = () => {
                           placeholder="Additional notes"
                         />
                       </div>
+                
+                {/* Customer-specific fields */}
+                {formData.type === 'customer' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="is_reseller"
+                        checked={formData.is_reseller}
+                        onCheckedChange={(checked) => setFormData({...formData, is_reseller: checked})}
+                      />
+                      <Label htmlFor="is_reseller">Reseller Customer</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Reseller customers are eligible for wholesale pricing on products
+                    </p>
+                    
+                    <div>
+                      <Label htmlFor="credit_limit">Credit Limit</Label>
+                      <Input
+                        id="credit_limit"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.credit_limit}
+                        onChange={(e) => setFormData({...formData, credit_limit: parseFloat(e.target.value) || 0})}
+                        placeholder="0.00"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Maximum credit amount allowed for this customer (in {formatCurrency(0).replace('0.00', '')})
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Shipping Agent-specific fields */}
+                {formData.type === 'shipping_agent' && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="shipping_fee">Default Shipping Fee</Label>
+                      <Input
+                        id="shipping_fee"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.shipping_fee}
+                        onChange={(e) => setFormData({...formData, shipping_fee: parseFloat(e.target.value) || 0})}
+                        placeholder="0.00"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Default shipping fee for this agent (in {formatCurrency(0).replace('0.00', '')})
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="shipping_zones">Shipping Zones</Label>
+                      <Input
+                        id="shipping_zones"
+                        value={formData.shipping_zones.join(', ')}
+                        onChange={(e) => setFormData({
+                          ...formData, 
+                          shipping_zones: e.target.value.split(',').map(zone => zone.trim()).filter(zone => zone)
+                        })}
+                        placeholder="Zone 1, Zone 2, Zone 3"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Comma-separated list of shipping zones this agent serves
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="shipping_documents">KYC Documents</Label>
+                      <Textarea
+                        id="shipping_documents"
+                        value={JSON.stringify(formData.shipping_documents, null, 2)}
+                        onChange={(e) => {
+                          try {
+                            const docs = JSON.parse(e.target.value);
+                            setFormData({...formData, shipping_documents: docs});
+                          } catch (error) {
+                            // Keep the current value if JSON is invalid
+                          }
+                        }}
+                        placeholder='{"business_license": "url", "insurance_certificate": "url", "vehicle_registration": "url"}'
+                        rows={4}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        JSON object containing shipping agent documents and credentials
+                      </p>
+                    </div>
+                  </div>
+                )}
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                           Cancel
@@ -518,54 +667,67 @@ const ContactManagement = () => {
                   </DialogContent>
                 </Dialog>
               </CardTitle>
-              <CardDescription>Manage all your business contacts</CardDescription>
+        <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex-1">
                   <Input
-                    placeholder="Search contacts..."
+              placeholder={`Search ${title.toLowerCase()}...`}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter by type" />
+          <div className="flex items-center gap-2">
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {CONTACT_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="linked">Linked</SelectItem>
+                <SelectItem value="unlinked">Unlinked</SelectItem>
                   </SelectContent>
                 </Select>
+            <Input
+              placeholder="Filter by company..."
+              value={filterCompany}
+              onChange={(e) => setFilterCompany(e.target.value)}
+              className="w-[200px]"
+            />
+          </div>
               </div>
 
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
+              <TableHead>
+                <Button variant="ghost" onClick={() => handleSort('name')} className="h-8 flex items-center gap-1">
+                  Name
+                  <ArrowUpDown className="h-4 w-4" />
+                </Button>
+              </TableHead>
                     <TableHead>Contact Info</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Linked User</TableHead>
-                    <TableHead>Actions</TableHead>
+              <TableHead>
+                <Button variant="ghost" onClick={() => handleSort('company')} className="h-8 flex items-center gap-1">
+                  Company
+                  <ArrowUpDown className="h-4 w-4" />
+                </Button>
+              </TableHead>
+                            <TableHead>Status</TableHead>
+              {showCustomerActions && <TableHead>Customer Info</TableHead>}
+              {showShippingAgentInfo && <TableHead>Shipping Agent Info</TableHead>}
+              <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredContacts.map((contact) => (
+            {contacts.map((contact) => (
                     <TableRow key={contact.id}>
                       <TableCell>
                         <div className="font-medium">{contact.name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                          {getTypeIcon(contact.type)}
-                          {CONTACT_TYPES.find(t => t.value === contact.type)?.label || contact.type}
-                        </Badge>
+                  <div className="text-sm text-muted-foreground">
+                    Created {new Date(contact.created_at).toLocaleDateString()}
+                  </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
@@ -581,9 +743,23 @@ const ContactManagement = () => {
                               {contact.phone}
                             </div>
                           )}
+                          {contact.address && (
+                            <div className="flex items-center gap-1 text-sm">
+                              <MapPin className="h-3 w-3" />
+                              {contact.address}
+                            </div>
+                          )}
+                          {contact.shipping_address && (
+                            <div className="flex items-center gap-1 text-sm">
+                              <Truck className="h-3 w-3" />
+                              <span className="text-muted-foreground">Shipping:</span> {contact.shipping_address}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell>{contact.company || '-'}</TableCell>
+                <TableCell>
+                  <div className="font-medium">{contact.company || '-'}</div>
+                </TableCell>
                       <TableCell>
                         {contact.user_id ? (
                           <Badge variant="default">
@@ -594,145 +770,148 @@ const ContactManagement = () => {
                           <Badge variant="outline">Unlinked</Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {(contact.type === 'customer' || contact.type === 'supplier') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
+                                {showCustomerActions && (
+                  <TableCell>
+                    <div className="space-y-1">
+                      {contact.is_reseller && (
+                        <Badge variant="secondary">Reseller</Badge>
+                      )}
+                      {contact.credit_limit && contact.credit_limit > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Credit Limit:</span> {formatCurrency(contact.credit_limit)}
+                        </div>
+                      )}
+                      {contact.current_credit_balance && contact.current_credit_balance > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Balance:</span> {formatCurrency(contact.current_credit_balance)}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
+                {showShippingAgentInfo && (
+                  <TableCell>
+                    <div className="space-y-1">
+                      {contact.shipping_fee && contact.shipping_fee > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Default Fee:</span> {formatCurrency(contact.shipping_fee)}
+                        </div>
+                      )}
+                      {contact.shipping_zones && contact.shipping_zones.length > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Zones:</span> {contact.shipping_zones.join(', ')}
+                        </div>
+                      )}
+                      {contact.shipping_documents && Object.keys(contact.shipping_documents).length > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Documents:</span> {Object.keys(contact.shipping_documents).length} uploaded
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
                                 setSelectedContact(contact);
                                 setIsContactDetailsOpen(true);
-                              }}
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(contact)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                      }}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      {showCustomerActions && (
+                        <DropdownMenuItem onClick={() => openCustomerStatement(contact.id)}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          View Statement
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => openEditDialog(contact)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
                           {contact.type === 'sales_rep' && !contact.user_id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => linkUserToContact(contact.id)}
-                            >
-                              <Link className="h-4 w-4" />
-                            </Button>
+                        <DropdownMenuItem onClick={() => linkUserToContact(contact.id)}>
+                          <Link className="h-4 w-4 mr-2" />
+                          Link to Profile
+                        </DropdownMenuItem>
                           )}
                           {contact.user_id === user?.id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => unlinkUserFromContact(contact.id)}
-                            >
-                              Unlink
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
+                        <DropdownMenuItem onClick={() => unlinkUserFromContact(contact.id)}>
+                          <Link className="h-4 w-4 mr-2" />
+                          Unlink from Profile
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem 
                             onClick={() => deleteContact(contact.id)}
                             disabled={!canDelete('contact')}
-                            title={!canDelete('contact') ? 'Deletion disabled for audit trail' : 'Deactivate contact'}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Deactivate
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+        {contacts.length === 0 && (
+          <div className="text-center py-8">
+            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No {title.toLowerCase()} found</h3>
+            <p className="text-muted-foreground">
+              Get started by adding your first {title.slice(0, -1).toLowerCase()}.
+            </p>
+          </div>
+        )}
             </CardContent>
           </Card>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+                    <div>
+          <h1 className="text-3xl font-bold tracking-tight">Contact Management</h1>
+                    </div>
+                    </div>
+
+      <Tabs defaultValue="all-contacts" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all-contacts">All Contacts ({contacts.length})</TabsTrigger>
+          <TabsTrigger value="customers">Customers ({customers.length})</TabsTrigger>
+          <TabsTrigger value="suppliers">Suppliers ({suppliers.length})</TabsTrigger>
+          <TabsTrigger value="sales-reps">Sales Reps ({salesReps.length})</TabsTrigger>
+          <TabsTrigger value="vendors">Vendors ({vendors.length})</TabsTrigger>
+          <TabsTrigger value="partners">Partners ({partners.length})</TabsTrigger>
+          <TabsTrigger value="shipping-agents">Shipping Agents ({shippingAgents.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all-contacts" className="space-y-4">
+          {renderContactTable(sortedContacts, "All Contacts", "Manage all your business contacts")}
         </TabsContent>
 
         <TabsContent value="customers" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Contacts</CardTitle>
-              <CardDescription>Manage your customer relationships</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {customers.map((customer) => (
-                  <div key={customer.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="font-medium">{customer.name}</div>
-                      <div className="text-sm text-muted-foreground">{customer.email}</div>
-                      {customer.company && <div className="text-sm text-muted-foreground">{customer.company}</div>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedContact(customer);
-                          setIsContactDetailsOpen(true);
-                        }}
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(customer)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                {customers.length === 0 && (
-                  <p className="text-muted-foreground text-center py-4">No customers found</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {renderContactTable(customers, "Customers", "Manage your customer relationships and track credit information", true)}
         </TabsContent>
 
         <TabsContent value="suppliers" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Supplier Contacts</CardTitle>
-              <CardDescription>Manage your supplier relationships</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {suppliers.map((supplier) => (
-                  <div key={supplier.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="font-medium">{supplier.name}</div>
-                      <div className="text-sm text-muted-foreground">{supplier.email}</div>
-                      {supplier.company && <div className="text-sm text-muted-foreground">{supplier.company}</div>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedContact(supplier);
-                          setIsContactDetailsOpen(true);
-                        }}
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(supplier)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                {suppliers.length === 0 && (
-                  <p className="text-muted-foreground text-center py-4">No suppliers found</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {renderContactTable(suppliers, "Suppliers", "Manage your supplier relationships and procurement contacts")}
         </TabsContent>
 
         <TabsContent value="sales-reps" className="space-y-4">
@@ -795,62 +974,16 @@ const ContactManagement = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="my-profile" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Contact Profile</CardTitle>
-              <CardDescription>Your linked contact information</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {userContact ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Name</Label>
-                      <p className="text-sm font-medium">{userContact.name}</p>
-                    </div>
-                    <div>
-                      <Label>Type</Label>
-                      <Badge variant="secondary">
-                        {CONTACT_TYPES.find(t => t.value === userContact.type)?.label || userContact.type}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Email</Label>
-                      <p className="text-sm">{userContact.email || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <Label>Phone</Label>
-                      <p className="text-sm">{userContact.phone || 'Not provided'}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Company</Label>
-                    <p className="text-sm">{userContact.company || 'Not provided'}</p>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button onClick={() => openEditDialog(userContact)}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Contact Profile</h3>
-                  <p className="text-muted-foreground mb-4">
-                    You haven't linked your account to a contact profile yet.
-                  </p>
-                  <Button onClick={() => setIsCreateOpen(true)}>
-                    Create Contact Profile
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="vendors" className="space-y-4">
+          {renderContactTable(vendors, "Vendors", "Manage your vendor relationships and service providers")}
+        </TabsContent>
+
+        <TabsContent value="partners" className="space-y-4">
+          {renderContactTable(partners, "Partners", "Manage your business partners and collaborators")}
+        </TabsContent>
+
+        <TabsContent value="shipping-agents" className="space-y-4">
+          {renderContactTable(shippingAgents, "Shipping Agents", "Manage shipping agents and their KYC information", false, true)}
         </TabsContent>
       </Tabs>
 
@@ -932,6 +1065,19 @@ const ContactManagement = () => {
               </div>
             </div>
             <div>
+              <Label htmlFor="editShippingAddress">Shipping Address</Label>
+              <Textarea
+                id="editShippingAddress"
+                value={formData.shipping_address}
+                onChange={(e) => setFormData({...formData, shipping_address: e.target.value})}
+                placeholder="Shipping address (optional)"
+                rows={3}
+              />
+              <p className="text-sm text-muted-foreground">
+                Separate shipping address for deliveries (optional)
+              </p>
+            </div>
+            <div>
               <Label htmlFor="editNotes">Notes</Label>
               <Textarea
                 id="editNotes"
@@ -940,6 +1086,97 @@ const ContactManagement = () => {
                 placeholder="Additional notes"
               />
             </div>
+            
+            {/* Customer-specific fields */}
+            {formData.type === 'customer' && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="editIsReseller"
+                    checked={formData.is_reseller}
+                    onCheckedChange={(checked) => setFormData({...formData, is_reseller: checked})}
+                  />
+                  <Label htmlFor="editIsReseller">Reseller Customer</Label>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Reseller customers are eligible for wholesale pricing on products
+                </p>
+                
+                <div>
+                  <Label htmlFor="editCreditLimit">Credit Limit</Label>
+                  <Input
+                    id="editCreditLimit"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.credit_limit}
+                    onChange={(e) => setFormData({...formData, credit_limit: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Maximum credit amount allowed for this customer (in {formatCurrency(0).replace('0.00', '')})
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Shipping Agent-specific fields */}
+            {formData.type === 'shipping_agent' && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editShippingFee">Default Shipping Fee</Label>
+                  <Input
+                    id="editShippingFee"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.shipping_fee}
+                    onChange={(e) => setFormData({...formData, shipping_fee: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Default shipping fee for this agent (in {formatCurrency(0).replace('0.00', '')})
+                  </p>
+                </div>
+                
+                <div>
+                  <Label htmlFor="editShippingZones">Shipping Zones</Label>
+                  <Input
+                    id="editShippingZones"
+                    value={formData.shipping_zones.join(', ')}
+                    onChange={(e) => setFormData({
+                      ...formData, 
+                      shipping_zones: e.target.value.split(',').map(zone => zone.trim()).filter(zone => zone)
+                    })}
+                    placeholder="Zone 1, Zone 2, Zone 3"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Comma-separated list of shipping zones this agent serves
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="editShippingDocuments">KYC Documents</Label>
+                  <Textarea
+                    id="editShippingDocuments"
+                    value={JSON.stringify(formData.shipping_documents, null, 2)}
+                    onChange={(e) => {
+                      try {
+                        const docs = JSON.parse(e.target.value);
+                        setFormData({...formData, shipping_documents: docs});
+                      } catch (error) {
+                        // Keep the current value if JSON is invalid
+                      }
+                    }}
+                    placeholder='{"business_license": "url", "insurance_certificate": "url", "vehicle_registration": "url"}'
+                    rows={4}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    JSON object containing shipping agent documents and credentials
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditOpen(false)}>
                 Cancel
@@ -961,6 +1198,16 @@ const ContactManagement = () => {
           }}
         />
       )}
+
+      {/* Customer Statement Dialog */}
+      <CustomerStatement
+        customerId={statementCustomerId}
+        isOpen={isStatementOpen}
+        onClose={() => {
+          setIsStatementOpen(false);
+          setStatementCustomerId(undefined);
+        }}
+      />
     </div>
   );
 };

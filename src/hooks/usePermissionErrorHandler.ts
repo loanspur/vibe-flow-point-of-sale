@@ -103,7 +103,10 @@ export const usePermissionErrorHandler = (options: PermissionErrorOptions = {}) 
         toast.error(friendlyMessage, {
           action: {
             label: 'Refresh',
-            onClick: () => window.location.reload()
+            onClick: () => {
+              // Dispatch event for auth refresh instead of page reload
+              window.dispatchEvent(new CustomEvent('auth:refresh-session'));
+            }
           }
         });
       }

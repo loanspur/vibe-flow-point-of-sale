@@ -2,8 +2,6 @@ import { useState, useCallback } from 'react';
 import SalesManagement from '@/components/SalesManagement';
 import { SafeWrapper } from '@/components/SafeWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 
 export default function Sales() {
   const { tenantId } = useAuth();

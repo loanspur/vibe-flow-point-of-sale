@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +19,12 @@ import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
 
 export default function SuperAdminDashboard() {
   const { user, userRole } = useAuth();
-  // Use base currency (KES) for all superadmin views
-  const formatBaseCurrency = (amount: number) => 
-    `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const { formatCurrency } = useApp();
+  // Use base currency for all superadmin views
+  const formatBaseCurrency = (amount: number) => formatCurrency(amount);
   const [dashboardData, setDashboardData] = useState({
     totalTenants: 0,
     activeUsers: 0,
@@ -197,8 +197,8 @@ export default function SuperAdminDashboard() {
           {adminStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <Link to={stat.href || '#'} className="block">
-                <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Link key={`stat-${index}`} to={stat.href || '#'} className="block">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       {stat.title}
@@ -226,7 +226,7 @@ export default function SuperAdminDashboard() {
             {quickActions.map((action, index) => {
               const Icon = action.icon;
               return (
-                <Link key={index} to={action.href}>
+                <Link key={`action-${index}`} to={action.href}>
                   <Card className="hover:shadow-lg transition-all hover:scale-105 cursor-pointer">
                     <CardHeader className="text-center">
                       <div className={`w-12 h-12 rounded-lg ${action.color} flex items-center justify-center mx-auto mb-3`}>
@@ -255,7 +255,7 @@ export default function SuperAdminDashboard() {
                   <p className="text-muted-foreground">Loading recent activity...</p>
                 ) : recentActivity.length > 0 ? (
                   recentActivity.map((activity: any, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div key={`activity-${index}`} className="flex items-center justify-between py-2 border-b last:border-b-0">
                       <div className="flex items-center space-x-3">
                         <div className={`w-2 h-2 rounded-full ${
                           activity.action_type === 'login' ? 'bg-green-500' :

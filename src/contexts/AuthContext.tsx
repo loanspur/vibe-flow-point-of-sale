@@ -3,7 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 // CACHE BUST v2 - Multiple profile load prevention
 import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
-import { tabStabilityManager } from '@/lib/tab-stability-manager';
+
 import { PasswordChangeModal } from '@/components/PasswordChangeModal';
 
 // User roles are now dynamically managed via user_roles table
@@ -48,9 +48,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Optimized user info fetching with performance checks
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
     // Performance check - don't fetch if tab is switching
-    if (tabStabilityManager.shouldPreventQueryRefresh()) {
-      return;
-    }
     
     if (fetchInProgress || profileFetched === userId) {
       return;
@@ -59,14 +56,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setFetchInProgress(true);
     
     try {
-      // Get user role from profiles with optimized query
+      // FIXED: Use correct table name 'profiles' instead of 'user_profiles'
       const { data: profile, error } = await supabase
-        .from('profiles')
+        .from('profiles') // Changed from 'user_profiles' to 'profiles'
         .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
+        console.warn('Error fetching user profile:', error);
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
@@ -97,6 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setRequirePasswordChange(false);
       }
     } catch (error) {
+      console.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
@@ -136,6 +135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Only set initial profile state, remove focus refreshing to prevent flickering
     if (!profileFetched || profileFetched !== user.id) {
       setProfileFetched(user.id);
+      fetchUserInfo(user.id, 'initial');
     }
   }, [user, profileFetched]);
 
@@ -178,7 +178,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let mounted = true;
     
     // Initialize tab stability manager
-    tabStabilityManager.initialize();
+
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -186,10 +186,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (!mounted) return;
         
-        // Minimal tab stability check - only prevent during actual browser tab switching
-        if (tabStabilityManager.isCurrentlyTabSwitching() && event === 'TOKEN_REFRESHED') {
-          return; // Only prevent token refresh events during tab switching
-        }
+
         
         setSession(session);
         setUser(session?.user ?? null);

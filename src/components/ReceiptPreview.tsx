@@ -7,7 +7,7 @@ import { Printer, Download, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCurrencySettings } from "@/lib/currency";
+import { useApp } from "@/contexts/AppContext";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -97,13 +97,16 @@ interface ReceiptPreviewProps {
 
 export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPreviewProps) {
   const { tenantId } = useAuth();
+  const { formatCurrency } = useApp();
   const [items, setItems] = useState<(SaleItem | QuoteItem)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [businessSettings, setBusinessSettings] = useState<any>(null);
   const [templateContent, setTemplateContent] = useState<string>('');
   const receiptRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { formatAmount } = useCurrencySettings();
+
+  // Replace formatAmount with formatCurrency
+  const formatAmount = formatCurrency;
 
   const document = sale || quote;
 
@@ -143,8 +146,8 @@ export function ReceiptPreview({ isOpen, onClose, sale, quote, type }: ReceiptPr
           // Reload business settings when they change
           fetchBusinessSettings();
         }
-      )
-      .subscribe();
+      );
+      // .subscribe(); // DISABLED
 
     return () => {
       supabase.removeChannel(channel);
@@ -272,7 +275,11 @@ Powered by VibePOS | {{company_phone}}
           .from("sale_items")
           .select(`
             *,
-            products (name, sku)
+            products (
+              name, 
+              sku,
+              brands (name)
+            )
           `)
           .eq("sale_id", sale.id);
 
@@ -283,7 +290,11 @@ Powered by VibePOS | {{company_phone}}
           .from("quote_items")
           .select(`
             *,
-            products (name, sku),
+            products (
+              name, 
+              sku,
+              brands (name)
+            ),
             product_variants (name, value)
           `)
           .eq("quote_id", quote.id);
@@ -537,6 +548,7 @@ Powered by VibePOS | {{company_phone}}
     
     const itemLines = items.map((item) => {
       const itemName = item.products.name;
+      const brandInfo = item.products.brands ? ` [${item.products.brands.name}]` : '';
       const variantInfo = "product_variants" in item && item.product_variants 
         ? ` (${item.product_variants.name}: ${item.product_variants.value})`
         : '';
@@ -546,7 +558,7 @@ Powered by VibePOS | {{company_phone}}
       const trimmedName = itemName.length > maxNameLength 
         ? itemName.substring(0, maxNameLength - 1) + '…'
         : itemName;
-      const fullItemName = `${trimmedName}${variantInfo}`;
+      const fullItemName = `${trimmedName}${brandInfo}${variantInfo}`;
       
       const qtyStr = item.quantity.toString().padStart(2);
       const rateStr = formatAmount(item.unit_price).padStart(8);
@@ -753,7 +765,21 @@ Powered by VibePOS | {{company_phone}}
     }
   };
 
-  if (!document || !businessSettings) return null;
+  // Ensure proper error handling
+  if (!document || !businessSettings) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Loading...</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-8">
+            <p className="text-muted-foreground">Loading receipt data...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

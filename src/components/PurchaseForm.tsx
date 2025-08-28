@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PaymentForm } from './PaymentForm';
 import { createEnhancedPurchaseJournalEntry } from '@/lib/accounting-integration';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useProductSettingsValidation } from '@/hooks/useProductSettingsValidation';
 
 interface PurchaseFormProps {
   onPurchaseCompleted?: () => void;
@@ -35,6 +36,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   const { formatLocalCurrency } = useApp();
   const { toast } = useToast();
   const { purchase: purchaseSettings, tax: taxSettings } = useBusinessSettings();
+  const { validatePurchase, showValidationErrors } = useProductSettingsValidation();
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -119,6 +121,11 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
           sku, 
           cost_price,
           unit_id,
+          brand_id,
+          brands (
+            id,
+            name
+          ),
           product_units (
             id,
             name,
@@ -338,6 +345,13 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         description: "Please add at least one item to the purchase",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Validate purchase based on product settings
+    const validation = validatePurchase(purchaseItems);
+    if (!validation.isValid) {
+      showValidationErrors(validation.errors);
       return;
     }
 
@@ -587,7 +601,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                             console.log('🎯 Rendering product SelectItem:', { id: product.id, name: product.name });
                             return (
                               <SelectItem key={product.id} value={product.id}>
-                                {product.name} - {product.sku || 'No SKU'} {product.product_units && `(${product.product_units.abbreviation})`}
+                                {product.name} - {product.sku || 'No SKU'} {product.brands && `[${product.brands.name}]`} {product.product_units && `(${product.product_units.abbreviation})`}
                               </SelectItem>
                             );
                            })
@@ -648,6 +662,10 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                                const product = products.find(p => p.id === item.product_id);
                                return product?.product_units ? `${product.product_units.abbreviation}` : 'pcs';
                              })()} × {formatLocalCurrency(item.unit_cost)}
+                             {(() => {
+                               const product = products.find(p => p.id === item.product_id);
+                               return product?.brands ? ` • ${product.brands.name}` : '';
+                             })()}
                            </p>
                          </div>
                         <div className="flex items-center gap-2">

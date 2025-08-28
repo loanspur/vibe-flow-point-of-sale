@@ -93,17 +93,18 @@ export function updateQueryParams(params: Record<string, string | null>) {
   }
 }
 
-// Safe page reload only when absolutely necessary
+// Safe page reload only when absolutely necessary (deprecated - use state updates instead)
 export function forceReload(reason: string) {
-  console.warn(`Force reload triggered: ${reason}`);
+  console.warn(`Force reload deprecated: ${reason} - use state updates instead`);
+  // Instead of reloading, dispatch a custom event for components to handle
   if (typeof window !== 'undefined') {
-    window.location.reload();
+    window.dispatchEvent(new CustomEvent('app:force-refresh', { detail: { reason } }));
   }
 }
 
-// Clear cache and reload (emergency use only)
-export async function emergencyReload(reason: string) {
-  console.error(`Emergency reload triggered: ${reason}`);
+// Clear cache without reload (emergency use only)
+export async function emergencyCacheClear(reason: string) {
+  console.error(`Emergency cache clear triggered: ${reason}`);
   
   if (typeof window !== 'undefined') {
     try {
@@ -119,10 +120,11 @@ export async function emergencyReload(reason: string) {
       );
       keysToRemove.forEach(key => localStorage.removeItem(key));
       
+      // Dispatch event for components to refresh their state
+      window.dispatchEvent(new CustomEvent('app:cache-cleared', { detail: { reason } }));
+      
     } catch (error) {
       console.error('Error clearing cache:', error);
-    } finally {
-      window.location.reload();
     }
   }
 }

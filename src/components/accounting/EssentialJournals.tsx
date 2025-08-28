@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -154,6 +155,7 @@ const journalTemplates: JournalTemplate[] = [
 
 export default function EssentialJournals() {
   const { tenantId, user } = useAuth();
+  const { formatCurrency } = useApp();
   const { toast } = useToast();
 
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -463,10 +465,10 @@ export default function EssentialJournals() {
                               <span className="text-muted-foreground">{entry.description}</span>
                               <div className="flex space-x-4">
                                 <span className="w-20 text-right">
-                                  {entry.debit_credit === 'debit' ? `$${amount.toFixed(2)}` : '-'}
+                                  {entry.debit_credit === 'debit' ? formatCurrency(amount) : '-'}
                                 </span>
                                 <span className="w-20 text-right">
-                                  {entry.debit_credit === 'credit' ? `$${amount.toFixed(2)}` : '-'}
+                                  {entry.debit_credit === 'credit' ? formatCurrency(amount) : '-'}
                                 </span>
                               </div>
                             </div>

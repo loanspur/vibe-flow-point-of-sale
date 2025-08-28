@@ -12,7 +12,7 @@ import { Plus, Search, Download, Eye, DollarSign, ShoppingCart, Users, TrendingU
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useCurrencySettings } from "@/lib/currency";
+import { useApp } from "@/contexts/AppContext";
 import { SaleForm } from "./SaleForm";
 import { QuoteManagement } from "./QuoteManagement";
 import SalesReturns from "./SalesReturns";
@@ -106,6 +106,7 @@ export default function SalesManagement() {
   const [salesPaymentStatus, setSalesPaymentStatus] = useState<Record<string, { status: string; outstanding: number }>>({});
   
   const { toast } = useToast();
+  const { formatCurrency } = useApp();
 
   // Centralized data fetching to reduce redundant API calls
   const fetchAllData = useCallback(async () => {
@@ -263,7 +264,7 @@ export default function SalesManagement() {
     return matchesSearch && matchesStatus && matchesPayment;
   });
 
-  const { formatAmount } = useCurrencySettings();
+  const formatAmount = formatCurrency;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();

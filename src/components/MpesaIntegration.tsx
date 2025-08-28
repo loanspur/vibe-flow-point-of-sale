@@ -314,176 +314,166 @@ export function MpesaIntegration() {
       </CardHeader>
 
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Enable/Disable Integration */}
-            <FormField
-              control={form.control}
-              name="is_enabled"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Enable Mpesa Integration</FormLabel>
+        {/* Remove the Form wrapper and form element - use div instead */}
+        <div className="space-y-6">
+          {/* Enable/Disable Integration */}
+          <FormField
+            control={form.control}
+            name="is_enabled"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Enable Mpesa Integration</FormLabel>
+                  <FormDescription>
+                    Allow customers to pay using Mpesa
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={handleEnableToggle}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          {isEnabled && (
+            <>
+              {/* Environment Selection */}
+              <FormField
+                control={form.control}
+                name="environment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Environment</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select environment" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                        <SelectItem value="production">Production (Live)</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormDescription>
-                      Allow customers to pay using Mpesa
+                      Use sandbox for testing, production for live transactions
                     </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={handleEnableToggle}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {isEnabled && (
-              <>
-                {/* Environment Selection */}
-                <FormField
-                  control={form.control}
-                  name="environment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Environment</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select environment" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
-                          <SelectItem value="production">Production (Live)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Use sandbox for testing, production for live transactions
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <Separator />
 
-                <Separator />
-
-                {/* API Credentials */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-base font-semibold">API Credentials</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowCredentials(!showCredentials)}
-                    >
-                      {showCredentials ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      {showCredentials ? "Hide" : "Show"} Credentials
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="consumer_key"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Consumer Key</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type={showCredentials ? "text" : "password"}
-                              placeholder="Enter consumer key"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="consumer_secret"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Consumer Secret</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type={showCredentials ? "text" : "password"}
-                              placeholder="Enter consumer secret"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="passkey"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Lipa Na Mpesa Passkey</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type={showCredentials ? "text" : "password"}
-                              placeholder="Enter passkey"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="shortcode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Shortcode</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="Enter shortcode"
-                              onChange={(e) => {
-                                field.onChange(e);
-                                // Auto-generate URLs when shortcode changes
-                                if (e.target.value.length >= 5) {
-                                  setTimeout(generateUrls, 100);
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="api_user"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>API User</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="Enter API user"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+              {/* API Credentials */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">API Credentials</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCredentials(!showCredentials)}
+                  >
+                    {showCredentials ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showCredentials ? "Hide" : "Show"} Credentials
+                  </Button>
                 </div>
 
-                <Separator />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="consumer_key"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Consumer Key</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type={showCredentials ? "text" : "password"}
+                            placeholder="Enter consumer key"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                {/* Callback URLs */}
+                  <FormField
+                    control={form.control}
+                    name="consumer_secret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Consumer Secret</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type={showCredentials ? "text" : "password"}
+                            placeholder="Enter consumer secret"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="passkey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Passkey</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type={showCredentials ? "text" : "password"}
+                            placeholder="Enter passkey"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="shortcode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Shortcode</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Enter shortcode"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="api_user"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API User</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Enter API user"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* URL Configuration */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-semibold">Callback URLs</Label>
@@ -498,7 +488,7 @@ export function MpesaIntegration() {
                     </Button>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <FormField
                       control={form.control}
                       name="callback_url"
@@ -506,11 +496,11 @@ export function MpesaIntegration() {
                         <FormItem>
                           <FormLabel>Callback URL</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="https://yourdomain.com/api/mpesa/callback" />
+                            <Input
+                              {...field}
+                              placeholder="https://your-domain.com/api/mpesa/callback"
+                            />
                           </FormControl>
-                          <FormDescription>
-                            URL where Mpesa will send payment results
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -523,11 +513,11 @@ export function MpesaIntegration() {
                         <FormItem>
                           <FormLabel>Confirmation URL</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="https://yourdomain.com/api/mpesa/confirmation" />
+                            <Input
+                              {...field}
+                              placeholder="https://your-domain.com/api/mpesa/confirmation"
+                            />
                           </FormControl>
-                          <FormDescription>
-                            URL for payment confirmations
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -540,11 +530,11 @@ export function MpesaIntegration() {
                         <FormItem>
                           <FormLabel>Validation URL (Optional)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="https://yourdomain.com/api/mpesa/validation" />
+                            <Input
+                              {...field}
+                              placeholder="https://your-domain.com/api/mpesa/validation"
+                            />
                           </FormControl>
-                          <FormDescription>
-                            URL for payment validation (optional)
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -552,63 +542,29 @@ export function MpesaIntegration() {
                   </div>
                 </div>
 
-                {/* Configuration Status */}
-                {mpesaConfig && (
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Label className="text-sm font-medium">Configuration Status</Label>
-                      <Badge variant={mpesaConfig.is_verified ? "default" : "secondary"}>
-                        {mpesaConfig.is_verified ? "Verified" : "Not Verified"}
-                      </Badge>
-                    </div>
-                    {mpesaConfig.last_tested_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Last tested: {new Date(mpesaConfig.last_tested_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                )}
-
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" disabled={isSaving}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save Configuration"}
-                  </Button>
-
+                <div className="flex justify-end gap-3 pt-6">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={testConnection}
-                    disabled={isTesting || !form.formState.isValid}
+                    onClick={() => form.reset()}
+                    disabled={isSaving}
                   >
-                    <TestTube className="h-4 w-4 mr-2" />
-                    {isTesting ? "Testing..." : "Test Connection"}
+                    Reset
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={form.handleSubmit(onSubmit)}
+                    disabled={isSaving}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? "Saving..." : "Save Configuration"}
                   </Button>
                 </div>
-              </>
-            )}
-          </form>
-        </Form>
-
-        {/* Disable Confirmation Dialog */}
-        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Disable Mpesa Integration?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will stop accepting Mpesa payments. Existing payment records will not be affected.
-                You can re-enable this integration at any time.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDisable}>
-                Disable Integration
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </div>
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -1,37 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { 
-  Users, Shield, Edit, Trash2, Eye, Plus, Settings, Activity, 
-  Clock, AlertTriangle, Ban, CheckCircle, XCircle, Mail,
-  UserPlus, Crown, Key, BarChart3
+  Users, Shield, Edit, Eye, UserPlus, Crown, User, CheckCircle, Clock, Mail, Ban,
+  Plus, Settings, Key, BarChart3, Trash2, MoreHorizontal, AlertTriangle
 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Textarea } from '@/components/ui/textarea';
-import { useUnifiedUserManagement, UnifiedUser, UnifiedRole } from '@/hooks/useUnifiedUserManagement';
-import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnifiedUserManagement } from '@/hooks/useUnifiedUserManagement';
 
+// Use the interfaces from the hook
+import type { UnifiedUser, UnifiedRole, SystemPermission, ActivityLog } from '@/hooks/useUnifiedUserManagement';
 
 const UnifiedUserManagement = () => {
   const { user: authUser, userRole, tenantId } = useAuth();
   
+  // Use the existing hook for all data management
   const {
     users,
     roles,
     permissions,
     activityLogs,
-    userSessions,
     loading,
     fetchAllData,
     inviteUser,
@@ -45,31 +44,24 @@ const UnifiedUserManagement = () => {
     updateRole,
     deleteRole,
     hasPermission,
-    hasRoleAccess
+    hasRoleAccess,
   } = useUnifiedUserManagement();
 
-  const { logActivity } = useActivityLogger();
-
-  console.log('UnifiedUserManagement Debug:', {
-    loading,
-    usersCount: users.length,
-    rolesCount: roles.length,
-    currentUser: users.find(u => u.user_id === authUser?.id),
-    authUser: authUser?.id,
-    userRole,
-    tenantId
-  });
-
-  // State management
+  // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  
+  // Dialog states
   const [selectedUser, setSelectedUser] = useState<UnifiedUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<UnifiedRole | null>(null);
   const [isViewingUser, setIsViewingUser] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [isEditingRole, setIsEditingRole] = useState(false);
+  const [isChangingRole, setIsChangingRole] = useState(false);
+  const [isConfirmingDeactivation, setIsConfirmingDeactivation] = useState(false);
 
   // Form states
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -81,6 +73,28 @@ const UnifiedUserManagement = () => {
   const [newRoleColor, setNewRoleColor] = useState('#2563eb');
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  
+  // User edit form states
+  const [editUserFullName, setEditUserFullName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [selectedRoleForChange, setSelectedRoleForChange] = useState('');
+
+
+
+  useEffect(() => {
+    if (tenantId) {
+      fetchAllData();
+    }
+  }, [tenantId, fetchAllData]);
+
+  console.log('UnifiedUserManagement Debug:', {
+    loading,
+    usersCount: users.length,
+    rolesCount: roles.length,
+    authUser: authUser?.id,
+    userRole,
+    tenantId
+  });
 
   // Filter functions
   const filteredUsers = users.filter(user => {
@@ -91,32 +105,16 @@ const UnifiedUserManagement = () => {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Status badge helpers
-  const getStatusBadge = (status: string, invitationStatus: string) => {
-    if (status === 'active') {
-      return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>;
-    } else if (status === 'pending') {
-      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-    } else if (status === 'invited') {
-      return <Badge variant="outline" className="bg-blue-100 text-blue-800">Invited</Badge>;
-    } else {
-      return <Badge variant="destructive">Inactive</Badge>;
+  // Helper functions
+  const permissionCategories = permissions.reduce((acc, perm) => {
+    if (!acc[perm.category]) {
+      acc[perm.category] = [];
     }
-  };
+    acc[perm.category].push(perm);
+    return acc;
+  }, {} as Record<string, typeof permissions>);
 
-  const getRoleBadge = (role: string) => {
-    const roleData = roles.find(r => r.name === role);
-    return (
-      <Badge 
-        variant="outline" 
-        style={{ backgroundColor: roleData?.color + '20', borderColor: roleData?.color }}
-      >
-        {role}
-      </Badge>
-    );
-  };
-
-  // Handlers
+  // Enhanced handlers using hook functions
   const handleInviteUser = async () => {
     if (!newUserEmail || !newUserRole || !newUserFullName) {
       toast.error('Please fill in all required fields');
@@ -131,12 +129,11 @@ const UnifiedUserManagement = () => {
         setNewUserFullName('');
         setNewUserRole('');
         setIsCreatingUser(false);
-        logActivity({
-          action_type: 'user_invited',
-          resource_type: 'user',
-          details: { email: newUserEmail, role: newUserRole }
-        });
       }
+      // Note: Modal will only close on success due to the success check above
+    } catch (error: any) {
+      // Error is already handled in the hook, but we ensure modal stays open
+      console.error('Invite user error:', error);
     } finally {
       setCreating(false);
     }
@@ -157,7 +154,6 @@ const UnifiedUserManagement = () => {
         color: newRoleColor,
         permissions: selectedPermissions
       });
-
       if (success) {
         setNewRoleName('');
         setNewRoleDescription('');
@@ -165,11 +161,6 @@ const UnifiedUserManagement = () => {
         setNewRoleColor('#2563eb');
         setSelectedPermissions([]);
         setIsCreatingRole(false);
-        logActivity({
-          action_type: 'role_created',
-          resource_type: 'role',
-          details: { name: newRoleName, permissions: selectedPermissions.length }
-        });
       }
     } finally {
       setCreating(false);
@@ -178,16 +169,7 @@ const UnifiedUserManagement = () => {
 
   const handleUpdateUserRole = async (userId: string, roleId: string) => {
     const success = await updateUserRole(userId, roleId);
-    if (success) {
-      const user = users.find(u => u.user_id === userId);
-      const role = roles.find(r => r.id === roleId);
-      logActivity({
-        action_type: 'user_role_updated',
-        resource_type: 'user',
-        resource_id: userId,
-        details: { new_role: role?.name, user_email: user?.email }
-      });
-    }
+    return success;
   };
 
   const handleEditRole = (role: UnifiedRole) => {
@@ -215,7 +197,6 @@ const UnifiedUserManagement = () => {
         color: newRoleColor,
         permissions: selectedPermissions
       });
-
       if (success) {
         setNewRoleName('');
         setNewRoleDescription('');
@@ -224,12 +205,6 @@ const UnifiedUserManagement = () => {
         setSelectedPermissions([]);
         setIsEditingRole(false);
         setSelectedRole(null);
-        logActivity({
-          action_type: 'role_updated',
-          resource_type: 'role',
-          resource_id: selectedRole.id,
-          details: { name: newRoleName, permissions: selectedPermissions.length }
-        });
       }
     } finally {
       setCreating(false);
@@ -238,41 +213,79 @@ const UnifiedUserManagement = () => {
 
   const handleDeleteRole = async (roleId: string, roleName: string) => {
     if (window.confirm(`Are you sure you want to delete the role "${roleName}"? This action cannot be undone.`)) {
-      const success = await deleteRole(roleId);
-      if (success) {
-        logActivity({
-          action_type: 'role_deleted',
-          resource_type: 'role',
-          resource_id: roleId,
-          details: { name: roleName }
-        });
-      }
+      await deleteRole(roleId);
     }
   };
 
   const handleDeactivateUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to deactivate this user?')) {
-      const success = await deactivateUser(userId);
-      if (success) {
-        const user = users.find(u => u.user_id === userId);
-        logActivity({
-          action_type: 'user_deactivated',
-          resource_type: 'user',
-          resource_id: userId,
-          details: { user_email: user?.email }
-        });
-      }
+      await deactivateUser(userId);
     }
   };
 
-  // Permission categories
-  const permissionCategories = permissions.reduce((acc, perm) => {
-    if (!acc[perm.category]) {
-      acc[perm.category] = [];
-    }
-    acc[perm.category].push(perm);
-    return acc;
-  }, {} as Record<string, typeof permissions>);
+  const getRoleBadge = (role: string) => {
+    const roleData = roles.find(r => r.name === role);
+    const roleColors: Record<string, string> = {
+      'admin': '#dc2626',
+      'manager': '#ea580c',
+      'cashier': '#059669',
+      'user': '#2563eb',
+      'superadmin': '#7c3aed',
+    };
+    
+    const color = roleData?.color || roleColors[role.toLowerCase()] || '#6b7280';
+    const roleIcons: Record<string, React.ReactNode> = {
+      'admin': <Crown className="h-3 w-3 mr-1" />,
+      'manager': <Shield className="h-3 w-3 mr-1" />,
+      'cashier': <Users className="h-3 w-3 mr-1" />,
+      'user': <User className="h-3 w-3 mr-1" />,
+      'superadmin': <Crown className="h-3 w-3 mr-1" />,
+    };
+    
+    // Use the actual role name from the database or fallback to the provided role
+    const displayRole = roleData?.name || role;
+    
+    return (
+      <Badge 
+        variant="outline" 
+        style={{ backgroundColor: color + '20', borderColor: color, color: color }}
+        className="font-medium"
+      >
+        {roleIcons[displayRole.toLowerCase()] || <User className="h-3 w-3 mr-1" />}
+        {displayRole.charAt(0).toUpperCase() + displayRole.slice(1)}
+      </Badge>
+    );
+  };
+
+  const getStatusBadge = (status: string, invitationStatus: string) => {
+    const statusConfig: Record<string, { badge: React.ReactNode; icon: React.ReactNode }> = {
+      'active': {
+        badge: <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">Active</Badge>,
+        icon: <CheckCircle className="h-3 w-3 mr-1" />
+      },
+      'pending': {
+        badge: <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>,
+        icon: <Clock className="h-3 w-3 mr-1" />
+      },
+      'invited': {
+        badge: <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Invited</Badge>,
+        icon: <Mail className="h-3 w-3 mr-1" />
+      },
+      'inactive': {
+        badge: <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">Inactive</Badge>,
+        icon: <Ban className="h-3 w-3 mr-1" />
+      }
+    };
+
+    const config = statusConfig[status] || statusConfig['inactive'];
+    
+    return (
+      <div className="flex items-center">
+        {config.icon}
+        {config.badge}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -294,7 +307,11 @@ const UnifiedUserManagement = () => {
             Refresh
           </Button>
           {hasRoleAccess(['admin', 'manager']) && (
-            <Dialog open={isCreatingUser} onOpenChange={setIsCreatingUser}>
+            <Dialog open={isCreatingUser} onOpenChange={(open) => {
+              // Prevent closing during loading
+              if (!open && creating) return;
+              setIsCreatingUser(open);
+            }}>
               <DialogTrigger asChild>
                 <Button>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -335,7 +352,13 @@ const UnifiedUserManagement = () => {
                       <SelectContent>
                         {roles.map(role => (
                           <SelectItem key={role.id} value={role.id}>
-                            {role.name}
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: role.color }}
+                              />
+                              {role.name}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -347,7 +370,17 @@ const UnifiedUserManagement = () => {
                       disabled={creating}
                       className="flex-1"
                     >
-                      {creating ? 'Sending...' : 'Send Invitation'}
+                      {creating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Sending Invitation...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-4 w-4 mr-2" />
+                          Send Invitation
+                        </>
+                      )}
                     </Button>
                     <Button 
                       variant="outline" 
@@ -365,7 +398,7 @@ const UnifiedUserManagement = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="permissions">Permissions</TabsTrigger>
@@ -402,7 +435,13 @@ const UnifiedUserManagement = () => {
                     <SelectItem value="all">All Roles</SelectItem>
                     {roles.map(role => (
                       <SelectItem key={role.id} value={role.name}>
-                        {role.name}
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: role.color }}
+                          />
+                          {role.name}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -424,11 +463,11 @@ const UnifiedUserManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-[300px]">User</TableHead>
+                    <TableHead className="w-[150px]">Role</TableHead>
+                    <TableHead className="w-[120px]">Status</TableHead>
+                    <TableHead className="w-[120px]">Last Login</TableHead>
+                    <TableHead className="w-[200px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -436,13 +475,13 @@ const UnifiedUserManagement = () => {
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-sm font-medium">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
+                            <span className="text-sm font-semibold text-primary">
                               {user.full_name.charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div>
-                            <div className="font-medium">{user.full_name}</div>
+                            <div className="font-semibold text-gray-900">{user.full_name}</div>
                             <div className="text-sm text-muted-foreground">{user.email}</div>
                           </div>
                         </div>
@@ -469,68 +508,134 @@ const UnifiedUserManagement = () => {
                           <span className="text-muted-foreground">Never</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <Settings className="h-4 w-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuLabel>User Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            
-                            {/* View Details - Available to everyone */}
-                            <DropdownMenuItem onClick={() => {
+                      <TableCell className="text-right">
+                        <div className="flex items-center gap-1 justify-end">
+                          {/* View Details Button */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-blue-50"
+                            onClick={() => {
                               setSelectedUser(user);
                               setIsViewingUser(true);
-                            }}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
+                            }}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </Button>
 
-                            {/* Show current user's role for debugging */}
-                            {process.env.NODE_ENV === 'development' && (
-                              <DropdownMenuItem disabled>
-                                <AlertTriangle className="h-4 w-4 mr-2" />
-                                Role: {userRole || 'No role'} | HasAccess: {hasRoleAccess(['admin', 'manager']) ? 'Yes' : 'No'}
-                              </DropdownMenuItem>
-                            )}
-
+                          {/* Admin Actions */}
                             {hasRoleAccess(['admin', 'manager']) && (
                               <>
-                                <DropdownMenuSeparator />
-                                
-                                {/* Edit User Profile */}
-                                <DropdownMenuItem onClick={() => {
-                                  const currentName = user.full_name;
-                                  const newName = prompt('Enter new full name:', currentName);
-                                  if (newName && newName !== currentName) {
-                                    updateUserProfile(user.user_id, { full_name: newName });
-                                  }
-                                }}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Profile
-                                </DropdownMenuItem>
-
-                                {/* Change Role */}
-                                <DropdownMenuItem onClick={() => {
+                              {/* Edit Profile Button */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-green-50"
+                                onClick={() => {
                                   setSelectedUser(user);
-                                  // Create a simple role selection dialog using prompt for now
-                                  const roleOptions = roles.map(r => `${r.name} (${r.id})`).join('\n');
-                                  const selectedRoleId = prompt(`Select a role:\n\n${roleOptions}\n\nEnter the role ID:`);
-                                  if (selectedRoleId && roles.find(r => r.id === selectedRoleId)) {
-                                    handleUpdateUserRole(user.user_id, selectedRoleId);
-                                  }
-                                }}>
-                                  <Crown className="h-4 w-4 mr-2" />
-                                  Change Role
-                                </DropdownMenuItem>
+                                  setEditUserFullName(user.full_name);
+                                  setEditUserEmail(user.email || '');
+                                  setIsEditingUser(true);
+                                }}
+                                title="Edit Profile"
+                              >
+                                <Edit className="h-4 w-4 text-green-600" />
+                              </Button>
 
-                                {/* Reset Password / Send Password Reset */}
+                              {/* Change Role Button */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-purple-50"
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setSelectedRoleForChange(user.role);
+                                  setIsChangingRole(true);
+                                }}
+                                title="Change Role"
+                              >
+                                <Crown className="h-4 w-4 text-purple-600" />
+                              </Button>
+
+                                                              {/* Status Management Buttons */}
+                                {user.status === 'pending' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-blue-50"
+                                    onClick={() => {
+                                    const roleId = roles.find(r => r.name === user.role)?.id;
+                                    if (roleId) {
+                                      resendInvitation(user.email || '', roleId, user.full_name);
+                                    }
+                                    }}
+                                    title="Resend Invitation"
+                                  >
+                                    <Mail className="h-4 w-4 text-blue-600" />
+                                  </Button>
+                                )}
+
+                                {user.status === 'inactive' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-green-50"
+                                    onClick={() => activateUser(user.user_id)}
+                                    title="Activate User"
+                                  >
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                )}
+
+                                {user.status === 'active' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-orange-50"
+                                    onClick={() => {
+                                      setSelectedUser(user);
+                                      setIsConfirmingDeactivation(true);
+                                    }}
+                                    title="Deactivate User"
+                                  >
+                                    <Ban className="h-4 w-4 text-orange-600" />
+                                  </Button>
+                                )}
+
+                                {/* Delete User Button */}
+                                {user.status !== 'active' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-red-50"
+                                    onClick={() => {
+                                      setSelectedUser(user);
+                                      setIsConfirmingDeactivation(true);
+                                    }}
+                                    title="Delete User"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                )}
+                              </>
+                          )}
+
+                          {/* More Actions Dropdown for additional options */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">More actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuLabel>Additional Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              
+                              {/* Reset Password */}
+                              {hasRoleAccess(['admin', 'manager']) && (
                                 <DropdownMenuItem onClick={() => {
-                                  // Use edge function for password reset
                                   if (window.confirm(`Send password reset email to ${user.email}?`)) {
                                     toast.info('Password reset functionality coming soon');
                                   }
@@ -538,58 +643,14 @@ const UnifiedUserManagement = () => {
                                   <Key className="h-4 w-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
+                              )}
 
-                                <DropdownMenuSeparator />
-
-                                {/* Status Management */}
-                                {user.status === 'pending' && (
-                                  <DropdownMenuItem onClick={() => {
-                                    const roleId = roles.find(r => r.name === user.role)?.id;
-                                    if (roleId) {
-                                      resendInvitation(user.email || '', roleId, user.full_name);
-                                    }
-                                  }}>
-                                    <Mail className="h-4 w-4 mr-2" />
-                                    Resend Invitation
-                                  </DropdownMenuItem>
-                                )}
-
-                                {user.status === 'inactive' && (
-                                  <DropdownMenuItem onClick={() => {
-                                    activateUser(user.user_id);
-                                  }} className="text-green-600">
-                                    <CheckCircle className="h-4 w-4 mr-2" />
-                                    Activate User
-                                  </DropdownMenuItem>
-                                )}
-
-                                {user.status === 'active' && (
-                                  <DropdownMenuItem 
-                                    onClick={() => handleDeactivateUser(user.user_id)}
-                                    className="text-orange-600"
-                                  >
-                                    <Ban className="h-4 w-4 mr-2" />
-                                    Deactivate User
-                                  </DropdownMenuItem>
-                                )}
-
-                                <DropdownMenuSeparator />
-
-                                {/* Danger Zone */}
-                                {user.status !== 'active' && (
-                                  <DropdownMenuItem 
-                                    onClick={() => {
-                                      if (window.confirm(`Are you sure you want to permanently delete ${user.full_name}? This action cannot be undone.`)) {
-                                        deleteUser(user.user_id);
-                                      }
-                                    }}
-                                    className="text-red-600 focus:text-red-600"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete User
-                                  </DropdownMenuItem>
-                                )}
-                              </>
+                              {/* Show current user's role for debugging */}
+                              {process.env.NODE_ENV === 'development' && (
+                                <DropdownMenuItem disabled>
+                                  <AlertTriangle className="h-4 w-4 mr-2" />
+                                  Role: {userRole || 'No role'} | HasAccess: {hasRoleAccess(['admin', 'manager']) ? 'Yes' : 'No'}
+                                </DropdownMenuItem>
                             )}
 
                             {/* Special actions for current user */}
@@ -597,7 +658,6 @@ const UnifiedUserManagement = () => {
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => {
-                                  // Navigate to profile settings - use existing user profile system
                                   toast.info('Profile settings coming soon');
                                 }}>
                                   <Settings className="h-4 w-4 mr-2" />
@@ -607,6 +667,7 @@ const UnifiedUserManagement = () => {
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1025,9 +1086,6 @@ const UnifiedUserManagement = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Remove the sessions tab completely */}
-        {/* Active Sessions Tab - REMOVED */}
       </Tabs>
 
       {/* User Details Dialog */}
@@ -1082,6 +1140,204 @@ const UnifiedUserManagement = () => {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditingUser} onOpenChange={setIsEditingUser}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User Profile</DialogTitle>
+            <DialogDescription>Update user information and details.</DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="editFullName">Full Name</Label>
+                <Input
+                  id="editFullName"
+                  value={editUserFullName}
+                  onChange={(e) => setEditUserFullName(e.target.value)}
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="editEmail">Email</Label>
+                <Input
+                  id="editEmail"
+                  type="email"
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={async () => {
+                    if (editUserFullName !== selectedUser.full_name || editUserEmail !== selectedUser.email) {
+                      const success = await updateUserProfile(selectedUser.user_id, { 
+                        full_name: editUserFullName,
+                        email: editUserEmail 
+                      });
+                      if (success) {
+                        setIsEditingUser(false);
+                        setSelectedUser(null);
+                      }
+                    } else {
+                      setIsEditingUser(false);
+                      setSelectedUser(null);
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  Update Profile
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsEditingUser(false);
+                    setSelectedUser(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Role Dialog */}
+      <Dialog open={isChangingRole} onOpenChange={setIsChangingRole}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change User Role</DialogTitle>
+            <DialogDescription>Select a new role for the user.</DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="roleSelect">Select Role</Label>
+                <Select value={selectedRoleForChange} onValueChange={setSelectedRoleForChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map(role => (
+                      <SelectItem key={role.id} value={role.name}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: role.color }}
+                          />
+                          {role.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={async () => {
+                    if (selectedRoleForChange && selectedRoleForChange !== selectedUser.role) {
+                      const roleId = roles.find(r => r.name === selectedRoleForChange)?.id;
+                      if (roleId) {
+                        const success = await handleUpdateUserRole(selectedUser.user_id, roleId);
+                        if (success) {
+                          setIsChangingRole(false);
+                          setSelectedUser(null);
+                        }
+                      }
+                    } else {
+                      setIsChangingRole(false);
+                      setSelectedUser(null);
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  Update Role
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsChangingRole(false);
+                    setSelectedUser(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog for Deactivation/Deletion */}
+      <Dialog open={isConfirmingDeactivation} onOpenChange={setIsConfirmingDeactivation}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Action</DialogTitle>
+            <DialogDescription>
+              {selectedUser?.status === 'active' 
+                ? `Are you sure you want to deactivate ${selectedUser?.full_name}?`
+                : `Are you sure you want to permanently delete ${selectedUser?.full_name}? This action cannot be undone.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-sm font-medium">
+                      {selectedUser.full_name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-medium">{selectedUser.full_name}</div>
+                    <div className="text-sm text-muted-foreground">{selectedUser.email}</div>
+                    <div className="flex gap-1 mt-1">
+                      {getRoleBadge(selectedUser.role)}
+                      {getStatusBadge(selectedUser.status, selectedUser.invitation_status)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="destructive"
+                  onClick={async () => {
+                    if (selectedUser.status === 'active') {
+                      const success = await handleDeactivateUser(selectedUser.user_id);
+                      if (success) {
+                        setIsConfirmingDeactivation(false);
+                        setSelectedUser(null);
+                      }
+                    } else {
+                      const success = await deleteUser(selectedUser.user_id);
+                      if (success) {
+                        setIsConfirmingDeactivation(false);
+                        setSelectedUser(null);
+                      }
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  {selectedUser.status === 'active' ? 'Deactivate User' : 'Delete User'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsConfirmingDeactivation(false);
+                    setSelectedUser(null);
+                  }}
+                >
+                  Cancel
+                </Button>
               </div>
             </div>
           )}

@@ -26,7 +26,7 @@ import {
   Calendar as CalendarIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+
 import { useEffectivePricing } from '@/hooks/useEffectivePricing';
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
@@ -49,7 +49,6 @@ function TenantAdminDashboard() {
   const { user, tenantId } = useAuth();
   const { formatCurrency } = useApp();
   const [userProfile, setUserProfile] = useState<any>(null);
-  const { formatPrice } = useCurrencyUpdate();
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -125,16 +124,15 @@ function TenantAdminDashboard() {
     return () => clearTimeout(timeoutId);
   }, [dateFilter, dateRange.start, dateRange.end, tenantId]); // Added tenantId dependency
 
-  // Auto-refresh features re-enabled
-  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
-
-  useDebouncedRealtimeRefresh({
-    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
-    tenantId,
-    onChange: () => fetchDashboardData(),
-    enabled: true,
-    debounceMs: 2000,
-  });
+  // Remove these problematic hook calls:
+  // useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
+  // useDebouncedRealtimeRefresh({
+  //   tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
+  //   tenantId,
+  //   onChange: () => fetchDashboardData(),
+  //   enabled: true,
+  //   debounceMs: 2000,
+  // });
 
   const fetchCurrentSubscription = async () => {
     if (!tenantId) return;

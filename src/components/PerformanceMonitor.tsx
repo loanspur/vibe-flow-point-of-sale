@@ -8,34 +8,9 @@ interface PerformanceMetrics {
 
 export const PerformanceMonitor = () => {
   useEffect(() => {
-    // Only run performance monitoring in development
-    if (process.env.NODE_ENV !== 'development') {
-      return;
-    }
-
-    // Simplified performance monitoring with minimal overhead
-    const measureLoadPerformance = () => {
-      if ('performance' in window) {
-        const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-        const loadTime = navigation.loadEventEnd - navigation.fetchStart;
-        
-        // Only log if significantly slow
-        if (loadTime > 5000) {
-          console.warn('Slow page load detected:', `${loadTime.toFixed(2)}ms`);
-        }
-      }
-    };
-
-    // Wait for page to fully load before measuring
-    if (document.readyState === 'complete') {
-      measureLoadPerformance();
-    } else {
-      window.addEventListener('load', measureLoadPerformance, { once: true });
-    }
-
-    return () => {
-      window.removeEventListener('load', measureLoadPerformance);
-    };
+    // COMPLETELY DISABLED: Performance monitoring to prevent overhead
+    // This was causing false slow page load warnings
+    console.log('PerformanceMonitor completely disabled to prevent overhead');
   }, []);
 
   return null; // This component doesn't render anything

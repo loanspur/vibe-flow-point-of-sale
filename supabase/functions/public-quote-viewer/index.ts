@@ -276,6 +276,7 @@ function generateQuoteHTML(quote: any): string {
                 <tr>
                     <td>
                         ${item.products?.name || 'Product'}
+                        ${item.products?.brands ? ` [${item.products.brands.name}]` : ''}
                         ${item.product_variants ? ` (${item.product_variants.name}: ${item.product_variants.value})` : ''}
                     </td>
                     <td>${item.products?.description || ''}</td>

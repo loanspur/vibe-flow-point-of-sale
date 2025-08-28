@@ -118,49 +118,31 @@ export default function AccountingDashboard() {
   useEffect(() => {
     if (!tenantId) return;
 
-    const channel = supabase
-      .channel('accounting-realtime-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_transactions',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          refetchMetrics();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounting_entries'
-        },
-        () => {
-          refetchMetrics();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounts',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          refetchMetrics();
-        }
-      )
-      .subscribe();
+    // DISABLED: Real-time subscription to prevent refresh triggers
+    // const channel = supabase
+    //   .channel('accounting-realtime-updates')
+    //   .on('postgres_changes', {
+    //     event: '*',
+    //     schema: 'public',
+    //     table: 'transactions',
+    //     filter: `tenant_id=eq.${tenantId}`
+    //   }, () => {
+    //     fetchDashboardData();
+    //   })
+    //   .on('postgres_changes', {
+    //     event: '*',
+    //     schema: 'public',
+    //     table: 'chart_of_accounts',
+    //     filter: `tenant_id=eq.${tenantId}`
+    //   }, () => {
+    //     fetchAccounts();
+    //   })
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId, refetchMetrics]);
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
+  }, [tenantId]);
 
 
   const formatPercentage = (value: number, total: number) => {

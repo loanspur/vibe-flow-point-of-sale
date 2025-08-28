@@ -20,6 +20,7 @@ interface VirtualizedDataTableProps<T> {
   loading?: boolean;
   totalCount?: number;
   onLoadMore?: () => void;
+  onRefresh?: () => void;
   className?: string;
 }
 
@@ -57,6 +58,7 @@ export default function VirtualizedDataTable<T extends Record<string, any>>({
   loading = false,
   totalCount,
   onLoadMore,
+  onRefresh,
   className = '',
 }: VirtualizedDataTableProps<T>) {
   const { toast } = useToast();
@@ -71,6 +73,24 @@ export default function VirtualizedDataTable<T extends Record<string, any>>({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Default refresh handler
+  const handleRefresh = useCallback(() => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      // Default behavior: clear filters and search
+      setSearchTerm('');
+      setFilters([]);
+      setSortConfig(null);
+      setCurrentPage(1);
+      setVirtualScrollTop(0);
+      toast({
+        title: "Data refreshed",
+        description: "Filters and search have been cleared.",
+      });
+    }
+  }, [onRefresh, toast]);
 
   // Generate unique row ID
   const getRowId = useCallback((row: T): string => {
@@ -292,7 +312,7 @@ export default function VirtualizedDataTable<T extends Record<string, any>>({
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
