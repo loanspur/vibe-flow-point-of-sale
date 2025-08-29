@@ -32,9 +32,9 @@ import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
-// Removed unused recharts import that was causing module loading issues
+// Removed unused imports that were causing build issues
+// import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+// import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
 
 const getTimeBasedGreeting = () => {
   const hour = new Date().getHours();
@@ -124,24 +124,6 @@ function TenantAdminDashboard() {
     return () => clearTimeout(timeoutId);
   }, [dateFilter, dateRange.start, dateRange.end, tenantId]); // Added tenantId dependency
 
-<<<<<<< HEAD
-  // Optimized real-time refresh configuration
-  useAutoRefresh({ 
-    interval: 30000, // 30 seconds for real-time updates
-    onRefresh: () => fetchDashboardData(), 
-    visibilityBased: true, 
-    enabled: true // Enable auto-refresh
-  });
-
-  // Optimized real-time subscription with faster debounce
-  useDebouncedRealtimeRefresh({
-    tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
-    tenantId,
-    onChange: () => fetchDashboardData(),
-    enabled: true, // Enable real-time updates
-    debounceMs: 1000, // 1 second for faster real-time updates
-  });
-=======
   // Remove these problematic hook calls:
   // useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
   // useDebouncedRealtimeRefresh({
@@ -151,7 +133,6 @@ function TenantAdminDashboard() {
   //   enabled: true,
   //   debounceMs: 2000,
   // });
->>>>>>> e939229a24d2e7d980599cc7c35d864ba58b2a07
 
   const fetchCurrentSubscription = async () => {
     if (!tenantId) return;

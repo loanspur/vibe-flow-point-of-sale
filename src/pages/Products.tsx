@@ -7,8 +7,8 @@ import { UnifiedMigration } from '@/components/UnifiedMigration';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SafeWrapper } from '@/components/SafeWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
+// import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+// import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { ProductSettings } from '@/components/ProductSettings';
 import { Button } from '@/components/ui/button';
@@ -28,20 +28,20 @@ const Products = () => {
     realtimeTimerRef.current = setTimeout(() => setRefreshKey((k) => k + 1), 300);
   }, []);
   // Periodic refresh when visible
-  useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
+  // useAutoRefresh({ interval: 30000, onRefresh: handleRefresh, visibilityBased: true, enabled: false });
 
 // Debounced realtime refresh to prevent excessive re-renders
-  useDebouncedRealtimeRefresh({
-    tables: [
-      'products',
-      'product_variants',
-      'stock_transactions',
-    ],
-    tenantId,
-    onChange: handleRealtimeRefresh,
-    enabled: false,
-    debounceMs: 2000,
-  });
+  // useDebouncedRealtimeRefresh({
+  //   tables: [
+  //     'products',
+  //     'product_variants',
+  //     'stock_transactions',
+  //   ],
+  //   tenantId,
+  //   onChange: handleRealtimeRefresh,
+  //   enabled: false,
+  //   debounceMs: 2000,
+  // });
 
 return (
     <div className="p-6">

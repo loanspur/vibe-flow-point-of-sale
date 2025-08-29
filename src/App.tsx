@@ -978,9 +978,9 @@ const App = () => {
                    <Toaster />
                    <Sonner />
                    <AppOptimizer>
-                     <BrowserRouter>
-                       <DomainRouter />
-                     </BrowserRouter>
+                   <BrowserRouter>
+                     <DomainRouter />
+                   </BrowserRouter>
                    </AppOptimizer>
                    <CookieConsent />
                  </>

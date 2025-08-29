@@ -230,16 +230,6 @@ class DomainManager {
     this.resolving.add(currentDomain);
     
     try {
-<<<<<<< HEAD
-      // Resolve tenant ID from database
-      const { data: tenantId, error } = await supabase
-        .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
-
-      if (error) {
-        console.error('❌ Error resolving tenant by domain:', error);
-        this.resolving.delete(currentDomain); // Clean up
-        return domainInfo;
-=======
       // console.log('🔎 Resolving tenant for domain:', currentDomain);
       
       // Special handling for localhost subdomains
@@ -306,7 +296,6 @@ class DomainManager {
             }
           }
         }
->>>>>>> e939229a24d2e7d980599cc7c35d864ba58b2a07
       }
       
       // If not resolved by localhost logic, try normal domain resolution
@@ -314,7 +303,7 @@ class DomainManager {
         const { data: tenantId, error } = await supabase
           .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
 
-              if (error) {
+        if (error) {
           console.error('❌ Error resolving tenant by domain:', error);
           this.resolving.delete(currentDomain); // Clean up
           return domainInfo;
@@ -332,7 +321,7 @@ class DomainManager {
             : null;
 
         if (altDomain) {
-          console.log('�� Trying alternate TLD for domain resolution:', altDomain);
+          console.log(' Trying alternate TLD for domain resolution:', altDomain);
           const { data: altTenantId, error: altError } = await supabase
             .rpc('get_tenant_by_domain', { domain_name_param: altDomain });
           if (altError) {
