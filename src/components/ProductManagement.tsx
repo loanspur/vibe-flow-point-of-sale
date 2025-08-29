@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Filter, Edit, Trash2, Eye, Package, Image, RotateCcw, History, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Eye, Package, Image, RotateCcw, History, AlertCircle, AlertTriangle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { useSoftWarnings } from '@/hooks/useSoftWarnings';
@@ -104,6 +104,18 @@ export default function ProductManagement({
     showOutOfStockWarning,
   } = useSoftWarnings();
 
+  // Function to check if product is low stock
+  const isLowStock = (product: Product) => {
+    const totalStock = product.stock_quantity + 
+      (product.product_variants?.reduce((sum: number, variant: any) => sum + (variant.stock_quantity || 0), 0) || 0);
+    return totalStock <= product.min_stock_level && totalStock > 0;
+  };
+
+  // Function to check if product is expired or expiring soon
+  const isExpiringSoon = (product: Product) => {
+    return expiringIds.has(product.id);
+  };
+
   // Function to show soft warnings for products
   const showProductWarnings = (product: Product) => {
     // Use centralized warning system
@@ -112,6 +124,24 @@ export default function ProductManagement({
     // Out of stock warning
     if (product.stock_quantity === 0) {
       showOutOfStockWarning(product.name);
+    }
+
+    // Low stock warning
+    if (isLowStock(product)) {
+      toast({
+        title: "Low Stock Alert",
+        description: `${product.name} is running low on stock (${product.stock_quantity} remaining)`,
+        variant: "default",
+      });
+    }
+
+    // Expiring soon warning
+    if (isExpiringSoon(product)) {
+      toast({
+        title: "Expiring Soon",
+        description: `${product.name} is expiring soon. Please check expiry dates.`,
+        variant: "default",
+      });
     }
   };
   
@@ -147,11 +177,12 @@ export default function ProductManagement({
   const location = useLocation();
   const [activeFilter, setActiveFilter] = useState<'all' | 'out-of-stock' | 'expiring'>('all');
   const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
+  const [lowStockProducts, setLowStockProducts] = useState<Set<string>>(new Set());
   const [hasLoaded, setHasLoaded] = useState(false);
   const didMountRef = useRef(false);
   const refreshTimeoutRef = useRef<NodeJS.Timeout>();
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
  
    useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -403,10 +434,23 @@ export default function ProductManagement({
                       <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm sm:text-base truncate">{product.name}</div>
-                     {/* Low Stock Badge - Removed for enhanced user experience */}
-                  </div>
+                                     <div className="min-w-0 flex-1">
+                     <div className="font-medium text-sm sm:text-base truncate flex items-center gap-2">
+                       {product.name}
+                       {isLowStock(product) && (
+                         <Badge variant="destructive" className="text-xs px-1 py-0">
+                           <AlertTriangle className="h-3 w-3 mr-1" />
+                           Low Stock
+                         </Badge>
+                       )}
+                       {isExpiringSoon(product) && (
+                         <Badge variant="secondary" className="text-xs px-1 py-0">
+                           <Clock className="h-3 w-3 mr-1" />
+                           Expiring
+                         </Badge>
+                       )}
+                     </div>
+                   </div>
                 </div>
               </TableCell>
                <TableCell className="hidden sm:table-cell">
@@ -573,9 +617,34 @@ export default function ProductManagement({
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Low Stock Alert - Removed for enhanced user experience */}
+     return (
+     <div className="space-y-6">
+       {/* Stock Alerts Summary */}
+       {(() => {
+         const lowStockCount = products.filter(isLowStock).length;
+         const expiringCount = products.filter(isExpiringSoon).length;
+         
+         if (lowStockCount > 0 || expiringCount > 0) {
+           return (
+             <Card className="border-orange-200 bg-orange-50">
+               <CardContent className="pt-6">
+                 <div className="flex items-center gap-4">
+                   <AlertTriangle className="h-5 w-5 text-orange-600" />
+                   <div className="flex-1">
+                     <h3 className="font-semibold text-orange-800">Stock Alerts</h3>
+                     <p className="text-sm text-orange-700">
+                       {lowStockCount > 0 && `${lowStockCount} product${lowStockCount > 1 ? 's' : ''} running low on stock`}
+                       {lowStockCount > 0 && expiringCount > 0 && ' • '}
+                       {expiringCount > 0 && `${expiringCount} product${expiringCount > 1 ? 's' : ''} expiring soon`}
+                     </p>
+                   </div>
+                 </div>
+               </CardContent>
+             </Card>
+           );
+         }
+         return null;
+       })()}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -682,22 +751,22 @@ export default function ProductManagement({
               {selectedProduct ? 'Update product information' : 'Create a new product in your catalog'}
             </DialogDescription>
           </DialogHeader>
-          <ProductForm
-            product={selectedProduct}
-            onSave={(savedProduct) => {
-              setShowProductForm(false);
-              setSelectedProduct(null);
-              handleRefresh();
-              toast({
-                title: selectedProduct ? 'Product Updated' : 'Product Created',
-                description: `${savedProduct.name} has been ${selectedProduct ? 'updated' : 'created'} successfully.`,
-              });
-            }}
-            onCancel={() => {
-              setShowProductForm(false);
-              setSelectedProduct(null);
-            }}
-          />
+                     <ProductForm
+             product={selectedProduct}
+             onSuccess={() => {
+               setShowProductForm(false);
+               setSelectedProduct(null);
+               handleRefresh();
+               toast({
+                 title: selectedProduct ? 'Product Updated' : 'Product Created',
+                 description: `${selectedProduct?.name || 'Product'} has been ${selectedProduct ? 'updated' : 'created'} successfully.`,
+               });
+             }}
+             onCancel={() => {
+               setShowProductForm(false);
+               setSelectedProduct(null);
+             }}
+           />
         </DialogContent>
       </Dialog>
     </div>

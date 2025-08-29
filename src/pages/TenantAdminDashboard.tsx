@@ -32,6 +32,7 @@ import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SubdomainFeatureAlerts } from '@/components/SubdomainFeatureAlerts';
 // Removed unused imports that were causing build issues
 // import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 // import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
@@ -517,6 +518,9 @@ function TenantAdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Subdomain Feature Alerts */}
+      <SubdomainFeatureAlerts />
 
       {/* Stock Alerts */}
       <Card>
