@@ -184,38 +184,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
    
   const generateSKU = async (productName: string): Promise<string> => {
     if (!productName) return '';
-    const namePrefix = productName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase();
+    
     // If tenantId not ready, produce a random SKU without DB check
     if (!tenantId) {
+      const namePrefix = productName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase();
       const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
       return `${namePrefix}${fallbackSuffix}`;
     }
 
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (attempts < maxAttempts) {
-      const timestamp = Date.now().toString().slice(-4);
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
-      const potentialSKU = `${namePrefix}${timestamp}${randomSuffix}`;
-
-      const { data: existingProduct } = await supabase
-        .from('products')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('sku', potentialSKU)
-        .maybeSingle();
-
-      if (!existingProduct) {
-        return potentialSKU;
-      }
-
-      attempts++;
-      await new Promise(resolve => setTimeout(resolve, 1));
-    }
-
-    const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `${namePrefix}${fallbackSuffix}`;
+    // Use centralized SKU generation
+    const { generateUniqueSKU } = await import('@/lib/migration-utils');
+    return generateUniqueSKU(productName, tenantId);
   }; 
 
 
@@ -294,6 +273,24 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
       if (error) throw error;
       setRevenueAccounts(data || []);
+      
+      // Auto-set inventory account for new products
+      if (!product && data && data.length > 0) {
+        // Find inventory account
+        const inventoryAccount = data.find(account => 
+          account.name.toLowerCase().includes('inventory') || 
+          account.name.toLowerCase().includes('stock') ||
+          account.code === '1200' || 
+          account.code === '1020'
+        );
+        
+        if (inventoryAccount) {
+          formActions.setFieldValue('revenue_account_id', inventoryAccount.id);
+        } else if (data.length > 0) {
+          // Fallback to first asset account
+          formActions.setFieldValue('revenue_account_id', data[0].id);
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Error fetching asset accounts",
@@ -301,7 +298,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         variant: "destructive",
       });
     }
-  }, [tenantId, toast]);
+  }, [tenantId, toast, product, formActions]);
 
   const fetchBrands = useCallback(async () => {
     try {
@@ -410,49 +407,76 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }, [tenantId, product, formState.data.location_id, setDefaultLocation]);
 
-  // Initialize form with product data (only run once per product)
-  useEffect(() => {
-    if (product && product.id) {
-      const savedLocation = localStorage.getItem('selected_location');
-      const productData = {
-        name: product.name || '',
-        sku: product.sku || '',
-        description: product.description || '',
-        price: product.price?.toString() || '',
-        wholesale_price: product.wholesale_price?.toString() || '',
-        retail_price: product.retail_price?.toString() || '',
-        cost_price: product.cost_price?.toString() || '',
-        default_profit_margin: product.default_profit_margin?.toString() || '',
-        barcode: product.barcode || '',
-        category_id: product.category_id || '',
-        subcategory_id: product.subcategory_id || undefined,
-        brand_id: product.brand_id || undefined,
-        revenue_account_id: product.revenue_account_id || undefined,
-        unit_id: product.unit_id || undefined,
-        stock_quantity: product.stock_quantity?.toString() || '',
-        min_stock_level: product.min_stock_level?.toString() || '',
-        has_expiry_date: product.has_expiry_date || false,
-        is_active: product.is_active ?? true,
-        location_id: savedLocation || product.location_id || '',
-        has_variants: false,
-      };
-      
-      // Set form data without triggering re-renders
-      formActions.setData(productData);
-      
-      if (product.image_url) {
-        setImagePreview(product.image_url);
-      }
-      
-      // Fetch subcategories if category is set
-      if (product.category_id) {
-        fetchSubcategories(product.category_id);
-      }
-      
-      // Fetch variants for existing product
-      fetchProductVariants(product.id);
-    }
-  }, [product?.id]);
+        // Initialize form with product data (only run once per product)
+      useEffect(() => {
+        if (product && product.id) {
+          const savedLocation = localStorage.getItem('selected_location');
+          const productData = {
+            name: product.name || '',
+            sku: product.sku || '',
+            description: product.description || '',
+            price: product.price?.toString() || '',
+            wholesale_price: product.wholesale_price?.toString() || '',
+            retail_price: product.retail_price?.toString() || '',
+            cost_price: product.cost_price?.toString() || '',
+            default_profit_margin: product.default_profit_margin?.toString() || '',
+            barcode: product.barcode || '',
+            category_id: product.category_id || '',
+            subcategory_id: product.subcategory_id || undefined,
+            brand_id: product.brand_id || undefined,
+            revenue_account_id: product.revenue_account_id || undefined,
+            unit_id: product.unit_id || undefined,
+            stock_quantity: product.stock_quantity?.toString() || '',
+            min_stock_level: product.min_stock_level?.toString() || '',
+            has_expiry_date: product.has_expiry_date || false,
+            is_active: product.is_active ?? true,
+            location_id: savedLocation || product.location_id || '',
+            has_variants: false,
+          };
+          
+          // Set form data without triggering re-renders
+          formActions.setData(productData);
+          
+          if (product.image_url) {
+            setImagePreview(product.image_url);
+          }
+          
+          // Fetch subcategories if category is set
+          if (product.category_id) {
+            fetchSubcategories(product.category_id);
+          }
+          
+          // Fetch variants for existing product
+          fetchProductVariants(product.id);
+        } else {
+          // For new products, ensure revenue account is set to inventory account
+          const savedLocation = localStorage.getItem('selected_location');
+          const productData = {
+            name: '',
+            sku: '',
+            description: '',
+            price: '',
+            wholesale_price: '',
+            retail_price: '',
+            cost_price: '',
+            default_profit_margin: '',
+            barcode: '',
+            category_id: '',
+            subcategory_id: undefined,
+            brand_id: undefined,
+            revenue_account_id: undefined, // Will be set by fetchRevenueAccounts
+            unit_id: undefined,
+            stock_quantity: '',
+            min_stock_level: '',
+            has_expiry_date: false,
+            is_active: true,
+            location_id: savedLocation || '',
+            has_variants: false,
+          };
+          
+          formActions.setData(productData);
+        }
+      }, [product?.id]);
 
   // Handle subcategory fetching with stable reference
   useEffect(() => {
@@ -522,6 +546,83 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }, [formActions, toast]);
 
+  // Refresh product data after update to ensure form reflects saved state
+  const refreshProductData = useCallback(async (productId: string) => {
+    try {
+      console.log('Refreshing product data for ID:', productId);
+      
+      // Fetch updated product data
+      const { data: updatedProduct, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_categories(name),
+          product_units(name),
+          store_locations(name),
+          brands(name)
+        `)
+        .eq('id', productId)
+        .single();
+
+      if (error) throw error;
+
+      if (updatedProduct) {
+        console.log('Refreshing form with updated product data:', updatedProduct);
+        
+        // Update form data with fresh product information
+        const refreshedProductData = {
+          name: updatedProduct.name || '',
+          sku: updatedProduct.sku || '',
+          description: updatedProduct.description || '',
+          price: updatedProduct.price?.toString() || '',
+          wholesale_price: updatedProduct.wholesale_price?.toString() || '',
+          retail_price: updatedProduct.retail_price?.toString() || '',
+          cost_price: updatedProduct.cost_price?.toString() || '',
+          default_profit_margin: updatedProduct.default_profit_margin?.toString() || '',
+          barcode: updatedProduct.barcode || '',
+          category_id: updatedProduct.category_id || '',
+          subcategory_id: updatedProduct.subcategory_id || undefined,
+          brand_id: updatedProduct.brand_id || undefined,
+          revenue_account_id: updatedProduct.revenue_account_id || undefined,
+          unit_id: updatedProduct.unit_id || undefined,
+          stock_quantity: updatedProduct.stock_quantity?.toString() || '',
+          min_stock_level: updatedProduct.min_stock_level?.toString() || '',
+          has_expiry_date: updatedProduct.has_expiry_date || false,
+          is_active: updatedProduct.is_active ?? true,
+          location_id: updatedProduct.location_id || '',
+          has_variants: updatedProduct.has_variants || false,
+        };
+
+        // Update form state with refreshed data
+        formActions.setData(refreshedProductData);
+        
+        // Update image preview if product has image
+        if (updatedProduct.image_url) {
+          setImagePreview(updatedProduct.image_url);
+        }
+        
+        // Refresh variants if product has variants
+        if (updatedProduct.has_variants) {
+          await fetchProductVariants(productId);
+        }
+        
+        // Fetch subcategories if category is set
+        if (updatedProduct.category_id) {
+          fetchSubcategories(updatedProduct.category_id);
+        }
+        
+        console.log('Product data refresh completed');
+      }
+    } catch (error: any) {
+      console.error('Error refreshing product data:', error);
+      toast({
+        title: "Warning",
+        description: "Product was saved but there was an issue refreshing the form data. The changes have been saved successfully.",
+        variant: "default",
+      });
+    }
+  }, [formActions, fetchProductVariants, fetchSubcategories, toast]);
+
   // Function to calculate profit margin percentage
   const calculateProfitMargin = (costPrice: number, retailPrice: number): string => {
     if (!costPrice || !retailPrice || costPrice <= 0 || retailPrice <= 0) {
@@ -548,11 +649,11 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       }
     }
     
-    formActions.updateField(field, value);
+            formActions.setFieldValue(field, value);
     
     // Update profit margin if it was auto-calculated
     if ((field === 'cost_price' || field === 'retail_price') && newData.default_profit_margin !== formState.data.default_profit_margin) {
-      formActions.updateField('default_profit_margin', newData.default_profit_margin);
+              formActions.setFieldValue('default_profit_margin', newData.default_profit_margin);
     }
   };
 
@@ -938,7 +1039,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         image_url: imageUrl || null,
         has_expiry_date: formState.data.has_expiry_date,
         location_id: formState.data.location_id || null,
-        tenant_id: tenantId,
+        ...(product ? {} : { tenant_id: tenantId }), // Only include tenant_id for new products
       };
 
       console.log('Saving product data:', product ? 'update' : 'create');
@@ -990,6 +1091,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         setVariants([]);
         setVariantImages({});
         setCurrentStep(0);
+      } else {
+        // For updated products, refresh the form data with the updated information
+        // This ensures the form reflects the actual saved state
+        await refreshProductData(productId);
       }
       
       onSuccess();

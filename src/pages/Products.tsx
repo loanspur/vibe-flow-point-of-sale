@@ -3,7 +3,7 @@ import ProductManagement from '@/components/ProductManagement';
 import { StockManagement } from '@/components/StockManagement';
 import UnitsManagement from '@/components/UnitsManagement';
 import BrandManagement from '@/components/BrandManagement';
-import { ProductMigration } from '@/components/ProductMigration';
+import { UnifiedMigration } from '@/components/UnifiedMigration';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SafeWrapper } from '@/components/SafeWrapper';
 import { useAuth } from '@/contexts/AuthContext';
@@ -114,7 +114,7 @@ return (
         </TabsContent>
         <TabsContent value="migration">
           <SafeWrapper>
-            <ProductMigration />
+            <UnifiedMigration />
           </SafeWrapper>
         </TabsContent>
       </Tabs>

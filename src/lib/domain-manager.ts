@@ -78,9 +78,14 @@ class DomainManager {
   }
 
   private parseDomain(domain: string): DomainConfig {
-    // Development domains
+    // Development domains (main domains only)
     if (domain === 'localhost' || domain.endsWith('.lovableproject.com')) {
       return { tenantId: null, domain, isCustomDomain: false, isSubdomain: false };
+    }
+    
+    // Localhost subdomains (any domain ending with .localhost except localhost itself)
+    if (domain.endsWith('.localhost') && domain !== 'localhost') {
+      return { tenantId: null, domain, isCustomDomain: false, isSubdomain: true };
     }
 
     // Main domains
@@ -175,17 +180,86 @@ class DomainManager {
     
     try {
       // console.log('🔎 Resolving tenant for domain:', currentDomain);
-      // Resolve tenant ID from database
-      const { data: tenantId, error } = await supabase
-        .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
-
-      if (error) {
-        console.error('❌ Error resolving tenant by domain:', error);
-        this.resolving.delete(currentDomain); // Clean up
-        return domainInfo;
+      
+      // Special handling for localhost subdomains
+      let resolvedTenantId: string | null = null;
+      if (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost') {
+        // Extract the full subdomain part (everything before .localhost)
+        const subdomainPart = currentDomain.replace('.localhost', '');
+        console.log('🔍 Resolving localhost subdomain:', subdomainPart);
+        
+        // Try to find tenant by subdomain
+        const { data: tenant, error: tenantError } = await supabase
+          .from('tenants')
+          .select('id, name, subdomain')
+          .eq('subdomain', subdomainPart)
+          .in('status', ['active', 'trial'])
+          .maybeSingle();
+          
+        if (tenantError) {
+          console.warn('⚠️ Error finding tenant by subdomain:', tenantError);
+        } else if (tenant) {
+          resolvedTenantId = tenant.id;
+          console.log('✅ Found tenant for localhost subdomain:', resolvedTenantId, 'Name:', tenant.name, 'Subdomain:', tenant.subdomain);
+        } else {
+          // Debug: Let's see what tenants exist with similar names
+          const { data: allTenants, error: allError } = await supabase
+            .from('tenants')
+            .select('id, name, subdomain, status')
+            .in('status', ['active', 'trial']);
+            
+          if (!allError && allTenants) {
+            console.log('🔍 Available tenants:', allTenants.map(t => ({ name: t.name, subdomain: t.subdomain, status: t.status })));
+            
+            // Try to find by normalized name
+            for (const t of allTenants) {
+              const normalizedName = t.name?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+              if (normalizedName === subdomainPart) {
+                resolvedTenantId = t.id;
+                console.log('✅ Found tenant by normalized name:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
+                break;
+              }
+            }
+            
+            // If still not found, try to find by partial subdomain match
+            if (!resolvedTenantId) {
+              for (const t of allTenants) {
+                if (t.subdomain && subdomainPart.includes(t.subdomain)) {
+                  resolvedTenantId = t.id;
+                  console.log('✅ Found tenant by partial subdomain match:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
+                  break;
+                }
+              }
+            }
+            
+            // If still not found, try to find by partial name match
+            if (!resolvedTenantId) {
+              for (const t of allTenants) {
+                const normalizedTenantName = t.name?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                if (normalizedTenantName && subdomainPart.includes(normalizedTenantName)) {
+                  resolvedTenantId = t.id;
+                  console.log('✅ Found tenant by partial name match:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
+                  break;
+                }
+              }
+            }
+          }
+        }
       }
+      
+      // If not resolved by localhost logic, try normal domain resolution
+      if (!resolvedTenantId) {
+        const { data: tenantId, error } = await supabase
+          .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
 
-      let resolvedTenantId: string | null = tenantId || null;
+              if (error) {
+          console.error('❌ Error resolving tenant by domain:', error);
+          this.resolving.delete(currentDomain); // Clean up
+          return domainInfo;
+        }
+
+        resolvedTenantId = tenantId || null;
+      }
 
       // If not found and this is a known subdomain, try alternate TLD (.shop <-> .online)
       if (!resolvedTenantId && domainInfo.isSubdomain) {
@@ -356,7 +430,7 @@ export const domainManager = new DomainManager();
 export const getCurrentDomain = () => window.location.hostname;
 
 export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
-  return domain === 'localhost' || domain.endsWith('.lovableproject.com');
+  return domain === 'localhost' || domain.endsWith('.lovableproject.com') || domain.endsWith('.localhost');
 };
 
 export const getBaseDomain = (domain: string = getCurrentDomain()) => {
@@ -384,11 +458,15 @@ export const isCustomDomain = (domain: string = getCurrentDomain()) => {
 
 export const isSubdomain = (domain: string = getCurrentDomain()) => {
   return (domain.endsWith('.vibenet.shop') && domain !== 'vibenet.shop') ||
-         (domain.endsWith('.vibenet.online') && domain !== 'vibenet.online');
+         (domain.endsWith('.vibenet.online') && domain !== 'vibenet.online') ||
+         (domain.endsWith('.localhost') && domain !== 'localhost');
 };
 
 export const getSubdomainName = (domain: string = getCurrentDomain()) => {
   if (isSubdomain(domain)) {
+    if (domain.endsWith('.localhost')) {
+      return domain.replace('.localhost', '');
+    }
     return domain.split('.')[0];
   }
   return null;
