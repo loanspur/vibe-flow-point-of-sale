@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
-import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -154,7 +154,7 @@ export default function ProductManagement({
     
     // This is a simplified approach - in production you might want to cache this
     return new Set<string>();
-  }, [activeFilter, tenantId]);
+   }, [activeFilter, tenantId]);
 
   // Fetch locations for filter
   useEffect(() => {
@@ -179,65 +179,102 @@ export default function ProductManagement({
     fetchLocations();
   }, [tenantId]);
 
-  // Pagination and data fetching with optimized query
-  const {
-    data: products = [],
-    loading,
-    pagination,
-    handlePageChange,
-    handlePageSizeChange,
-    refetch: refetchProducts
-  } = usePaginatedQuery<any>(
-    'products',
-    `
-      id,
-      name,
-      sku,
-      description,
-      price,
-      purchase_price,
-      default_profit_margin,
-      barcode,
-      category_id,
-      subcategory_id,
-      revenue_account_id,
-      unit_id,
-      stock_quantity,
-      min_stock_level,
-      is_active,
-      image_url,
-      brand_id,
-      is_combo_product,
-      allow_negative_stock,
-      cost_price,
-      retail_price,
-      wholesale_price,
-      created_at,
-      updated_at,
-      product_categories(name),
-      product_subcategories(name),
-      product_units(name, abbreviation),
-      store_locations(name),
-      brands(name),
-      product_variants(
-        id,
-        name,
-        value,
-        stock_quantity,
-        is_active
-      )
-    `,
-    {
-      enabled: !!tenantId,
-      searchTerm: debouncedSearchTerm, // FIXED: Use debounced search term
-      filters: { 
-        tenant_id: tenantId,
-        ...(locationFilter !== 'all' && { location_id: locationFilter })
-      },
-      orderBy: { column: 'created_at', ascending: false },
-      initialPageSize: 50
-    }
-  );
+  // Stable data fetching with TanStack Query (like other tabs)
+  const qc = useQueryClient();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  const { data: products = [], isLoading: loading } = useQuery({
+    queryKey: ['products', tenantId, debouncedSearchTerm, locationFilter, currentPage, pageSize],
+    queryFn: async () => {
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          sku,
+          description,
+          price,
+          purchase_price,
+          default_profit_margin,
+          barcode,
+          category_id,
+          subcategory_id,
+          revenue_account_id,
+          unit_id,
+          stock_quantity,
+          min_stock_level,
+          is_active,
+          image_url,
+          brand_id,
+          is_combo_product,
+          allow_negative_stock,
+          cost_price,
+          retail_price,
+          wholesale_price,
+          created_at,
+          updated_at,
+          product_categories(name),
+          product_subcategories(name),
+          product_units(name, abbreviation),
+          store_locations(name),
+          brands(name),
+          product_variants(
+            id,
+            name,
+            value,
+            stock_quantity,
+            is_active
+          )
+        `, { count: 'exact' })
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      // Apply location filter
+      if (locationFilter !== 'all') {
+        query = query.eq('location_id', locationFilter);
+      }
+
+      // Apply search
+      if (debouncedSearchTerm && debouncedSearchTerm.trim()) {
+        query = query.or(`name.ilike.%${debouncedSearchTerm}%,description.ilike.%${debouncedSearchTerm}%,sku.ilike.%${debouncedSearchTerm}%`);
+      }
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      return {
+        products: data || [],
+        total: count || 0
+      };
+    },
+    enabled: !!tenantId,
+    staleTime: 30000, // Cache for 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+  });
+
+  const pagination = {
+    page: currentPage,
+    pageSize: pageSize,
+    total: products.total || 0
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1);
+  };
+
+  const refetchProducts = () => {
+    qc.invalidateQueries({ queryKey: ['products', tenantId] });
+  };
 
   // Remove problematic loading state management that causes blinking
   // const [hasLoaded, setHasLoaded] = useState(false);
@@ -247,27 +284,29 @@ export default function ProductManagement({
     return refetchProducts;
   }, [refetchProducts]);
 
+  const productsList = products.products || [];
+  
   const filteredProducts = useMemo(() => {
-    if (!products || !Array.isArray(products)) return [];
+    if (!productsList || !Array.isArray(productsList)) return [];
     
     // No additional filtering needed as search is handled by pagination
-    return products;
-  }, [products.length]); // FIXED: Only depend on array length
+    return productsList;
+  }, [productsList.length]); // FIXED: Only depend on array length
 
   // Calculate low stock products for alerts
   const lowStockProductsList = useMemo(() => {
-    if (!products || !Array.isArray(products)) return [];
-    return products.filter(isLowStock);
-  }, [products.length]); // FIXED: Only depend on array length
+    if (!productsList || !Array.isArray(productsList)) return [];
+    return productsList.filter(isLowStock);
+  }, [productsList.length]); // FIXED: Only depend on array length
 
   // Calculate expiring products for alerts
   const expiringProductsList = useMemo(() => {
-    if (!products || !Array.isArray(products)) return [];
-    return products.filter(isExpiringSoon);
-  }, [products.length]); // FIXED: Only depend on array length
+    if (!productsList || !Array.isArray(productsList)) return [];
+    return productsList.filter(isExpiringSoon);
+  }, [productsList.length]); // FIXED: Only depend on array length
 
   const handleDeleteProduct = async (productId: string) => {
-    const product = products?.find(p => p.id === productId);
+    const product = productsList?.find(p => p.id === productId);
     
     if (!canDelete('product')) {
       logDeletionAttempt('product', productId, product?.name);
@@ -367,8 +406,8 @@ export default function ProductManagement({
               <TableHead className="text-right min-w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
-        <TableBody>
-           {products.map((product) => (
+                 <TableBody>
+            {productsList.map((product) => (
             <TableRow 
               key={product.id} 
                className="hover:bg-muted/50 transition-colors"
