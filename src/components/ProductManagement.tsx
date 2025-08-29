@@ -114,8 +114,13 @@ export default function ProductManagement({
       showOutOfStockWarning(product.name);
     }
   };
+  
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
+  
+  // Add missing dialog state variables
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Use external state if provided, otherwise use internal state
   const finalSelectedProduct = externalSelectedProduct !== undefined ? externalSelectedProduct : selectedProduct;
@@ -136,6 +141,7 @@ export default function ProductManagement({
       setShowProductForm(show);
     }
   };
+  
   const [activeTab, setActiveTab] = useState('products');
   const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
   const location = useLocation();
@@ -320,6 +326,43 @@ export default function ProductManagement({
     }
   };
 
+  // Add missing functions
+  const handleRefresh = () => {
+    refetchProducts();
+  };
+
+  const handleDelete = async () => {
+    if (!selectedProduct) return;
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', selectedProduct.id);
+      
+      if (error) throw error;
+      
+      setShowDeleteDialog(false);
+      setSelectedProduct(null);
+      handleRefresh();
+      
+      toast({
+        title: "Product Deleted",
+        description: `${selectedProduct.name} has been deleted successfully.`,
+      });
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRealtimeRefresh = () => {
+    handleRefresh();
+  };
 
   const ProductTable = () => (
     <Card className="mobile-card">
@@ -593,8 +636,8 @@ export default function ProductManagement({
                 </p>
                 <Button 
                   onClick={() => {
-                    setFinalSelectedProduct(null);
-                    setFinalShowProductForm(true);
+                    setSelectedProduct(null);
+                    setShowProductForm(true);
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -608,49 +651,50 @@ export default function ProductManagement({
                
                {/* Pagination Controls */}
                <PaginationControls
-                 pagination={pagination}
-                 onPageChange={handlePageChange}
-                 onPageSizeChange={handlePageSizeChange}
-                 isLoading={loading}
+                 currentPage={currentPage}
+                 totalPages={Math.ceil(filteredProducts.length / itemsPerPage)}
+                 onPageChange={setCurrentPage}
+                 itemsPerPage={itemsPerPage}
+                 totalItems={filteredProducts.length}
                />
              </>
            )}
         </TabsContent>
 
-        <TabsContent value="categories">
-          <CategoryManagement onUpdate={refetchProducts} />
+        <TabsContent value="categories" className="space-y-6">
+          <CategoryManagement />
         </TabsContent>
       </Tabs>
 
       {/* Product Form Dialog */}
-              <Dialog open={finalShowProductForm} onOpenChange={setFinalShowProductForm}>
+      <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-                          <DialogTitle>
-                {finalSelectedProduct ? 'Edit Product' : 'Add New Product'}
-              </DialogTitle>
-              <DialogDescription>
-                {finalSelectedProduct ? 'Update product information' : 'Create a new product with details, variants, and images'}
-              </DialogDescription>
+            <DialogTitle>
+              {selectedProduct ? 'Edit Product' : 'Add New Product'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProduct ? 'Update product information' : 'Create a new product in your catalog'}
+            </DialogDescription>
           </DialogHeader>
           <ProductForm
-            product={finalSelectedProduct}
-            onSuccess={() => {
-              setFinalShowProductForm(false);
-              setFinalSelectedProduct(null);
-              // Refresh products after successful form submission
-              if (refreshTimeoutRef.current) {
-                clearTimeout(refreshTimeoutRef.current);
-              }
-              refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
+            product={selectedProduct}
+            onSave={(savedProduct) => {
+              setShowProductForm(false);
+              setSelectedProduct(null);
+              handleRefresh();
+              toast({
+                title: selectedProduct ? 'Product Updated' : 'Product Created',
+                description: `${savedProduct.name} has been ${selectedProduct ? 'updated' : 'created'} successfully.`,
+              });
             }}
             onCancel={() => {
-              setFinalShowProductForm(false);
-              setFinalSelectedProduct(null);
+              setShowProductForm(false);
+              setSelectedProduct(null);
             }}
           />
         </DialogContent>
       </Dialog>
-        </div>
+    </div>
   );
 }

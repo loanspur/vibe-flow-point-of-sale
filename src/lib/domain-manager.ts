@@ -88,6 +88,11 @@ class DomainManager {
       return { tenantId: null, domain, isCustomDomain: false, isSubdomain: true };
     }
 
+    // Localhost subdomains (*.localhost)
+    if (domain.endsWith('.localhost') && domain !== 'localhost') {
+      return { tenantId: null, domain, isCustomDomain: false, isSubdomain: true };
+    }
+
     // Main domains
     if (
       domain === 'vibenet.shop' || domain === 'www.vibenet.shop' ||
@@ -108,18 +113,14 @@ class DomainManager {
   async getCurrentDomainConfig(): Promise<DomainConfig> {
     const currentDomain = window.location.hostname;
     
-    // Don't log for every call to reduce noise
-    // console.log('🔍 Getting domain config for:', currentDomain);
-    
     // Check cache first
     const cached = this.cache.get(currentDomain);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TIMEOUT) {
-      // console.log('📦 Using cached config for:', currentDomain);
       return {
         tenantId: cached.tenantId,
         domain: currentDomain,
-        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-        isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
+        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && !currentDomain.endsWith('.localhost') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
+        isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online') || (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost')
       };
     }
 
@@ -140,6 +141,56 @@ class DomainManager {
         currentDomain === 'www.vibenet.online') {
       console.log('🏠 Development/main domain detected:', currentDomain);
       return domainInfo;
+    }
+
+    // Handle localhost subdomains
+    if (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost') {
+      console.log('🏠 Localhost subdomain detected:', currentDomain);
+      
+      // Extract subdomain name
+      const subdomain = currentDomain.replace('.localhost', '');
+      
+      try {
+        // Query database for tenant with this subdomain
+        const { data: tenants, error } = await supabase
+          .from('tenants')
+          .select('id, name, subdomain, status')
+          .eq('subdomain', subdomain)
+          .in('status', ['active', 'trial'])
+          .limit(1);
+
+        if (error) {
+          console.warn('⚠️ Error querying tenants for localhost subdomain:', error);
+          this.negativeCache.set(currentDomain, Date.now());
+          return domainInfo;
+        }
+
+        if (tenants && tenants.length > 0) {
+          const tenantId = tenants[0].id;
+          console.log(`✅ Resolved localhost tenant: ${subdomain} -> ${tenantId}`);
+          
+          const resolvedConfig: DomainConfig = {
+            ...domainInfo,
+            tenantId
+          };
+          
+          // Cache the result
+          this.cache.set(currentDomain, {
+            tenantId,
+            timestamp: Date.now()
+          });
+          
+          return resolvedConfig;
+        } else {
+          console.warn(`⚠️ No tenant found for localhost subdomain: ${subdomain}`);
+          this.negativeCache.set(currentDomain, Date.now());
+          return domainInfo;
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to resolve localhost tenant:', error);
+        this.negativeCache.set(currentDomain, Date.now());
+        return domainInfo;
+      }
     }
 
     // Prevent concurrent resolutions for the same domain
@@ -165,8 +216,8 @@ class DomainManager {
         return {
           tenantId: cachedAfterWait.tenantId,
           domain: currentDomain,
-          isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-          isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
+          isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && !currentDomain.endsWith('.localhost') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
+          isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online') || (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost')
         };
       }
       const negAfterWait = this.negativeCache.get(currentDomain);
@@ -249,14 +300,14 @@ class DomainManager {
       
       // If not resolved by localhost logic, try normal domain resolution
       if (!resolvedTenantId) {
-        const { data: tenantId, error } = await supabase
-          .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
+      const { data: tenantId, error } = await supabase
+        .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
 
-              if (error) {
-          console.error('❌ Error resolving tenant by domain:', error);
-          this.resolving.delete(currentDomain); // Clean up
-          return domainInfo;
-        }
+      if (error) {
+        console.error('❌ Error resolving tenant by domain:', error);
+        this.resolving.delete(currentDomain); // Clean up
+        return domainInfo;
+      }
 
         resolvedTenantId = tenantId || null;
       }
@@ -270,7 +321,7 @@ class DomainManager {
             : null;
 
         if (altDomain) {
-          console.log('🪄 Trying alternate TLD for domain resolution:', altDomain);
+          console.log(' Trying alternate TLD for domain resolution:', altDomain);
           const { data: altTenantId, error: altError } = await supabase
             .rpc('get_tenant_by_domain', { domain_name_param: altDomain });
           if (altError) {
@@ -452,7 +503,7 @@ export const getBaseDomain = (domain: string = getCurrentDomain()) => {
 
 export const isCustomDomain = (domain: string = getCurrentDomain()) => {
   const isMain = domain === 'vibenet.shop' || domain === 'vibenet.online';
-  const isSub = domain.endsWith('.vibenet.shop') || domain.endsWith('.vibenet.online');
+  const isSub = domain.endsWith('.vibenet.shop') || domain.endsWith('.vibenet.online') || (domain.endsWith('.localhost') && domain !== 'localhost');
   return !isSub && !isMain && !isDevelopmentDomain(domain);
 };
 
@@ -589,4 +640,3 @@ export const useDomainContext = () => {
 };
 
 export default domainManager;
-

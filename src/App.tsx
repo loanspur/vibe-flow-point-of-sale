@@ -173,6 +173,25 @@ const DomainRouter = () => {
   // Simplified auth session check - removed to prevent excessive API calls
   const [showAuthFix, setShowAuthFix] = useState(false);
   
+  // Force localhost subdomains to auth for unauthenticated users
+  const currentDomain = window.location.hostname;
+  const isLocalhostSubdomain = currentDomain.endsWith('.localhost') && currentDomain !== 'localhost';
+
+  if (isLocalhostSubdomain && !user && !authLoading) {
+    console.log('🏠 Force redirecting localhost subdomain to auth:', currentDomain);
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="*" element={<Navigate to="/auth" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+  
   // Handle subdomain without tenant ID
   if (domainConfig?.isSubdomain && !domainConfig.tenantId) {
     return (
@@ -518,7 +537,7 @@ const DomainRouter = () => {
           />
           
           {/* Fallback routes */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/auth" replace />} />
         </Routes>
       </Suspense>
     );
@@ -959,9 +978,9 @@ const App = () => {
                    <Toaster />
                    <Sonner />
                    <AppOptimizer>
-                     <BrowserRouter>
-                       <DomainRouter />
-                     </BrowserRouter>
+                   <BrowserRouter>
+                     <DomainRouter />
+                   </BrowserRouter>
                    </AppOptimizer>
                    <CookieConsent />
                  </>
