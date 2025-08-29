@@ -22,7 +22,12 @@ export function PaginationControls({
   onPageSizeChange,
   isLoading = false
 }: PaginationControlsProps) {
-  const { page, pageSize, total } = pagination;
+  // Add safety check to prevent destructuring errors
+  if (!pagination) {
+    return null;
+  }
+  
+  const { page = 1, pageSize = 50, total = 0 } = pagination;
   
   const totalPages = Math.ceil(total / pageSize);
   const startItem = (page - 1) * pageSize + 1;
@@ -117,6 +122,9 @@ export function usePagination(initialPageSize: number = 50) {
     total: 0
   });
 
+  // Ensure pagination is always defined
+  const safePagination = pagination || { page: 1, pageSize: initialPageSize, total: 0 };
+
   const updatePagination = (updates: Partial<PaginationState>) => {
     setPagination(prev => ({ ...prev, ...updates }));
   };
@@ -130,8 +138,8 @@ export function usePagination(initialPageSize: number = 50) {
   };
 
   const getSupabaseRange = () => {
-    const from = (pagination.page - 1) * pagination.pageSize;
-    const to = from + pagination.pageSize - 1;
+    const from = (safePagination.page - 1) * safePagination.pageSize;
+    const to = from + safePagination.pageSize - 1;
     return { from, to };
   };
 
@@ -140,7 +148,7 @@ export function usePagination(initialPageSize: number = 50) {
   };
 
   return {
-    pagination,
+    pagination: safePagination,
     updatePagination,
     handlePageChange,
     handlePageSizeChange,

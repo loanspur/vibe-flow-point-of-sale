@@ -651,11 +651,16 @@ export default function ProductManagement({
                
                {/* Pagination Controls */}
                <PaginationControls
-                 currentPage={currentPage}
-                 totalPages={Math.ceil(filteredProducts.length / itemsPerPage)}
+                 pagination={{
+                   page: currentPage,
+                   pageSize: itemsPerPage,
+                   total: filteredProducts.length
+                 }}
                  onPageChange={setCurrentPage}
-                 itemsPerPage={itemsPerPage}
-                 totalItems={filteredProducts.length}
+                 onPageSizeChange={(newPageSize) => {
+                   setItemsPerPage(newPageSize);
+                   setCurrentPage(1);
+                 }}
                />
              </>
            )}

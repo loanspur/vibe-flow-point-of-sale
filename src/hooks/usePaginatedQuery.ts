@@ -48,6 +48,9 @@ export function usePaginatedQuery<T>(
     resetPagination
   } = usePagination(initialPageSize);
 
+  // Ensure pagination is always defined
+  const safePagination = pagination || { page: 1, pageSize: initialPageSize, total: 0 };
+
   const executeQuery = useCallback(async () => {
     if (!enabled) return;
 
@@ -110,8 +113,8 @@ export function usePaginatedQuery<T>(
     JSON.stringify(filters),
     orderBy.column,
     orderBy.ascending,
-    pagination.page,
-    pagination.pageSize
+    getSupabaseRange,
+    updatePagination
   ]);
 
   // Execute query when dependencies change
@@ -149,7 +152,7 @@ export function usePaginatedQuery<T>(
     data,
     loading,
     error,
-    pagination,
+    pagination: safePagination,
     handlePageChange,
     handlePageSizeChange,
     refetch,
