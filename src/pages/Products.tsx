@@ -49,7 +49,7 @@ return (
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold">Products</h1>
-          <p className="text-muted-foreground">Manage your product catalog and inventory</p>
+          <p className="text-muted-foreground">Manage your product catalog and inventory with a clean, distraction-free interface</p>
         </div>
         <div className="flex gap-2">
           <ProductSettings />

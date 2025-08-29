@@ -17,6 +17,23 @@ export interface MigrationResult {
   failed: number;
   errors: string[];
   migrationId?: string;
+  details?: {
+    imported: Array<{ name: string; status: 'success' | 'failed'; error?: string }>;
+    duplicates: Array<{ name: string; reason: string }>;
+    skipped: Array<{ name: string; reason: string }>;
+  };
+}
+
+export interface BulkUpdateResult {
+  success: number;
+  failed: number;
+  errors: string[];
+  migrationId?: string;
+  details?: {
+    updated: Array<{ name: string; status: 'success' | 'failed'; error?: string; changes?: string[] }>;
+    notFound: Array<{ name: string; reason: string }>;
+    skipped: Array<{ name: string; reason: string }>;
+  };
 }
 
 export interface ImportPreview {
@@ -58,7 +75,7 @@ export class MigrationService {
   }
 
   // Import products with latest logic
-  async importProducts(file: File): Promise<MigrationResult> {
+  async importProducts(file: File, onProgress?: (progress: number) => void): Promise<MigrationResult> {
     const text = await file.text();
     const { data: rows } = processCSVData(text);
     
@@ -73,24 +90,39 @@ export class MigrationService {
     let success = 0;
     let failed = 0;
     const errors: string[] = [];
+    const details = {
+      imported: [] as Array<{ name: string; status: 'success' | 'failed'; error?: string }>,
+      duplicates: [] as Array<{ name: string; reason: string }>,
+      skipped: [] as Array<{ name: string; reason: string }>
+    };
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       
+      // Update progress
+      const progress = Math.round(((i + 1) / rows.length) * 100);
+      onProgress?.(progress);
+      
       try {
         // Validate required fields
         if (!row.name || !row.name.trim()) {
-          throw new Error('Product name is required');
+          details.skipped.push({ name: row.name || 'unnamed', reason: 'Product name is required' });
+          continue;
         }
         
         if (!row.price || isNaN(parseFloat(row.price))) {
-          throw new Error('Valid price is required');
+          details.skipped.push({ name: row.name, reason: 'Valid price is required' });
+          continue;
         }
 
-        // Check for duplicates
+        // Enhanced duplicate checking
         const duplicateErrors = await checkProductDuplicates(row, this.tenantId);
         if (duplicateErrors.length > 0) {
-          throw new Error(duplicateErrors.join(', '));
+          details.duplicates.push({ 
+            name: row.name, 
+            reason: duplicateErrors.join(', ') 
+          });
+          continue; // Skip duplicates instead of failing
         }
 
         // Generate SKU if not provided
@@ -163,6 +195,7 @@ export class MigrationService {
         }
 
         success++;
+        details.imported.push({ name: row.name, status: 'success' });
       } catch (error) {
         failed++;
         let errorMessage = 'Unknown error';
@@ -184,6 +217,7 @@ export class MigrationService {
         });
         
         errors.push(`Row ${i + 1} (${row.name || 'unnamed'}): ${errorMessage}`);
+        details.imported.push({ name: row.name, status: 'failed', error: errorMessage });
       }
     }
 
@@ -199,7 +233,8 @@ export class MigrationService {
       success,
       failed,
       errors,
-      migrationId: migrationRecord.id
+      migrationId: migrationRecord.id,
+      details
     };
   }
 
@@ -488,6 +523,365 @@ export class MigrationService {
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // Generate migration report
+  generateMigrationReport(result: MigrationResult, fileName: string): string {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const reportFileName = `migration-report-${fileName}-${timestamp}.csv`;
+    
+    let csvContent = 'Product Name,Status,Details\n';
+    
+    // Add successful imports
+    if (result.details?.imported) {
+      result.details.imported.forEach(item => {
+        csvContent += `"${item.name}","${item.status}","${item.error || 'Successfully imported'}"\n`;
+      });
+    }
+    
+    // Add duplicates
+    if (result.details?.duplicates) {
+      result.details.duplicates.forEach(item => {
+        csvContent += `"${item.name}","Skipped (Duplicate)","${item.reason}"\n`;
+      });
+    }
+    
+    // Add skipped items
+    if (result.details?.skipped) {
+      result.details.skipped.forEach(item => {
+        csvContent += `"${item.name}","Skipped","${item.reason}"\n`;
+      });
+    }
+    
+    return csvContent;
+  }
+
+  // Download migration report
+  downloadMigrationReport(result: MigrationResult, originalFileName: string) {
+    const csvContent = this.generateMigrationReport(result, originalFileName);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `migration-report-${originalFileName}-${timestamp}.csv`;
+    this.downloadCSV(csvContent, fileName);
+  }
+
+  // Generate bulk update template with all product details
+  async generateBulkUpdateTemplate(): Promise<{ csvContent: string; fileName: string }> {
+    const { data: products, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        product_categories(name),
+        product_units(name, abbreviation),
+        store_locations(name),
+        accounts!revenue_account_id(name)
+      `)
+      .eq('tenant_id', this.tenantId)
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    const headers = [
+      'id',
+      'name',
+      'description',
+      'sku',
+      'barcode',
+      'cost_price',
+      'price',
+      'wholesale_price',
+      'stock_quantity',
+      'min_stock_level',
+      'category',
+      'unit',
+      'location',
+      'revenue_account',
+      'is_active'
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      ...(products || []).map(product => [
+        product.id,
+        `"${product.name}"`,
+        `"${product.description || ''}"`,
+        `"${product.sku || ''}"`,
+        `"${product.barcode || ''}"`,
+        product.cost_price || 0,
+        product.retail_price || product.price || 0,
+        product.wholesale_price || 0,
+        product.stock_quantity || 0,
+        product.min_stock_level || 0,
+        `"${product.product_categories?.name || ''}"`,
+        `"${product.product_units?.name || ''}"`,
+        `"${product.store_locations?.name || ''}"`,
+        `"${product.accounts?.name || ''}"`,
+        product.is_active ? 'true' : 'false'
+      ].join(','))
+    ].join('\n');
+
+    const fileName = `products_bulk_update_template_${new Date().toISOString().split('T')[0]}.csv`;
+
+    return { csvContent, fileName };
+  }
+
+  // Bulk update products
+  async bulkUpdateProducts(file: File, onProgress?: (progress: number) => void): Promise<BulkUpdateResult> {
+    const text = await file.text();
+    const { data: rows } = processCSVData(text);
+    
+    // Create migration record
+    const migrationRecord = await createMigrationRecord(
+      this.tenantId,
+      'bulk_update',
+      file.name,
+      rows.length
+    );
+
+    let success = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    const details = {
+      updated: [] as Array<{ name: string; status: 'success' | 'failed'; error?: string; changes?: string[] }>,
+      notFound: [] as Array<{ name: string; reason: string }>,
+      skipped: [] as Array<{ name: string; reason: string }>
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      
+      // Update progress
+      const progress = Math.round(((i + 1) / rows.length) * 100);
+      onProgress?.(progress);
+      
+      try {
+        // Validate required fields
+        if (!row.id || !row.id.trim()) {
+          details.skipped.push({ name: row.name || 'unnamed', reason: 'Product ID is required for updates' });
+          continue;
+        }
+
+        // Check if product exists
+        const { data: existingProduct, error: fetchError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', row.id)
+          .eq('tenant_id', this.tenantId)
+          .single();
+
+        if (fetchError || !existingProduct) {
+          details.notFound.push({ 
+            name: row.name || 'unnamed', 
+            reason: `Product with ID ${row.id} not found` 
+          });
+          continue;
+        }
+
+        // Prepare update data
+        const updateData: any = {};
+        const changes: string[] = [];
+
+        // Update basic fields
+        if (row.name && row.name.trim() !== existingProduct.name) {
+          updateData.name = row.name.trim();
+          changes.push('name');
+        }
+
+        if (row.description !== undefined && row.description !== existingProduct.description) {
+          updateData.description = row.description;
+          changes.push('description');
+        }
+
+        if (row.sku && row.sku.trim() !== existingProduct.sku) {
+          updateData.sku = row.sku.trim();
+          changes.push('sku');
+        }
+
+        if (row.barcode !== undefined && row.barcode !== existingProduct.barcode) {
+          updateData.barcode = row.barcode || null;
+          changes.push('barcode');
+        }
+
+        // Update prices
+        if (row.cost_price !== undefined && parseFloat(row.cost_price) !== existingProduct.cost_price) {
+          updateData.cost_price = parseFloat(row.cost_price) || 0;
+          changes.push('cost_price');
+        }
+
+        if (row.price !== undefined && parseFloat(row.price) !== existingProduct.price) {
+          updateData.price = parseFloat(row.price) || 0;
+          changes.push('price');
+        }
+
+        if (row.wholesale_price !== undefined && parseFloat(row.wholesale_price) !== existingProduct.wholesale_price) {
+          updateData.wholesale_price = parseFloat(row.wholesale_price) || 0;
+          changes.push('wholesale_price');
+        }
+
+        // Update stock
+        if (row.stock_quantity !== undefined && parseInt(row.stock_quantity) !== existingProduct.stock_quantity) {
+          updateData.stock_quantity = parseInt(row.stock_quantity) || 0;
+          changes.push('stock_quantity');
+        }
+
+        if (row.min_stock_level !== undefined && parseInt(row.min_stock_level) !== existingProduct.min_stock_level) {
+          updateData.min_stock_level = parseInt(row.min_stock_level) || 0;
+          changes.push('min_stock_level');
+        }
+
+        // Update related entities
+        if (row.category && row.category.trim()) {
+          const categoryId = await findEntityId(row.category, 'categories', this.tenantId);
+          if (categoryId && categoryId !== existingProduct.category_id) {
+            updateData.category_id = categoryId;
+            changes.push('category');
+          }
+        }
+
+        if (row.unit && row.unit.trim()) {
+          const unitId = await findEntityId(row.unit, 'units', this.tenantId);
+          if (unitId && unitId !== existingProduct.unit_id) {
+            updateData.unit_id = unitId;
+            changes.push('unit');
+          }
+        }
+
+        if (row.location && row.location.trim()) {
+          const locationId = await findEntityId(row.location, 'locations', this.tenantId);
+          if (locationId && locationId !== existingProduct.location_id) {
+            updateData.location_id = locationId;
+            changes.push('location');
+          }
+        }
+
+        if (row.revenue_account && row.revenue_account.trim()) {
+          const { data: account } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('tenant_id', this.tenantId)
+            .eq('is_active', true)
+            .eq('name', row.revenue_account.trim())
+            .single();
+          
+          if (account && account.id !== existingProduct.revenue_account_id) {
+            updateData.revenue_account_id = account.id;
+            changes.push('revenue_account');
+          }
+        }
+
+        // Update active status
+        if (row.is_active !== undefined) {
+          const isActive = row.is_active.toLowerCase() === 'true';
+          if (isActive !== existingProduct.is_active) {
+            updateData.is_active = isActive;
+            changes.push('is_active');
+          }
+        }
+
+        // Only update if there are changes
+        if (Object.keys(updateData).length === 0) {
+          details.skipped.push({ 
+            name: existingProduct.name, 
+            reason: 'No changes detected' 
+          });
+          continue;
+        }
+
+        // Update the product
+        const { error: updateError } = await supabase
+          .from('products')
+          .update(updateData)
+          .eq('id', row.id);
+
+        if (updateError) {
+          throw new Error(`Database error: ${updateError.message}`);
+        }
+
+        success++;
+        details.updated.push({ 
+          name: existingProduct.name, 
+          status: 'success',
+          changes 
+        });
+
+      } catch (error) {
+        failed++;
+        let errorMessage = 'Unknown error';
+        
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error && typeof error === 'object') {
+          errorMessage = JSON.stringify(error);
+        }
+        
+        errors.push(`Row ${i + 1} (${row.name || 'unnamed'}): ${errorMessage}`);
+        details.updated.push({ 
+          name: row.name || 'unnamed', 
+          status: 'failed', 
+          error: errorMessage 
+        });
+      }
+    }
+
+    // Update migration record
+    await updateMigrationRecord(migrationRecord.id, {
+      successful_records: success,
+      failed_records: failed,
+      status: failed === 0 ? 'completed' : failed < rows.length ? 'partial' : 'failed',
+      error_message: errors.length > 0 ? errors.slice(0, 5).join('; ') : undefined
+    });
+
+    return {
+      success,
+      failed,
+      errors,
+      migrationId: migrationRecord.id,
+      details
+    };
+  }
+
+  // Generate bulk update report
+  generateBulkUpdateReport(result: BulkUpdateResult, fileName: string): string {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const reportFileName = `bulk-update-report-${fileName}-${timestamp}.csv`;
+    
+    let csvContent = 'Product Name,Status,Changes,Details\n';
+    
+    // Add successful updates
+    if (result.details?.updated) {
+      result.details.updated.forEach(item => {
+        if (item.status === 'success') {
+          csvContent += `"${item.name}","Updated","${item.changes?.join(', ') || 'No changes'}","Successfully updated"\n`;
+        } else {
+          csvContent += `"${item.name}","Failed","","${item.error || 'Update failed'}"\n`;
+        }
+      });
+    }
+    
+    // Add not found items
+    if (result.details?.notFound) {
+      result.details.notFound.forEach(item => {
+        csvContent += `"${item.name}","Not Found","","${item.reason}"\n`;
+      });
+    }
+    
+    // Add skipped items
+    if (result.details?.skipped) {
+      result.details.skipped.forEach(item => {
+        csvContent += `"${item.name}","Skipped","","${item.reason}"\n`;
+      });
+    }
+    
+    return csvContent;
+  }
+
+  // Download bulk update report
+  downloadBulkUpdateReport(result: BulkUpdateResult, originalFileName: string) {
+    const csvContent = this.generateBulkUpdateReport(result, originalFileName);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `bulk-update-report-${originalFileName}-${timestamp}.csv`;
+    this.downloadCSV(csvContent, fileName);
   }
 
   // Generate sample template

@@ -2,8 +2,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// Default Supabase configuration for development
+const DEFAULT_SUPABASE_URL = 'https://qwtybhvdbbkbcelisuek.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMjA1NDAsImV4cCI6MjA3MTg5NjU0MH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -13,24 +17,23 @@ let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 
 export const supabase = (() => {
   if (!supabaseInstance) {
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      console.warn('Supabase env vars are missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
-      // Return a mock client to prevent crashes
-      return {
-        auth: {
-          signIn: () => Promise.resolve({ error: { message: 'Supabase not configured' } }),
-          signOut: () => Promise.resolve({ error: null }),
-          getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
-        },
-        from: () => ({
-          select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }),
-          insert: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
-          update: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
-          delete: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } })
-        })
-      } as any;
+    // Validate URL format
+    try {
+      new URL(SUPABASE_URL);
+    } catch (error) {
+      console.error('Invalid Supabase URL:', SUPABASE_URL);
+      console.error('Please check your VITE_SUPABASE_URL environment variable');
+      throw new Error('Invalid Supabase URL configuration');
     }
+
+    // Validate key format (basic check)
+    if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.length < 50) {
+      console.error('Invalid Supabase anon key:', SUPABASE_PUBLISHABLE_KEY);
+      console.error('Please check your VITE_SUPABASE_ANON_KEY environment variable');
+      throw new Error('Invalid Supabase anon key configuration');
+    }
+
+    console.log('Initializing Supabase client with URL:', SUPABASE_URL);
     supabaseInstance = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       auth: {
         storage: localStorage,

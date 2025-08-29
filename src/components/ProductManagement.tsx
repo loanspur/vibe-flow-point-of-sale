@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Filter, Edit, Trash2, Eye, AlertTriangle, Package, Image, RotateCcw, History, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Eye, Package, Image, RotateCcw, History, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 import { useSoftWarnings } from '@/hooks/useSoftWarnings';
@@ -100,7 +100,6 @@ export default function ProductManagement({
 
   // Centralized warning system
   const {
-    showLowStockWarning,
     showNegativeStockWarning,
     showOutOfStockWarning,
   } = useSoftWarnings();
@@ -108,7 +107,6 @@ export default function ProductManagement({
   // Function to show soft warnings for products
   const showProductWarnings = (product: Product) => {
     // Use centralized warning system
-    showLowStockWarning(product.name, product.stock_quantity);
     showNegativeStockWarning(product.name, product.stock_quantity);
     
     // Out of stock warning
@@ -141,7 +139,7 @@ export default function ProductManagement({
   const [activeTab, setActiveTab] = useState('products');
   const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
   const location = useLocation();
-  const [activeFilter, setActiveFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'expiring'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'out-of-stock' | 'expiring'>('all');
   const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
   const [hasLoaded, setHasLoaded] = useState(false);
   const didMountRef = useRef(false);
@@ -151,7 +149,7 @@ export default function ProductManagement({
  
    useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const f = params.get('filter') as 'low-stock' | 'out-of-stock' | 'expiring' | null;
+    const f = params.get('filter') as 'out-of-stock' | 'expiring' | null;
     setActiveFilter(f || 'all');
   }, [location.search]);
 
@@ -274,23 +272,7 @@ export default function ProductManagement({
     return products;
   }, [products]);
 
-  // Memoized low stock calculation
-  const lowStockProducts = useMemo(() => {
-    if (!products || !Array.isArray(products)) return [];
-    
-    return products.filter(product => {
-      
-      // For products with variants, calculate total stock from variants
-      if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-        const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-          return total + (variant.stock_quantity || 0);
-        }, 0);
-        return totalVariantStock <= (product.min_stock_level || 0);
-      }
-      // For products without variants, use main product stock
-      return product.stock_quantity <= (product.min_stock_level || 0);
-    });
-  }, [products]);
+  // Low stock calculation removed for enhanced user experience
 
   const handleDeleteProduct = async (productId: string) => {
     const product = products?.find(p => p.id === productId);
@@ -380,27 +362,7 @@ export default function ProductManagement({
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm sm:text-base truncate">{product.name}</div>
-                     {useMemo(() => {
-                       // Memoize expensive stock calculations
-                       let isLowStock = false;
-                       let currentStock = product.stock_quantity || 0;
-                       
-                       if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                         currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                           return total + (variant.stock_quantity || 0);
-                         }, 0);
-                       }
-                       
-                       isLowStock = currentStock <= (product.min_stock_level || 0);
-                       
-                       return isLowStock ? (
-                         <Badge variant="destructive" className="text-xs mt-1">
-                           <AlertTriangle className="h-3 w-3 mr-1" />
-                           <span className="hidden sm:inline">Low Stock</span>
-                           <span className="sm:hidden">Low</span>
-                         </Badge>
-                       ) : null;
-                     }, [product.stock_quantity, product.min_stock_level, (product as any).product_variants])}
+                     {/* Low Stock Badge - Removed for enhanced user experience */}
                   </div>
                 </div>
               </TableCell>
@@ -570,39 +532,7 @@ export default function ProductManagement({
 
   return (
     <div className="space-y-6">
-      {/* Low Stock Alert */}
-      {lowStockProducts.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="text-orange-800 flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Low Stock Alert
-            </CardTitle>
-            <CardDescription className="text-orange-700">
-              {lowStockProducts.length} product(s) are running low on stock
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {lowStockProducts.map(product => {
-                // Calculate current stock (including variants)
-                let currentStock = product.stock_quantity || 0;
-                if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                  currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                    return total + (variant.stock_quantity || 0);
-                  }, 0);
-                }
-                
-                return (
-                  <Badge key={product.id} variant="outline" className="text-orange-700">
-                    {product.name} ({currentStock} left)
-                  </Badge>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Low Stock Alert - Removed for enhanced user experience */}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -635,13 +565,13 @@ export default function ProductManagement({
                  ))}
                </SelectContent>
              </Select>
-            <Select value={activeFilter} onValueChange={setActiveFilter}>
+            <Select value={activeFilter} onValueChange={(value) => setActiveFilter(value as 'all' | 'out-of-stock' | 'expiring')}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Filter" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Products</SelectItem>
-                <SelectItem value="low-stock">Low Stock</SelectItem>
+                {/* Low Stock filter option removed for enhanced user experience */}
                 <SelectItem value="out-of-stock">Out of Stock</SelectItem>
                 <SelectItem value="expiring">Expiring Soon</SelectItem>
               </SelectContent>
@@ -721,6 +651,6 @@ export default function ProductManagement({
           />
         </DialogContent>
       </Dialog>
-    </div>
+        </div>
   );
 }

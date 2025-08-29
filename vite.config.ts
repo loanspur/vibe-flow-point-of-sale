@@ -20,61 +20,99 @@ function findAvailablePort(startPort: number): Promise<number> {
   });
 }
 
-// https://vitejs.dev/config/
-export default defineConfig(async ({ mode }) => {
-  // Find available port automatically
-  const port = await findAvailablePort(8080);
+// Enhanced development configuration
+export default defineConfig(({ mode }) => {
+  // Use a simpler approach for port management
+  const basePort = 8080;
+  const baseHmrPort = 24678;
   
   return {
-    server: {
+      server: {
+    host: "localhost",
+    port: basePort,
+    hmr: {
+      overlay: false,
+      port: baseHmrPort,
       host: "localhost",
-      port,
-      hmr: {
-        overlay: false,
-        port: port + 1000, // Use different port for HMR
-        host: "localhost"
-      },
-      force: true,
-      strictPort: false, // Allow fallback to other ports
-      open: true // Auto-open browser
+      clientPort: baseHmrPort
     },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    force: true,
+    strictPort: false, // Allow fallback to other ports
+    open: true, // Auto-open browser
+    cors: true, // Enable CORS for development
+    // Enhanced error handling and module resolution
+    fs: {
+      strict: false,
+      allow: ['..']
     },
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name][extname]',
-        manualChunks(id) {
-          if (id.includes('node_modules')) return 'vendor';
-        }
-      }
-    },
-    target: 'es2020',
-    minify: 'esbuild',
-    cssMinify: true,
-    reportCompressedSize: false,
-    chunkSizeWarningLimit: 1000,
-    sourcemap: false,
-    // Enhanced build optimizations
-    assetsInlineLimit: 8192,
-    emptyOutDir: true,
+    // Better error handling
+    middlewareMode: false,
+    // Ensure proper module resolution
     optimizeDeps: {
-      include: ['react', 'react-dom', '@supabase/supabase-js'],
-      force: false
+      include: ['react', 'react-dom', '@supabase/supabase-js', 'react-router-dom']
+    }
+  },
+    plugins: [
+      react(),
+      mode === 'development' &&
+      componentTagger(),
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
-    // Faster builds
-    write: true,
-    copyPublicDir: true
-  }
+    build: {
+      rollupOptions: {
+        output: {
+          entryFileNames: 'assets/[name].js',
+          chunkFileNames: 'assets/[name].js',
+          assetFileNames: 'assets/[name][extname]',
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) return 'vendor';
+          }
+        }
+      },
+      target: 'es2020',
+      minify: 'esbuild',
+      cssMinify: true,
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 1000,
+      sourcemap: false,
+      // Enhanced build optimizations
+      assetsInlineLimit: 8192,
+      emptyOutDir: true,
+      optimizeDeps: {
+        include: ['react', 'react-dom', '@supabase/supabase-js'],
+        force: false
+      },
+      // Faster builds
+      write: true,
+      copyPublicDir: true
+    },
+      // Enhanced development features
+  define: {
+    __DEV__: mode === 'development',
+    __PROD__: mode === 'production'
+  },
+  // Better error overlay
+  css: {
+    devSourcemap: true
+  },
+  // Optimize dependencies for faster startup
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      '@supabase/supabase-js',
+      'react-router-dom',
+      '@tanstack/react-query'
+    ],
+    exclude: ['@mendable/firecrawl-js'], // Exclude problematic dependencies
+    force: true // Force re-optimization
+  },
+  // Enhanced logging
+  logLevel: 'info',
+  clearScreen: false
   }
 });

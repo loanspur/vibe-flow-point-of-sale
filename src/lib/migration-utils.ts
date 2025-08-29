@@ -273,7 +273,7 @@ export const processCSVData = (csvText: string) => {
 // Centralized migration tracking
 export const createMigrationRecord = async (
   tenantId: string,
-  migrationType: 'import' | 'export',
+  migrationType: 'import' | 'export' | 'bulk_update',
   fileName: string,
   totalRecords: number
 ) => {
