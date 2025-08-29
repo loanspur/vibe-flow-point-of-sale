@@ -484,25 +484,14 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Product Management</h2>
+          <h1 className="text-2xl font-bold">Product Management</h1>
+          <p className="text-muted-foreground">
+            Manage your product catalog, categories, and variants
+          </p>
         </div>
-        
-        <div className="flex gap-2">
-          <Button 
+        <div className="flex items-center gap-2">
+          <Button
             variant="outline"
-            onClick={refetch}
-            disabled={loading}
-            title="Refresh product data"
-            className="shrink-0"
-          >
-            <RotateCcw 
-              className={`h-4 w-4 mr-2 transition-transform duration-300 ${
-                loading ? 'animate-spin' : ''
-              }`} 
-            />
-            <span className="whitespace-nowrap">Refresh</span>
-          </Button>
-          <Button 
             onClick={() => {
               setSelectedProduct(null);
               setShowProductForm(true);
@@ -514,39 +503,7 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
         </div>
       </div>
 
-      {/* Low Stock Alert */}
-      {lowStockProducts.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="text-orange-800 flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Low Stock Alert
-            </CardTitle>
-            <CardDescription className="text-orange-700">
-              {lowStockProducts.length} product(s) are running low on stock
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {lowStockProducts.map(product => {
-                // Calculate current stock (including variants)
-                let currentStock = product.stock_quantity || 0;
-                if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                  currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                    return total + (variant.stock_quantity || 0);
-                  }, 0);
-                }
-                
-                return (
-                  <Badge key={product.id} variant="outline" className="text-orange-700">
-                    {product.name} ({currentStock} left)
-                  </Badge>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Removed Low Stock Alert Card - No longer needed */}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -607,17 +564,18 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
                
                {/* Pagination Controls */}
                <PaginationControls
-                 pagination={pagination}
-                 onPageChange={handlePageChange}
-                 onPageSizeChange={handlePageSizeChange}
-                 isLoading={loading}
+                 currentPage={currentPage}
+                 totalPages={Math.ceil(filteredProducts.length / itemsPerPage)}
+                 onPageChange={setCurrentPage}
+                 itemsPerPage={itemsPerPage}
+                 totalItems={filteredProducts.length}
                />
              </>
            )}
         </TabsContent>
 
-        <TabsContent value="categories">
-          <CategoryManagement onUpdate={refetchProducts} />
+        <TabsContent value="categories" className="space-y-6">
+          <CategoryManagement />
         </TabsContent>
       </Tabs>
 
@@ -629,19 +587,19 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
               {selectedProduct ? 'Edit Product' : 'Add New Product'}
             </DialogTitle>
             <DialogDescription>
-              {selectedProduct ? 'Update product information' : 'Create a new product with details, variants, and images'}
+              {selectedProduct ? 'Update product information' : 'Create a new product in your catalog'}
             </DialogDescription>
           </DialogHeader>
           <ProductForm
             product={selectedProduct}
-            onSuccess={() => {
+            onSave={(savedProduct) => {
               setShowProductForm(false);
               setSelectedProduct(null);
-              // Refresh products after successful form submission
-              if (refreshTimeoutRef.current) {
-                clearTimeout(refreshTimeoutRef.current);
-              }
-              refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
+              handleRefresh();
+              toast({
+                title: selectedProduct ? 'Product Updated' : 'Product Created',
+                description: `${savedProduct.name} has been ${selectedProduct ? 'updated' : 'created'} successfully.`,
+              });
             }}
             onCancel={() => {
               setShowProductForm(false);
@@ -650,6 +608,35 @@ export default function ProductManagement({ refreshSignal }: { refreshSignal?: n
           />
         </DialogContent>
       </Dialog>
+
+      {/* Product History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Product History</DialogTitle>
+            <DialogDescription>
+              View detailed history and changes for this product
+            </DialogDescription>
+          </DialogHeader>
+          <ProductHistory productId={selectedProduct?.id} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedProduct?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

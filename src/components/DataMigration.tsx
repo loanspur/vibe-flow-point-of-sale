@@ -922,17 +922,31 @@ export const DataMigration: React.FC = () => {
                       </Button>
                     </div>
 
-                    {/* Progress */}
+                    {/* Enhanced Progress Bar Section */}
                     {(isProcessing || result) && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Import Progress</span>
-                          <span>{Math.round(progress)}%</span>
+                      <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Migration Progress</span>
+                          <span className="text-sm font-mono">{Math.round(progress)}%</span>
                         </div>
-                        <Progress 
-                          value={progress} 
-                          className={result ? (result.failed > 0 ? "bg-yellow-100" : "bg-green-100") : ""} 
-                        />
+                        
+                        {/* Enhanced Progress Bar */}
+                        <div className="space-y-2">
+                          <Progress 
+                            value={progress} 
+                            className={`h-3 ${result ? (result.failed > 0 ? "bg-yellow-100" : "bg-green-100") : "bg-blue-100"}`} 
+                          />
+                          
+                          {/* Progress Status */}
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>
+                              {isProcessing ? 'Processing data...' : result ? 'Migration completed' : 'Ready to start'}
+                            </span>
+                            <span>
+                              {isProcessing ? 'Please wait...' : result ? `${result.success} items imported` : '0 items processed'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     )}
 

@@ -125,15 +125,21 @@ function TenantAdminDashboard() {
     return () => clearTimeout(timeoutId);
   }, [dateFilter, dateRange.start, dateRange.end, tenantId]); // Added tenantId dependency
 
-  // Auto-refresh features re-enabled
-  useAutoRefresh({ interval: 30000, onRefresh: () => fetchDashboardData(), visibilityBased: true, enabled: true });
+  // Optimized real-time refresh configuration
+  useAutoRefresh({ 
+    interval: 30000, // 30 seconds for real-time updates
+    onRefresh: () => fetchDashboardData(), 
+    visibilityBased: true, 
+    enabled: true // Enable auto-refresh
+  });
 
+  // Optimized real-time subscription with faster debounce
   useDebouncedRealtimeRefresh({
     tables: ['sales', 'products', 'customers', 'accounts_receivable', 'accounts_payable', 'purchase_items'],
     tenantId,
     onChange: () => fetchDashboardData(),
-    enabled: true,
-    debounceMs: 2000,
+    enabled: true, // Enable real-time updates
+    debounceMs: 1000, // 1 second for faster real-time updates
   });
 
   const fetchCurrentSubscription = async () => {

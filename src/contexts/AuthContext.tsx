@@ -246,6 +246,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Get initial session with better error handling
     const initializeAuth = async () => {
+      console.log('🔐 AuthProvider: Starting initialization...');
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -257,6 +258,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
         
+        console.log('🔐 AuthProvider: Session found:', !!session, 'User:', !!session?.user);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -266,6 +268,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         
         // Always set loading to false after initial check
+        console.log('🔐 AuthProvider: Setting loading to false');
         setLoading(false);
       } catch (error) {
         if (mounted) {
@@ -426,29 +429,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setShowPasswordChangeModal,
   };
 
-  // Don't render children until we've checked for an existing session
-  // Add timeout to prevent infinite loading on new devices
-  const [authTimeout, setAuthTimeout] = useState(false);
-  
-  useEffect(() => {
-    if (loading) {
-      const timer = setTimeout(() => {
-        setLoading(false);
-        setAuthTimeout(true);
-      }, 5000); // Reduced timeout to 5 seconds
-      
-      return () => clearTimeout(timer);
-    }
-  }, [loading]);
-
-  if (loading && !authTimeout) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
+  // Always render the AuthContext.Provider to prevent "useAuth must be used within an AuthProvider" errors
+  // The loading state should be handled by the components that use the auth context
   return (
     <AuthContext.Provider value={value}>
       {children}
