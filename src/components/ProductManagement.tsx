@@ -434,7 +434,7 @@ export default function ProductManagement({
                       <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     </div>
                   )}
-                                     <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1">
                      <div className="font-medium text-sm sm:text-base truncate flex items-center gap-2">
                        {product.name}
                        {isLowStock(product) && (
@@ -450,7 +450,7 @@ export default function ProductManagement({
                          </Badge>
                        )}
                      </div>
-                   </div>
+                  </div>
                 </div>
               </TableCell>
                <TableCell className="hidden sm:table-cell">
@@ -617,15 +617,15 @@ export default function ProductManagement({
     );
   }
 
-     return (
-     <div className="space-y-6">
+  return (
+    <div className="space-y-6">
        {/* Stock Alerts Summary */}
        {(() => {
          const lowStockCount = products.filter(isLowStock).length;
          const expiringCount = products.filter(isExpiringSoon).length;
          
          if (lowStockCount > 0 || expiringCount > 0) {
-           return (
+                return (
              <Card className="border-orange-200 bg-orange-50">
                <CardContent className="pt-6">
                  <div className="flex items-center gap-4">
@@ -638,9 +638,9 @@ export default function ProductManagement({
                        {expiringCount > 0 && `${expiringCount} product${expiringCount > 1 ? 's' : ''} expiring soon`}
                      </p>
                    </div>
-                 </div>
-               </CardContent>
-             </Card>
+            </div>
+          </CardContent>
+        </Card>
            );
          }
          return null;
@@ -744,16 +744,16 @@ export default function ProductManagement({
       <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+                          <DialogTitle>
               {selectedProduct ? 'Edit Product' : 'Add New Product'}
-            </DialogTitle>
-            <DialogDescription>
+              </DialogTitle>
+              <DialogDescription>
               {selectedProduct ? 'Update product information' : 'Create a new product in your catalog'}
-            </DialogDescription>
+              </DialogDescription>
           </DialogHeader>
-                     <ProductForm
+          <ProductForm
              product={selectedProduct}
-             onSuccess={() => {
+            onSuccess={() => {
                setShowProductForm(false);
                setSelectedProduct(null);
                handleRefresh();
@@ -761,12 +761,12 @@ export default function ProductManagement({
                  title: selectedProduct ? 'Product Updated' : 'Product Created',
                  description: `${selectedProduct?.name || 'Product'} has been ${selectedProduct ? 'updated' : 'created'} successfully.`,
                });
-             }}
-             onCancel={() => {
+            }}
+            onCancel={() => {
                setShowProductForm(false);
                setSelectedProduct(null);
-             }}
-           />
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>
