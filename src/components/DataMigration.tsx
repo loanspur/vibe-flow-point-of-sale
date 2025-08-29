@@ -19,17 +19,29 @@ import {
   AlertCircle,
   Info,
   FileDown,
-  RotateCcw
+  RotateCcw,
+  FileSpreadsheet
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { recalculateInventoryLevels } from '@/lib/inventory-integration';
 
+interface RecordStatus {
+  rowNumber: number;
+  recordName: string;
+  status: 'success' | 'failed' | 'skipped';
+  errorMessage?: string;
+  originalData: any;
+  processedData?: any;
+  timestamp: string;
+}
+
 interface MigrationResult {
   success: number;
   failed: number;
   errors: string[];
+  recordStatuses: RecordStatus[]; // Add this field
 }
 
 interface ImportPreview {
@@ -49,6 +61,7 @@ export const DataMigration: React.FC = () => {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [recordStatuses, setRecordStatuses] = useState<RecordStatus[]>([]);
 
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -158,6 +171,7 @@ export const DataMigration: React.FC = () => {
     setIsProcessing(true);
     setProgress(0);
     setResult(null);
+    setRecordStatuses([]);
 
     try {
       const text = await selectedFile.text();
@@ -167,6 +181,7 @@ export const DataMigration: React.FC = () => {
       let success = 0;
       let failed = 0;
       const errors: string[] = [];
+      const statuses: RecordStatus[] = [];
 
       for (let i = 1; i < lines.length; i++) {
         const cells = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''));
@@ -176,20 +191,42 @@ export const DataMigration: React.FC = () => {
           rowData[header] = cells[index] || '';
         });
 
+        const recordName = rowData.name || rowData.product_name || `Row ${i}`;
+        const timestamp = new Date().toISOString();
+        
         try {
-          await processRow(rowData, importType);
+          const result = await processRow(rowData, importType);
           success++;
+          statuses.push({
+            rowNumber: i,
+            recordName,
+            status: 'success',
+            originalData: rowData,
+            processedData: result?.data?.[0] || null,
+            timestamp
+          });
         } catch (error) {
           failed++;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          errors.push(`Row ${i} (${rowData.name || 'unnamed'}): ${errorMessage}`);
+          errors.push(`Row ${i} (${recordName}): ${errorMessage}`);
+          statuses.push({
+            rowNumber: i,
+            recordName,
+            status: 'failed',
+            errorMessage,
+            originalData: rowData,
+            timestamp
+          });
           console.error(`Import error for row ${i}:`, error);
         }
 
         setProgress((i / (lines.length - 1)) * 100);
+        setRecordStatuses([...statuses]); // Update in real-time
       }
 
-      setResult({ success, failed, errors });
+      const finalResult = { success, failed, errors, recordStatuses: statuses };
+      setResult(finalResult);
+      setRecordStatuses(statuses);
       
       const resultMessage = failed === 0 
         ? `Successfully imported all ${success} records!`
@@ -716,6 +753,7 @@ export const DataMigration: React.FC = () => {
       setProgress(0);
       setPreview(null);
       setSelectedFile(null);
+      setRecordStatuses([]); // Clear record statuses on reset
       
       // Reset file input
       const fileInput = document.getElementById('csv-file') as HTMLInputElement;
@@ -743,6 +781,7 @@ export const DataMigration: React.FC = () => {
       setProgress(0);
       setPreview(null);
       setSelectedFile(null);
+      setRecordStatuses([]); // Clear record statuses on complete
       
       // Reset file input
       const fileInput = document.getElementById('csv-file') as HTMLInputElement;
@@ -758,6 +797,71 @@ export const DataMigration: React.FC = () => {
       toast({
         title: "Complete Error",
         description: error instanceof Error ? error.message : 'Failed to complete migration',
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Add Excel report generation function
+  const generateExcelReport = () => {
+    if (!recordStatuses.length) {
+      toast({
+        title: "No Data",
+        description: "No migration data available to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create CSV content with Excel-compatible formatting
+      const headers = [
+        'Row Number',
+        'Record Name',
+        'Status',
+        'Error Message',
+        'Original Data',
+        'Processed Data ID',
+        'Timestamp'
+      ];
+
+      const csvContent = [
+        headers.join(','),
+        ...recordStatuses.map(status => [
+          status.rowNumber,
+          `"${status.recordName.replace(/"/g, '""')}"`,
+          status.status,
+          `"${(status.errorMessage || '').replace(/"/g, '""')}"`,
+          `"${JSON.stringify(status.originalData).replace(/"/g, '""')}"`,
+          status.processedData?.id || '',
+          status.timestamp
+        ].join(','))
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `${importType}_migration_report_${timestamp}.csv`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Report Generated",
+        description: `Excel report downloaded as ${filename}`,
+      });
+
+    } catch (error) {
+      toast({
+        title: "Export Error",
+        description: "Failed to generate Excel report",
         variant: "destructive",
       });
     }
@@ -1009,6 +1113,56 @@ export const DataMigration: React.FC = () => {
                             Complete Migration
                           </Button>
                         </div>
+
+                        {/* Add Excel Report Generation Button */}
+                        {recordStatuses.length > 0 && (
+                          <div className="mt-6 p-4 border rounded-lg bg-muted/50">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-lg font-semibold">Migration Report</h3>
+                              <Button
+                                onClick={generateExcelReport}
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-2"
+                              >
+                                <FileSpreadsheet className="h-4 w-4" />
+                                Generate Excel Report
+                              </Button>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-4 text-sm">
+                                <span className="flex items-center gap-1">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  {recordStatuses.filter(s => s.status === 'success').length} Successful
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <AlertCircle className="h-4 w-4 text-red-600" />
+                                  {recordStatuses.filter(s => s.status === 'failed').length} Failed
+                                </span>
+                              </div>
+                              
+                              {recordStatuses.filter(s => s.status === 'failed').length > 0 && (
+                                <div className="max-h-40 overflow-y-auto">
+                                  <h4 className="font-medium text-sm mb-2">Failed Records:</h4>
+                                  {recordStatuses
+                                    .filter(s => s.status === 'failed')
+                                    .slice(0, 5)
+                                    .map((status, index) => (
+                                      <div key={index} className="text-xs text-red-600 mb-1">
+                                        Row {status.rowNumber}: {status.recordName} - {status.errorMessage}
+                                      </div>
+                                    ))}
+                                  {recordStatuses.filter(s => s.status === 'failed').length > 5 && (
+                                    <div className="text-xs text-muted-foreground">
+                                      ... and {recordStatuses.filter(s => s.status === 'failed').length - 5} more
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
