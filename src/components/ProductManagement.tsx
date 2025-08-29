@@ -461,17 +461,32 @@ export default function ProductManagement({
                    {formatCurrency(product.purchase_price || product.cost_price || 0)}
                  </TableCell>
                <TableCell className="text-sm">
-                  {(() => {
-                    // Show total stock including variants
-                    if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                      const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                        return total + (variant.stock_quantity || 0);
-                      }, 0);
-                      const mainStock = product.stock_quantity || 0;
-                      return mainStock + totalVariantStock;
-                    }
-                    return product.stock_quantity || 0;
-                  })()}
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {(() => {
+                        // Show total stock including variants
+                        if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                          const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+                            return total + (variant.stock_quantity || 0);
+                          }, 0);
+                          const mainStock = product.stock_quantity || 0;
+                          return mainStock + totalVariantStock;
+                        }
+                        return product.stock_quantity || 0;
+                      })()}
+                    </span>
+                    {isLowStock(product) && (
+                      <Badge variant="destructive" className="text-xs px-1 py-0">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        Low
+                      </Badge>
+                    )}
+                    {product.stock_quantity === 0 && (
+                      <Badge variant="outline" className="text-xs px-1 py-0 text-destructive border-destructive">
+                        Out of Stock
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <Badge variant={product.is_active ? "secondary" : "outline"} className="text-xs">
@@ -505,15 +520,17 @@ export default function ProductManagement({
                 )}
               </TableCell>
                <TableCell className="text-right">
-                <div className="flex justify-end gap-1">
+                <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                    <Button 
                      variant="outline" 
                      size="sm"
-                                 onClick={() => {
-              setFinalSelectedProduct(product);
-              setFinalShowProductForm(true);
-            }}
-                     className="h-8 w-8 sm:w-auto px-2"
+                     onClick={(e) => {
+                       e.preventDefault();
+                       e.stopPropagation();
+                       setFinalSelectedProduct(product);
+                       setFinalShowProductForm(true);
+                     }}
+                     className="h-8 w-8 sm:w-auto px-2 z-10 relative"
                    >
                      <Edit className="h-3 w-3 sm:mr-1" />
                      <span className="hidden sm:inline text-xs">Edit</span>
@@ -524,8 +541,9 @@ export default function ProductManagement({
                        <Button 
                          variant="ghost" 
                          size="sm"
-                         className="h-8 w-8 px-2"
+                         className="h-8 w-8 px-2 z-10 relative"
                          title="View variants"
+                         onClick={(e) => e.stopPropagation()}
                        >
                          <Eye className="h-3 w-3" />
                        </Button>
@@ -545,7 +563,8 @@ export default function ProductManagement({
                          variant="ghost" 
                          size="sm" 
                          title="View history"
-                         className="h-8 w-8 px-2"
+                         className="h-8 w-8 px-2 z-10 relative"
+                         onClick={(e) => e.stopPropagation()}
                        >
                          <History className="h-3 w-3" />
                        </Button>
@@ -564,9 +583,10 @@ export default function ProductManagement({
                        <Button 
                          variant="ghost" 
                          size="sm" 
-                         className="h-8 w-8 px-2 text-destructive"
+                         className="h-8 w-8 px-2 text-destructive z-10 relative"
                          disabled={!canDelete('product')}
                          title={!canDelete('product') ? 'Deletion disabled for audit trail' : 'Delete product'}
+                         onClick={(e) => e.stopPropagation()}
                        >
                          <Trash2 className="h-3 w-3" />
                        </Button>
