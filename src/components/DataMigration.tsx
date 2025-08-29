@@ -238,6 +238,11 @@ export const DataMigration: React.FC = () => {
         variant: failed > 0 ? "destructive" : "default",
       });
 
+      // Auto-generate report after migration
+      if (statuses.length > 0) {
+        generateExcelReport(statuses);
+      }
+
     } catch (error) {
       toast({
         title: "Import Error",
@@ -802,9 +807,9 @@ export const DataMigration: React.FC = () => {
     }
   };
 
-  // Add Excel report generation function
-  const generateExcelReport = () => {
-    if (!recordStatuses.length) {
+  // Enhanced Excel report generation function
+  const generateExcelReport = (statuses: RecordStatus[] = recordStatuses) => {
+    if (!statuses.length) {
       toast({
         title: "No Data",
         description: "No migration data available to export",
@@ -822,19 +827,21 @@ export const DataMigration: React.FC = () => {
         'Error Message',
         'Original Data',
         'Processed Data ID',
-        'Timestamp'
+        'Timestamp',
+        'Import Type'
       ];
 
       const csvContent = [
         headers.join(','),
-        ...recordStatuses.map(status => [
+        ...statuses.map(status => [
           status.rowNumber,
           `"${status.recordName.replace(/"/g, '""')}"`,
           status.status,
           `"${(status.errorMessage || '').replace(/"/g, '""')}"`,
           `"${JSON.stringify(status.originalData).replace(/"/g, '""')}"`,
           status.processedData?.id || '',
-          status.timestamp
+          status.timestamp,
+          importType
         ].join(','))
       ].join('\n');
 
@@ -1120,7 +1127,7 @@ export const DataMigration: React.FC = () => {
                             <div className="flex items-center justify-between mb-4">
                               <h3 className="text-lg font-semibold">Migration Report</h3>
                               <Button
-                                onClick={generateExcelReport}
+                                onClick={() => generateExcelReport(recordStatuses)}
                                 variant="outline"
                                 size="sm"
                                 className="flex items-center gap-2"

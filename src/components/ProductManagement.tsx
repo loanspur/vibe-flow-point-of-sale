@@ -570,65 +570,26 @@ export default function ProductManagement({
 
   return (
     <div className="space-y-6">
-<<<<<<< HEAD
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Product Management</h1>
           <p className="text-muted-foreground">
-            Manage your product catalog, categories, and variants
+            Manage your product catalog, categories, and inventory
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSelectedProduct(null);
-              setShowProductForm(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
-        </div>
+        <Button 
+          onClick={() => {
+            setSelectedProduct(null);
+            setShowProductForm(true);
+          }}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Product
+        </Button>
       </div>
 
       {/* Removed Low Stock Alert Card - No longer needed */}
-=======
-      {/* Low Stock Alert */}
-      {lowStockProducts.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="text-orange-800 flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Low Stock Alert
-            </CardTitle>
-            <CardDescription className="text-orange-700">
-              {lowStockProducts.length} product(s) are running low on stock
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {lowStockProducts.map(product => {
-                // Calculate current stock (including variants)
-                let currentStock = product.stock_quantity || 0;
-                if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                  currentStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                    return total + (variant.stock_quantity || 0);
-                  }, 0);
-                }
-                
-                return (
-                  <Badge key={product.id} variant="outline" className="text-orange-700">
-                    {product.name} ({currentStock} left)
-                  </Badge>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
->>>>>>> e939229a24d2e7d980599cc7c35d864ba58b2a07
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -689,8 +650,8 @@ export default function ProductManagement({
                 </p>
                 <Button 
                   onClick={() => {
-                    setFinalSelectedProduct(null);
-                    setFinalShowProductForm(true);
+                    setSelectedProduct(null);
+                    setShowProductForm(true);
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -720,10 +681,9 @@ export default function ProductManagement({
       </Tabs>
 
       {/* Product Form Dialog */}
-              <Dialog open={finalShowProductForm} onOpenChange={setFinalShowProductForm}>
+      <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-<<<<<<< HEAD
             <DialogTitle>
               {selectedProduct ? 'Edit Product' : 'Add New Product'}
             </DialogTitle>
@@ -741,29 +701,10 @@ export default function ProductManagement({
                 title: selectedProduct ? 'Product Updated' : 'Product Created',
                 description: `${savedProduct.name} has been ${selectedProduct ? 'updated' : 'created'} successfully.`,
               });
-=======
-                          <DialogTitle>
-                {finalSelectedProduct ? 'Edit Product' : 'Add New Product'}
-              </DialogTitle>
-              <DialogDescription>
-                {finalSelectedProduct ? 'Update product information' : 'Create a new product with details, variants, and images'}
-              </DialogDescription>
-          </DialogHeader>
-          <ProductForm
-            product={finalSelectedProduct}
-            onSuccess={() => {
-              setFinalShowProductForm(false);
-              setFinalSelectedProduct(null);
-              // Refresh products after successful form submission
-              if (refreshTimeoutRef.current) {
-                clearTimeout(refreshTimeoutRef.current);
-              }
-              refreshTimeoutRef.current = setTimeout(() => refetchProducts(), 300);
->>>>>>> e939229a24d2e7d980599cc7c35d864ba58b2a07
             }}
             onCancel={() => {
-              setFinalShowProductForm(false);
-              setFinalSelectedProduct(null);
+              setShowProductForm(false);
+              setSelectedProduct(null);
             }}
           />
         </DialogContent>
