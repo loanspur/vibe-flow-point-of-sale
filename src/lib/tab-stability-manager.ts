@@ -1,6 +1,6 @@
 /**
- * Global tab stability manager to prevent refresh loops and maintain state
- * when switching between browser tabs or windows
+ * DISABLED: Global tab stability manager to prevent refresh loops
+ * This manager is completely disabled to prevent unwanted refreshes
  */
 
 import { useState, useEffect } from 'react';
@@ -24,101 +24,43 @@ class TabStabilityManager {
   private initialized = false;
 
   initialize() {
-    if (this.initialized) return;
-    
-    this.setupVisibilityListener();
-    this.initialized = true;
+    // Completely disabled to prevent refresh triggers
+    console.log('Tab stability manager disabled to prevent refresh triggers');
   }
 
   private setupVisibilityListener() {
-    const handleVisibilityChange = () => {
-      const now = Date.now();
-      
-      if (document.visibilityState === 'hidden') {
-        // Mark tab as switching but don't prevent operations immediately
-        this.state.isTabSwitching = true;
-        this.state.lastVisibilityChange = now;
-        
-        // Only prevent query refreshes briefly to avoid excessive requests
-        this.state.preventQueryRefresh = true;
-        
-        // Don't interfere with auth - authentication should always work
-        this.state.preventAuthRefresh = false;
-      } else if (document.visibilityState === 'visible') {
-        // When tab becomes visible again, restore normal operation quickly
-        this.state.isTabSwitching = false;
-        this.state.preventAuthRefresh = false;
-        
-        // Allow queries after a short delay to prevent immediate flood
-        setTimeout(() => {
-          this.state.preventQueryRefresh = false;
-          this.notifyListeners();
-        }, 100);
-        
-        this.state.lastVisibilityChange = now;
-      }
-
-      this.notifyListeners();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Disabled: No visibility listeners
   }
 
   private restoreNormalOperation() {
-    console.log('Restoring normal operation - refreshes allowed');
-    this.state.isTabSwitching = false;
-    this.state.preventAuthRefresh = false;
-    this.state.preventQueryRefresh = false;
-    this.notifyListeners();
+    // Disabled: No operation restoration
   }
 
   private notifyListeners() {
-    this.listeners.forEach(listener => {
-      try {
-        listener();
-      } catch (error) {
-        console.warn('Error in tab stability listener:', error);
-      }
-    });
+    // Disabled: No listener notifications
   }
 
-  // Public API - Never prevent auth operations for stability
+  // Public API - Never prevent any operations
   shouldPreventAuthRefresh(): boolean {
     return false; // Always allow auth operations
   }
 
   shouldPreventQueryRefresh(): boolean {
-    // Only prevent queries briefly during tab switching to reduce load
-    return this.state.preventQueryRefresh;
+    return false; // Always allow query operations
   }
 
   isCurrentlyTabSwitching(): boolean {
-    return this.state.isTabSwitching;
+    return false; // Never consider tab switching
   }
 
   onStateChange(listener: () => void): () => void {
-    this.listeners.push(listener);
-    
-    // Return cleanup function
-    return () => {
-      const index = this.listeners.indexOf(listener);
-      if (index > -1) {
-        this.listeners.splice(index, 1);
-      }
-    };
+    // Disabled: No state change listeners
+    return () => {}; // No-op cleanup
   }
 
   // Force reset - use only in emergencies
   forceReset() {
-    console.warn('Force resetting tab stability manager');
-    this.state = {
-      isTabSwitching: false,
-      lastVisibilityChange: 0,
-      preventAuthRefresh: false,
-      preventQueryRefresh: false,
-    };
-    
-    this.notifyListeners();
+    console.log('Tab stability manager reset (disabled)');
   }
 
   // Get current state for debugging
@@ -132,25 +74,16 @@ export const tabStabilityManager = new TabStabilityManager();
 
 // Hook for React components
 export function useTabStability() {
-  const [, forceUpdate] = useState({});
-  
-  useEffect(() => {
-    // Initialize on first use
-    tabStabilityManager.initialize();
-    
-    // Listen for state changes
-    const cleanup = tabStabilityManager.onStateChange(() => {
-      forceUpdate({});
-    });
-    
-    return cleanup;
-  }, []);
-
   return {
-    shouldPreventAuthRefresh: tabStabilityManager.shouldPreventAuthRefresh(),
-    shouldPreventQueryRefresh: tabStabilityManager.shouldPreventQueryRefresh(),
-    isTabSwitching: tabStabilityManager.isCurrentlyTabSwitching(),
-    forceReset: tabStabilityManager.forceReset,
-    getState: tabStabilityManager.getState,
+    shouldPreventAuthRefresh: false,
+    shouldPreventQueryRefresh: false,
+    isTabSwitching: false,
+    forceReset: () => {},
+    getState: () => ({
+      isTabSwitching: false,
+      lastVisibilityChange: 0,
+      preventAuthRefresh: false,
+      preventQueryRefresh: false,
+    }),
   };
 }

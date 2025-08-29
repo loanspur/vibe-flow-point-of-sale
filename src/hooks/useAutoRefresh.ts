@@ -7,65 +7,21 @@ interface AutoRefreshOptions {
   visibilityBased?: boolean; // Only refresh when tab is visible
 }
 
-export const useAutoRefresh = (options: AutoRefreshOptions = {}) => {
-  const {
-    interval = 60000, // Increased to 60 seconds to reduce load
-    enabled = false, // Disabled by default to prevent performance issues
-    onRefresh,
-    visibilityBased = true
-  } = options;
-
-  const intervalRef = useRef<NodeJS.Timeout>();
-  const isVisibleRef = useRef(true);
-
-  // Handle visibility change
-  useEffect(() => {
-    if (!visibilityBased) return;
-
-    const handleVisibilityChange = () => {
-      isVisibleRef.current = !document.hidden;
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [visibilityBased]);
-
-  const startAutoRefresh = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    intervalRef.current = setInterval(() => {
-      if (!visibilityBased || isVisibleRef.current) {
-        onRefresh?.();
-      }
-    }, interval);
-  }, [interval, onRefresh, visibilityBased]);
-
-  const stopAutoRefresh = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = undefined;
-    }
-  }, []);
-
-  const manualRefresh = useCallback(() => {
-    onRefresh?.();
-  }, [onRefresh]);
-
-  useEffect(() => {
-    if (enabled && onRefresh) {
-      startAutoRefresh();
-    } else {
-      stopAutoRefresh();
-    }
-
-    return () => stopAutoRefresh();
-  }, [enabled, onRefresh, startAutoRefresh, stopAutoRefresh]);
-
+/**
+ * COMPLETELY DISABLED: Auto-refresh hook to prevent unwanted refreshes
+ * This hook is completely disabled to prevent flickering and auto-refreshes
+ */
+export function useAutoRefresh(options: AutoRefreshOptions = {}) {
+  const { enabled = false, interval = 30000, onRefresh, visibilityBased = false } = options;
+  
+  // COMPLETELY DISABLED - No auto-refresh functionality
+  console.log('Auto-refresh hook completely disabled to prevent refresh triggers');
+  
+  // Return no-op functions
   return {
-    startAutoRefresh,
-    stopAutoRefresh,
-    manualRefresh
+    isEnabled: false,
+    enable: () => console.log('Auto-refresh disabled'),
+    disable: () => console.log('Auto-refresh disabled'),
+    refresh: () => console.log('Auto-refresh disabled'),
   };
-};
+}

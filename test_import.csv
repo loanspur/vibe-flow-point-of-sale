@@ -1,0 +1,4 @@
+name,description,sku,price,stock_quantity,category,unit,location
+Test Product 1,This is a test product description,TP1001,25.50,100,Electronics,Pieces,Main Store
+Test Product 2,Another test product description,TP1002,15.75,50,Clothing,Units,Warehouse
+Test Product 3,Third test product description,TP1003,45.00,75,Home & Garden,Pieces,Main Store

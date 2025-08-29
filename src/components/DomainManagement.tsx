@@ -444,18 +444,16 @@ export default function DomainManagement() {
         <TabsContent value="domains" className="space-y-4">
           {domains.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Globe className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No domains configured</h3>
-                <p className="text-muted-foreground text-center mb-4">
+              <CardContent className="text-center py-8">
+                <Globe className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Domains Configured</h3>
+                <p className="text-muted-foreground mb-4">
                   Add your first domain to get started with custom branding
                 </p>
-                {canManageDomains && (
-                  <Button onClick={() => setShowAddDialog(true)}>
-                    <Globe className="mr-2 h-4 w-4" />
-                    Add Domain
-                  </Button>
-                )}
+                <Button onClick={() => setShowAddDialog(true)}>
+                  <Globe className="h-4 w-4 mr-2" />
+                  Add Domain
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -468,14 +466,15 @@ export default function DomainManagement() {
                         <Globe className="h-5 w-5" />
                         <div>
                           <CardTitle className="text-lg">{domain.domain_name}</CardTitle>
-                          <CardDescription className="flex items-center space-x-2">
+                          {/* Fix: Change CardDescription to div to avoid p>div nesting */}
+                          <div className="flex items-center space-x-2 mt-1">
                             <Badge variant="outline">
                               {domain.domain_type === 'subdomain' ? 'Subdomain' : 'Custom Domain'}
                             </Badge>
                             {domain.is_primary && (
                               <Badge variant="default">Primary</Badge>
                             )}
-                          </CardDescription>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">

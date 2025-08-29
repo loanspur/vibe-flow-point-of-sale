@@ -4,6 +4,7 @@
  */
 
 export const PERFORMANCE_CONFIG = {
+<<<<<<< HEAD
   // Enable real-time updates for dashboard data
   DISABLE_AUTO_REFRESH: false, // Enable auto-refresh for real-time data
   DISABLE_FOCUS_REFRESH: false, // Enable focus refresh for better UX
@@ -32,6 +33,30 @@ export const PERFORMANCE_CONFIG = {
   // New performance settings
   MAX_CONCURRENT_REQUESTS: 5, // Increased for dashboard parallel queries
   PREFETCH_THRESHOLD: 1000, // Threshold for prefetching
+=======
+  // COMPLETELY DISABLE ALL AUTO-REFRESH AND MONITORING
+  DISABLE_AUTO_REFRESH: true,
+  DISABLE_FOCUS_REFRESH: true,
+  DISABLE_REALTIME_UPDATES: true,
+  DISABLE_TAB_SWITCH_REFRESH: true,
+  DISABLE_PERFORMANCE_MONITORING: true, // New: Disable performance monitoring
+  
+  // Very long intervals to effectively disable auto-refresh
+  DASHBOARD_REFRESH_INTERVAL: Number.MAX_SAFE_INTEGER,
+  TAB_SWITCH_DELAY: Number.MAX_SAFE_INTEGER,
+  REALTIME_DEBOUNCE_DELAY: Number.MAX_SAFE_INTEGER,
+  
+  // Aggressive caching
+  QUERY_STALE_TIME: 30 * 60 * 1000, // 30 minutes
+  QUERY_CACHE_TIME: 60 * 60 * 1000, // 1 hour
+  MAX_RETRIES: 1,
+  
+  // Disable all refresh triggers
+  DISABLE_VISIBILITY_CHANGE: true,
+  DISABLE_WINDOW_FOCUS: true,
+  DISABLE_NETWORK_RECONNECT: true,
+  DISABLE_PERFORMANCE_LOGGING: true, // New: Disable performance logging
+>>>>>>> e939229a24d2e7d980599cc7c35d864ba58b2a07
 } as const;
 
 /**
@@ -41,14 +66,15 @@ export const performanceUtils = {
   /**
    * Checks if auto-refresh should be enabled based on performance config
    */
-  shouldEnableAutoRefresh: () => !PERFORMANCE_CONFIG.DISABLE_AUTO_REFRESH,
+  shouldEnableAutoRefresh: () => false, // Always false
   
   /**
    * Checks if focus refresh should be enabled
    */
-  shouldEnableFocusRefresh: () => !PERFORMANCE_CONFIG.DISABLE_FOCUS_REFRESH,
+  shouldEnableFocusRefresh: () => false, // Always false
   
   /**
+<<<<<<< HEAD
    * Gets optimized refresh interval for real-time updates
    */
   getRefreshInterval: (defaultInterval: number = 30000) => {
@@ -56,11 +82,21 @@ export const performanceUtils = {
       ? Number.MAX_SAFE_INTEGER // Effectively disable all auto-refresh
       : Math.min(defaultInterval, PERFORMANCE_CONFIG.DASHBOARD_REFRESH_INTERVAL);
   },
+=======
+   * Checks if performance monitoring should be enabled
+   */
+  shouldEnablePerformanceMonitoring: () => false, // Always false
+  
+  /**
+   * Gets optimized refresh interval - effectively disable all auto-refresh
+   */
+  getRefreshInterval: () => Number.MAX_SAFE_INTEGER, // Effectively disable
+>>>>>>> e939229a24d2e7d980599cc7c35d864ba58b2a07
   
   /**
    * Gets debounce delay for realtime updates
    */
-  getRealtimeDebounce: () => PERFORMANCE_CONFIG.REALTIME_DEBOUNCE_DELAY,
+  getRealtimeDebounce: () => Number.MAX_SAFE_INTEGER, // Effectively disable
   
   /**
    * Performance-optimized query options with real-time caching
@@ -69,8 +105,14 @@ export const performanceUtils = {
     staleTime: PERFORMANCE_CONFIG.QUERY_STALE_TIME,
     gcTime: PERFORMANCE_CONFIG.QUERY_CACHE_TIME,
     retry: PERFORMANCE_CONFIG.MAX_RETRIES,
+<<<<<<< HEAD
     refetchOnWindowFocus: PERFORMANCE_CONFIG.DISABLE_FOCUS_REFRESH ? false : true, // Enable focus refresh
     refetchOnMount: true, // Allow refetch on mount for fresh data
     refetchOnReconnect: true, // Enable reconnect refresh for reliability
+=======
+    refetchOnWindowFocus: false, // Always disabled
+    refetchOnMount: false, // Prevent excessive fetching
+    refetchOnReconnect: false, // Prevent network-triggered refreshes
+>>>>>>> e939229a24d2e7d980599cc7c35d864ba58b2a07
   }),
 };

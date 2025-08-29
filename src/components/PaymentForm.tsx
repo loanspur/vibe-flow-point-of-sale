@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { CreditCard, DollarSign, Receipt, Calendar, Banknote, Smartphone, Building2 } from 'lucide-react';
 import { CurrencyIcon } from '@/components/ui/currency-icon';
 import { useApp } from '@/contexts/AppContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { usePaymentMethods, type PaymentMethod } from '@/hooks/usePaymentMethods';
 
 interface Payment {
   id: string;
@@ -21,15 +21,6 @@ interface Payment {
   date: string;
   notes?: string;
   status: 'pending' | 'completed' | 'failed';
-}
-
-interface PaymentMethod {
-  id: string;
-  name: string;
-  type: string;
-  is_active: boolean;
-  requires_reference: boolean;
-  display_order: number;
 }
 
 interface PaymentFormProps {
@@ -50,10 +41,16 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   disabled = false
 }) => {
   const { tenantCurrency, formatLocalCurrency } = useApp();
-  const { tenantId } = useAuth();
   const { toast } = useToast();
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
+  
+  // Use centralized payment methods hook
+  const { 
+    paymentMethods, 
+    loading: isLoadingMethods, 
+    getActivePaymentMethods,
+    getDefaultPaymentMethods 
+  } = usePaymentMethods();
+  
   const [newPayment, setNewPayment] = useState({
     method: '',
     amount: 0,
@@ -63,71 +60,20 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     status: 'completed' as const
   });
 
-  // Fetch payment methods from database
-  useEffect(() => {
-    fetchPaymentMethods();
-  }, [tenantId]);
-
-  const fetchPaymentMethods = async () => {
-    if (!tenantId) {
-      setPaymentMethods([]);
-      setIsLoadingMethods(false);
-      return;
+  // Get active payment methods for purchases (filter out credit)
+  const purchasePaymentMethods = getActivePaymentMethods().filter(method => method.type !== 'credit' as any);
+  
+  // Set default payment method if none selected
+  React.useEffect(() => {
+    if (purchasePaymentMethods.length > 0 && !newPayment.method) {
+      setNewPayment(prev => ({ 
+        ...prev, 
+        method: purchasePaymentMethods[0].type 
+      }));
     }
-
-    try {
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        // Filter out credit sales for purchase payments (only show payment methods, not credit)
-        const purchasePaymentMethods = data.filter(method => method.type !== 'credit');
-        setPaymentMethods(purchasePaymentMethods);
-        
-        // Set first payment method as default
-        if (purchasePaymentMethods.length > 0) {
-          setNewPayment(prev => ({ 
-            ...prev, 
-            method: purchasePaymentMethods[0].type 
-          }));
-        }
-      } else {
-        // Fallback to default methods if none configured (excluding credit)
-        setPaymentMethods([
-          { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
-          { id: 'default-card', name: 'Credit/Debit Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 },
-          { id: 'default-bank', name: 'Bank Transfer', type: 'bank_transfer', is_active: true, requires_reference: true, display_order: 3 },
-          { id: 'default-check', name: 'Check', type: 'check', is_active: true, requires_reference: true, display_order: 4 }
-        ]);
-        setNewPayment(prev => ({ ...prev, method: 'cash' }));
-      }
-    } catch (error) {
-      console.error('Error fetching payment methods:', error);
-      toast({
-        title: "Warning",
-        description: "Could not load payment methods. Using defaults.",
-        variant: "destructive",
-      });
-      // Use fallback methods
-      setPaymentMethods([
-        { id: 'default-cash', name: 'Cash', type: 'cash', is_active: true, requires_reference: false, display_order: 1 },
-        { id: 'default-card', name: 'Credit/Debit Card', type: 'card', is_active: true, requires_reference: true, display_order: 2 }
-      ]);
-      setNewPayment(prev => ({ ...prev, method: 'cash' }));
-    } finally {
-      setIsLoadingMethods(false);
-    }
-  };
+  }, [purchasePaymentMethods, newPayment.method]);
 
   const handleAddPayment = async () => {
-    const selectedMethod = paymentMethods.find(m => m.type === newPayment.method);
-    
     if (!newPayment.method || newPayment.amount <= 0) {
       toast({
         title: "Invalid Payment",
@@ -137,55 +83,27 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       return;
     }
 
-    // Require reference number for all non-cash payments
-    if (selectedMethod?.type !== 'cash' && !newPayment.reference?.trim()) {
+    // Check if reference is required and provided
+    const selectedMethod = purchasePaymentMethods.find(m => m.type === newPayment.method);
+    if (selectedMethod?.requires_reference && !newPayment.reference.trim()) {
       toast({
         title: "Reference Required",
-        description: `${selectedMethod?.name || 'Non-cash'} payments require a unique receipt number`,
+        description: "This payment method requires a reference number",
         variant: "destructive",
       });
       return;
     }
 
-    // Check for duplicate reference numbers if reference is provided
-    if (newPayment.reference?.trim()) {
+    // Check if reference is unique (if provided)
+    if (newPayment.reference.trim()) {
       const isDuplicate = payments.some(payment => 
-        payment.reference === newPayment.reference.trim()
+        payment.reference?.toLowerCase() === newPayment.reference.toLowerCase()
       );
-      
+
       if (isDuplicate) {
         toast({
           title: "Duplicate Reference",
-          description: "This receipt number has already been used. Please enter a unique number.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Check database for uniqueness across all payments
-      try {
-        const { data: existingPayments, error } = await supabase
-          .from('ar_ap_payments')
-          .select('reference_number')
-          .eq('tenant_id', tenantId)
-          .eq('reference_number', newPayment.reference.trim())
-          .limit(1);
-
-        if (error) throw error;
-
-        if (existingPayments && existingPayments.length > 0) {
-          toast({
-            title: "Reference Already Exists",
-            description: "This receipt number is already used in the system. Please enter a unique number.",
-            variant: "destructive",
-          });
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking payment reference uniqueness:', error);
-        toast({
-          title: "Validation Error",
-          description: "Could not validate receipt number uniqueness. Please try again.",
+          description: "This reference number is already used in this transaction",
           variant: "destructive",
         });
         return;
@@ -203,7 +121,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
     onAddPayment(newPayment);
     setNewPayment({
-      method: paymentMethods.length > 0 ? paymentMethods[0].type : '',
+      method: purchasePaymentMethods.length > 0 ? purchasePaymentMethods[0].type : '',
       amount: 0,
       reference: '',
       date: new Date().toISOString().split('T')[0],
@@ -239,6 +157,21 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
   const isFullyPaid = remainingAmount <= 0;
 
+  if (isLoadingMethods) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <div className="text-muted-foreground">Loading payment methods...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -259,139 +192,78 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Paid Amount</div>
-            <div className="text-lg font-semibold text-green-600 flex items-center justify-center gap-1">
+            <div className="text-lg font-semibold flex items-center justify-center gap-1">
               <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
               {formatLocalCurrency(totalPaid)}
             </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Remaining</div>
-            <div className={`text-lg font-semibold flex items-center justify-center gap-1 ${isFullyPaid ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-lg font-semibold flex items-center justify-center gap-1 ${remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
               <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
               {formatLocalCurrency(remainingAmount)}
             </div>
           </div>
         </div>
 
-        {/* Payment Status */}
-        <div className="flex items-center justify-center">
-          <Badge className={isFullyPaid ? 'bg-green-500' : 'bg-yellow-500'}>
-            {isFullyPaid ? 'Fully Paid' : 'Payment Required'}
-          </Badge>
-        </div>
-
-        {/* Existing Payments */}
-        {payments.length > 0 && (
-          <div className="space-y-2">
-            <Label>Payment History</Label>
-            {payments.map((payment) => {
-              const Icon = getPaymentMethodIcon(payment.method);
-              const methodName = paymentMethods.find(m => m.type === payment.method)?.name || 
-                               payment.method.replace('_', ' ').toUpperCase();
-              return (
-                <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <div>
-                      <div className="font-medium">{methodName}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {payment.date} {payment.reference && `• ${payment.reference}`}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(payment.status)}>
-                      {payment.status}
-                    </Badge>
-                    <span className="font-medium">${payment.amount.toFixed(2)}</span>
-                    {!disabled && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRemovePayment(payment.id)}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Add New Payment */}
-        {!disabled && !isFullyPaid && (
-          <div className="space-y-4 border-t pt-4">
-            <Label>Add Payment</Label>
+        {/* Add Payment Form */}
+        {!isFullyPaid && (
+          <div className="space-y-4 p-4 border rounded-lg">
+            <h4 className="font-medium">Add Payment</h4>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="payment-method">Payment Method</Label>
-                <Select
-                  value={newPayment.method}
-                  onValueChange={(value) => setNewPayment(prev => ({ ...prev, method: value }))}
-                  disabled={isLoadingMethods}
-                >
+                <Select value={newPayment.method} onValueChange={(value) => setNewPayment(prev => ({ ...prev, method: value }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select method" />
+                    <SelectValue placeholder="Select payment method" />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentMethods.map((method) => {
-                      const Icon = getPaymentMethodIcon(method.type);
-                      return (
-                        <SelectItem key={method.id} value={method.type}>
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
-                            {method.name}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
+                    {purchasePaymentMethods.map((method) => (
+                      <SelectItem key={method.id} value={method.type}>
+                        <div className="flex items-center gap-2">
+                          {getPaymentMethodIcon(method.type)}
+                          <span>{method.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                {isLoadingMethods && (
-                  <p className="text-xs text-muted-foreground mt-1">Loading payment methods...</p>
-                )}
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="payment-amount">Amount</Label>
                 <Input
                   id="payment-amount"
                   type="number"
                   step="0.01"
-                  min="0"
-                  max={remainingAmount}
-                  value={newPayment.amount || ''}
+                  value={newPayment.amount}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
                   placeholder="0.00"
                 />
               </div>
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="payment-reference">
-                  Receipt Number {paymentMethods.find(m => m.type === newPayment.method)?.type !== 'cash' && '*'}
-                </Label>
+              <div>
+                <Label htmlFor="payment-reference">Reference Number</Label>
                 <Input
                   id="payment-reference"
                   value={newPayment.reference}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, reference: e.target.value }))}
-                  placeholder="Unique receipt/transaction number"
-                  required={paymentMethods.find(m => m.type === newPayment.method)?.type !== 'cash'}
+                  placeholder="Receipt number, transaction ID, etc."
                 />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="payment-date">Payment Date</Label>
                 <Input
                   id="payment-date"
                   type="date"
-                  max={new Date().toISOString().split('T')[0]}
                   value={newPayment.date}
                   onChange={(e) => setNewPayment(prev => ({ ...prev, date: e.target.value }))}
                 />
               </div>
             </div>
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="payment-notes">Notes (Optional)</Label>
               <Textarea
                 id="payment-notes"
@@ -401,21 +273,72 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 rows={2}
               />
             </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleAddPayment} 
-                disabled={!newPayment.method || newPayment.amount <= 0 || isLoadingMethods}
-              >
-                Add Payment
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setNewPayment(prev => ({ ...prev, amount: remainingAmount }))}
-                disabled={remainingAmount <= 0}
-              >
-                Pay Full Amount
-              </Button>
+            
+            <Button 
+              onClick={handleAddPayment} 
+              disabled={disabled || !newPayment.method || newPayment.amount <= 0}
+              className="w-full"
+            >
+              Add Payment
+            </Button>
+          </div>
+        )}
+
+        {/* Payment List */}
+        {payments.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-medium">Payment History</h4>
+            <div className="space-y-2">
+              {payments.map((payment, index) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {getPaymentMethodIcon(payment.method)}
+                    <div>
+                      <div className="font-medium">
+                        {purchasePaymentMethods.find(m => m.type === payment.method)?.name || payment.method}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {payment.reference && `Ref: ${payment.reference} • `}
+                        {payment.date} • {payment.notes}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="font-medium flex items-center gap-1">
+                        <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
+                        {formatLocalCurrency(payment.amount)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full ${getStatusColor(payment.status)}`}></div>
+                        <span className="text-xs text-muted-foreground capitalize">{payment.status}</span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onRemovePayment(payment.id)}
+                      disabled={disabled}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
+          </div>
+        )}
+
+        {/* Payment Status */}
+        {isFullyPaid && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2 text-green-800">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="font-medium">Payment Complete</span>
+            </div>
+            <p className="text-sm text-green-700 mt-1">
+              All payments have been received. Total paid: {formatLocalCurrency(totalPaid)}
+            </p>
           </div>
         )}
       </CardContent>

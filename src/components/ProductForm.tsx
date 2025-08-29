@@ -14,7 +14,10 @@ import { useFormState } from '@/hooks/useFormState';
 import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 import QuickCreateUnitDialog from './QuickCreateUnitDialog';
-import { useBusinessSettings as useBusinessSettingsQuery } from '@/hooks/useUnifiedDataFetching';
+import QuickCreateBrandDialog from './QuickCreateBrandDialog';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useProductSettingsValidation } from '@/hooks/useProductSettingsValidation';
+
 
 
 interface Category {
@@ -39,6 +42,9 @@ interface ProductVariant {
   min_stock_level: string;
   default_profit_margin: string;
   sale_price: string;
+  wholesale_price: string;
+  retail_price: string;
+  cost_price: string;
   image_url?: string;
   is_active: boolean;
 }
@@ -54,10 +60,14 @@ interface ProductFormData {
   sku: string;
   description: string;
   price: string;
+  wholesale_price: string;
+  retail_price: string;
+  cost_price: string;
   default_profit_margin: string;
   barcode: string;
   category_id: string;
   subcategory_id?: string;
+  brand_id?: string;
   revenue_account_id?: string;
   unit_id?: string;
   stock_quantity: string;
@@ -80,16 +90,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: settingsData } = useBusinessSettingsQuery();
-  const productSettings = {
-  autoGenerateSku: settingsData?.[0]?.auto_generate_sku ?? true,
-  enableBarcodeScanning: settingsData?.[0]?.enable_barcode_scanning ?? true,
-  enableProductExpiry: settingsData?.[0]?.enable_product_expiry ?? true,
-};
+  const { product: productSettings } = useBusinessSettings();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [revenueAccounts, setRevenueAccounts] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -98,6 +104,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [imagePreview, setImagePreview] = useState<string>('');
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [variantImages, setVariantImages] = useState<{[key: number]: { file: File | null, preview: string }}>({});
+
+  const { validateProductCreation, isFeatureEnabled, getRequiredFields } = useProductSettingsValidation();
 
   const validateForm = useCallback((data: Partial<ProductFormData>) => {
     const errors: Record<string, string> = {};
@@ -109,16 +117,43 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     
     if (currentStep === 1) {
       if (!data.category_id) errors.category_id = 'Category is required';
-      if (!data.unit_id) errors.unit_id = 'Unit is required';
+      
+      // Validate unit if product units are enabled
+      if (isFeatureEnabled('enableProductUnits') && !data.unit_id) {
+        errors.unit_id = 'Product unit is required when unit management is enabled';
+      }
     }
     
     if (currentStep === 3) {
-      if (!data.price) errors.price = 'Selling price is required';
-      if (parseFloat(data.price || '0') <= 0) errors.price = 'Price must be greater than 0';
+      // Validate pricing based on settings - only for simple products
+      if (!data.has_variants) {
+        if (!data.cost_price) {
+          errors.cost_price = 'Cost price is required';
+        } else if (data.cost_price && parseFloat(data.cost_price) < 0) {
+          errors.cost_price = 'Cost price must be 0 or greater';
+        }
+        
+        if (isFeatureEnabled('enableRetailPricing') && !data.retail_price) {
+          errors.retail_price = 'Retail price is required when retail pricing is enabled';
+        } else if (data.retail_price && parseFloat(data.retail_price) <= 0) {
+          errors.retail_price = 'Retail price must be greater than 0';
+        }
+        
+        if (!data.wholesale_price) {
+          errors.wholesale_price = 'Wholesale price is required';
+        } else if (data.wholesale_price && parseFloat(data.wholesale_price) <= 0) {
+          errors.wholesale_price = 'Wholesale price must be greater than 0';
+        }
+      }
+
+      // Validate SKU if auto-generate is enabled
+      if (isFeatureEnabled('autoGenerateSku') && !data.sku) {
+        errors.sku = 'SKU is required when auto-generate SKU is enabled';
+      }
     }
     
     return errors;
-  }, [currentStep]);
+  }, [currentStep, isFeatureEnabled]);
 
   const [formState, formActions] = useFormState<ProductFormData>({
     initialData: {
@@ -126,10 +161,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       sku: '',
       description: '',
       price: '',
+      wholesale_price: '',
+      retail_price: '',
+      cost_price: '',
       default_profit_margin: '',
       barcode: '',
       category_id: '',
       subcategory_id: undefined,
+      brand_id: undefined,
       revenue_account_id: undefined,
       unit_id: undefined,
       stock_quantity: '',
@@ -145,38 +184,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
    
   const generateSKU = async (productName: string): Promise<string> => {
     if (!productName) return '';
-    const namePrefix = productName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase();
+    
     // If tenantId not ready, produce a random SKU without DB check
     if (!tenantId) {
+      const namePrefix = productName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3).toUpperCase();
       const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
       return `${namePrefix}${fallbackSuffix}`;
     }
 
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (attempts < maxAttempts) {
-      const timestamp = Date.now().toString().slice(-4);
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
-      const potentialSKU = `${namePrefix}${timestamp}${randomSuffix}`;
-
-      const { data: existingProduct } = await supabase
-        .from('products')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('sku', potentialSKU)
-        .maybeSingle();
-
-      if (!existingProduct) {
-        return potentialSKU;
-      }
-
-      attempts++;
-      await new Promise(resolve => setTimeout(resolve, 1));
-    }
-
-    const fallbackSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `${namePrefix}${fallbackSuffix}`;
+    // Use centralized SKU generation
+    const { generateUniqueSKU } = await import('@/lib/migration-utils');
+    return generateUniqueSKU(productName, tenantId);
   }; 
 
 
@@ -255,9 +273,47 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
       if (error) throw error;
       setRevenueAccounts(data || []);
+      
+      // Auto-set inventory account for new products
+      if (!product && data && data.length > 0) {
+        // Find inventory account
+        const inventoryAccount = data.find(account => 
+          account.name.toLowerCase().includes('inventory') || 
+          account.name.toLowerCase().includes('stock') ||
+          account.code === '1200' || 
+          account.code === '1020'
+        );
+        
+        if (inventoryAccount) {
+          formActions.setFieldValue('revenue_account_id', inventoryAccount.id);
+        } else if (data.length > 0) {
+          // Fallback to first asset account
+          formActions.setFieldValue('revenue_account_id', data[0].id);
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Error fetching asset accounts",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }, [tenantId, toast, product, formActions]);
+
+  const fetchBrands = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setBrands(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching brands",
         description: error.message,
         variant: "destructive",
       });
@@ -338,11 +394,12 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   useEffect(() => {
     if (tenantId) {
       fetchCategories();
+      fetchBrands();
       fetchRevenueAccounts();
       fetchUnits();
       fetchLocations();
     }
-  }, [tenantId, fetchCategories, fetchRevenueAccounts, fetchUnits, fetchLocations]);
+  }, [tenantId, fetchCategories, fetchBrands, fetchRevenueAccounts, fetchUnits, fetchLocations]);
 
   useEffect(() => {
     if (tenantId && !product && !formState.data.location_id) {
@@ -350,45 +407,76 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }, [tenantId, product, formState.data.location_id, setDefaultLocation]);
 
-  // Initialize form with product data (only run once per product)
-  useEffect(() => {
-    if (product && product.id) {
-      const savedLocation = localStorage.getItem('selected_location');
-      const productData = {
-        name: product.name || '',
-        sku: product.sku || '',
-        description: product.description || '',
-        price: product.price?.toString() || '',
-        default_profit_margin: product.default_profit_margin?.toString() || '',
-        barcode: product.barcode || '',
-        category_id: product.category_id || '',
-        subcategory_id: product.subcategory_id || undefined,
-        revenue_account_id: product.revenue_account_id || undefined,
-        unit_id: product.unit_id || undefined,
-        stock_quantity: product.stock_quantity?.toString() || '',
-        min_stock_level: product.min_stock_level?.toString() || '',
-        has_expiry_date: product.has_expiry_date || false,
-        is_active: product.is_active ?? true,
-        location_id: savedLocation || product.location_id || '',
-        has_variants: false,
-      };
-      
-      // Set form data without triggering re-renders
-      formActions.setData(productData);
-      
-      if (product.image_url) {
-        setImagePreview(product.image_url);
-      }
-      
-      // Fetch subcategories if category is set
-      if (product.category_id) {
-        fetchSubcategories(product.category_id);
-      }
-      
-      // Fetch variants for existing product
-      fetchProductVariants(product.id);
-    }
-  }, [product?.id]);
+        // Initialize form with product data (only run once per product)
+      useEffect(() => {
+        if (product && product.id) {
+          const savedLocation = localStorage.getItem('selected_location');
+          const productData = {
+            name: product.name || '',
+            sku: product.sku || '',
+            description: product.description || '',
+            price: product.price?.toString() || '',
+            wholesale_price: product.wholesale_price?.toString() || '',
+            retail_price: product.retail_price?.toString() || '',
+            cost_price: product.cost_price?.toString() || '',
+            default_profit_margin: product.default_profit_margin?.toString() || '',
+            barcode: product.barcode || '',
+            category_id: product.category_id || '',
+            subcategory_id: product.subcategory_id || undefined,
+            brand_id: product.brand_id || undefined,
+            revenue_account_id: product.revenue_account_id || undefined,
+            unit_id: product.unit_id || undefined,
+            stock_quantity: product.stock_quantity?.toString() || '',
+            min_stock_level: product.min_stock_level?.toString() || '',
+            has_expiry_date: product.has_expiry_date || false,
+            is_active: product.is_active ?? true,
+            location_id: savedLocation || product.location_id || '',
+            has_variants: false,
+          };
+          
+          // Set form data without triggering re-renders
+          formActions.setData(productData);
+          
+          if (product.image_url) {
+            setImagePreview(product.image_url);
+          }
+          
+          // Fetch subcategories if category is set
+          if (product.category_id) {
+            fetchSubcategories(product.category_id);
+          }
+          
+          // Fetch variants for existing product
+          fetchProductVariants(product.id);
+        } else {
+          // For new products, ensure revenue account is set to inventory account
+          const savedLocation = localStorage.getItem('selected_location');
+          const productData = {
+            name: '',
+            sku: '',
+            description: '',
+            price: '',
+            wholesale_price: '',
+            retail_price: '',
+            cost_price: '',
+            default_profit_margin: '',
+            barcode: '',
+            category_id: '',
+            subcategory_id: undefined,
+            brand_id: undefined,
+            revenue_account_id: undefined, // Will be set by fetchRevenueAccounts
+            unit_id: undefined,
+            stock_quantity: '',
+            min_stock_level: '',
+            has_expiry_date: false,
+            is_active: true,
+            location_id: savedLocation || '',
+            has_variants: false,
+          };
+          
+          formActions.setData(productData);
+        }
+      }, [product?.id]);
 
   // Handle subcategory fetching with stable reference
   useEffect(() => {
@@ -408,7 +496,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     try {
       const { data, error } = await supabase
         .from('product_variants')
-        .select('*, sale_price, image_url')
+        .select('*, sale_price, retail_price, wholesale_price, image_url')
         .eq('product_id', productId)
         .order('created_at');
 
@@ -424,6 +512,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         min_stock_level: (variant as any).min_stock_level?.toString() || '0',
         default_profit_margin: variant.default_profit_margin?.toString() || '',
         sale_price: variant.sale_price?.toString() || '0',
+        wholesale_price: variant.wholesale_price?.toString() || '0',
+        retail_price: variant.retail_price?.toString() || '0',
+        cost_price: (variant as any).cost_price?.toString() || '0',
         image_url: variant.image_url || '',
         is_active: variant.is_active ?? true,
       }));
@@ -455,34 +546,114 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     }
   }, [formActions, toast]);
 
-  const handleInputChange = async (field: keyof ProductFormData, value: string | boolean) => {
-    // Prevent accidental immediate saves during variant type selection
-    if (field === 'has_variants') {
-      console.log('Variant type selection changed:', value);
-      // Add small delay to prevent any race conditions with form validation
-      setTimeout(() => {
-        formActions.setFieldValue(field, value);
-      }, 100);
-      return;
+  // Refresh product data after update to ensure form reflects saved state
+  const refreshProductData = useCallback(async (productId: string) => {
+    try {
+      console.log('Refreshing product data for ID:', productId);
+      
+      // Fetch updated product data
+      const { data: updatedProduct, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_categories(name),
+          product_units(name),
+          store_locations(name),
+          brands(name)
+        `)
+        .eq('id', productId)
+        .single();
+
+      if (error) throw error;
+
+      if (updatedProduct) {
+        console.log('Refreshing form with updated product data:', updatedProduct);
+        
+        // Update form data with fresh product information
+        const refreshedProductData = {
+          name: updatedProduct.name || '',
+          sku: updatedProduct.sku || '',
+          description: updatedProduct.description || '',
+          price: updatedProduct.price?.toString() || '',
+          wholesale_price: updatedProduct.wholesale_price?.toString() || '',
+          retail_price: updatedProduct.retail_price?.toString() || '',
+          cost_price: updatedProduct.cost_price?.toString() || '',
+          default_profit_margin: updatedProduct.default_profit_margin?.toString() || '',
+          barcode: updatedProduct.barcode || '',
+          category_id: updatedProduct.category_id || '',
+          subcategory_id: updatedProduct.subcategory_id || undefined,
+          brand_id: updatedProduct.brand_id || undefined,
+          revenue_account_id: updatedProduct.revenue_account_id || undefined,
+          unit_id: updatedProduct.unit_id || undefined,
+          stock_quantity: updatedProduct.stock_quantity?.toString() || '',
+          min_stock_level: updatedProduct.min_stock_level?.toString() || '',
+          has_expiry_date: updatedProduct.has_expiry_date || false,
+          is_active: updatedProduct.is_active ?? true,
+          location_id: updatedProduct.location_id || '',
+          has_variants: updatedProduct.has_variants || false,
+        };
+
+        // Update form state with refreshed data
+        formActions.setData(refreshedProductData);
+        
+        // Update image preview if product has image
+        if (updatedProduct.image_url) {
+          setImagePreview(updatedProduct.image_url);
+        }
+        
+        // Refresh variants if product has variants
+        if (updatedProduct.has_variants) {
+          await fetchProductVariants(productId);
+        }
+        
+        // Fetch subcategories if category is set
+        if (updatedProduct.category_id) {
+          fetchSubcategories(updatedProduct.category_id);
+        }
+        
+        console.log('Product data refresh completed');
+      }
+    } catch (error: any) {
+      console.error('Error refreshing product data:', error);
+      toast({
+        title: "Warning",
+        description: "Product was saved but there was an issue refreshing the form data. The changes have been saved successfully.",
+        variant: "default",
+      });
+    }
+  }, [formActions, fetchProductVariants, fetchSubcategories, toast]);
+
+  // Function to calculate profit margin percentage
+  const calculateProfitMargin = (costPrice: number, retailPrice: number): string => {
+    if (!costPrice || !retailPrice || costPrice <= 0 || retailPrice <= 0) {
+      return '';
     }
     
-    formActions.setFieldValue(field, value);
+    const profit = retailPrice - costPrice;
+    const profitMargin = (profit / costPrice) * 100;
+    return profitMargin.toFixed(2);
+  };
 
-    if (field === 'location_id' && typeof value === 'string') {
-      localStorage.setItem('selected_location', value);
+  // Enhanced handleInputChange to auto-calculate profit margin
+  const handleInputChange = (field: keyof ProductFormData, value: any) => {
+    const newData = { ...formState.data, [field]: value };
+    
+    // Auto-calculate profit margin when cost_price or retail_price changes
+    if (field === 'cost_price' || field === 'retail_price') {
+      const costPrice = field === 'cost_price' ? parseFloat(value) || 0 : parseFloat(newData.cost_price) || 0;
+      const retailPrice = field === 'retail_price' ? parseFloat(value) || 0 : parseFloat(newData.retail_price) || 0;
+      
+      if (costPrice > 0 && retailPrice > 0) {
+        const calculatedMargin = calculateProfitMargin(costPrice, retailPrice);
+        newData.default_profit_margin = calculatedMargin;
+      }
     }
-
-  
-    if (field === 'name' && !product && productSettings.autoGenerateSku && typeof value === 'string' && value.trim()) {
-      const generatedSKU = await generateSKU(value);
-      if (generatedSKU) formActions.setFieldValue('sku', generatedSKU);
-    }
-
-    if (field === 'sku' && typeof value === 'string' && value.trim()) {
-      setVariants(prev => prev.map(variant => ({
-        ...variant,
-        sku: variant.value ? generateVariantSKU(value, variant.value) : variant.sku
-      })));
+    
+            formActions.setFieldValue(field, value);
+    
+    // Update profit margin if it was auto-calculated
+    if ((field === 'cost_price' || field === 'retail_price') && newData.default_profit_margin !== formState.data.default_profit_margin) {
+              formActions.setFieldValue('default_profit_margin', newData.default_profit_margin);
     }
   };
 
@@ -558,6 +729,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       min_stock_level: '0',
       default_profit_margin: '',
       sale_price: '0',
+    wholesale_price: '0',
+    retail_price: '0',
+    cost_price: '0',
       image_url: '',
       is_active: true,
     };
@@ -717,6 +891,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             min_stock_level: parseInt(variant.min_stock_level) || 0,
             default_profit_margin: variant.default_profit_margin ? parseFloat(variant.default_profit_margin) : null,
             sale_price: parseFloat(variant.sale_price) || 0,
+            retail_price: parseFloat(variant.retail_price) || 0,
+            wholesale_price: parseFloat(variant.wholesale_price) || 0,
+            cost_price: parseFloat(variant.cost_price) || 0,
             image_url: imageUrl || null,
             is_active: variant.is_active,
           };
@@ -845,11 +1022,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         name: formState.data.name,
         sku: finalSKU || null,
         description: formState.data.description || null,
-        price: formState.data.has_variants ? 0 : parseFloat(formState.data.price || '0'),
+        price: formState.data.has_variants ? 0 : parseFloat(formState.data.retail_price || '0'),
+        retail_price: formState.data.has_variants ? null : parseFloat(formState.data.retail_price || '0'),
+        wholesale_price: formState.data.has_variants ? null : parseFloat(formState.data.wholesale_price || '0'),
+        cost_price: formState.data.has_variants ? null : parseFloat(formState.data.cost_price || '0'),
         default_profit_margin: formState.data.default_profit_margin ? parseFloat(formState.data.default_profit_margin) : null,
         barcode: formState.data.barcode || null,
         category_id: formState.data.category_id || null,
         subcategory_id: formState.data.subcategory_id || null,
+        brand_id: formState.data.brand_id || null,
         revenue_account_id: formState.data.revenue_account_id || null,
         unit_id: formState.data.unit_id || null,
         stock_quantity: formState.data.stock_quantity ? parseInt(formState.data.stock_quantity) : 0,
@@ -858,7 +1039,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         image_url: imageUrl || null,
         has_expiry_date: formState.data.has_expiry_date,
         location_id: formState.data.location_id || null,
-        tenant_id: tenantId,
+        ...(product ? {} : { tenant_id: tenantId }), // Only include tenant_id for new products
       };
 
       console.log('Saving product data:', product ? 'update' : 'create');
@@ -910,6 +1091,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         setVariants([]);
         setVariantImages({});
         setCurrentStep(0);
+      } else {
+        // For updated products, refresh the form data with the updated information
+        // This ensures the form reflects the actual saved state
+        await refreshProductData(productId);
       }
       
       onSuccess();
@@ -970,11 +1155,17 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       case 2:
         // For variable products, ensure at least one variant is configured with pricing
         if (formState.data.has_variants && variants.length > 0) {
-          return variants.some(v => v.name.trim() && v.value.trim() && parseFloat(v.sale_price || '0') > 0);
+          return variants.some(v => v.name.trim() && v.value.trim() && parseFloat(v.retail_price || '0') > 0 && parseFloat(v.wholesale_price || '0') > 0);
         }
         return true; // For simple products, no validation needed
       case 3:
-        return formState.data.price && parseFloat(formState.data.price) > 0;
+        // For variant products, pricing is managed per variant, so no main product price validation needed
+        if (formState.data.has_variants) {
+          return true; // Variant products don't need main product pricing
+        }
+        // For simple products, validate the pricing
+        return formState.data.retail_price && parseFloat(formState.data.retail_price) > 0 && 
+               formState.data.wholesale_price && parseFloat(formState.data.wholesale_price) > 0;
       default:
         return true;
     }
@@ -1106,6 +1297,28 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="brand">Brand</Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={formState.data.brand_id}
+                    onValueChange={(value) => handleInputChange('brand_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <QuickCreateBrandDialog onBrandCreated={fetchBrands} />
                 </div>
               </div>
               
@@ -1279,16 +1492,43 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                                 </div>
                               </div>
                               
+                              <div className="grid grid-cols-3 gap-4">
                               <div className="space-y-2">
-                                <Label>Variant Price *</Label>
+                                  <Label>Cost Price *</Label>
                                 <Input
                                   type="number"
                                   step="0.01"
-                                  value={variant.sale_price}
-                                  onChange={(e) => updateVariant(index, 'sale_price', e.target.value)}
+                                    value={variant.cost_price}
+                                    onChange={(e) => updateVariant(index, 'cost_price', e.target.value)}
                                   placeholder="0.00"
                                   required
                                 />
+                                  <p className="text-xs text-muted-foreground">
+                                    Cost for profit calculations
+                                  </p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Retail Price *</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={variant.retail_price}
+                                    onChange={(e) => updateVariant(index, 'retail_price', e.target.value)}
+                                    placeholder="0.00"
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Wholesale Price *</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={variant.wholesale_price}
+                                    onChange={(e) => updateVariant(index, 'wholesale_price', e.target.value)}
+                                    placeholder="0.00"
+                                    required
+                                  />
+                                </div>
                               </div>
                               
                               <div className="space-y-2">
@@ -1395,47 +1635,98 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
       case 3: // Product Details (Pricing, Inventory, Image)
         return (
           <div className="space-y-6">
-            {/* Pricing */}
+            {/* Pricing - Only show for simple products */}
+            {!formState.data.has_variants && (
             <Card>
               <CardHeader>
                 <CardTitle>Pricing</CardTitle>
-                <CardDescription>Set the selling price for this product</CardDescription>
+                <CardDescription>Set the pricing structure for this product</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Selling Price *</Label>
+                      <Label htmlFor="cost_price">Purchase Price (Cost) *</Label>
                     <Input
-                      id="price"
-                      type="number"
-                      step="0.01"
-                      value={formState.data.price}
-                      onChange={(e) => handleInputChange('price', e.target.value)}
-                      placeholder="0.00"
-                      required
-                    />
-                    {formState.errors.price && (
-                      <p className="text-sm text-destructive">{formState.errors.price}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="default_profit_margin">Profit Margin %</Label>
-                    <Input
-                      id="default_profit_margin"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={formState.data.default_profit_margin}
-                      onChange={(e) => handleInputChange('default_profit_margin', e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  id="cost_price"
+                  type="number"
+                  step="0.01"
+                    value={formState.data.cost_price}
+                    onChange={(e) => handleInputChange('cost_price', e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+                  <p className="text-sm text-muted-foreground">
+                    The price you paid to purchase this product
+                  </p>
+                  {formState.errors.cost_price && (
+                    <p className="text-sm text-destructive">{formState.errors.cost_price}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="retail_price">Retail Price (Sale Price) *</Label>
+                <Input
+                  id="retail_price"
+                  type="number"
+                  step="0.01"
+                  value={formState.data.retail_price}
+                  onChange={(e) => handleInputChange('retail_price', e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+                <p className="text-sm text-muted-foreground">
+                  The price customers pay when purchasing
+                </p>
+                {formState.errors.retail_price && (
+                  <p className="text-sm text-destructive">{formState.errors.retail_price}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="default_profit_margin">Profit Margin %</Label>
+                <Input
+                  id="default_profit_margin"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formState.data.default_profit_margin}
+                  onChange={(e) => handleInputChange('default_profit_margin', e.target.value)}
+                  placeholder="0.00"
+                  readOnly={!!(parseFloat(formState.data.cost_price) > 0 && parseFloat(formState.data.retail_price) > 0)}
+                  className={parseFloat(formState.data.cost_price) > 0 && parseFloat(formState.data.retail_price) > 0 ? "bg-muted" : ""}
+                />
+                <p className="text-sm text-muted-foreground">
+                  {parseFloat(formState.data.cost_price) > 0 && parseFloat(formState.data.retail_price) > 0 
+                    ? "Auto-calculated from cost and retail prices" 
+                    : "Enter manually or set cost and retail prices to auto-calculate"}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wholesale_price">Wholesale Price *</Label>
+                <Input
+                  id="wholesale_price"
+                  type="number"
+                  step="0.01"
+                  value={formState.data.wholesale_price}
+                  onChange={(e) => handleInputChange('wholesale_price', e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+                <p className="text-sm text-muted-foreground">
+                  Special price for reseller customers
+                </p>
+                {formState.errors.wholesale_price && (
+                  <p className="text-sm text-destructive">{formState.errors.wholesale_price}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        )}
 
-            {/* Inventory */}
+            {/* Inventory - Only show for simple products */}
+            {!formState.data.has_variants && (
             <Card>
               <CardHeader>
                 <CardTitle>Inventory</CardTitle>
@@ -1486,6 +1777,25 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 )}
               </CardContent>
             </Card>
+            )}
+
+            {/* Variant Products Notice */}
+            {formState.data.has_variants && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Variants</CardTitle>
+                  <CardDescription>Pricing and inventory are managed per variant</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Since this is a variable product, pricing and inventory levels are managed individually for each variant. 
+                      You can configure these settings when adding or editing variants in the previous step.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Product Image */}
             <Card>

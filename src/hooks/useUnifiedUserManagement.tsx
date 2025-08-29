@@ -371,11 +371,23 @@ export const useUnifiedUserManagement = () => {
   // User management actions
   const inviteUser = async (email: string, roleId: string, fullName?: string) => {
     try {
+      // Get role name from roleId
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('name')
+        .eq('id', roleId)
+        .single();
+
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+        throw new Error('Invalid role ID');
+      }
+
       const { data, error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email,
-          roleId,
-          fullName,
+          fullName: fullName || email.split('@')[0], // Use email prefix if no fullName
+          role: roleData.name, // Send role name instead of roleId
           tenantId,
         }
       });
@@ -526,11 +538,23 @@ export const useUnifiedUserManagement = () => {
 
   const resendInvitation = async (email: string, roleId: string, fullName?: string) => {
     try {
+      // Get role name from roleId
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('name')
+        .eq('id', roleId)
+        .single();
+
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+        throw new Error('Invalid role ID');
+      }
+
       const { data, error } = await supabase.functions.invoke('send-user-invitation', {
         body: {
           email,
-          roleId,
-          fullName,
+          fullName: fullName || email.split('@')[0], // Use email prefix if no fullName
+          role: roleData.name, // Send role name instead of roleId
           tenantId,
           isResend: true
         }

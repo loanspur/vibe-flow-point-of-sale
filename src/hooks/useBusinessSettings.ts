@@ -1,4 +1,5 @@
 import { useApp } from '@/contexts/AppContext';
+import { getCurrencySymbol } from '@/lib/currency-symbols';
 
 /**
  * Unified hook for accessing business settings across the application
@@ -106,7 +107,7 @@ export const useBusinessSettings = () => {
     // Currency & Localization
     currency: {
       code: businessSettings?.currency_code || 'USD',
-      symbol: businessSettings?.currency_symbol || '$',
+      symbol: businessSettings?.currency_symbol || getCurrencySymbol(businessSettings?.currency_code || 'USD'),
       timezone: businessSettings?.timezone || 'UTC',
     },
     

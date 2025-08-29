@@ -16,7 +16,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrencyUpdate } from "@/hooks/useCurrencyUpdate";
+import { useApp } from "@/contexts/AppContext";
 
 interface TenantCustomPricing {
   id: string;
@@ -59,7 +59,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPricing, setSelectedPricing] = useState<TenantCustomPricing | null>(null);
   const { toast } = useToast();
-  const { formatPrice } = useCurrencyUpdate();
+  const { formatCurrency } = useApp();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -308,7 +308,7 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
             <SelectContent>
               {billingPlans.map(plan => (
                 <SelectItem key={plan.id} value={plan.id}>
-                  {plan.name} - {formatPrice(plan.price)}
+                  {plan.name} - {formatCurrency(plan.price)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -512,12 +512,12 @@ export default function TenantCustomPricing({ tenantId, tenantName }: TenantCust
                 {customPricingList.map((pricing) => (
                   <TableRow key={pricing.id}>
                     <TableCell>{pricing.billing_plans?.name}</TableCell>
-                    <TableCell>{formatPrice(pricing.original_amount)}</TableCell>
+                    <TableCell>{formatCurrency(pricing.original_amount)}</TableCell>
                     <TableCell className="font-medium">
-                      {formatPrice(pricing.custom_amount)}
+                      {formatCurrency(pricing.custom_amount)}
                     </TableCell>
                     <TableCell>
-                      {pricing.setup_fee ? formatPrice(pricing.setup_fee) : '-'}
+                      {pricing.setup_fee ? formatCurrency(pricing.setup_fee) : '-'}
                     </TableCell>
                     <TableCell>
                       {pricing.discount_percentage && (

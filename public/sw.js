@@ -202,7 +202,16 @@ async function handleNavigationRequest(request) {
             <h1>You're Offline</h1>
             <p>Vibe POS is currently offline. Please check your internet connection.</p>
             <p>Some features may still work in offline mode.</p>
-            <button onclick="window.location.reload()">Retry</button>
+            <button onclick="checkConnection()">Retry</button>
+            <script>
+              function checkConnection() {
+                if (navigator.onLine) {
+                  window.location.reload();
+                } else {
+                  alert('Still offline. Please check your connection.');
+                }
+              }
+            </script>
           </div>
         </body>
       </html>

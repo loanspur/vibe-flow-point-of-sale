@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Banknote } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
 
 interface CashChangeModalProps {
   isOpen: boolean;
@@ -8,7 +9,7 @@ interface CashChangeModalProps {
   onConfirm: () => void;
   amountPaid: number;
   totalAmount: number;
-  formatAmount: (amount: number) => string;
+  // Remove formatAmount from props since we'll use useApp
 }
 
 export function CashChangeModal({ 
@@ -16,9 +17,9 @@ export function CashChangeModal({
   onClose, 
   onConfirm, 
   amountPaid, 
-  totalAmount, 
-  formatAmount 
+  totalAmount
 }: CashChangeModalProps) {
+  const { formatCurrency } = useApp();
   const changeAmount = amountPaid - totalAmount;
 
   return (
@@ -35,16 +36,16 @@ export function CashChangeModal({
           <div className="space-y-2">
             <div className="flex justify-between text-lg">
               <span>Total Amount:</span>
-              <span className="font-semibold">{formatAmount(totalAmount)}</span>
+              <span className="font-semibold">{formatCurrency(totalAmount)}</span>
             </div>
             <div className="flex justify-between text-lg">
               <span>Amount Received:</span>
-              <span className="font-semibold">{formatAmount(amountPaid)}</span>
+              <span className="font-semibold">{formatCurrency(amountPaid)}</span>
             </div>
             <hr className="my-2" />
             <div className="flex justify-between text-xl font-bold text-green-600">
               <span>Change Issued:</span>
-              <span>{formatAmount(changeAmount)}</span>
+              <span>{formatCurrency(changeAmount)}</span>
             </div>
           </div>
         </div>

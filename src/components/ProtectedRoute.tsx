@@ -72,8 +72,8 @@ const ProtectedRoute = ({
       );
     }
 
-    // On tenant subdomains, be more permissive to avoid redirect loops
-    if (isSubdomain()) {
+    // On tenant subdomains or localhost, be more permissive to avoid redirect loops
+    if (isSubdomain() || window.location.hostname.includes('localhost')) {
       return <>{children}</>;
     }
 

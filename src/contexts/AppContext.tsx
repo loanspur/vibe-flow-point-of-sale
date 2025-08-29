@@ -1,17 +1,46 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useCurrencyConversion } from '@/hooks/useCurrencyConversion';
-import { autoUpdateCurrencySymbol, formatAmountWithSymbol } from '@/lib/currency-symbols';
-import { tabStabilityManager } from '@/lib/tab-stability-manager';
+import { formatAmountWithSymbol, getCurrencySymbol } from '@/lib/currency-symbols';
+
 
 interface BusinessSettings {
+  // Basic company information
   currency_code: string;
   currency_symbol: string;
   company_name: string;
   timezone: string;
   tax_inclusive: boolean;
   default_tax_rate: number;
+  
+  // Product and inventory features
+  enable_brands?: boolean;
+  enable_overselling?: boolean;
+  enable_product_units?: boolean;
+  enable_product_expiry?: boolean;
+  enable_warranty?: boolean;
+  enable_fixed_pricing?: boolean;
+  auto_generate_sku?: boolean;
+  enable_barcode_scanning?: boolean;
+  enable_negative_stock?: boolean;
+  stock_accounting_method?: string;
+  default_markup_percentage?: number;
+  enable_retail_pricing?: boolean;
+  enable_wholesale_pricing?: boolean;
+  enable_combo_products?: boolean;
+  
+  // Inventory and stock management
+  low_stock_threshold?: number;
+  low_stock_alerts?: boolean;
+  
+  // POS settings
+  pos_auto_print_receipt?: boolean;
+  pos_ask_customer_info?: boolean;
+  pos_enable_discounts?: boolean;
+  pos_max_discount_percent?: number;
+  
+  // Additional fields for backward compatibility
+  [key: string]: any;
 }
 
 interface AppContextType {
@@ -29,199 +58,81 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always call hooks in the same order
+export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [currencyUpdateTrigger, setCurrencyUpdateTrigger] = useState(0);
-  const { formatLocalCurrency, convertFromKES, tenantCurrency } = useCurrencyConversion();
-  const refreshingRef = useRef(false);
-  
-  // Use AuthContext directly - it should always be available since we're wrapped by AuthProvider
-  const { tenantId, user } = useAuth();
+  const [currencyCache, setCurrencyCache] = useState<{ symbol: string; code: string } | null>(null);
+  const [cacheExpiry, setCacheExpiry] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user, tenantId } = useAuth();
+  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
+  // Simplified fetchBusinessSettings - no heavy operations
   const fetchBusinessSettings = useCallback(async () => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-
-    // Apply homepage stability - prevent business settings fetch during tab switching
-    if (tabStabilityManager.shouldPreventQueryRefresh()) {
-      return;
-    }
+    if (!tenantId) return;
 
     try {
-      setLoading(true);
-      
-      const fetchOnce = () =>
-        supabase
-          .from('business_settings')
-          .select('currency_code, currency_symbol, company_name, timezone, tax_inclusive, default_tax_rate')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
+      const { data, error } = await supabase
+        .from('business_settings')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .single();
 
-      let settingsResponse = await fetchOnce();
-
-      if (settingsResponse.error && (settingsResponse.error.code === '42501' || settingsResponse.error.message?.toLowerCase().includes('row-level security') || settingsResponse.error.message?.toLowerCase().includes('permission denied'))) {
-        try {
-          if (user?.email) {
-            await supabase.rpc('reactivate_tenant_membership', {
-              tenant_id_param: tenantId,
-              target_email_param: user.email,
-            });
-            // Retry once after repair
-            settingsResponse = await fetchOnce();
-          }
-        } catch (e) {
-          // ignore
-        }
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching business settings:', error);
+        return;
       }
 
-      if (settingsResponse.error && settingsResponse.error.code !== 'PGRST116') {
-        console.error('Error fetching business settings:', settingsResponse.error);
-        // Use default fallback settings
-        setBusinessSettings({
-          currency_code: 'USD',
-          currency_symbol: '$',
-          company_name: 'Your Business',
-          timezone: 'UTC',
-          tax_inclusive: false,
-          default_tax_rate: 0
-        });
-      } else if (!settingsResponse.data) {
-        // No settings found for tenant, use sensible defaults
-        setBusinessSettings({
-          currency_code: 'USD',
-          currency_symbol: '$',
-          company_name: 'Your Business',
-          timezone: 'UTC',
-          tax_inclusive: false,
-          default_tax_rate: 0
-        });
-      } else {
-        // Use the actual business settings from the database
-        setBusinessSettings(settingsResponse.data);
+      if (data) {
+        setBusinessSettings(data);
+        
+        // Update currency cache
+        const currencyInfo = {
+          symbol: data.currency_symbol || '$',
+          code: data.currency_code || 'USD'
+        };
+        setCurrencyCache(currencyInfo);
+        setCacheExpiry(Date.now() + CACHE_DURATION);
       }
     } catch (error) {
       console.error('Error in fetchBusinessSettings:', error);
-    } finally {
-      setLoading(false);
     }
   }, [tenantId]);
 
-  const refreshBusinessSettings = useCallback(async () => {
-    if (refreshingRef.current) return;
-    refreshingRef.current = true;
-    try {
-      await fetchBusinessSettings();
-      setCurrencyUpdateTrigger(prev => prev + 1);
-    } finally {
-      refreshingRef.current = false;
-    }
-  }, [fetchBusinessSettings]);
-
-  const triggerCurrencyUpdate = useCallback(() => {
-    setCurrencyUpdateTrigger(prev => prev + 1);
-  }, []);
-
-  const formatCurrency = useCallback((amount: number): string => {
-    if (!businessSettings) return formatAmountWithSymbol(amount, 'USD');
-    
-    return formatAmountWithSymbol(
-      amount, 
-      businessSettings.currency_code, 
-      businessSettings.currency_symbol
-    );
-  }, [businessSettings]);
-
-  // Format currency using local conversion
-  const formatCurrencyWithConversion = useCallback(async (amount: number): Promise<string> => {
-    if (!tenantCurrency) {
-      return formatCurrency(amount);
-    }
-    
-    try {
-      const convertedAmount = await convertFromKES(amount);
-      return formatLocalCurrency(convertedAmount);
-    } catch (error) {
-      return formatCurrency(amount);
-    }
-  }, [tenantCurrency, convertFromKES, formatLocalCurrency, formatCurrency]);
-
-  useEffect(() => {
-    fetchBusinessSettings();
-  }, [fetchBusinessSettings]);
-
-  // Simplified real-time subscription - only enable if performance allows
+  // COMPLETELY DISABLED: Real-time business settings updates
   useEffect(() => {
     if (!tenantId) return;
 
-    // Skip realtime updates if performance is prioritized
-    const ENABLE_REALTIME = process.env.NODE_ENV === 'development' || window.innerWidth > 768;
-    if (!ENABLE_REALTIME) return;
+    // Disable all real-time subscriptions to prevent refresh triggers
+    console.log('Real-time business settings updates disabled to prevent currency switching');
+    
+    // Only fetch once on mount - no real-time updates
+    fetchBusinessSettings();
+  }, [tenantId, fetchBusinessSettings]);
 
-    let timeoutRef: NodeJS.Timeout;
+  // Simplified formatCurrency function
+  const formatCurrency = useCallback((amount: number): string => {
+    const symbol = currencyCache?.symbol || businessSettings?.currency_symbol || '$';
+    const code = currencyCache?.code || businessSettings?.currency_code || 'USD';
+    
+    // Use cached currency info for better performance
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }, [currencyCache, businessSettings]);
 
-    const channel = supabase
-      .channel('business-settings-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'business_settings',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        (payload) => {
-          // Extended debounce for better performance
-          if (timeoutRef) clearTimeout(timeoutRef);
-          timeoutRef = setTimeout(() => {
-            if (!refreshingRef.current && payload.new) {
-              const newSettings = payload.new as any;
-              
-              // Auto-detect currency symbol if needed
-              let currencySymbol = newSettings.currency_symbol;
-              if (newSettings.currency_code && !currencySymbol) {
-                const autoDetected = autoUpdateCurrencySymbol(newSettings.currency_code);
-                currencySymbol = autoDetected.symbol;
-              }
-              
-              setBusinessSettings({
-                currency_code: newSettings.currency_code || 'USD',
-                currency_symbol: currencySymbol || '$',
-                company_name: newSettings.company_name || 'Your Business',
-                timezone: newSettings.timezone || 'UTC',
-                tax_inclusive: newSettings.tax_inclusive || false,
-                default_tax_rate: newSettings.default_tax_rate || 0
-              });
-            }
-          }, 2000); // Extended to 2 second debounce for better stability
-        }
-      )
-      .subscribe();
-
-    return () => {
-      if (timeoutRef) clearTimeout(timeoutRef);
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId]);
-
-  // Remove the problematic auth readiness check - AuthContext should always be available
+  // Simplified context value
+  const contextValue = useMemo(() => ({
+    businessSettings,
+    formatCurrency,
+    fetchBusinessSettings,
+    isLoading,
+  }), [businessSettings, formatCurrency, fetchBusinessSettings, isLoading]);
 
   return (
-    <AppContext.Provider value={{
-      businessSettings,
-      loading,
-      refreshBusinessSettings,
-      formatCurrency,
-      formatLocalCurrency,
-      convertFromKES,
-      tenantCurrency: tenantCurrency?.currency || null,
-      currencySymbol: businessSettings?.currency_symbol || '$',
-      currencyCode: businessSettings?.currency_code || 'USD',
-      triggerCurrencyUpdate
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

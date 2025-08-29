@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCurrencyUpdate } from '@/hooks/useCurrencyUpdate';
+import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Link } from 'react-router-dom';
 
@@ -41,7 +41,7 @@ interface CashDrawerCardProps {
 
 export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
   const { tenantId } = useAuth();
-  const { formatAmount } = useCurrencyUpdate();
+  const { formatCurrency } = useApp();
   const [cashDrawers, setCashDrawers] = useState<CashDrawerData[]>([]);
   const [bankTransfers, setBankTransfers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,7 +162,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
           <div className="space-y-3">
             <div>
               <div className="text-2xl font-bold text-green-900">
-                {formatAmount(totalUnbankedCash)}
+                {formatCurrency(totalUnbankedCash)}
               </div>
               <p className="text-xs text-green-700">Unbanked Cash</p>
             </div>
@@ -173,7 +173,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
                 <span className="text-xs text-green-700">Banked</span>
               </div>
               <span className="text-sm font-semibold text-green-800">
-                {formatAmount(totalBankedCash)}
+                {formatCurrency(totalBankedCash)}
               </span>
             </div>
 
@@ -213,7 +213,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
                     <span className="text-sm font-medium text-green-800">Total Unbanked</span>
                   </div>
                   <div className="text-xl font-bold text-green-900 mt-1">
-                    {formatAmount(totalUnbankedCash)}
+                    {formatCurrency(totalUnbankedCash)}
                   </div>
                 </CardContent>
               </Card>
@@ -225,7 +225,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
                     <span className="text-sm font-medium text-blue-800">Total Banked</span>
                   </div>
                   <div className="text-xl font-bold text-blue-900 mt-1">
-                    {formatAmount(totalBankedCash)}
+                    {formatCurrency(totalBankedCash)}
                   </div>
                 </CardContent>
               </Card>
@@ -237,7 +237,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
                     <span className="text-sm font-medium text-purple-800">Total Cash</span>
                   </div>
                   <div className="text-xl font-bold text-purple-900 mt-1">
-                    {formatAmount(totalUnbankedCash + totalBankedCash)}
+                    {formatCurrency(totalUnbankedCash + totalBankedCash)}
                   </div>
                 </CardContent>
               </Card>
@@ -288,7 +288,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-bold">
-                            {formatAmount(drawer.current_balance)}
+                            {formatCurrency(drawer.current_balance)}
                           </div>
                           <div className="text-xs text-muted-foreground">Current Balance</div>
                         </div>
@@ -335,7 +335,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-blue-900">{formatAmount(transfer.amount)}</div>
+                        <div className="font-bold text-blue-900">{formatCurrency(transfer.amount)}</div>
                         <div className="text-xs text-blue-600">Banked</div>
                       </div>
                     </div>

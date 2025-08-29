@@ -289,18 +289,16 @@ export default function SuperAdminSystemHealth() {
                   disk: { label: "Disk", color: "#10b981" },
                   network: { label: "Network", color: "#3b82f6" }
                 }}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={performanceMetrics}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="time" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="cpu" stroke="#ef4444" strokeWidth={2} />
-                      <Line type="monotone" dataKey="memory" stroke="#f59e0b" strokeWidth={2} />
-                      <Line type="monotone" dataKey="disk" stroke="#10b981" strokeWidth={2} />
-                      <Line type="monotone" dataKey="network" stroke="#3b82f6" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <LineChart data={performanceMetrics}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="cpu" stroke="#ef4444" strokeWidth={2} />
+                    <Line type="monotone" dataKey="memory" stroke="#f59e0b" strokeWidth={2} />
+                    <Line type="monotone" dataKey="disk" stroke="#10b981" strokeWidth={2} />
+                    <Line type="monotone" dataKey="network" stroke="#3b82f6" strokeWidth={2} />
+                  </LineChart>
                 </ChartContainer>
               </CardContent>
             </Card>
