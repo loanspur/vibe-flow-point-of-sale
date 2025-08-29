@@ -38,7 +38,7 @@ export interface BulkUpdateResult {
 
 export interface ImportPreview {
   headers: string[];
-  rows: any[][];
+  rows: string[][];
   totalRows: number;
   validation: {
     isValid: boolean;
@@ -677,7 +677,7 @@ export class MigrationService {
         }
 
         // Prepare update data
-        const updateData: any = {};
+        const updateData: Record<string, string | number | boolean | null> = {};
         const changes: string[] = [];
 
         // Update basic fields

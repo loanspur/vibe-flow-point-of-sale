@@ -22,7 +22,8 @@
     "test:invite": "tsx scripts/test-invite.ts",
     "test:email": "tsx scripts/test-existing-email.ts",
     "ci:build": "npm ci && npm run build",
-    "postinstall": "npm run lint:fix"
+    "build:prod": "npm run build",
+    "postinstall": "echo 'Post-install completed'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
