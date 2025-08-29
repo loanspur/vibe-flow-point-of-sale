@@ -87,7 +87,6 @@ return (
         <TabsContent value="products">
           <SafeWrapper>
             <ProductManagement 
-              refreshSignal={refreshKey} 
               showProductForm={showProductForm}
               selectedProduct={selectedProduct}
               onShowProductForm={setShowProductForm}
