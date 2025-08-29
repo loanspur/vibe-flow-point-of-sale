@@ -90,6 +90,15 @@ export default function LandingPage() {
           setRedirecting(true);
           console.info('LandingPage: internal redirect to /dashboard');
           navigate('/dashboard');
+        } else if (isMainDevDomain && user) {
+          // Handle localhost and main dev domains for authenticated users
+          setRedirecting(true);
+          console.info('LandingPage: authenticated user on main dev domain, redirecting to dashboard');
+          if (userRole === 'superadmin') {
+            navigate('/superadmin');
+          } else {
+            navigate('/dashboard');
+          }
         }
       };
       handleRedirect();
@@ -114,8 +123,8 @@ export default function LandingPage() {
     );
   }
 
-  // On main dev domain, always show landing page even if authenticated
-  if (user && !isMainDevDomain) {
+  // On main dev domain, show landing page only for unauthenticated users
+  if (user && isMainDevDomain) {
     return null; // Will redirect via useEffect
   }
 
