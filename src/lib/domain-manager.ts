@@ -300,14 +300,14 @@ class DomainManager {
       
       // If not resolved by localhost logic, try normal domain resolution
       if (!resolvedTenantId) {
-        const { data: tenantId, error } = await supabase
-          .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
+      const { data: tenantId, error } = await supabase
+        .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
 
-        if (error) {
-          console.error('❌ Error resolving tenant by domain:', error);
-          this.resolving.delete(currentDomain); // Clean up
-          return domainInfo;
-        }
+      if (error) {
+        console.error('❌ Error resolving tenant by domain:', error);
+        this.resolving.delete(currentDomain); // Clean up
+        return domainInfo;
+      }
 
         resolvedTenantId = tenantId || null;
       }

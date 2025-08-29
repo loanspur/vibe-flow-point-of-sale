@@ -116,8 +116,13 @@ export default function ProductManagement({
       showOutOfStockWarning(product.name);
     }
   };
+  
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
+  
+  // Add missing dialog state variables
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Use external state if provided, otherwise use internal state
   const finalSelectedProduct = externalSelectedProduct !== undefined ? externalSelectedProduct : selectedProduct;
@@ -138,6 +143,7 @@ export default function ProductManagement({
       setShowProductForm(show);
     }
   };
+  
   const [activeTab, setActiveTab] = useState('products');
   const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
   const location = useLocation();
@@ -338,6 +344,43 @@ export default function ProductManagement({
     }
   };
 
+  // Add missing functions
+  const handleRefresh = () => {
+    refetchProducts();
+  };
+
+  const handleDelete = async () => {
+    if (!selectedProduct) return;
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', selectedProduct.id);
+      
+      if (error) throw error;
+      
+      setShowDeleteDialog(false);
+      setSelectedProduct(null);
+      handleRefresh();
+      
+      toast({
+        title: "Product Deleted",
+        description: `${selectedProduct.name} has been deleted successfully.`,
+      });
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRealtimeRefresh = () => {
+    handleRefresh();
+  };
 
   const ProductTable = () => (
     <Card className="mobile-card">
