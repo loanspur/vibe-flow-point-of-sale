@@ -106,6 +106,8 @@ export default function ProductManagement({
     return totalStock <= product.min_stock_level && totalStock > 0;
   };
 
+
+
   // Function to check if product is expired or expiring soon
   const isExpiringSoon = (product: Product) => {
     return expiringIds.has(product.id);
@@ -146,7 +148,6 @@ export default function ProductManagement({
   const [activeFilter, setActiveFilter] = useState<'all' | 'out-of-stock' | 'expiring'>('all');
   const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
   const [lowStockProducts, setLowStockProducts] = useState<Set<string>>(new Set());
-  const [hasLoaded, setHasLoaded] = useState(false);
   const didMountRef = useRef(false);
   const refreshTimeoutRef = useRef<NodeJS.Timeout>();
   const [currentPage, setCurrentPage] = useState(1);
@@ -259,12 +260,9 @@ export default function ProductManagement({
     }
   );
 
-  useEffect(() => {
-    if (!loading) setHasLoaded(true);
-  }, [loading]);
-
-  // Remove the problematic sync to prevent input flickering
-
+  // Remove problematic loading state management that causes blinking
+  // const [hasLoaded, setHasLoaded] = useState(false);
+  
   // Memoized refresh function to prevent loops
   const refetch = useMemo(() => {
     return refetchProducts;
@@ -277,7 +275,17 @@ export default function ProductManagement({
     return products;
   }, [products]);
 
-  // Low stock calculation removed for enhanced user experience
+  // Calculate low stock products for alerts
+  const lowStockProductsList = useMemo(() => {
+    if (!products || !Array.isArray(products)) return [];
+    return products.filter(isLowStock);
+  }, [products]);
+
+  // Calculate expiring products for alerts
+  const expiringProductsList = useMemo(() => {
+    if (!products || !Array.isArray(products)) return [];
+    return products.filter(isExpiringSoon);
+  }, [products]);
 
   const handleDeleteProduct = async (productId: string) => {
     const product = products?.find(p => p.id === productId);
@@ -576,7 +584,7 @@ export default function ProductManagement({
     </Card>
   );
 
-  if (loading && !hasLoaded) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -586,32 +594,84 @@ export default function ProductManagement({
 
   return (
     <div className="space-y-6">
-       {/* Stock Alerts Summary */}
-       {(() => {
-         const lowStockCount = products.filter(isLowStock).length;
-         const expiringCount = products.filter(isExpiringSoon).length;
-         
-         if (lowStockCount > 0 || expiringCount > 0) {
-                return (
-             <Card className="border-orange-200 bg-orange-50">
-               <CardContent className="pt-6">
-                 <div className="flex items-center gap-4">
-                   <AlertTriangle className="h-5 w-5 text-orange-600" />
-                   <div className="flex-1">
-                     <h3 className="font-semibold text-orange-800">Stock Alerts</h3>
-                     <p className="text-sm text-orange-700">
-                       {lowStockCount > 0 && `${lowStockCount} product${lowStockCount > 1 ? 's' : ''} running low on stock`}
-                       {lowStockCount > 0 && expiringCount > 0 && ' • '}
-                       {expiringCount > 0 && `${expiringCount} product${expiringCount > 1 ? 's' : ''} expiring soon`}
-                     </p>
-                   </div>
-            </div>
-          </CardContent>
-        </Card>
-           );
-         }
-         return null;
-       })()}
+               {/* Enhanced Stock Alerts Summary */}
+        {(() => {
+          const lowStockCount = lowStockProductsList.length;
+          const expiringCount = expiringProductsList.length;
+          
+          if (lowStockCount > 0 || expiringCount > 0) {
+            return (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <AlertTriangle className="h-5 w-5 text-orange-600" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-orange-800">Stock Alerts</h3>
+                        <p className="text-sm text-orange-700">
+                          {lowStockCount > 0 && `${lowStockCount} product${lowStockCount > 1 ? 's' : ''} running low on stock`}
+                          {lowStockCount > 0 && expiringCount > 0 && ' • '}
+                          {expiringCount > 0 && `${expiringCount} product${expiringCount > 1 ? 's' : ''} expiring soon`}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Low Stock Products List */}
+                    {lowStockCount > 0 && (
+                      <div className="border-t border-orange-200 pt-4">
+                        <h4 className="font-medium text-orange-800 mb-2">Low Stock Products:</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {lowStockProductsList.slice(0, 6).map((product) => (
+                            <div key={product.id} className="flex items-center justify-between p-2 bg-white rounded border border-orange-200">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-3 w-3 text-orange-600" />
+                                <span className="text-sm font-medium truncate">{product.name}</span>
+                              </div>
+                              <Badge variant="destructive" className="text-xs">
+                                {product.stock_quantity}/{product.min_stock_level}
+                              </Badge>
+                            </div>
+                          ))}
+                          {lowStockCount > 6 && (
+                            <div className="text-xs text-orange-600 text-center py-2">
+                              +{lowStockCount - 6} more products
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Expiring Products List */}
+                    {expiringCount > 0 && (
+                      <div className="border-t border-orange-200 pt-4">
+                        <h4 className="font-medium text-orange-800 mb-2">Expiring Soon:</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {expiringProductsList.slice(0, 6).map((product) => (
+                            <div key={product.id} className="flex items-center justify-between p-2 bg-white rounded border border-orange-200">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-3 w-3 text-orange-600" />
+                                <span className="text-sm font-medium truncate">{product.name}</span>
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                Check Expiry
+                              </Badge>
+                            </div>
+                          ))}
+                          {expiringCount > 6 && (
+                            <div className="text-xs text-orange-600 text-center py-2">
+                              +{expiringCount - 6} more products
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">

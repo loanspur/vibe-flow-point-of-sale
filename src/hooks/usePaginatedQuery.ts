@@ -117,9 +117,10 @@ export function usePaginatedQuery<T>(
     updatePagination
   ]);
 
-  // Execute query when dependencies change
+  // Execute query when dependencies change - with debouncing to prevent excessive calls
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const runQuery = async () => {
       if (isMounted) {
@@ -127,10 +128,12 @@ export function usePaginatedQuery<T>(
       }
     };
     
-    runQuery();
+    // Debounce the query execution to prevent rapid successive calls
+    timeoutId = setTimeout(runQuery, 100);
     
     return () => {
       isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
