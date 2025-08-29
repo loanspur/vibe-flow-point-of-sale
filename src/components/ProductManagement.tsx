@@ -118,7 +118,7 @@ export default function ProductManagement({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   
-  // Add missing dialog state variables
+  // Dialog state variables
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
@@ -143,15 +143,11 @@ export default function ProductManagement({
   };
   
   const [activeTab, setActiveTab] = useState('products');
-  const [productTypeFilter, setProductTypeFilter] = useState<'all' | 'product'>('all');
   const location = useLocation();
   const [activeFilter, setActiveFilter] = useState<'all' | 'out-of-stock' | 'expiring'>('all');
   const [expiringIds, setExpiringIds] = useState<Set<string>>(new Set());
-  const [lowStockProducts, setLowStockProducts] = useState<Set<string>>(new Set());
   const didMountRef = useRef(false);
   const refreshTimeoutRef = useRef<NodeJS.Timeout>();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
  
    useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -250,7 +246,7 @@ export default function ProductManagement({
     `,
     {
       enabled: !!tenantId,
-      searchTerm: searchTerm,
+      searchTerm: debouncedSearchTerm, // FIXED: Use debounced search term
       filters: { 
         tenant_id: tenantId,
         ...(locationFilter !== 'all' && { location_id: locationFilter })
@@ -262,7 +258,7 @@ export default function ProductManagement({
 
   // Remove problematic loading state management that causes blinking
   // const [hasLoaded, setHasLoaded] = useState(false);
-  
+
   // Memoized refresh function to prevent loops
   const refetch = useMemo(() => {
     return refetchProducts;
@@ -273,19 +269,19 @@ export default function ProductManagement({
     
     // No additional filtering needed as search is handled by pagination
     return products;
-  }, [products]);
+  }, [products.length]); // FIXED: Only depend on array length
 
   // Calculate low stock products for alerts
   const lowStockProductsList = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
     return products.filter(isLowStock);
-  }, [products]);
+  }, [products.length, expiringIds.size]); // FIXED: Stable dependencies
 
   // Calculate expiring products for alerts
   const expiringProductsList = useMemo(() => {
     if (!products || !Array.isArray(products)) return [];
     return products.filter(isExpiringSoon);
-  }, [products]);
+  }, [products.length, expiringIds.size]); // FIXED: Stable dependencies
 
   const handleDeleteProduct = async (productId: string) => {
     const product = products?.find(p => p.id === productId);
@@ -392,10 +388,10 @@ export default function ProductManagement({
           </TableHeader>
         <TableBody>
            {products.map((product) => (
-                         <TableRow 
-               key={product.id} 
+            <TableRow 
+              key={product.id} 
                className="hover:bg-muted/50 transition-colors"
-             >
+            >
               <TableCell>
                 <div className="flex items-center space-x-2 sm:space-x-3">
                   {product.image_url ? (
@@ -601,7 +597,7 @@ export default function ProductManagement({
           
           if (lowStockCount > 0 || expiringCount > 0) {
             return (
-              <Card className="border-orange-200 bg-orange-50">
+        <Card className="border-orange-200 bg-orange-50">
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
@@ -654,7 +650,7 @@ export default function ProductManagement({
                               </div>
                               <Badge variant="secondary" className="text-xs">
                                 Check Expiry
-                              </Badge>
+                  </Badge>
                             </div>
                           ))}
                           {expiringCount > 6 && (
@@ -665,9 +661,9 @@ export default function ProductManagement({
                         </div>
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
+            </div>
+          </CardContent>
+        </Card>
             );
           }
           return null;
@@ -728,7 +724,7 @@ export default function ProductManagement({
                 <Package className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Items Found</h3>
                 <p className="text-muted-foreground text-center mb-4">
-                  {searchTerm || productTypeFilter !== 'all' ? 'No items match your search criteria.' : 'Get started by adding your first product.'}
+                  {searchTerm ? 'No items match your search criteria.' : 'Get started by adding your first product.'}
                 </p>
                 <Button 
                   onClick={() => {
@@ -748,15 +744,12 @@ export default function ProductManagement({
                {/* Pagination Controls */}
                <PaginationControls
                  pagination={{
-                   page: currentPage,
-                   pageSize: itemsPerPage,
-                   total: filteredProducts.length
+                   page: pagination.page,
+                   pageSize: pagination.pageSize,
+                   total: pagination.total
                  }}
-                 onPageChange={setCurrentPage}
-                 onPageSizeChange={(newPageSize) => {
-                   setItemsPerPage(newPageSize);
-                   setCurrentPage(1);
-                 }}
+                 onPageChange={handlePageChange}
+                 onPageSizeChange={handlePageSizeChange}
                />
              </>
            )}

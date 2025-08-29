@@ -110,7 +110,7 @@ export function usePaginatedQuery<T>(
     tableName,
     selectClause,
     searchTerm,
-    JSON.stringify(filters),
+    filters.tenant_id, // FIXED: Only include primitive values, not entire object
     orderBy.column,
     orderBy.ascending,
     getSupabaseRange,
@@ -129,7 +129,7 @@ export function usePaginatedQuery<T>(
     };
     
     // Debounce the query execution to prevent rapid successive calls
-    timeoutId = setTimeout(runQuery, 100);
+    timeoutId = setTimeout(runQuery, 300); // FIXED: Match useDebounce timing
     
     return () => {
       isMounted = false;
@@ -145,7 +145,7 @@ export function usePaginatedQuery<T>(
     if (pagination.page > 1) {
       handlePageChange(1);
     }
-  }, [searchTerm, JSON.stringify(filters), handlePageChange]);
+  }, [searchTerm, filters.tenant_id, handlePageChange]); // FIXED: Stable dependencies
 
   const refetch = useCallback(async () => {
     await executeQuery();
