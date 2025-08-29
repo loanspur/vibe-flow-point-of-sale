@@ -22,7 +22,6 @@ import {
 import { Plus, Search, Filter, Edit, Trash2, Eye, Package, Image, RotateCcw, History, AlertCircle, AlertTriangle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
-import { useSoftWarnings } from '@/hooks/useSoftWarnings';
 import { useLocation } from 'react-router-dom';
 import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
@@ -98,11 +97,7 @@ export default function ProductManagement({
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [locations, setLocations] = useState<any[]>([]);
 
-  // Centralized warning system
-  const {
-    showNegativeStockWarning,
-    showOutOfStockWarning,
-  } = useSoftWarnings();
+
 
   // Function to check if product is low stock
   const isLowStock = (product: Product) => {
@@ -116,34 +111,7 @@ export default function ProductManagement({
     return expiringIds.has(product.id);
   };
 
-  // Function to show soft warnings for products
-  const showProductWarnings = (product: Product) => {
-    // Use centralized warning system
-    showNegativeStockWarning(product.name, product.stock_quantity);
-    
-    // Out of stock warning
-    if (product.stock_quantity === 0) {
-      showOutOfStockWarning(product.name);
-    }
 
-    // Low stock warning
-    if (isLowStock(product)) {
-      toast({
-        title: "Low Stock Alert",
-        description: `${product.name} is running low on stock (${product.stock_quantity} remaining)`,
-        variant: "default",
-      });
-    }
-
-    // Expiring soon warning
-    if (isExpiringSoon(product)) {
-      toast({
-        title: "Expiring Soon",
-        description: `${product.name} is expiring soon. Please check expiry dates.`,
-        variant: "default",
-      });
-    }
-  };
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
@@ -416,11 +384,10 @@ export default function ProductManagement({
           </TableHeader>
         <TableBody>
            {products.map((product) => (
-            <TableRow 
-              key={product.id} 
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => showProductWarnings(product)}
-            >
+                         <TableRow 
+               key={product.id} 
+               className="hover:bg-muted/50 transition-colors"
+             >
               <TableCell>
                 <div className="flex items-center space-x-2 sm:space-x-3">
                   {product.image_url ? (
