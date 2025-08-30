@@ -1,118 +1,95 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { componentTagger } from "lovable-tagger";
-import net from "net";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import path from 'path';
 
-// Function to find available port
-function findAvailablePort(startPort: number): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    
-    server.listen(startPort, () => {
-      const { port } = server.address() as net.AddressInfo;
-      server.close(() => resolve(port));
-    });
-    
-    server.on('error', () => {
-      findAvailablePort(startPort + 1).then(resolve).catch(reject);
-    });
-  });
-}
-
-// Enhanced development configuration
-export default defineConfig(({ mode }) => {
-  // Use a simpler approach for port management
-  const basePort = 8080;
-  const baseHmrPort = 24678;
-  
-  return {
-      server: {
-    host: "localhost",
-    port: basePort,
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    host: 'localhost',
+    port: 5173,
+    strictPort: false,
     hmr: {
-      overlay: false,
-      port: baseHmrPort,
-      host: "localhost",
-      clientPort: baseHmrPort
+      port: 5174,
     },
-    force: true,
-    strictPort: false, // Allow fallback to other ports
-    open: true, // Auto-open browser
-    cors: true, // Enable CORS for development
-    // Enhanced error handling and module resolution
     fs: {
-      strict: false,
-      allow: ['..']
+      allow: ['..'],
     },
-    // Better error handling
     middlewareMode: false,
-    // Ensure proper module resolution
-    optimizeDeps: {
-      include: ['react', 'react-dom', '@supabase/supabase-js', 'react-router-dom']
-    }
   },
-    plugins: [
-      react(),
-      mode === 'development' &&
-      componentTagger(),
-    ].filter(Boolean),
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
+  build: {
+    target: 'es2015',
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
       },
     },
-    build: {
-      rollupOptions: {
-        output: {
-          entryFileNames: 'assets/[name].js',
-          chunkFileNames: 'assets/[name].js',
-          assetFileNames: 'assets/[name][extname]',
-          manualChunks(id: string) {
-            if (id.includes('node_modules')) return 'vendor';
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom'],
+          'router-vendor': ['react-router-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast'],
+          'query-vendor': ['@tanstack/react-query'],
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'utils-vendor': ['date-fns', 'clsx', 'tailwind-merge'],
+          'icons-vendor': ['lucide-react'],
+        },
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
+          return `js/[name]-[hash].js`;
+        },
+        entryFileNames: 'js/[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          const name = assetInfo.name || 'asset';
+          const info = name.split('.');
+          const ext = info[info.length - 1];
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
+            return `images/[name]-[hash][extname]`;
           }
-        }
+          if (/css/i.test(ext)) {
+            return `css/[name]-[hash][extname]`;
+          }
+          return `assets/[name]-[hash][extname]`;
+        },
       },
-      target: 'es2020',
-      minify: 'esbuild',
-      cssMinify: true,
-      reportCompressedSize: false,
-      chunkSizeWarningLimit: 1000,
-      sourcemap: false,
-      // Enhanced build optimizations
-      assetsInlineLimit: 8192,
-      emptyOutDir: true,
-      optimizeDeps: {
-        include: ['react', 'react-dom', '@supabase/supabase-js'],
-        force: false
-      },
-      // Faster builds
-      write: true,
-      copyPublicDir: true
     },
-      // Enhanced development features
-  define: {
-    __DEV__: mode === 'development',
-    __PROD__: mode === 'production'
+    chunkSizeWarningLimit: 1000,
   },
-  // Better error overlay
-  css: {
-    devSourcemap: true
-  },
-  // Optimize dependencies for faster startup
   optimizeDeps: {
     include: [
       'react',
       'react-dom',
-      '@supabase/supabase-js',
       'react-router-dom',
-      '@tanstack/react-query'
+      '@tanstack/react-query',
+      'react-hook-form',
+      '@hookform/resolvers/zod',
+      'zod',
+      '@supabase/supabase-js',
+      'lucide-react',
+      'date-fns',
+      'clsx',
+      'tailwind-merge',
     ],
-    exclude: ['@mendable/firecrawl-js'], // Exclude problematic dependencies
-    force: true // Force re-optimization
+    exclude: [
+      'jspdf',
+      'html2canvas',
+      'papaparse',
+      'recharts',
+    ],
   },
-  // Enhanced logging
-  logLevel: 'info',
-  clearScreen: false
-  }
+  define: {
+    __DEV__: process.env.NODE_ENV === 'development',
+  },
 });

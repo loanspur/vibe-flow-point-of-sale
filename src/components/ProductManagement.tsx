@@ -23,7 +23,7 @@ import { Plus, Search, Filter, Edit, Trash2, Eye, Package, Image, RotateCcw, His
 import { useToast } from '@/hooks/use-toast';
 import { useDeletionControl } from '@/hooks/useDeletionControl';
 
-import ProductForm from './ProductForm';
+import ProductFormUnified from './ProductFormUnified';
 import CategoryManagement from './CategoryManagement';
 import ProductVariants from './ProductVariants';
 import ProductHistory from './ProductHistory';
@@ -811,7 +811,7 @@ export default function ProductManagement({
               {selectedProduct ? 'Update product information' : 'Create a new product in your catalog'}
               </DialogDescription>
           </DialogHeader>
-          <ProductForm
+          <ProductFormUnified
              product={selectedProduct}
             onSuccess={() => {
                setShowProductForm(false);
