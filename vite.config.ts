@@ -26,30 +26,19 @@ export default defineConfig({
     target: 'es2015',
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
+    minify: 'esbuild', // Changed from terser to esbuild for better compatibility
     rollupOptions: {
       output: {
+        // Simplified chunking strategy
         manualChunks: {
-          // Vendor chunks
           'react-vendor': ['react', 'react-dom'],
           'router-vendor': ['react-router-dom'],
           'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast'],
           'query-vendor': ['@tanstack/react-query'],
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
           'supabase-vendor': ['@supabase/supabase-js'],
-          'utils-vendor': ['date-fns', 'clsx', 'tailwind-merge'],
-          'icons-vendor': ['lucide-react'],
         },
-        chunkFileNames: (chunkInfo) => {
-          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
-          return `js/[name]-[hash].js`;
-        },
+        chunkFileNames: 'js/[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
           const name = assetInfo.name || 'asset';
@@ -81,12 +70,6 @@ export default defineConfig({
       'date-fns',
       'clsx',
       'tailwind-merge',
-    ],
-    exclude: [
-      'jspdf',
-      'html2canvas',
-      'papaparse',
-      'recharts',
     ],
   },
   define: {

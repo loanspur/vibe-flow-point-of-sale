@@ -193,42 +193,42 @@ export default function ProductManagement({
       let query = supabase
         .from('products')
         .select(`
-          id,
-          name,
-          sku,
-          description,
-          price,
-          purchase_price,
-          default_profit_margin,
-          barcode,
-          category_id,
-          subcategory_id,
-          revenue_account_id,
-          unit_id,
-          stock_quantity,
-          min_stock_level,
-          is_active,
-          image_url,
-          brand_id,
-          is_combo_product,
-          allow_negative_stock,
-          cost_price,
-          retail_price,
-          wholesale_price,
-          created_at,
-          updated_at,
-          product_categories(name),
-          product_subcategories(name),
-          product_units(name, abbreviation),
-          store_locations(name),
-          brands(name),
-          product_variants(
-            id,
-            name,
-            value,
-            stock_quantity,
-            is_active
-          )
+      id,
+      name,
+      sku,
+      description,
+      price,
+      purchase_price,
+      default_profit_margin,
+      barcode,
+      category_id,
+      subcategory_id,
+      revenue_account_id,
+      unit_id,
+      stock_quantity,
+      min_stock_level,
+      is_active,
+      image_url,
+      brand_id,
+      is_combo_product,
+      allow_negative_stock,
+      cost_price,
+      retail_price,
+      wholesale_price,
+      created_at,
+      updated_at,
+      product_categories(name),
+      product_subcategories(name),
+      product_units(name, abbreviation),
+      store_locations(name),
+      brands(name),
+      product_variants(
+        id,
+        name,
+        value,
+        stock_quantity,
+        is_active
+      )
         `, { count: 'exact' })
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
@@ -252,7 +252,7 @@ export default function ProductManagement({
         total: count || 0
       };
     },
-    enabled: !!tenantId,
+      enabled: !!tenantId,
     staleTime: 30000, // Cache for 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
@@ -285,7 +285,7 @@ export default function ProductManagement({
   }, [refetchProducts]);
 
   const productsList = products.products || [];
-  
+
   const filteredProducts = useMemo(() => {
     if (!productsList || !Array.isArray(productsList)) return [];
     
@@ -406,7 +406,7 @@ export default function ProductManagement({
               <TableHead className="text-right min-w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
-                 <TableBody>
+        <TableBody>
             {productsList.map((product) => (
             <TableRow 
               key={product.id} 
@@ -463,17 +463,17 @@ export default function ProductManagement({
                <TableCell className="text-sm">
                   <div className="flex items-center gap-2">
                     <span>
-                      {(() => {
-                        // Show total stock including variants
-                        if ((product as any).product_variants && (product as any).product_variants.length > 0) {
-                          const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
-                            return total + (variant.stock_quantity || 0);
-                          }, 0);
-                          const mainStock = product.stock_quantity || 0;
-                          return mainStock + totalVariantStock;
-                        }
-                        return product.stock_quantity || 0;
-                      })()}
+                  {(() => {
+                    // Show total stock including variants
+                    if ((product as any).product_variants && (product as any).product_variants.length > 0) {
+                      const totalVariantStock = (product as any).product_variants.reduce((total: number, variant: any) => {
+                        return total + (variant.stock_quantity || 0);
+                      }, 0);
+                      const mainStock = product.stock_quantity || 0;
+                      return mainStock + totalVariantStock;
+                    }
+                    return product.stock_quantity || 0;
+                  })()}
                     </span>
                     {isLowStock(product) && (
                       <Badge variant="destructive" className="text-xs px-1 py-0">
@@ -527,9 +527,9 @@ export default function ProductManagement({
                      onClick={(e) => {
                        e.preventDefault();
                        e.stopPropagation();
-                       setFinalSelectedProduct(product);
-                       setFinalShowProductForm(true);
-                     }}
+              setFinalSelectedProduct(product);
+              setFinalShowProductForm(true);
+            }}
                      className="h-8 w-8 sm:w-auto px-2 z-10 relative"
                    >
                      <Edit className="h-3 w-3 sm:mr-1" />
