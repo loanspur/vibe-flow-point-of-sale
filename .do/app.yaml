@@ -7,7 +7,8 @@ services:
     branch: dev_branch
   run_command: nginx -g 'daemon off;'
   build_command: |
-    npm ci
+    npm cache clean --force
+    npm install --legacy-peer-deps
     npm run build:prod
   dockerfile_path: Dockerfile
   http_port: 80

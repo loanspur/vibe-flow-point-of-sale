@@ -1,5 +1,5 @@
-# Use Node.js 18 Alpine for smaller image size
-FROM node:18-alpine AS base
+# Use Node.js 20 Alpine for better compatibility
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -9,7 +9,8 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci
+# Clear npm cache and install with legacy peer deps to handle conflicts
+RUN npm cache clean --force && npm install --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
