@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,13 +12,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
-import { useFormState } from '@/hooks/useFormState';
 import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 import QuickCreateUnitDialog from './QuickCreateUnitDialog';
 import QuickCreateBrandDialog from './QuickCreateBrandDialog';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { useProductSettingsValidation } from '@/hooks/useProductSettingsValidation';
+import { useProductCRUD } from '@/hooks/useUnifiedCRUD';
+import { productSchema, ProductFormData } from '@/lib/validation-schemas';
 
 
 
@@ -55,28 +57,7 @@ interface ProductFormProps {
   onCancel: () => void;
 }
 
-interface ProductFormData {
-  name: string;
-  sku: string;
-  description: string;
-  price: string;
-  wholesale_price: string;
-  retail_price: string;
-  cost_price: string;
-  default_profit_margin: string;
-  barcode: string;
-  category_id: string;
-  subcategory_id?: string;
-  brand_id?: string;
-  revenue_account_id?: string;
-  unit_id?: string;
-  stock_quantity: string;
-  min_stock_level: string;
-  has_expiry_date: boolean;
-  is_active: boolean;
-  location_id: string;
-  has_variants: boolean;
-}
+
 
 const STEPS = [
   { id: 'basic', title: 'Basic Information', description: 'Essential product details' },
