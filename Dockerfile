@@ -1,5 +1,5 @@
-# Use Node.js 20 Alpine for better compatibility
-FROM node:20-alpine AS base
+# Use Node.js 18.20.8 Alpine for specific version compatibility
+FROM node:18.20.8-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
