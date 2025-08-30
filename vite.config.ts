@@ -26,18 +26,10 @@ export default defineConfig({
     target: 'es2015',
     outDir: 'dist',
     sourcemap: false,
-    minify: 'esbuild', // Changed from terser to esbuild for better compatibility
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        // Simplified chunking strategy
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'router-vendor': ['react-router-dom'],
-          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast'],
-          'query-vendor': ['@tanstack/react-query'],
-          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
-          'supabase-vendor': ['@supabase/supabase-js'],
-        },
+        // Simplified output configuration
         chunkFileNames: 'js/[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {

@@ -8,7 +8,8 @@ services:
   run_command: nginx -g 'daemon off;'
   build_command: |
     npm cache clean --force
-    npm install --legacy-peer-deps --no-optional
+    rm -rf node_modules package-lock.json
+    npm install --legacy-peer-deps --no-optional --production=false
     npm run build:prod
   dockerfile_path: Dockerfile
   http_port: 80
