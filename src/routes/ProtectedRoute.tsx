@@ -1,32 +1,26 @@
-import { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { isSubdomain } from '@/lib/domain-manager';
 import { isAuthPath } from '@/lib/route-helpers';
 
-// User roles are now dynamically managed via user_roles table
-type UserRole = string; // Dynamic role from database
+type UserRole = string;
 
 interface ProtectedRouteProps {
-  children: ReactNode;
   allowedRoles?: UserRole[];
   requireAuth?: boolean;
 }
 
-const ProtectedRoute = ({ 
-  children, 
-  allowedRoles = [], 
-  requireAuth = true 
+const ProtectedRoute = ({
+  allowedRoles = [],
+  requireAuth = true
 }: ProtectedRouteProps) => {
   const { user, loading, userRole: authUserRole } = useAuth();
   const location = useLocation();
 
-  // Short-circuit: allow any /auth path to render without role checks
-  if (isAuthPath(location.pathname)) {
-    return <>{children}</>;
-  }
+  // Never gate /auth — route must be public
+  if (isAuthPath(location.pathname)) return <Outlet />;
 
-  // Simple role mapping for basic functionality
+  // Normalize role mapping (unchanged)
   const mapRole = (role: string): string => {
     switch (role?.toLowerCase()) {
       case 'admin':
@@ -50,11 +44,10 @@ const ProtectedRoute = ({
 
   const mappedRole = authUserRole ? mapRole(authUserRole) : null;
 
-  // Show loading while auth is being determined
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -64,43 +57,38 @@ const ProtectedRoute = ({
   }
 
   if (allowedRoles.length > 0) {
-    // If user is not authenticated
     if (!user) {
       return <Navigate to="/auth" state={{ from: location }} replace />;
     }
-
-    // If user exists but role hasn't loaded yet, show a loading state instead of redirecting
     if (user && !authUserRole) {
       return (
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
       );
     }
-
-    // On tenant subdomains or localhost, be more permissive to avoid redirect loops
+    // Be permissive on dev subdomains/localhost to avoid loops
     if (isSubdomain() || window.location.hostname.includes('localhost')) {
-      return <>{children}</>;
+      return <Outlet />;
     }
 
-    // Normalize role comparisons (case-insensitive)
     const allowedNormalized = allowedRoles.map(r => r.toLowerCase());
     const authLower = authUserRole?.toLowerCase();
     const mappedLower = mappedRole?.toLowerCase();
 
-    // Simple role checking - can be enhanced with unified permission system
-    const roleMatch = (mappedLower && allowedNormalized.includes(mappedLower)) || 
-                     (authLower && allowedNormalized.includes(authLower)) ||
-                     authUserRole === 'superadmin' || 
-                     authUserRole === 'admin';
-    
+    const roleMatch =
+      (mappedLower && allowedNormalized.includes(mappedLower)) ||
+      (authLower && allowedNormalized.includes(authLower)) ||
+      authUserRole === 'superadmin' ||
+      authUserRole === 'admin';
+
     if (!roleMatch) {
       const redirectPath = isSubdomain() ? '/auth' : '/';
       return <Navigate to={redirectPath} state={{ from: location }} replace />;
     }
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

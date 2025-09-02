@@ -1,10 +1,18 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, createContext, useContext } from "react";
 import { User, Session } from '@supabase/supabase-js';
 // CACHE BUST v2 - Multiple profile load prevention
 import { supabase } from '@/integrations/supabase/client';
 import { domainManager } from '@/lib/domain-manager';
+import { log } from '@/lib/logger';
+import { isAuthPath } from '@/lib/route-helpers';
+import { useSafeNavigate } from '@/lib/router-utils';
 
 import { PasswordChangeModal } from '@/components/PasswordChangeModal';
+
+const normalizeRole = (r?: string) =>
+  (r ?? "").trim().toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 
 // User roles are now dynamically managed via user_roles table
 type UserRole = string; // Dynamic role from database
@@ -44,6 +52,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [profileFetched, setProfileFetched] = useState<string | null>(null);
   const [fetchInProgress, setFetchInProgress] = useState<boolean>(false); // Prevent concurrent calls
+  const navigate = useSafeNavigate();
+  const didRouteAfterLoginRef = useRef(false);
+
+  function routeAfterLogin(role?: string) {
+    if (didRouteAfterLoginRef.current) return;
+    didRouteAfterLoginRef.current = true;
+
+    const nr = normalizeRole(role);
+    const isSuper =
+      nr === "superadmin" || nr === "super_admin" ||
+      nr === "platform_admin" || nr === "sysadmin";
+
+    if (isSuper) {
+      log.info("[auth] routing → /superadmin");
+      navigate("/superadmin", { replace: true });
+    } else {
+      log.info("[auth] routing → /admin");
+      navigate("/admin", { replace: true });
+    }
+  }
 
   // Optimized user info fetching with performance checks
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
@@ -64,7 +92,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
-        console.warn('Error fetching user profile:', error);
+        log.warn('Error fetching user profile:', error);
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
@@ -87,6 +115,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (passwordChangeRequired && !showPasswordChangeModal) {
           setShowPasswordChangeModal(true);
         }
+
+
       } else {
         // Fallback if no profile found
         setUserRole('user');
@@ -95,7 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setRequirePasswordChange(false);
       }
     } catch (error) {
-      console.warn('Failed to fetch user info:', error);
+      log.warn('Failed to fetch user info:', error);
       // Set default values on error
       setUserRole('user');
       setTenantId(null);
@@ -112,7 +142,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.warn('Error refreshing session:', error);
+        log.warn('Error refreshing session:', error);
         return;
       }
       
@@ -124,7 +154,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await fetchUserInfo(session.user.id, 'manual-refresh');
       }
     } catch (error) {
-      console.warn('Failed to refresh user info:', error);
+      log.warn('Failed to refresh user info:', error);
     }
   };
 
@@ -138,6 +168,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       fetchUserInfo(user.id, 'initial');
     }
   }, [user, profileFetched]);
+
+  // Only route if NOT on /auth and once we know either role or have a safe default
+  const onAuth = typeof window !== "undefined" && window.location.pathname.startsWith("/auth");
+  useEffect(() => {
+    if (onAuth) return;                // keep /auth steady
+    if (!session) return;              // wait for session
+    if (userRole) {                    // when role ready, route
+      routeAfterLogin(userRole);
+    }
+  }, [onAuth, session, userRole]);
 
   // Optimized activity logging function
   const logUserActivity = async (actionType: string, userId: string) => {
@@ -169,7 +209,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         // Silently fail - don't disrupt user experience
-        console.warn('Activity logging failed:', error);
+        log.warn('Activity logging failed:', error);
       }
     }, 0);
   };
@@ -186,7 +226,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (!mounted) return;
         
-
+        log.trace("auth", "state-change", { event, hasSession: !!session?.user, onPath: window.location.pathname });
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -214,6 +254,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 if (event === 'SIGNED_IN') {
                   logUserActivity('login', session.user.id);
                   markInvitationAccepted(session.user);
+                  // If we're currently on an /auth path, navigate once to post-login landing
+                  try {
+                    const onAuth = typeof window !== 'undefined' && isAuthPath(window.location.pathname);
+                    if (onAuth && !didRouteAfterLoginRef.current) {
+                      // Use a microtask to avoid interfering with current render
+                      setTimeout(() => routeAfterLogin(userRole), 0);
+                    }
+                  } catch { /* ignore */ }
                 }
               }
             }, 0);
@@ -243,33 +291,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Get initial session with better error handling
     const initializeAuth = async () => {
-      console.log('🔐 AuthProvider: Starting initialization...');
+      log.trace("auth", "Starting initialization...");
+      log.trace("auth", "init", { onPath: window.location.pathname });
+      
+      // Early guard: if on /auth, never navigate away
+      try {
+        const onAuth = typeof window !== 'undefined' && isAuthPath(window.location.pathname);
+        if (onAuth) {
+          log.trace("auth", "init-decision", "early-guard-stay-on-auth");
+          setLoading(false);
+          return; // Never initialize auth logic that could navigate away from /auth
+        }
+      } catch { /* ignore */ }
+      
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
         if (error) {
-          console.warn('Session fetch error:', error);
+          log.warn('Session fetch error:', error);
           setLoading(false);
           return;
         }
         
-        console.log('🔐 AuthProvider: Session found:', !!session, 'User:', !!session?.user);
+        log.trace("auth", "Session found:", !!session, 'User:', !!session?.user);
+        log.trace("auth", "session", { hasSession: !!session?.user });
         setSession(session);
         setUser(session?.user ?? null);
         
+        // If on /auth, do not navigate during initialization; only set flags
+        try {
+          const onAuth = typeof window !== 'undefined' && isAuthPath(window.location.pathname);
+          if (onAuth) {
+            log.trace("auth", "init-decision", "stay-on-auth");
+            setLoading(false);
+            return; // Early return - no navigation away from /auth
+          }
+        } catch { /* ignore */ }
+
+        // Only fetch profile and potentially navigate if NOT on /auth path
         if (session?.user && profileFetched !== session.user.id && !fetchInProgress) {
           setProfileFetched(session.user.id);
           await fetchUserInfo(session.user.id, 'initial-auth-check');
         }
         
         // Always set loading to false after initial check
-        console.log('🔐 AuthProvider: Setting loading to false');
+        log.trace("auth", "Setting loading to false");
         setLoading(false);
       } catch (error) {
         if (mounted) {
-          console.warn('Auth initialization failed:', error);
+          log.warn('Auth initialization failed:', error);
           setLoading(false);
         }
       }
@@ -307,7 +379,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await supabase.auth.signOut();
     } catch (error) {
       // Silent fail - user experience is more important than logout errors
-      console.warn('Logout error (ignored):', error);
+      log.warn('Logout error (ignored):', error);
     }
   };
 
@@ -333,7 +405,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('user_id', uid);
 
       if (profileError) {
-        console.warn('Failed to update profile invitation status:', profileError);
+        log.warn('Failed to update profile invitation status:', profileError);
       }
 
       // Get tenant ID from domain context first
@@ -372,14 +444,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .eq('tenant_id', tenantId);
 
         if (tenantUserError) {
-          console.warn('Failed to update tenant_users invitation status:', tenantUserError);
+          log.warn('Failed to update tenant_users invitation status:', tenantUserError);
         }
       }
 
       // Mark as processed to prevent future runs
       sessionStorage.setItem(inviteProcessedKey, 'true');
     } catch (e) {
-      console.error('❌ Failed to mark invitation as accepted:', e);
+      log.error('Failed to mark invitation as accepted:', e);
     }
   };
 

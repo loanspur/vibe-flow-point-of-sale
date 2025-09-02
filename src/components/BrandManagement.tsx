@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,7 +36,7 @@ import {
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useBrandCRUD } from '@/hooks/useUnifiedCRUD';
+import { useBrandCRUD } from '@/features/brands/crud/useBrandCRUD';
 import { brandSchema, BrandFormData } from '@/lib/validation-schemas';
 
 interface Brand {
@@ -61,24 +59,11 @@ export default function BrandManagement() {
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
 
   // Use unified CRUD hook
-  const { create: createBrand, update: updateBrand, delete: deleteBrand, isCreating, isUpdating, isDeleting } = useBrandCRUD();
-
-  // Use TanStack Query for data fetching
-  const { data: brands = [], isLoading: loading } = useQuery({
-    queryKey: ['brands', tenantId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('brands')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId,
-  });
+  const { list, createItem: createBrand, updateItem: updateBrand, deleteItem: deleteBrand, invalidate, isLoading } = useBrandCRUD(tenantId);
+  
+  // Get brands from unified hook
+  const brands = list.data || [];
+  const loading = list.isLoading;
 
   const form = useForm<BrandFormData>({
     resolver: zodResolver(brandSchema),
@@ -95,11 +80,12 @@ export default function BrandManagement() {
   const onSubmit = async (data: BrandFormData) => {
     try {
       if (editingBrand) {
-        updateBrand({ id: editingBrand.id, data });
+        await updateBrand(editingBrand.id, data);
       } else {
-        createBrand(data);
+        await createBrand(data);
       }
-
+      
+      await invalidate();
       setShowForm(false);
       setEditingBrand(null);
       form.reset();

@@ -1,202 +1,114 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  validateProduct, 
-  validateBrand, 
-  validateUnit,
-  ProductFormData,
-  BrandFormData,
-  UnitFormData
-} from '@/lib/validation-schemas';
+import { useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { z, ZodTypeAny } from "zod";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface UseUnifiedCRUDOptions {
-  entityName: string;
-  queryKey: string[];
-  tableName: string;
-  validationFn: (data: any) => { success: boolean; data?: any; errors?: any[] };
-  transformData?: (data: any) => any;
+type Id = string | number;
+
+export interface UseUnifiedCRUDOpts<T> {
+  entityName: string;           // e.g. "Product"
+  table: string;                // e.g. "products"
+  tenantId: string | null;      // scoping
+  schema: ZodTypeAny;           // zod schema for T
+  baseQueryKey: unknown[];      // stable base key, e.g. ["products", tenantId]
 }
 
-export function useUnifiedCRUD<T = any>(options: UseUnifiedCRUDOptions) {
-  const { tenantId } = useAuth();
-  const { toast } = useToast();
+export interface UnifiedCRUDResult<T> {
+  list: ReturnType<typeof useQuery<T[]>>;
+  createItem: (input: Partial<T>) => Promise<T>;
+  updateItem: (id: Id, input: Partial<T>) => Promise<T>;
+  deleteItem: (id: Id) => Promise<{ id: Id }>;
+  invalidate: () => Promise<void>;
+  isLoading: boolean;
+}
+
+export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): UnifiedCRUDResult<T> {
+  const { entityName, table, tenantId, schema, baseQueryKey } = opts;
+  const { tenantId: authTenant } = useAuth();
+  const effectiveTenant = tenantId ?? authTenant ?? null;
   const qc = useQueryClient();
 
-  const createMutation = useMutation({
-    mutationFn: async (data: T) => {
-      // Validate data
-      const validation = options.validationFn(data);
-      if (!validation.success) {
-        throw new Error(validation.errors?.[0]?.message || 'Validation failed');
-      }
+  const keyList = useMemo(() => [...baseQueryKey, "list"], [baseQueryKey]);
 
-      // Transform data if needed
-      const transformedData = options.transformData ? options.transformData(validation.data) : validation.data;
-
-      // Add tenant_id
-      const insertData = {
-        ...transformedData,
-        tenant_id: tenantId,
-      };
-
-      const { error } = await supabase
-        .from(options.tableName)
-        .insert(insertData);
-
+  const list = useQuery<T[]>({
+    queryKey: keyList,
+    enabled: !!effectiveTenant,
+    refetchOnWindowFocus: false,
+    keepPreviousData: true,
+    placeholderData: (prev) => prev as T[] | undefined,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("tenant_id", effectiveTenant!);
       if (error) throw error;
-      return validation.data;
+      return (data ?? []).map((row) => schema.parse(row)) as T[];
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: options.queryKey });
-      toast({
-        title: `${options.entityName} Created`,
-        description: `${options.entityName} has been created successfully.`,
-      });
+  });
+
+  const invalidate = async () => {
+    await qc.invalidateQueries({ queryKey: baseQueryKey, exact: false, refetchType: "active" });
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async (input: Partial<T>) => {
+      const { user } = useAuth();
+      
+      // Enforce tenant_id on every create to satisfy RLS
+      const payload = {
+        ...input,
+        tenant_id: effectiveTenant,
+        // Common audit column if present
+        created_by: user?.id ?? null,
+      };
+      
+      const parsed = schema.partial().parse(payload);
+      const { data, error } = await supabase
+        .from(table)
+        .insert(parsed as Record<string, unknown>)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return schema.parse(data) as T;
     },
-    onError: (error: any) => {
-      toast({
-        title: `Failed to create ${options.entityName}`,
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onSuccess: () => invalidate(),
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: T }) => {
-      // Validate data
-      const validation = options.validationFn(data);
-      if (!validation.success) {
-        throw new Error(validation.errors?.[0]?.message || 'Validation failed');
-      }
-
-      // Transform data if needed
-      const transformedData = options.transformData ? options.transformData(validation.data) : validation.data;
-
-      const { error } = await supabase
-        .from(options.tableName)
-        .update(transformedData)
-        .eq('id', id)
-        .eq('tenant_id', tenantId);
-
+    mutationFn: async ({ id, input }: { id: Id; input: Partial<T> }) => {
+      // Preserve tenant_id if present, otherwise use the hook's tenantId
+      const parsed = schema.partial().parse({ 
+        ...input, 
+        tenant_id: (input as any)?.tenant_id ?? tenantId 
+      });
+      const { data, error } = await supabase
+        .from(table)
+        .update(parsed as Record<string, unknown>)
+        .eq("id", id)
+        .select("*")
+        .single();
       if (error) throw error;
-      return validation.data;
+      return schema.parse(data) as T;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: options.queryKey });
-      toast({
-        title: `${options.entityName} Updated`,
-        description: `${options.entityName} has been updated successfully.`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: `Failed to update ${options.entityName}`,
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onSuccess: () => invalidate(),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from(options.tableName)
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', tenantId);
-
+    mutationFn: async (id: Id) => {
+      const { error } = await supabase.from(table).delete().eq("id", id);
       if (error) throw error;
+      return { id };
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: options.queryKey });
-      toast({
-        title: `${options.entityName} Deleted`,
-        description: `${options.entityName} has been deleted successfully.`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: `Failed to delete ${options.entityName}`,
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onSuccess: () => invalidate(),
   });
 
   return {
-    create: createMutation.mutate,
-    update: updateMutation.mutate,
-    delete: deleteMutation.mutate,
-    isCreating: createMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    createError: createMutation.error,
-    updateError: updateMutation.error,
-    deleteError: deleteMutation.error,
+    list,
+    createItem: (input: Partial<T>) => createMutation.mutateAsync(input),
+    updateItem: (id: Id, input: Partial<T>) => updateMutation.mutateAsync({ id, input }),
+    deleteItem: (id: Id) => deleteMutation.mutateAsync(id),
+    invalidate,
+    isLoading: list.isLoading || createMutation.isPending || updateMutation.isPending,
   };
-}
-
-// Specific hooks for each entity type
-export function useProductCRUD() {
-  return useUnifiedCRUD<ProductFormData>({
-    entityName: 'Product',
-    queryKey: ['products'],
-    tableName: 'products',
-    validationFn: validateProduct,
-    transformData: (data) => ({
-      ...data,
-      // Ensure numeric fields are properly converted
-      price: Number(data.price) || 0,
-      wholesale_price: Number(data.wholesale_price) || 0,
-      retail_price: Number(data.retail_price) || 0,
-      cost_price: Number(data.cost_price) || 0,
-      purchase_price: Number(data.purchase_price) || 0,
-      default_profit_margin: Number(data.default_profit_margin) || 0,
-      stock_quantity: Number(data.stock_quantity) || 0,
-      min_stock_level: Number(data.min_stock_level) || 0,
-    }),
-  });
-}
-
-export function useBrandCRUD() {
-  return useUnifiedCRUD<BrandFormData>({
-    entityName: 'Brand',
-    queryKey: ['brands'],
-    tableName: 'brands',
-    validationFn: validateBrand,
-  });
-}
-
-export function useUnitCRUD() {
-  return useUnifiedCRUD<UnitFormData>({
-    entityName: 'Unit',
-    queryKey: ['product_units'],
-    tableName: 'product_units',
-    validationFn: validateUnit,
-    transformData: (data) => ({
-      ...data,
-      conversion_factor: Number(data.conversion_factor) || 1,
-      base_unit_id: data.is_base_unit ? null : data.base_unit_id,
-    }),
-  });
-}
-
-// Generic hook for other entities
-export function useGenericCRUD<T = any>(
-  entityName: string,
-  queryKey: string[],
-  tableName: string,
-  validationFn: (data: any) => { success: boolean; data?: any; errors?: any[] },
-  transformData?: (data: any) => any
-) {
-  return useUnifiedCRUD<T>({
-    entityName,
-    queryKey,
-    tableName,
-    validationFn,
-    transformData,
-  });
 }

@@ -60,11 +60,13 @@ export const categorySchema = z.object({
 
 // Subcategory Schema
 export const subcategorySchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1, "Subcategory name is required").max(255, "Subcategory name must be less than 255 characters"),
-  category_id: z.string().min(1, "Parent category is required"),
-  description: z.string().optional(),
-  is_active: z.boolean().default(true),
+  id: z.string().uuid().optional(),
+  tenant_id: z.string().uuid(),
+  category_id: z.string().uuid(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional().nullable(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
 });
 
 // Product Variant Schema

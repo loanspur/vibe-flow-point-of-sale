@@ -1,46 +1,36 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CreditCard } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { isAuthPath } from '@/lib/route-helpers';
 import { log } from '@/lib/logger';
-
-interface SubscriptionGuardProps {
-  children: ReactNode;
-}
 
 interface SubscriptionData {
   status: string;
   trial_end: string | null;
   current_period_end: string | null;
-  billing_plans: {
-    name: string;
-    price: number;
-    period: string;
-  } | null;
+  billing_plans: { name: string; price: number; period: string } | null;
 }
 
-export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
+export function SubscriptionGuard() {
   const { user, tenantId, loading: authLoading } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const navigate = useNavigate();
-  
-  // Bypass: allow all /auth paths to render without subscription checks
-  if (typeof window !== 'undefined' && isAuthPath(window.location.pathname)) {
-    return <>{children}</>;
-  }
-  
-  useEffect(() => {
-    if (!user || !tenantId || authLoading) {
-      return;
-    }
 
-    const checkSubscription = async () => {
+  // Hard bypass on /auth
+  if (typeof window !== 'undefined' && isAuthPath(window.location.pathname)) {
+    return <Outlet />;
+  }
+
+  useEffect(() => {
+    if (!user || !tenantId || authLoading) return;
+
+    (async () => {
       try {
         const { data, error } = await supabase
           .from('tenant_subscription_details')
@@ -48,95 +38,54 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
             status,
             trial_end,
             current_period_end,
-            billing_plans (
-              name,
-              price,
-              period
-            )
+            billing_plans ( name, price, period )
           `)
           .eq('tenant_id', tenantId)
           .maybeSingle();
 
         if (error) {
           log.error('Error fetching subscription:', error);
-          // For new tenants, grant access if no subscription found yet
           setHasAccess(true);
           setLoading(false);
           return;
         }
 
         setSubscription(data);
-
-        // Check if subscription gives access
-        if (!data) {
-          // No subscription found - grant access for new tenants
-          setHasAccess(true);
-        } else if (data.status === 'active') {
-          // Active subscription - grant access
-          setHasAccess(true);
-        } else if (data.status === 'trial' || data.status === 'trialing') {
-          // Trial subscription - check if still valid
-          if (data.trial_end) {
-            const trialEnd = new Date(data.trial_end);
-            const now = new Date();
-            setHasAccess(trialEnd > now);
-          } else {
-            // No trial end date, grant access
-            setHasAccess(true);
-          }
-        } else if (data.status === 'pending') {
-          // Pending payment - still allow access during grace period
-          setHasAccess(true);
-        } else {
-          // Only deny access for explicitly cancelled/expired subscriptions
-          setHasAccess(data.status !== 'cancelled' && data.status !== 'expired');
-        }
-      } catch (error) {
-        log.error('Error checking subscription:', error);
-        // Grant access by default to avoid blocking legitimate users
+        if (!data) setHasAccess(true);
+        else if (data.status === 'active') setHasAccess(true);
+        else if (data.status === 'trial' || data.status === 'trialing') {
+          if (data.trial_end) setHasAccess(new Date(data.trial_end) > new Date());
+          else setHasAccess(true);
+        } else if (data.status === 'pending') setHasAccess(true);
+        else setHasAccess(data.status !== 'cancelled' && data.status !== 'expired');
+      } catch (err) {
+        log.error('Error checking subscription:', err);
         setHasAccess(true);
       } finally {
         setLoading(false);
       }
-    };
-
-    checkSubscription();
+    })();
   }, [user, tenantId, authLoading]);
 
   const handleUpgrade = async () => {
     try {
-      // Call Paystack checkout function
       const { data, error } = await supabase.functions.invoke('create-paystack-checkout', {
-        body: {
-          planId: subscription?.billing_plans ? 'existing-plan' : 'basic-plan',
-          email: user?.email
-        }
+        body: { planId: subscription?.billing_plans ? 'existing-plan' : 'basic-plan', email: user?.email }
       });
-
-      if (error) {
-        log.error('Error creating checkout:', error);
-        return;
-      }
-
-      if (data?.authorization_url) {
-        window.location.href = data.authorization_url;
-      }
-    } catch (error) {
-      log.error('Error upgrading subscription:', error);
+      if (error) return log.error('Error creating checkout:', error);
+      if (data?.authorization_url) window.location.href = data.authorization_url;
+    } catch (err) {
+      log.error('Error upgrading subscription:', err);
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-    }).format(price);
-  };
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(price);
 
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -151,12 +100,11 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
             </div>
             <CardTitle className="text-xl">Subscription Required</CardTitle>
             <CardDescription>
-              {subscription?.status === 'pending' 
+              {subscription?.status === 'pending'
                 ? 'Your payment is pending. Please complete your payment to continue.'
                 : subscription?.trial_end && new Date(subscription.trial_end) < new Date()
                 ? 'Your trial has expired. Upgrade to continue using the system.'
-                : 'An active subscription is required to access this system.'
-              }
+                : 'An active subscription is required to access this system.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -173,18 +121,13 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
                 </div>
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Button onClick={handleUpgrade} className="w-full" size="lg">
                 <CreditCard className="mr-2 h-4 w-4" />
                 {subscription?.status === 'pending' ? 'Complete Payment' : 'Upgrade Now'}
               </Button>
-              
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/auth')} 
-                className="w-full"
-              >
+              <Button variant="outline" onClick={() => navigate('/auth')} className="w-full">
                 Sign Out
               </Button>
             </div>
@@ -194,5 +137,5 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
     );
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 }

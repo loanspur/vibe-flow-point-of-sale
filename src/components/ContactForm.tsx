@@ -35,7 +35,7 @@ const ContactForm = ({ isOpen, onOpenChange }: ContactFormProps) => {
 
     try {
       console.log('Attempting to send contact email...');
-      console.log('Supabase URL:', 'https://qwtybhvdbbkbcelisuek.supabase.co');
+      // Removed Supabase URL log to prevent potential eval issues from browser extensions
       
       const { data, error } = await supabase.functions.invoke('send-contact-email', {
         body: {

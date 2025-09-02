@@ -12,13 +12,32 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
-import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight, Search, Filter } from 'lucide-react';
 import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
 import QuickCreateUnitDialog from './QuickCreateUnitDialog';
 import QuickCreateBrandDialog from './QuickCreateBrandDialog';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
-import { useProductCRUD } from '@/hooks/useUnifiedCRUD';
+import { useProductCRUD } from '@/features/products/crud/useProductCRUD';
 import { productSchema, ProductFormData } from '@/lib/validation-schemas';
+import { generateUniqueSku, makeVariantSku } from '@/lib/sku';
+
+// Helper function for SKU generation
+const slugify = (s: string) =>
+  s.trim().toUpperCase()
+   .replace(/[^A-Z0-9]+/g, '-')
+   .replace(/(^-|-$)/g, '')
+   .slice(0, 24);
+
+// Ensure unique SKU function
+async function ensureUniqueSku(baseSku: string) {
+  let sku = baseSku;
+  for (let i = 0; i < 3; i++) {
+    const { data, error } = await supabase.from('products').select('id').eq('sku', sku).limit(1);
+    if (!error && (!data || data.length === 0)) return sku;
+    sku = `${baseSku}-${i+1}`;
+  }
+  return sku;
+}
 
 interface Category {
   id: string;
@@ -37,22 +56,19 @@ interface ProductVariant {
   name: string;
   value: string;
   sku: string;
-  price_adjustment: string;
-  stock_quantity: string;
-  min_stock_level: string;
-  default_profit_margin: string;
-  sale_price: string;
-  wholesale_price: string;
-  retail_price: string;
-  cost_price: string;
+  price_adjustment: number;
+  stock_quantity: number;
+  min_stock_level: number;
+  retail_price: number;
+  wholesale_price: number;
+  cost_price: number;
   image_url?: string;
   is_active: boolean;
 }
 
 interface ProductFormProps {
   product?: any;
-  onSuccess: () => void;
-  onCancel: () => void;
+  onClose: (saved: boolean) => void;
 }
 
 const STEPS = [
@@ -62,7 +78,7 @@ const STEPS = [
   { id: 'details', title: 'Product Details', description: 'Pricing, inventory & image' },
 ];
 
-export default function ProductFormUnified({ product, onSuccess, onCancel }: ProductFormProps) {
+export default function ProductFormUnified({ product, onClose }: ProductFormProps) {
   const { tenantId } = useAuth();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
@@ -70,7 +86,9 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
   const { product: productSettings } = useBusinessSettings();
   
   // Use unified CRUD hook
-  const { create: createProduct, update: updateProduct, isCreating, isUpdating } = useProductCRUD();
+  const productCRUD = useProductCRUD(tenantId);
+  const { createItem: createProduct, updateItem: updateProduct, isLoading: isCreating } = productCRUD;
+  const isUpdating = isCreating;
   
   const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -87,9 +105,15 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
   const [showQuickCreateBrand, setShowQuickCreateBrand] = useState(false);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [hasVariants, setHasVariants] = useState(false);
-  const [isComboProduct, setIsComboProduct] = useState(false);
-  const [allowNegativeStock, setAllowNegativeStock] = useState(false);
   const [hasExpiryDate, setHasExpiryDate] = useState(false);
+  
+  // Search and filter functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
+  const [showProductSearch, setShowProductSearch] = useState(false);
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string>('');
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Initialize form with react-hook-form and zod validation
   const form = useForm<ProductFormData>({
@@ -116,8 +140,6 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
       is_active: true,
       location_id: localStorage.getItem('selected_location') || '',
       has_variants: false,
-      is_combo_product: false,
-      allow_negative_stock: false,
       image_url: '',
     },
   });
@@ -148,16 +170,17 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
         is_active: product.is_active ?? true,
         location_id: product.location_id || localStorage.getItem('selected_location') || '',
         has_variants: product.has_variants || false,
-        is_combo_product: product.is_combo_product || false,
-        allow_negative_stock: product.allow_negative_stock || false,
         image_url: product.image_url || '',
       });
       
       setHasVariants(product.has_variants || false);
-      setIsComboProduct(product.is_combo_product || false);
-      setAllowNegativeStock(product.allow_negative_stock || false);
       setHasExpiryDate(product.has_expiry_date || false);
       setImagePreview(product.image_url || '');
+      
+      // Load variants if editing
+      if (product.has_variants && product.variants) {
+        setVariants(product.variants);
+      }
     }
   }, [product, form]);
 
@@ -219,18 +242,208 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
     loadReferenceData();
   }, [tenantId, toast]);
 
+  // Auto-populate SKU when name changes
+  useEffect(() => {
+    const name: string = form.watch('name') || form.watch('product_name') || '';
+    if (!name) return;
+
+    const currentSku = form.watch('sku');
+    // Only set if sku empty or matches our previous pattern
+    if (!currentSku || /^[A-Z0-9-]{3,}$/.test(currentSku)) {
+      const base = slugify(name);
+      // Small random suffix to avoid immediate collisions; true uniqueness is validated on submit
+      form.setValue('sku', `${base}-${Math.floor(1000 + Math.random()*9000)}`);
+    }
+  }, [form.watch('name'), form.watch('product_name')]);
+
+  // Load all products for search functionality
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const loadProducts = async () => {
+      try {
+        setSearchLoading(true);
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, sku, description, stock_quantity, location_id')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+          .order('name');
+        
+        if (error) throw error;
+        setAllProducts(data || []);
+      } catch (error) {
+        console.error('Error loading products for search:', error);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [tenantId]);
+
+  // Filter products based on search query and location
+  useEffect(() => {
+    if (!searchQuery.trim() && !selectedLocationFilter) {
+      setFilteredProducts([]);
+      return;
+    }
+
+    let filtered = allProducts;
+
+    // Filter by location
+    if (selectedLocationFilter) {
+      filtered = filtered.filter(p => p.location_id === selectedLocationFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.name?.toLowerCase().includes(query) ||
+        p.sku?.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredProducts(filtered.slice(0, 10)); // Limit to 10 results
+  }, [searchQuery, selectedLocationFilter, allProducts]);
+
+  // Handle product selection from search
+  const handleProductSelect = (selectedProduct: any) => {
+    form.reset({
+      ...form.getValues(),
+      name: selectedProduct.name || '',
+      sku: selectedProduct.sku || '',
+      description: selectedProduct.description || '',
+      location_id: selectedProduct.location_id || '',
+      stock_quantity: selectedProduct.stock_quantity || 0,
+    });
+    
+    setSearchQuery('');
+    setShowProductSearch(false);
+    setFilteredProducts([]);
+  };
+
+  // Handle click outside to close search dropdown
+  const searchRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowProductSearch(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowProductSearch(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // Auto-map product to inventory journal
+  const createInventoryJournalEntry = async (productData: any, isCreate: boolean) => {
+    try {
+      const journalEntry = {
+        tenant_id: tenantId,
+        product_id: productData.id,
+        entry_type: isCreate ? 'initial_stock' : 'stock_adjustment',
+        quantity: productData.stock_quantity || 0,
+        unit_cost: productData.cost_price || 0,
+        total_cost: (productData.stock_quantity || 0) * (productData.cost_price || 0),
+        reference: isCreate ? 'Product Creation' : 'Product Update',
+        notes: `${isCreate ? 'Initial' : 'Updated'} stock for ${productData.name}`,
+        created_by: (await supabase.auth.getUser()).data.user?.id,
+        created_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('inventory_journal')
+        .insert(journalEntry);
+
+      if (error) {
+        console.warn('Failed to create inventory journal entry:', error);
+      }
+    } catch (error) {
+      console.warn('Error creating inventory journal entry:', error);
+    }
+  };
+
   // Handle form submission
   const onSubmit = async (data: ProductFormData) => {
     try {
-      if (product) {
-        // Update existing product
-        updateProduct({ id: product.id, data });
-      } else {
-        // Create new product
-        createProduct(data);
+      // Generate SKU if not provided
+      let sku = data.sku?.trim();
+      if (!sku) {
+        sku = await generateUniqueSku(data.name, tenantId);
       }
       
-      onSuccess();
+      // Ensure SKU uniqueness
+      const baseSku = slugify(sku || data.name || 'SKU');
+      sku = await ensureUniqueSku(baseSku);
+
+      // Prepare payload with generated SKU and tenant_id
+      const payload = { 
+        ...data, 
+        sku,
+        tenant_id: tenantId,
+        has_variants: hasVariants,
+        // Remove combo and negative stock settings
+        is_combo_product: false,
+        allow_negative_stock: false,
+      };
+
+      let savedProduct;
+      if (product) {
+        // Update existing product
+        savedProduct = await updateProduct({ id: product.id, data: payload });
+        // Create inventory journal entry for update
+        await createInventoryJournalEntry(savedProduct, false);
+      } else {
+        // Create new product
+        savedProduct = await createProduct(payload);
+        // Create inventory journal entry for new product
+        await createInventoryJournalEntry(savedProduct, true);
+      }
+
+      // Handle variants if product has variants
+      if (hasVariants && variants.length > 0) {
+        for (const variant of variants) {
+          const variantPayload = {
+            ...variant,
+            product_id: savedProduct.id,
+            tenant_id: tenantId,
+            sku: variant.sku || makeVariantSku(savedProduct.sku, variant.name),
+          };
+
+          if (variant.id) {
+            // Update existing variant
+            await supabase
+              .from('product_variants')
+              .update(variantPayload)
+              .eq('id', variant.id);
+          } else {
+            // Create new variant
+            await supabase
+              .from('product_variants')
+              .insert(variantPayload);
+          }
+        }
+      }
+      
+      onClose(true);
+      toast({
+        title: 'Success',
+        description: product ? 'Product updated successfully' : 'Product created successfully',
+      });
     } catch (error) {
       console.error('Error saving product:', error);
       toast({
@@ -278,9 +491,38 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
     }
   };
 
+  // Add variant
+  const addVariant = () => {
+    const newVariant: ProductVariant = {
+      name: '',
+      value: '',
+      sku: '',
+      price_adjustment: 0,
+      stock_quantity: 0,
+      min_stock_level: 0,
+      retail_price: 0,
+      wholesale_price: 0,
+      cost_price: 0,
+      is_active: true,
+    };
+    setVariants([...variants, newVariant]);
+  };
+
+  // Remove variant
+  const removeVariant = (index: number) => {
+    setVariants(variants.filter((_, i) => i !== index));
+  };
+
+  // Update variant
+  const updateVariant = (index: number, field: keyof ProductVariant, value: any) => {
+    const updatedVariants = [...variants];
+    updatedVariants[index] = { ...updatedVariants[index], [field]: value };
+    setVariants(updatedVariants);
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Header */}
+      {/* Header - Cancel button removed from top right */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">
@@ -290,9 +532,6 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
             {STEPS[currentStep].description}
           </p>
         </div>
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
       </div>
 
       {/* Progress Steps */}
@@ -310,7 +549,7 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
               {step.title}
             </span>
             {index < STEPS.length - 1 && (
-              <ArrowRight className="w-4 h-4 mx-2 text-muted-foreground" />
+              <ArrowRight className="w-4 w-4 mx-2 text-muted-foreground" />
             )}
           </div>
         ))}
@@ -361,23 +600,134 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
                 />
               </div>
 
+              {/* Product Search Bar */}
+              <div className="space-y-2">
+                <Label>Search Existing Products</Label>
+                <p className="text-xs text-muted-foreground">
+                  Search for existing products to copy their details or check for duplicates
+                </p>
+                <div className="relative" ref={searchRef}>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by name, SKU, or description..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => setShowProductSearch(true)}
+                        className="pl-10 pr-8"
+                      />
+                      {searchQuery && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6"
+                          onClick={() => setSearchQuery('')}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowProductSearch(!showProductSearch)}
+                      title="Toggle product search"
+                    >
+                      <Filter className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Search Results Dropdown */}
+                  {showProductSearch && (searchQuery.trim() || selectedLocationFilter) && (
+                    <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {/* Location Filter */}
+                      <div className="p-3 border-b">
+                        <Label className="text-sm font-medium">Filter by Location</Label>
+                        <Select
+                          value={selectedLocationFilter}
+                          onValueChange={setSelectedLocationFilter}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="All locations" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">All locations</SelectItem>
+                            {locations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Search Results */}
+                      {searchLoading ? (
+                        <div className="p-3 text-center text-muted-foreground">
+                          <div className="text-sm">Loading products...</div>
+                        </div>
+                      ) : filteredProducts.length > 0 ? (
+                        <div className="p-2">
+                          {filteredProducts.map((p) => (
+                            <div
+                              key={p.id}
+                              className="p-2 hover:bg-muted rounded cursor-pointer border-b last:border-b-0"
+                              onClick={() => handleProductSelect(p)}
+                            >
+                              <div className="font-medium">{p.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                SKU: {p.sku} • Stock: {p.stock_quantity || 0}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : searchQuery.trim() || selectedLocationFilter ? (
+                        <div className="p-3 text-center text-muted-foreground">
+                          <div className="text-sm">No products found</div>
+                          <div className="text-xs mt-1">Try adjusting your search or location filter</div>
+                        </div>
+                      ) : (
+                        <div className="p-3 text-center text-muted-foreground">
+                          <div className="text-sm">Start typing to search products</div>
+                          <div className="text-xs mt-1">Or use location filter to browse by location</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="location_id">Location *</Label>
-                <Select
-                  value={form.watch('location_id')}
-                  onValueChange={(value) => form.setValue('location_id', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={form.watch('location_id')}
+                    onValueChange={(value) => form.setValue('location_id', value)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations.map((location) => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {location.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowQuickCreateUnit(true)}
+                    title="Quick create location"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
                 {form.formState.errors.location_id && (
                   <p className="text-sm text-red-500">{form.formState.errors.location_id.message}</p>
                 )}
@@ -397,24 +747,35 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="category_id">Category *</Label>
-                  <Select
-                    value={form.watch('category_id')}
-                    onValueChange={(value) => {
-                      form.setValue('category_id', value);
-                      form.setValue('subcategory_id', '');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={form.watch('category_id')}
+                      onValueChange={(value) => {
+                        form.setValue('category_id', value);
+                        form.setValue('subcategory_id', '');
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowQuickCreateCategory(true)}
+                      title="Quick create category"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                   {form.formState.errors.category_id && (
                     <p className="text-sm text-red-500">{form.formState.errors.category_id.message}</p>
                   )}
@@ -422,105 +783,208 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
                 
                 <div className="space-y-2">
                   <Label htmlFor="brand_id">Brand</Label>
-                  <Select
-                    value={form.watch('brand_id')}
-                    onValueChange={(value) => form.setValue('brand_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select brand" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {brands.map((brand) => (
-                        <SelectItem key={brand.id} value={brand.id}>
-                          {brand.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={form.watch('brand_id')}
+                      onValueChange={(value) => form.setValue('brand_id', value)}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select brand" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {brands.map((brand) => (
+                          <SelectItem key={brand.id} value={brand.id}>
+                            {brand.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowQuickCreateBrand(true)}
+                      title="Quick create brand"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               {productSettings.enableProductUnits && (
                 <div className="space-y-2">
                   <Label htmlFor="unit_id">Unit</Label>
-                  <Select
-                    value={form.watch('unit_id')}
-                    onValueChange={(value) => form.setValue('unit_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {units.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name} ({unit.abbreviation})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={form.watch('unit_id')}
+                      onValueChange={(value) => form.setValue('unit_id', value)}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {units.map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowQuickCreateUnit(true)}
+                      title="Quick create unit"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Step 3: Product Type */}
+        {/* Step 3: Product Type & Variants */}
         {currentStep === 2 && (
           <Card>
             <CardHeader>
               <CardTitle>Product Type</CardTitle>
-              <CardDescription>Configure product type and variants</CardDescription>
+              <CardDescription>Choose between simple or variable product</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="has_variants"
-                    checked={hasVariants}
-                    onCheckedChange={(checked) => {
-                      setHasVariants(checked);
-                      form.setValue('has_variants', checked);
-                    }}
-                  />
-                  <Label htmlFor="has_variants">Product has variants</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_combo_product"
-                    checked={isComboProduct}
-                    onCheckedChange={(checked) => {
-                      setIsComboProduct(checked);
-                      form.setValue('is_combo_product', checked);
-                    }}
-                  />
-                  <Label htmlFor="is_combo_product">Combo product</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="allow_negative_stock"
-                    checked={allowNegativeStock}
-                    onCheckedChange={(checked) => {
-                      setAllowNegativeStock(checked);
-                      form.setValue('allow_negative_stock', checked);
-                    }}
-                  />
-                  <Label htmlFor="allow_negative_stock">Allow negative stock</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="has_expiry_date"
-                    checked={hasExpiryDate}
-                    onCheckedChange={(checked) => {
-                      setHasExpiryDate(checked);
-                      form.setValue('has_expiry_date', checked);
-                    }}
-                  />
-                  <Label htmlFor="has_expiry_date">Has expiry date</Label>
+              <div className="space-y-2">
+                <Label>Product Type</Label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="has_variants"
+                      checked={hasVariants}
+                      onCheckedChange={setHasVariants}
+                    />
+                    <Label htmlFor="has_variants">Product has variants (size, color, etc.)</Label>
+                  </div>
                 </div>
               </div>
+
+              {hasVariants && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Product Variants</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addVariant}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Variant
+                    </Button>
+                  </div>
+
+                  {variants.map((variant, index) => (
+                    <Card key={index} className="p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Variant Name</Label>
+                          <Input
+                            value={variant.name}
+                            onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                            placeholder="e.g., Size, Color"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Variant Value</Label>
+                          <Input
+                            value={variant.value}
+                            onChange={(e) => updateVariant(index, 'value', e.target.value)}
+                            placeholder="e.g., Large, Red"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>SKU</Label>
+                          <Input
+                            value={variant.sku}
+                            onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                            placeholder="Auto-generated"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Price Adjustment</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.price_adjustment}
+                            onChange={(e) => updateVariant(index, 'price_adjustment', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Stock Quantity</Label>
+                          <Input
+                            type="number"
+                            value={variant.stock_quantity}
+                            onChange={(e) => updateVariant(index, 'stock_quantity', parseInt(e.target.value) || 0)}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Min Stock Level</Label>
+                          <Input
+                            type="number"
+                            value={variant.min_stock_level}
+                            onChange={(e) => updateVariant(index, 'min_stock_level', parseInt(e.target.value) || 0)}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Retail Price</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.retail_price}
+                            onChange={(e) => updateVariant(index, 'retail_price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Wholesale Price</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.wholesale_price}
+                            onChange={(e) => updateVariant(index, 'wholesale_price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Cost Price</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.cost_price}
+                            onChange={(e) => updateVariant(index, 'cost_price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeVariant(index)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -536,7 +1000,7 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
               {/* Pricing */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Sale Price *</Label>
+                  <Label htmlFor="price">Price</Label>
                   <Input
                     id="price"
                     type="number"
@@ -594,34 +1058,36 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
                 </div>
               </div>
 
-              {/* Inventory */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="stock_quantity">Stock Quantity</Label>
-                  <Input
-                    id="stock_quantity"
-                    type="number"
-                    {...form.register('stock_quantity', { valueAsNumber: true })}
-                    placeholder="0"
-                  />
-                  {form.formState.errors.stock_quantity && (
-                    <p className="text-sm text-red-500">{form.formState.errors.stock_quantity.message}</p>
-                  )}
+              {/* Inventory - Only show for simple products */}
+              {!hasVariants && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="stock_quantity">Stock Quantity</Label>
+                    <Input
+                      id="stock_quantity"
+                      type="number"
+                      {...form.register('stock_quantity', { valueAsNumber: true })}
+                      placeholder="0"
+                    />
+                    {form.formState.errors.stock_quantity && (
+                      <p className="text-sm text-red-500">{form.formState.errors.stock_quantity.message}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="min_stock_level">Minimum Stock Level</Label>
+                    <Input
+                      id="min_stock_level"
+                      type="number"
+                      {...form.register('min_stock_level', { valueAsNumber: true })}
+                      placeholder="0"
+                    />
+                    {form.formState.errors.min_stock_level && (
+                      <p className="text-sm text-red-500">{form.formState.errors.min_stock_level.message}</p>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="min_stock_level">Minimum Stock Level</Label>
-                  <Input
-                    id="min_stock_level"
-                    type="number"
-                    {...form.register('min_stock_level', { valueAsNumber: true })}
-                    placeholder="0"
-                  />
-                  {form.formState.errors.min_stock_level && (
-                    <p className="text-sm text-red-500">{form.formState.errors.min_stock_level.message}</p>
-                  )}
-                </div>
-              </div>
+              )}
 
               {/* Image Upload */}
               <div className="space-y-2">
@@ -663,7 +1129,7 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
                       variant="outline"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <Upload className="w-4 h-4 mr-2" />
+                      <Upload className="w-4 w-4 mr-2" />
                       Upload Image
                     </Button>
                   </div>
@@ -673,35 +1139,46 @@ export default function ProductFormUnified({ product, onSuccess, onCancel }: Pro
           </Card>
         )}
 
-        {/* Navigation */}
+        {/* Navigation with Cancel button at bottom */}
         <div className="flex justify-between">
           <Button
             type="button"
             variant="outline"
-            onClick={prevStep}
-            disabled={currentStep === 0}
+            onClick={() => onClose(false)}
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Previous
+            Cancel
           </Button>
 
-          {currentStep < STEPS.length - 1 ? (
-            <Button
-              type="button"
-              onClick={nextStep}
-              disabled={loading}
-            >
-              Next
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              disabled={loading || isCreating || isUpdating}
-            >
-              {loading || isCreating || isUpdating ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {currentStep > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+              >
+                <ArrowLeft className="w-4 w-4 mr-2" />
+                Previous
+              </Button>
+            )}
+
+            {currentStep < STEPS.length - 1 ? (
+              <Button
+                type="button"
+                onClick={nextStep}
+                disabled={loading}
+              >
+                Next
+                <ArrowRight className="w-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                disabled={loading || isCreating || isUpdating}
+              >
+                {loading || isCreating || isUpdating ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
+              </Button>
+            )}
+          </div>
         </div>
       </form>
 

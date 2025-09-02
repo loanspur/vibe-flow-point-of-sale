@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useLowStockProducts } from '@/features/products/hooks/useLowStockProducts';
+import { useTenantProductsList } from '@/features/products/hooks/useTenantProductsList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SafeWrapper } from '@/components/SafeWrapper';
 import { Button } from '@/components/ui/button';
@@ -10,7 +12,7 @@ import { Plus, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 // Import all product management components
-import ProductManagement from './ProductManagement';
+import ProductsTab from './ProductsTab';
 import { StockManagement } from './StockManagement';
 import UnitsManagement from './UnitsManagement';
 import BrandManagement from './BrandManagement';
@@ -45,38 +47,18 @@ export const UnifiedProductManagement: React.FC<UnifiedProductManagementProps> =
     });
   }, [qc, tenantId, toast]);
 
-  // Get product count for tabs
-  const { data: productCount = 0 } = useQuery({
-    queryKey: ['product-count', tenantId],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
-      if (error) throw error;
-      return count || 0;
-    },
-    enabled: !!tenantId,
-    staleTime: 60000, // Cache for 1 minute
-  });
+  // Get product count using the unified hook (same source as ProductsTab)
+  const { data: products = [], error } = useTenantProductsList();
+  const productCount = products.length;
+  
+  // Log errors visibly for diagnosis
+  if (error) {
+    console.warn('[UnifiedProductManagement] list error', error);
+  }
 
-  // Get low stock count
-  const { data: lowStockCount = 0 } = useQuery({
-    queryKey: ['low-stock-count', tenantId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, stock_quantity, min_stock_level')
-        .eq('tenant_id', tenantId)
-        .lt('stock_quantity', 'min_stock_level');
-      
-      if (error) throw error;
-      return data?.length || 0;
-    },
-    enabled: !!tenantId,
-    staleTime: 30000, // Cache for 30 seconds
-  });
+  // Get low stock count using unified hook
+  const { data: lowStockProducts = [] } = useLowStockProducts(tenantId);
+  const lowStockCount = lowStockProducts.length;
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -91,6 +73,7 @@ export const UnifiedProductManagement: React.FC<UnifiedProductManagementProps> =
         <div className="flex gap-2">
           <ProductSettings />
           <Button 
+            type="button"
             variant="outline"
             onClick={handleRefresh}
             title="Refresh all product data"
@@ -99,15 +82,7 @@ export const UnifiedProductManagement: React.FC<UnifiedProductManagementProps> =
             <RotateCcw className="h-4 w-4 mr-2" />
             <span className="whitespace-nowrap">Refresh All</span>
           </Button>
-          <Button 
-            onClick={() => {
-              setSelectedProduct(null);
-              setShowProductForm(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
+
         </div>
       </div>
       
@@ -140,7 +115,7 @@ export const UnifiedProductManagement: React.FC<UnifiedProductManagementProps> =
         {/* Products Tab */}
         <TabsContent value="products">
           <SafeWrapper>
-            <ProductManagement 
+            <ProductsTab 
               showProductForm={showProductForm}
               selectedProduct={selectedProduct}
               onShowProductForm={setShowProductForm}

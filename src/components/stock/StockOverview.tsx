@@ -7,25 +7,30 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertTriangle, Package, TrendingUp, Search, Download, Filter, AlertCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { getLowStockItems, getInventoryLevels } from '@/lib/inventory-integration';
 import { useToast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
 import { useSoftWarnings } from '@/hooks/useSoftWarnings';
+import { useLowStockProducts } from '@/features/products/hooks/useLowStockProducts';
+import { supabase } from '@/integrations/supabase/client';
 
 export const StockOverview: React.FC = () => {
   const [inventoryData, setInventoryData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
-  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const { tenantId } = useAuth();
+  const { data: lowStockItems = [] } = useLowStockProducts(tenantId);
   const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [lowStockItemsLocal, setLowStockItemsLocal] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const { formatCurrency } = useApp();
@@ -97,8 +102,11 @@ export const StockOverview: React.FC = () => {
           .select('id, name')
           .eq('tenant_id', profile.tenant_id)
           .eq('is_active', true),
-        // Use optimized low stock function
-        getLowStockItems(profile.tenant_id)
+        // Use low stock view directly
+        supabase
+          .from('low_stock_products')
+          .select('*')
+          .eq('tenant_id', profile.tenant_id)
       ]);
 
       // Handle inventory data with location mapping
@@ -125,7 +133,13 @@ export const StockOverview: React.FC = () => {
 
       // Handle low stock data
       if (lowStockResult.status === 'fulfilled') {
-        setLowStockItems(lowStockResult.value || []);
+        const lowStockData = lowStockResult.value?.data || [];
+        setLowStockItemsLocal(lowStockData);
+      }
+
+      // Set all products for reference
+      if (inventoryResult.status === 'fulfilled' && !inventoryResult.value.error) {
+        setAllProducts(inventoryResult.value.data || []);
       }
 
     } catch (error) {

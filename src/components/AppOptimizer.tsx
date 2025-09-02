@@ -1,4 +1,5 @@
 import React from 'react';
+import { log } from '@/lib/logger';
 
 /**
  * COMPLETELY DISABLED: App optimizer to prevent performance overhead
@@ -6,7 +7,7 @@ import React from 'react';
  */
 export const AppOptimizer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // COMPLETELY DISABLED - No performance monitoring
-  console.log('App optimizer disabled to prevent refresh triggers');
+  log.trace("optimizer", 'App optimizer disabled to prevent refresh triggers');
   
   return <>{children}</>;
 };

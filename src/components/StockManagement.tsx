@@ -107,19 +107,19 @@ export const StockManagement: React.FC<StockManagementProps> = ({ className }) =
 
         <Suspense fallback={<LoadingSpinner />}>
           <TabsContent value="overview" className="space-y-4">
-            {activeTab === 'overview' && <StockOverview />}
+            <StockOverview />
           </TabsContent>
 
           <TabsContent value="stock-taking" className="space-y-4">
-            {activeTab === 'stock-taking' && <StockTaking />}
+            <StockTaking />
           </TabsContent>
 
           <TabsContent value="adjustments" className="space-y-4">
-            {activeTab === 'adjustments' && <StockAdjustments />}
+            <StockAdjustments />
           </TabsContent>
 
           <TabsContent value="transfers" className="space-y-4">
-            {activeTab === 'transfers' && <StockTransfers />}
+            <StockTransfers />
           </TabsContent>
         </Suspense>
       </Tabs>

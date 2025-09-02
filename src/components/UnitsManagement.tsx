@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUnitCRUD } from "@/hooks/useUnifiedCRUD";
+import { useUnitCRUD } from "@/features/units/crud/useUnitCRUD";
 import { unitSchema, UnitFormData } from "@/lib/validation-schemas";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -259,28 +259,12 @@ export default function UnitsManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<UnitRecord | null>(null);
 
-  const { data: units = [], isLoading } = useQuery<UnitRecord[]>({
-    queryKey: ["product_units", tenantId],
-    queryFn: async () => {
-const { data, error } = await supabase
-        .from("product_units")
-        .select("id, name, abbreviation, code, base_unit_id, conversion_factor, is_active")
-        .eq("tenant_id", tenantId)
-        .order("name");
-      if (error) throw error;
-      const withComputed = (data || []).map((d: any) => ({
-        ...d,
-        is_base_unit: !d.base_unit_id,
-      }));
-      return withComputed as UnitRecord[];
-    },
-    enabled: !!tenantId,
-  });
-
-  const baseUnits = useMemo(() => units.filter(u => !!u.is_base_unit), [units]);
-
   // Use unified CRUD hook
-  const { create: createUnit, update: updateUnit, delete: deleteUnit, isCreating, isUpdating, isDeleting } = useUnitCRUD();
+  const { list, createItem: createUnit, updateItem: updateUnit, deleteItem: deleteUnit, invalidate } = useUnitCRUD(tenantId);
+  
+  const units = list?.data ?? [];
+  const unitsLoading = list?.isLoading ?? false;
+  const baseUnits = useMemo(() => units.filter(u => !!u.is_base_unit), [units]);
 
   const startCreate = () => {
     setEditing(null);
@@ -292,14 +276,23 @@ const { data, error } = await supabase
     setDialogOpen(true);
   };
 
-  const handleSubmit = (data: UnitFormData) => {
-    if (editing?.id) {
-      updateUnit({ id: editing.id, data });
+  const handleSubmit = async (data: UnitFormData) => {
+    try {
+      if (editing?.id) {
+        await updateUnit(editing.id, data);
+      } else {
+        await createUnit(data);
+      }
+      await invalidate();
       setDialogOpen(false);
       setEditing(null);
-    } else {
-      createUnit(data);
-      setDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving unit:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save unit. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -316,7 +309,7 @@ const { data, error } = await supabase
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {unitsLoading ? (
           <div className="py-10 text-center opacity-80">Loading units…</div>
         ) : (
           <div className="overflow-x-auto">

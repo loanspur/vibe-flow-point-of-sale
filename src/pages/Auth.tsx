@@ -40,7 +40,13 @@ const Auth = () => {
   useEffect(() => {
     const checkSubdomain = async () => {
       if (domainConfig && domainConfig.isSubdomain && !domainConfig.tenantId) {
-        setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
+        // DEV SUBDOMAIN BYPASS: If tenantless but allowed on localhost, don't show error
+        const host = typeof window !== "undefined" ? window.location.hostname : "";
+        const allowTenantless = !!domainConfig.allowTenantlessAuth && host.endsWith(".localhost");
+        
+        if (!allowTenantless) {
+          setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
+        }
       }
     };
     
@@ -265,7 +271,7 @@ const Auth = () => {
               </Alert>
             )}
             
-            {!showForgotPassword && !subdomainError ? (
+            {!showForgotPassword && (!subdomainError || (domainConfig?.allowTenantlessAuth && window.location.hostname.endsWith('.localhost'))) ? (
               <div className="w-full">
                 {/* Google Sign In Option - Only show on main domain, not on tenant subdomains */}
                 {!domainConfig?.isSubdomain && (
@@ -367,7 +373,7 @@ const Auth = () => {
                   </Button>
                 </form>
               </div>
-            ) : showForgotPassword && !subdomainError ? (
+            ) : showForgotPassword && (!subdomainError || (domainConfig?.allowTenantlessAuth && window.location.hostname.endsWith('.localhost'))) ? (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">Email</Label>
