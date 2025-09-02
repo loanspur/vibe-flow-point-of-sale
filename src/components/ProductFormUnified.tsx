@@ -244,7 +244,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
 
   // Auto-populate SKU when name changes
   useEffect(() => {
-    const name: string = form.watch('name') || form.watch('product_name') || '';
+    const name: string = form.watch('name') || '';
     if (!name) return;
 
     const currentSku = form.watch('sku');
@@ -254,7 +254,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       // Small random suffix to avoid immediate collisions; true uniqueness is validated on submit
       form.setValue('sku', `${base}-${Math.floor(1000 + Math.random()*9000)}`);
     }
-  }, [form.watch('name'), form.watch('product_name')]);
+  }, [form.watch('name')]);
 
   // Load all products for search functionality
   useEffect(() => {
@@ -327,6 +327,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
 
   // Handle click outside to close search dropdown
   const searchRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -341,15 +342,28 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       }
     };
 
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 200);
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', handleScroll);
+    
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // TODO: Re-enable when inventory_journal table is available
   // Auto-map product to inventory journal
+  /*
   const createInventoryJournalEntry = async (productData: any, isCreate: boolean) => {
     try {
       const journalEntry = {
@@ -376,6 +390,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       console.warn('Error creating inventory journal entry:', error);
     }
   };
+  */
 
   // Handle form submission
   const onSubmit = async (data: ProductFormData) => {
@@ -405,13 +420,13 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       if (product) {
         // Update existing product
         savedProduct = await updateProduct({ id: product.id, data: payload });
-        // Create inventory journal entry for update
-        await createInventoryJournalEntry(savedProduct, false);
+        // TODO: Re-enable when inventory_journal table is available
+        // await createInventoryJournalEntry(savedProduct, false);
       } else {
         // Create new product
         savedProduct = await createProduct(payload);
-        // Create inventory journal entry for new product
-        await createInventoryJournalEntry(savedProduct, true);
+        // TODO: Re-enable when inventory_journal table is available
+        // await createInventoryJournalEntry(savedProduct, true);
       }
 
       // Handle variants if product has variants
@@ -521,38 +536,59 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Header - Cancel button removed from top right */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
+    <div className="w-full max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 overflow-y-auto max-h-[90vh] sm:max-h-[85vh]">
+      {/* Header - Mobile optimized */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sticky top-0 bg-background/95 backdrop-blur-sm z-10 pb-2">
+        <div className="text-center sm:text-left">
+          <h1 className="text-xl sm:text-2xl font-bold">
             {product ? 'Edit Product' : 'Add New Product'}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             {STEPS[currentStep].description}
           </p>
         </div>
       </div>
 
-      {/* Progress Steps */}
-      <div className="flex items-center space-x-4 mb-6">
-        {STEPS.map((step, index) => (
-          <div key={step.id} className="flex items-center">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-              index <= currentStep ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-            }`}>
-              {index + 1}
+      {/* Progress Steps - Mobile responsive */}
+      <div className="mb-6">
+        {/* Desktop Steps */}
+        <div className="hidden md:flex items-center space-x-4">
+          {STEPS.map((step, index) => (
+            <div key={step.id} className="flex items-center">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                index <= currentStep ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}>
+                {index + 1}
+              </div>
+              <span className={`ml-2 text-sm ${
+                index <= currentStep ? 'text-foreground' : 'text-muted-foreground'
+              }`}>
+                {step.title}
+              </span>
+              {index < STEPS.length - 1 && (
+                <ArrowRight className="w-4 w-4 mx-2 text-muted-foreground" />
+              )}
             </div>
-            <span className={`ml-2 text-sm ${
-              index <= currentStep ? 'text-foreground' : 'text-muted-foreground'
-            }`}>
-              {step.title}
+          ))}
+        </div>
+        
+        {/* Mobile Steps */}
+        <div className="md:hidden">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-muted-foreground">
+              Step {currentStep + 1} of {STEPS.length}
             </span>
-            {index < STEPS.length - 1 && (
-              <ArrowRight className="w-4 w-4 mx-2 text-muted-foreground" />
-            )}
+            <span className="text-sm font-medium">
+              {STEPS[currentStep].title}
+            </span>
           </div>
-        ))}
+          <div className="w-full bg-muted rounded-full h-2">
+            <div 
+              className="bg-primary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Form */}
@@ -564,14 +600,15 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               <CardTitle>Basic Information</CardTitle>
               <CardDescription>Enter the essential product details</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name *</Label>
                   <Input
                     id="name"
                     {...form.register('name')}
                     placeholder="Enter product name"
+                    className="w-full"
                   />
                   {form.formState.errors.name && (
                     <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
@@ -583,6 +620,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                     id="sku"
                     {...form.register('sku')}
                     placeholder="Enter SKU"
+                    className="w-full"
                   />
                   {form.formState.errors.sku && (
                     <p className="text-sm text-red-500">{form.formState.errors.sku.message}</p>
@@ -607,7 +645,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                   Search for existing products to copy their details or check for duplicates
                 </p>
                 <div className="relative" ref={searchRef}>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -615,7 +653,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onFocus={() => setShowProductSearch(true)}
-                        className="pl-10 pr-8"
+                        className="pl-10 pr-8 w-full"
                       />
                       {searchQuery && (
                         <Button
@@ -635,14 +673,15 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                       size="icon"
                       onClick={() => setShowProductSearch(!showProductSearch)}
                       title="Toggle product search"
+                      className="self-end sm:self-auto"
                     >
                       <Filter className="h-4 w-4" />
                     </Button>
                   </div>
                   
-                  {/* Search Results Dropdown */}
+                  {/* Search Results Dropdown - Mobile responsive */}
                   {showProductSearch && (searchQuery.trim() || selectedLocationFilter) && (
-                    <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto w-full sm:w-auto min-w-[280px] sm:min-w-[320px]">
                       {/* Location Filter */}
                       <div className="p-3 border-b">
                         <Label className="text-sm font-medium">Filter by Location</Label>
@@ -650,7 +689,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                           value={selectedLocationFilter}
                           onValueChange={setSelectedLocationFilter}
                         >
-                          <SelectTrigger className="mt-2">
+                          <SelectTrigger className="mt-2 w-full">
                             <SelectValue placeholder="All locations" />
                           </SelectTrigger>
                           <SelectContent>
@@ -674,11 +713,11 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                           {filteredProducts.map((p) => (
                             <div
                               key={p.id}
-                              className="p-2 hover:bg-muted rounded cursor-pointer border-b last:border-b-0"
+                              className="p-3 hover:bg-muted rounded cursor-pointer border-b last:border-b-0 transition-colors min-h-[60px] flex flex-col justify-center"
                               onClick={() => handleProductSelect(p)}
                             >
-                              <div className="font-medium">{p.name}</div>
-                              <div className="text-sm text-muted-foreground">
+                              <div className="font-medium text-sm sm:text-base">{p.name}</div>
+                              <div className="text-xs sm:text-sm text-muted-foreground mt-1">
                                 SKU: {p.sku} • Stock: {p.stock_quantity || 0}
                               </div>
                             </div>
@@ -702,7 +741,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
 
               <div className="space-y-2">
                 <Label htmlFor="location_id">Location *</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Select
                     value={form.watch('location_id')}
                     onValueChange={(value) => form.setValue('location_id', value)}
@@ -724,6 +763,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                     size="icon"
                     onClick={() => setShowQuickCreateUnit(true)}
                     title="Quick create location"
+                    className="self-end sm:self-auto"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -1139,22 +1179,24 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
           </Card>
         )}
 
-        {/* Navigation with Cancel button at bottom */}
-        <div className="flex justify-between">
+        {/* Navigation with Cancel button at bottom - Mobile responsive */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
           <Button
             type="button"
             variant="outline"
             onClick={() => onClose(false)}
+            className="w-full sm:w-auto order-2 sm:order-1"
           >
             Cancel
           </Button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 order-1 sm:order-2">
             {currentStep > 0 && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={prevStep}
+                className="flex-1 sm:flex-none"
               >
                 <ArrowLeft className="w-4 w-4 mr-2" />
                 Previous
@@ -1166,6 +1208,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                 type="button"
                 onClick={nextStep}
                 disabled={loading}
+                className="flex-1 sm:flex-none"
               >
                 Next
                 <ArrowRight className="w-4 w-4 ml-2" />
@@ -1174,6 +1217,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               <Button
                 type="submit"
                 disabled={loading || isCreating || isUpdating}
+                className="flex-1 sm:flex-none"
               >
                 {loading || isCreating || isUpdating ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
               </Button>
@@ -1212,6 +1256,20 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
           setShowQuickCreateBrand(false);
         }}
       />
+
+      {/* Mobile Scroll to Top Button */}
+      {showScrollTop && (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={scrollToTop}
+          className="fixed bottom-4 right-4 z-50 md:hidden shadow-lg bg-background/95 backdrop-blur-sm"
+          title="Scroll to top"
+        >
+          <ArrowLeft className="w-4 h-4 rotate-90" />
+        </Button>
+      )}
     </div>
   );
 }
