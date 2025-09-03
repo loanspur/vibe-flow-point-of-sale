@@ -2,6 +2,8 @@
  * Navigation utilities to prevent page reloads and handle routing consistently
  */
 
+import { isDevelopmentDomain } from './env-guards';
+
 // Prevent window.location.reload usage
 export function safeNavigate(url: string, replace = false) {
   if (typeof window !== 'undefined') {
@@ -152,7 +154,7 @@ export function handleTenantRedirect(tenantDomain: string | null, currentDomain:
   const targetDomain = `${tenantDomain}.vibenet.shop`;
   
   // Only redirect if we're not already on the correct domain
-  if (currentDomain !== targetDomain && !currentDomain.includes('localhost')) {
+  if (currentDomain !== targetDomain && !isDevelopmentDomain(currentDomain)) {
     safeRedirect(`https://${targetDomain}/dashboard`);
   }
 }

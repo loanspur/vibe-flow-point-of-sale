@@ -35,6 +35,7 @@ export const UnifiedProductManagement: React.FC<UnifiedProductManagementProps> =
 
   // Unified refresh function that invalidates all product-related queries
   const handleRefresh = useCallback(() => {
+    // Scoped invalidation: only invalidate product keys to prevent unnecessary re-renders
     qc.invalidateQueries({ queryKey: ['products', tenantId] });
     qc.invalidateQueries({ queryKey: ['product_units', tenantId] });
     qc.invalidateQueries({ queryKey: ['brands', tenantId] });

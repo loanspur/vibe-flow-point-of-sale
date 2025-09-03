@@ -51,9 +51,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [profileFetched, setProfileFetched] = useState<string | null>(null);
-  const [fetchInProgress, setFetchInProgress] = useState<boolean>(false); // Prevent concurrent calls
+  const [fetchInProgress, setFetchInProgress] = useState<boolean>(false);
   const navigate = useSafeNavigate();
   const didRouteAfterLoginRef = useRef(false);
+  const lastSessionRef = useRef<string | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   function routeAfterLogin(role?: string) {
     if (didRouteAfterLoginRef.current) return;
@@ -73,10 +75,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }
 
-  // Optimized user info fetching with performance checks
+  // Optimized user info fetching with debouncing
   const fetchUserInfo = async (userId: string, source: string = 'unknown') => {
-    // Performance check - don't fetch if tab is switching
-    
     if (fetchInProgress || profileFetched === userId) {
       return;
     }
@@ -84,9 +84,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setFetchInProgress(true);
     
     try {
-      // FIXED: Use correct table name 'profiles' instead of 'user_profiles'
       const { data: profile, error } = await supabase
-        .from('profiles') // Changed from 'user_profiles' to 'profiles'
+        .from('profiles')
         .select('role, tenant_id, require_password_change')
         .eq('user_id', userId)
         .maybeSingle();
@@ -101,9 +100,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
-        // Check if we're setting the same data repeatedly
         if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
-          return; // Skip update if data hasn't changed
+          return;
         }
         
         setUserRole(profile.role);
@@ -111,14 +109,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const passwordChangeRequired = profile.require_password_change || false;
         setRequirePasswordChange(passwordChangeRequired);
         
-        // Show password change modal if required
         if (passwordChangeRequired && !showPasswordChangeModal) {
           setShowPasswordChangeModal(true);
         }
-
-
       } else {
-        // Fallback if no profile found
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
@@ -126,7 +120,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       log.warn('Failed to fetch user info:', error);
-      // Set default values on error
       setUserRole('user');
       setTenantId(null);
       setRequirePasswordChange(false);
@@ -138,7 +131,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Public function to refresh user info
   const refreshUserInfo = async () => {
     try {
-      // Refresh the entire session to get updated user metadata
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -149,7 +141,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         setSession(session);
         setUser(session.user);
-        // Always refresh on manual call, but update tracking
         setProfileFetched(session.user.id);
         await fetchUserInfo(session.user.id, 'manual-refresh');
       }
@@ -158,11 +149,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Optimized - removed window focus refresh to prevent constant reloads and performance issues
+  // Single guarded init effect - only set loading during initial boot
   useEffect(() => {
     if (!user) return;
     
-    // Only set initial profile state, remove focus refreshing to prevent flickering
     if (!profileFetched || profileFetched !== user.id) {
       setProfileFetched(user.id);
       fetchUserInfo(user.id, 'initial');
@@ -172,22 +162,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Only route if NOT on /auth and once we know either role or have a safe default
   const onAuth = typeof window !== "undefined" && window.location.pathname.startsWith("/auth");
   useEffect(() => {
-    if (onAuth) return;                // keep /auth steady
-    if (!session) return;              // wait for session
-    if (userRole) {                    // when role ready, route
+    if (onAuth) return;
+    if (!session) return;
+    if (userRole) {
       routeAfterLogin(userRole);
     }
   }, [onAuth, session, userRole]);
 
   // Optimized activity logging function
   const logUserActivity = async (actionType: string, userId: string) => {
-    // Run activity logging asynchronously without blocking UI
     setTimeout(async () => {
       try {
-        // Get user agent immediately (no network call)
         const userAgent = navigator.userAgent;
         
-        // Get tenant ID for the user with optimized query
         const { data: profile } = await supabase
           .from('profiles')
           .select('tenant_id')
@@ -195,7 +182,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .maybeSingle();
 
         if (profile?.tenant_id) {
-          // Log activity without waiting for IP address to avoid delays
           await supabase.rpc('log_user_activity', {
             tenant_id_param: profile.tenant_id,
             user_id_param: userId,
@@ -203,79 +189,75 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             resource_type_param: null,
             resource_id_param: null,
             details_param: { timestamp: new Date().toISOString() },
-            ip_address_param: null, // Skip IP lookup for better performance
+            ip_address_param: null,
             user_agent_param: userAgent
           });
         }
       } catch (error) {
-        // Silently fail - don't disrupt user experience
         log.warn('Activity logging failed:', error);
       }
     }, 0);
   };
 
+  // Single auth state listener with debouncing and session change detection
   useEffect(() => {
     let mounted = true;
     
-    // Initialize tab stability manager
-
-    
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        
         if (!mounted) return;
         
         log.trace("auth", "state-change", { event, hasSession: !!session?.user, onPath: window.location.pathname });
         
+        // Check if session user ID actually changed to prevent unnecessary updates
+        const currentUserId = session?.user?.id || null;
+        if (currentUserId === lastSessionRef.current) {
+          return; // Session user unchanged, skip processing
+        }
+        lastSessionRef.current = currentUserId;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
-        // User state updated
-        
         if (session?.user) {
-          // Check all conditions to prevent duplicate calls
-          const needsProfileFetch = profileFetched !== session.user.id && !fetchInProgress;
-          
-          if (needsProfileFetch) {
-            // Fetching user profile
-            setProfileFetched(session.user.id);
-            setLoading(true);
-            
-            // Use setTimeout to prevent deadlock
-            setTimeout(() => {
-              if (mounted) {
-                fetchUserInfo(session.user.id, 'auth-state-change')
-                  .finally(() => {
-                    if (mounted) setLoading(false);
-                  });
-                
-                // Log login activity and mark invitation as accepted
-                if (event === 'SIGNED_IN') {
-                  logUserActivity('login', session.user.id);
-                  markInvitationAccepted(session.user);
-                  // If we're currently on an /auth path, navigate once to post-login landing
-                  try {
-                    const onAuth = typeof window !== 'undefined' && isAuthPath(window.location.pathname);
-                    if (onAuth && !didRouteAfterLoginRef.current) {
-                      // Use a microtask to avoid interfering with current render
-                      setTimeout(() => routeAfterLogin(userRole), 0);
-                    }
-                  } catch { /* ignore */ }
-                }
-              }
-            }, 0);
-          } else {
-            // Profile already fetched
-            setLoading(false);
-            
-            // Still mark invitation as accepted on signin
-            if (event === 'SIGNED_IN') {
-              markInvitationAccepted(session.user);
-            }
+          // Debounce profile fetching to prevent rapid successive calls
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
           }
+          
+          debounceTimerRef.current = setTimeout(() => {
+            if (!mounted) return;
+            
+            const needsProfileFetch = profileFetched !== session.user.id && !fetchInProgress;
+            
+            if (needsProfileFetch) {
+              setProfileFetched(session.user.id);
+              
+              fetchUserInfo(session.user.id, 'auth-state-change')
+                .finally(() => {
+                  if (mounted) setLoading(false);
+                });
+              
+              if (event === 'SIGNED_IN') {
+                logUserActivity('login', session.user.id);
+                markInvitationAccepted(session.user);
+                
+                try {
+                  const onAuth = typeof window !== 'undefined' && isAuthPath(window.location.pathname);
+                  if (onAuth && !didRouteAfterLoginRef.current) {
+                    setTimeout(() => routeAfterLogin(userRole), 0);
+                  }
+                } catch { /* ignore */ }
+              }
+            } else {
+              setLoading(false);
+              
+              if (event === 'SIGNED_IN') {
+                markInvitationAccepted(session.user);
+              }
+            }
+          }, 150); // 150ms debounce
         } else {
-          // User signed out - reset everything including profile fetch tracking
           if (event === 'SIGNED_OUT' && user) {
             logUserActivity('logout', user.id);
           }
@@ -283,7 +265,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUserRole(null);
           setTenantId(null);
           setProfileFetched(null);
-          setFetchInProgress(false); // Reset fetch state
+          setFetchInProgress(false);
           setLoading(false);
         }
       }
@@ -294,7 +276,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       log.trace("auth", "Starting initialization...");
       log.trace("auth", "init", { onPath: window.location.pathname });
       
-      // Early guard: if on /auth, never navigate away
       try {
         const onAuth = typeof window !== 'undefined' && isAuthPath(window.location.pathname);
         if (onAuth) {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { log } from './logger';
+import { isLocalTenantSubdomain, isDevelopmentDomain, isVibenetSubdomain, isMainDomain } from './env-guards';
 
 export interface DomainConfig {
   tenantId: string | null;
@@ -81,17 +82,12 @@ class DomainManager {
 
   private parseDomain(domain: string): DomainConfig {
     // Development domains (main domains only)
-    if (domain === 'localhost' || domain.endsWith('.lovableproject.com')) {
+    if (isDevelopmentDomain(domain)) {
       return { tenantId: null, domain, isCustomDomain: false, isSubdomain: false };
     }
     
     // Localhost subdomains (any domain ending with .localhost except localhost itself)
-    if (domain.endsWith('.localhost') && domain !== 'localhost') {
-      return { tenantId: null, domain, isCustomDomain: false, isSubdomain: true };
-    }
-
-    // Localhost subdomains (*.localhost)
-    if (domain.endsWith('.localhost') && domain !== 'localhost') {
+    if (isLocalTenantSubdomain(domain)) {
       return { tenantId: null, domain, isCustomDomain: false, isSubdomain: true };
     }
 
@@ -116,7 +112,7 @@ class DomainManager {
     const currentDomain = window.location.hostname;
     const pathname = window.location.pathname;
     
-    log.trace("domain", { host: currentDomain, pathname, isSubdomain: currentDomain.endsWith('.localhost') && currentDomain !== 'localhost' });
+          log.trace("domain", { host: currentDomain, pathname, isSubdomain: isLocalTenantSubdomain(currentDomain) });
     
     // Check cache first
     const cached = this.cache.get(currentDomain);
@@ -124,8 +120,8 @@ class DomainManager {
       const config = {
         tenantId: cached.tenantId,
         domain: currentDomain,
-        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && !currentDomain.endsWith('.localhost') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-        isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online') || (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost')
+        isCustomDomain: !isVibenetSubdomain(currentDomain) && !isMainDomain(currentDomain) && !isLocalTenantSubdomain(currentDomain) && !isDevelopmentDomain(currentDomain),
+        isSubdomain: isVibenetSubdomain(currentDomain) || isLocalTenantSubdomain(currentDomain)
       };
       log.trace("domain", "resolved-config", config);
       return config;
@@ -151,7 +147,7 @@ class DomainManager {
     }
 
     // Handle localhost subdomains
-    if (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost') {
+    if (isLocalTenantSubdomain(currentDomain)) {
       log.trace("domain", 'Localhost subdomain detected:', currentDomain);
       
       // Extract subdomain name
@@ -228,8 +224,8 @@ class DomainManager {
         return {
           tenantId: cachedAfterWait.tenantId,
           domain: currentDomain,
-          isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && !currentDomain.endsWith('.localhost') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-          isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online') || (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost')
+          isCustomDomain: !isVibenetSubdomain(currentDomain) && !isMainDomain(currentDomain) && !isLocalTenantSubdomain(currentDomain) && !isDevelopmentDomain(currentDomain),
+          isSubdomain: isVibenetSubdomain(currentDomain) || isLocalTenantSubdomain(currentDomain)
         };
       }
       const negAfterWait = this.negativeCache.get(currentDomain);
@@ -246,7 +242,7 @@ class DomainManager {
       
       // Special handling for localhost subdomains
       let resolvedTenantId: string | null = null;
-      if (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost') {
+      if (isLocalTenantSubdomain(currentDomain)) {
         // Extract the full subdomain part (everything before .localhost)
         const subdomainPart = currentDomain.replace('.localhost', '');
         log.trace("domain", 'Resolving localhost subdomain:', subdomainPart);
@@ -309,7 +305,7 @@ class DomainManager {
           }
           
           // If no tenant found for localhost subdomain, allow tenantless auth
-          if (!resolvedTenantId && currentDomain.endsWith('.localhost') && currentDomain !== 'localhost') {
+          if (!resolvedTenantId && isLocalTenantSubdomain(currentDomain)) {
             log.warn(`No tenant found for localhost subdomain: ${subdomainPart}, tenantless auth allowed on localhost`);
             const localhostConfig: DomainConfig = {
               ...domainInfo,
@@ -506,13 +502,20 @@ export const domainManager = new DomainManager();
 // Helper functions
 export const getCurrentDomain = () => window.location.hostname;
 
-export function isAllowedTenantlessAuthPath(pathname: string): boolean {
-  return pathname.startsWith("/auth");
+/**
+ * Helper function to determine if auth can be rendered without a tenant
+ * @param cfg Domain configuration
+ * @param path Current pathname
+ * @returns true if auth can be rendered without tenant
+ */
+export function canRenderAuthWithoutTenant(cfg: DomainConfig, path: string): boolean {
+  return cfg?.allowTenantlessAuth && path.startsWith("/auth");
 }
 
-export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
-  return domain === 'localhost' || domain.endsWith('.lovableproject.com') || domain.endsWith('.localhost');
-};
+/**
+ * Centralized helper functions to eliminate duplicated localhost subdomain logic
+ * Now imported from ./env-guards.ts
+ */
 
 export const getBaseDomain = (domain: string = getCurrentDomain()) => {
   // Respect environment: use the current TLD if already on vibenet.shop or vibenet.online
@@ -532,15 +535,13 @@ export const getBaseDomain = (domain: string = getCurrentDomain()) => {
 };
 
 export const isCustomDomain = (domain: string = getCurrentDomain()) => {
-  const isMain = domain === 'vibenet.shop' || domain === 'vibenet.online';
-  const isSub = domain.endsWith('.vibenet.shop') || domain.endsWith('.vibenet.online') || (domain.endsWith('.localhost') && domain !== 'localhost');
+  const isMain = isMainDomain(domain);
+  const isSub = isVibenetSubdomain(domain) || isLocalTenantSubdomain(domain);
   return !isSub && !isMain && !isDevelopmentDomain(domain);
 };
 
 export const isSubdomain = (domain: string = getCurrentDomain()) => {
-  return (domain.endsWith('.vibenet.shop') && domain !== 'vibenet.shop') ||
-         (domain.endsWith('.vibenet.online') && domain !== 'vibenet.online') ||
-         (domain.endsWith('.localhost') && domain !== 'localhost');
+  return isVibenetSubdomain(domain) || isLocalTenantSubdomain(domain);
 };
 
 export const getSubdomainName = (domain: string = getCurrentDomain()) => {
@@ -566,34 +567,40 @@ export const useDomainContext = () => {
   const [initialized, setInitialized] = React.useState(globalInitialized);
 
   React.useEffect(() => {
-    // If already initialized globally, use the cached result
-    if (globalInitialized && globalDomainConfig) {
-      setDomainConfig(globalDomainConfig);
-      setLoading(false);
-      setInitialized(true);
-      return;
-    }
+          // If already initialized globally, use the cached result
+      if (globalInitialized && globalDomainConfig) {
+        React.startTransition(() => {
+          setDomainConfig(globalDomainConfig);
+          setLoading(false);
+          setInitialized(true);
+        });
+        return;
+      }
 
-    // If initialization is in progress, wait for it
-    if (globalPromise) {
-      globalPromise.then((config) => {
-        setDomainConfig(config);
-        setLoading(false);
-        setInitialized(true);
-      }).catch((error) => {
-        log.error('Domain initialization failed:', error);
-        const fallbackConfig: DomainConfig = {
-          tenantId: null,
-          domain: window.location.hostname,
-          isCustomDomain: false,
-          isSubdomain: false
-        };
-        setDomainConfig(fallbackConfig);
-        setLoading(false);
-        setInitialized(true);
-      });
-      return;
-    }
+      // If initialization is in progress, wait for it
+      if (globalPromise) {
+        globalPromise.then((config) => {
+          React.startTransition(() => {
+            setDomainConfig(config);
+            setLoading(false);
+            setInitialized(true);
+          });
+        }).catch((error) => {
+          log.error('Domain initialization failed:', error);
+          const fallbackConfig: DomainConfig = {
+            tenantId: null,
+            domain: window.location.hostname,
+            isCustomDomain: false,
+            isSubdomain: false
+          };
+          React.startTransition(() => {
+            setDomainConfig(fallbackConfig);
+            setLoading(false);
+            setInitialized(true);
+          });
+        });
+        return;
+      }
 
     // Start initialization
     const initializeDomain = async (): Promise<DomainConfig> => {
@@ -624,9 +631,12 @@ export const useDomainContext = () => {
     globalPromise = initializeDomain();
     
     globalPromise.then((config) => {
-      setDomainConfig(config);
-      setLoading(false);
-      setInitialized(true);
+      // Batch state updates to prevent rapid re-renders
+      React.startTransition(() => {
+        setDomainConfig(config);
+        setLoading(false);
+        setInitialized(true);
+      });
     }).catch((error) => {
       log.error('Domain initialization failed:', error);
       const fallbackConfig: DomainConfig = {
@@ -639,9 +649,12 @@ export const useDomainContext = () => {
       globalLoading = false;
       globalInitialized = true;
       
-      setDomainConfig(fallbackConfig);
-      setLoading(false);
-      setInitialized(true);
+      // Batch state updates to prevent rapid re-renders
+      React.startTransition(() => {
+        setDomainConfig(fallbackConfig);
+        setLoading(false);
+        setInitialized(true);
+      });
     });
 
   }, []); // Empty dependency array - only run once
@@ -663,20 +676,13 @@ export const useDomainContext = () => {
       globalLoading = false;
       globalInitialized = true;
       
-      setDomainConfig(config);
-      setLoading(false);
+      // Batch state updates to prevent rapid re-renders
+      React.startTransition(() => {
+        setDomainConfig(config);
+        setLoading(false);
+      });
     }
   };
 };
-
-/**
- * Helper function to determine if auth can be rendered without a tenant
- * @param cfg Domain configuration
- * @param path Current pathname
- * @returns true if auth can be rendered without tenant
- */
-export function canRenderAuthWithoutTenant(cfg: DomainConfig, path: string): boolean {
-  return cfg?.allowTenantlessAuth && path.startsWith("/auth");
-}
 
 export default domainManager;

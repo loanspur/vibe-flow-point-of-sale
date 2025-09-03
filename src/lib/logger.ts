@@ -39,3 +39,9 @@ export const log = {
   debug: (...a:any[]) => enabled("debug") && nativeConsole.debug(...a),
   trace: (kind:string, ...a:any[]) => isTrace(kind) && nativeConsole.info(`[TRACE:${kind}]`, ...a),
 };
+
+// Logger helper to gate noisy console logs
+export const DEBUG = (import.meta.env.DEV && (window as any).__DEBUG__) === true;
+export const dlog = (...args: any[]) => { if (DEBUG) console.log(...args); };
+export const dwarn = (...args: any[]) => { if (DEBUG) console.warn(...args); };
+export const derror = (...args: any[]) => { if (DEBUG) console.error(...args); };

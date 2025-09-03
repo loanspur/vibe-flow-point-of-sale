@@ -44,6 +44,7 @@ const ProtectedRoute = ({
 
   const mappedRole = authUserRole ? mapRole(authUserRole) : null;
 
+  // Single loading gate: show spinner only while Auth is still initializing
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -61,11 +62,8 @@ const ProtectedRoute = ({
       return <Navigate to="/auth" state={{ from: location }} replace />;
     }
     if (user && !authUserRole) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </div>
-      );
+      // Only show spinner if auth is still loading, not for missing user role
+      return <Outlet />;
     }
     // Be permissive on dev subdomains/localhost to avoid loops
     if (isSubdomain() || window.location.hostname.includes('localhost')) {

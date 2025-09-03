@@ -38,19 +38,24 @@ const Auth = () => {
 
   // Check if subdomain exists when component loads using domain manager
   useEffect(() => {
-    const checkSubdomain = async () => {
-      if (domainConfig && domainConfig.isSubdomain && !domainConfig.tenantId) {
-        // DEV SUBDOMAIN BYPASS: If tenantless but allowed on localhost, don't show error
-        const host = typeof window !== "undefined" ? window.location.hostname : "";
-        const allowTenantless = !!domainConfig.allowTenantlessAuth && host.endsWith(".localhost");
-        
-        if (!allowTenantless) {
-          setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
+    // Debounce domain config changes to prevent rapid re-renders
+    const timeoutId = setTimeout(() => {
+      const checkSubdomain = async () => {
+        if (domainConfig && domainConfig.isSubdomain && !domainConfig.tenantId) {
+          // DEV SUBDOMAIN BYPASS: If tenantless but allowed on localhost, don't show error
+          const host = typeof window !== "undefined" ? window.location.hostname : "";
+          const allowTenantless = !!domainConfig.allowTenantlessAuth && host.endsWith(".localhost");
+          
+          if (!allowTenantless) {
+            setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
+          }
         }
-      }
-    };
+      };
+      
+      checkSubdomain();
+    }, 100); // 100ms debounce to prevent rapid changes
     
-    checkSubdomain();
+    return () => clearTimeout(timeoutId);
   }, [domainConfig]);
 
   // Unified redirect logic after successful login
@@ -99,10 +104,10 @@ const Auth = () => {
         AUTH_DEBUG && console.log('🆘 Fallback redirect to /dashboard due to error');
         navigate('/dashboard', { replace: true });
       }
-    }, 150); // Increased delay for better stability
+    }, 300); // Increased delay for better stability and to prevent shaking
     
     return () => clearTimeout(redirectTimer);
-  }, [user, userRole, navigate, fromPath]);
+  }, [user?.id, userRole, navigate, fromPath]); // Stabilized dependencies
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -238,9 +243,27 @@ const Auth = () => {
     return <GoogleAuthTest />;
   }
 
+  // Show loading state while domain config is being resolved
+  if (!domainConfig) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card>
+            <CardContent className="flex items-center justify-center p-8">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading workspace...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md" style={{ minHeight: '400px' }}>
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">

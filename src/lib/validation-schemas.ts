@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidBarcode } from './barcode';
 
 // Product Schema - Comprehensive validation for products
 export const productSchema = z.object({
@@ -6,27 +7,25 @@ export const productSchema = z.object({
   name: z.string().min(1, "Product name is required").max(255, "Product name must be less than 255 characters"),
   sku: z.string().min(1, "SKU is required").max(100, "SKU must be less than 100 characters"),
   description: z.string().optional(),
-  price: z.coerce.number().positive("Price must be positive").default(0),
   wholesale_price: z.coerce.number().min(0, "Wholesale price must be non-negative").default(0),
   retail_price: z.coerce.number().min(0, "Retail price must be non-negative").default(0),
   cost_price: z.coerce.number().min(0, "Cost price must be non-negative").default(0),
   purchase_price: z.coerce.number().min(0, "Purchase price must be non-negative").default(0),
   default_profit_margin: z.coerce.number().min(0, "Profit margin must be non-negative").max(100, "Profit margin cannot exceed 100%").default(0),
-  barcode: z.string().optional(),
+  barcode: z.string().optional().nullable().refine(
+    (val) => isValidBarcode(val || ''),
+    { message: "Barcode format is invalid. Use only letters, numbers, hyphens, and underscores." }
+  ),
   category_id: z.string().min(1, "Category is required"),
-  subcategory_id: z.string().optional(),
-  brand_id: z.string().optional(),
-  revenue_account_id: z.string().optional(),
-  unit_id: z.string().optional(),
+  subcategory_id: z.string().optional().nullable(),
+  brand_id: z.string().optional().nullable(),
+  unit_id: z.string().optional().nullable(),
   stock_quantity: z.coerce.number().min(0, "Stock quantity must be non-negative").default(0),
   min_stock_level: z.coerce.number().min(0, "Minimum stock level must be non-negative").default(0),
   has_expiry_date: z.boolean().default(false),
   is_active: z.boolean().default(true),
-  location_id: z.string().optional(),
-  has_variants: z.boolean().default(false),
-  is_combo_product: z.boolean().default(false),
-  allow_negative_stock: z.boolean().default(false),
-  image_url: z.string().optional(),
+  location_id: z.string().optional().nullable(),
+  image_url: z.string().optional().nullable(),
 });
 
 // Brand Schema - Following the pattern from BrandManagement

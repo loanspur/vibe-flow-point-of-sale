@@ -25,7 +25,7 @@ export interface UnifiedCRUDResult<T> {
 
 export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): UnifiedCRUDResult<T> {
   const { entityName, table, tenantId, schema, baseQueryKey } = opts;
-  const { tenantId: authTenant } = useAuth();
+  const { tenantId: authTenant, user } = useAuth();
   const effectiveTenant = tenantId ?? authTenant ?? null;
   const qc = useQueryClient();
 
@@ -35,7 +35,10 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
     queryKey: keyList,
     enabled: !!effectiveTenant,
     refetchOnWindowFocus: false,
-    keepPreviousData: true,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     placeholderData: (prev) => prev as T[] | undefined,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -53,8 +56,6 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
 
   const createMutation = useMutation({
     mutationFn: async (input: Partial<T>) => {
-      const { user } = useAuth();
-      
       // Enforce tenant_id on every create to satisfy RLS
       const payload = {
         ...input,
@@ -72,7 +73,13 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
       if (error) throw error;
       return schema.parse(data) as T;
     },
-    onSuccess: () => invalidate(),
+    onSuccess: (newItem) => {
+      // Optimistically update the cache instead of invalidating
+      qc.setQueryData(keyList, (oldData: T[] | undefined) => {
+        if (!oldData) return [newItem];
+        return [newItem, ...oldData];
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -91,7 +98,15 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
       if (error) throw error;
       return schema.parse(data) as T;
     },
-    onSuccess: () => invalidate(),
+    onSuccess: (updatedItem) => {
+      // Optimistically update the cache instead of invalidating
+      qc.setQueryData(keyList, (oldData: T[] | undefined) => {
+        if (!oldData) return [updatedItem];
+        return oldData.map(item => 
+          (item as any).id === (updatedItem as any).id ? updatedItem : item
+        );
+      });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -100,7 +115,13 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
       if (error) throw error;
       return { id };
     },
-    onSuccess: () => invalidate(),
+    onSuccess: (deletedItem) => {
+      // Optimistically update the cache instead of invalidating
+      qc.setQueryData(keyList, (oldData: T[] | undefined) => {
+        if (!oldData) return [];
+        return oldData.filter(item => (item as any).id !== deletedItem.id);
+      });
+    },
   });
 
   return {

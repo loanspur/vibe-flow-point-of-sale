@@ -31,7 +31,10 @@ export function useTenantProductsList() {
     queryKey: ['products:list', tenantId],
     enabled: !!tenantId,
     refetchOnWindowFocus: false,
-    staleTime: 60_000,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
     queryFn: async () => {
       // 1) pull products
       const { data, error, status } = await supabase
@@ -46,20 +49,31 @@ export function useTenantProductsList() {
 
       const items = data ?? [];
 
-      // 2) (optional) side-load location names if you only have location_id
-      const locationTable = import.meta.env.VITE_LOCATION_TABLE?.trim();
+      // 2) Always fetch location names for better UX
       let locMap: Record<string, string> = {};
-
       const locIds = Array.from(
         new Set(items.map((p: any) => p.location_id).filter(Boolean))
       ) as string[];
 
-      if (locationTable && locIds.length) {
-        const r = await supabase.from(locationTable).select('id,name').in('id', locIds);
-        if (!r.error && r.data?.length) {
-          locMap = Object.fromEntries(r.data.map((x: any) => [x.id, x.name]));
+      if (locIds.length > 0) {
+        try {
+          const { data: locationData, error: locationError } = await supabase
+            .from('store_locations')
+            .select('id, name')
+            .eq('tenant_id', tenantId)
+            .in('id', locIds);
+
+          if (locationError) {
+            console.warn('[products:list] location fetch failed:', locationError);
+          } else if (locationData) {
+            locMap = Object.fromEntries(
+              locationData.map((x: any) => [x.id, x.name])
+            );
+            console.log('[products:list] loaded locations:', locMap);
+          }
+        } catch (locationErr) {
+          console.warn('[products:list] location fetch error:', locationErr);
         }
-        // Don't warn or throw if it doesn't exist—just skip names.
       }
 
       // 3) normalize
@@ -75,7 +89,8 @@ export function useTenantProductsList() {
         created_at: p.created_at ?? p.inserted_at ?? p.updated_at ?? null,
         tenant_id: p.tenant_id ?? null,
         location_id: p.location_id ?? null,
-        location_name: p.location_name ?? (p.location_id ? locMap[p.location_id] : null) ?? null,
+        // Guaranteed location name with fallback
+        location_name: p.location_name ?? locMap[p.location_id] ?? (p.location_id ? 'Location Not Found' : 'No Location'),
       })) as ProductRow[];
 
       // newest first

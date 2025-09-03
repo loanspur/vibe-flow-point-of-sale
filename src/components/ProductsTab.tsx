@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Trash2, Plus } from 'lucide-react';
+import { Eye, Pencil, Trash2, Plus, Search, Filter, X } from 'lucide-react';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 import { useTenantProductsList } from '@/features/products/hooks/useTenantProductsList';
@@ -31,11 +33,74 @@ export default function ProductsTab() {
   const navigate = useNavigate();
   const { tenantId } = useAuth();
 
-  const { data: products = [], isLoading, refetch } = useTenantProductsList();
+  const { data: products = [], isLoading } = useTenantProductsList();
+
+  // Debug: Log products data to see location information
+  React.useEffect(() => {
+    if (products.length > 0) {
+      console.log('ProductsTab: Received products with location data:', products.map(p => ({
+        id: p.id,
+        name: p.name,
+        location_id: p.location_id,
+        location_name: p.location_name
+      })));
+    }
+  }, [products]);
 
   // Add/Edit form state
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
+
+  // Product preview state
+  const [previewProduct, setPreviewProduct] = useState<any | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filtered products based on search and location
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      // Search filter - search across multiple fields
+      const searchLower = debouncedSearchQuery.toLowerCase();
+      const matchesSearch = debouncedSearchQuery === '' || 
+        product.name?.toLowerCase().includes(searchLower) ||
+        product.sku?.toLowerCase().includes(searchLower) ||
+        product.description?.toLowerCase().includes(searchLower) ||
+        product.barcode?.toLowerCase().includes(searchLower) ||
+        product.brand_name?.toLowerCase().includes(searchLower) ||
+        product.category_name?.toLowerCase().includes(searchLower);
+
+      // Location filter
+      const matchesLocation = selectedLocation === 'all' || 
+        product.location_id === selectedLocation;
+
+      return matchesSearch && matchesLocation;
+    });
+  }, [products, debouncedSearchQuery, selectedLocation]);
+
+  // Get unique locations for filter dropdown
+  const uniqueLocations = useMemo(() => {
+    const locations = products
+      .map(p => ({ id: p.location_id, name: p.location_name }))
+      .filter(loc => loc.id && loc.name)
+      .filter((loc, index, self) => 
+        index === self.findIndex(l => l.id === loc.id)
+      );
+    return locations;
+  }, [products]);
+
+  // Debounced search to improve performance
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Delete confirmation state
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
@@ -47,7 +112,10 @@ export default function ProductsTab() {
       .eq('id', productToDelete.id)
       .eq('tenant_id', tenantId);
     setProductToDelete(null);
-    if (!error) refetch();
+    if (!error) {
+      // Success - cache will be updated optimistically by the mutation
+      // No need for manual refetch
+    }
     // optional: toast on success/error (left out to avoid UI churn)
   };
 
@@ -61,10 +129,18 @@ export default function ProductsTab() {
     setShowForm(true);
   };
 
+  const openPreview = (p: any) => {
+    setPreviewProduct(p);
+    setShowPreview(true);
+  };
+
   const onFormClose = (didSave?: boolean) => {
     setShowForm(false);
     setEditingProduct(null);
-    if (didSave) refetch();
+    if (didSave) {
+      // Success - cache will be updated optimistically by the mutation
+      // No need for manual refetch
+    }
   };
 
   if (isLoading) {
@@ -77,15 +153,97 @@ export default function ProductsTab() {
 
   return (
     <div className="w-full">
-      {/* top toolbar: Add button only (refresh button removed) */}
+      {/* Search and Filter Toolbar */}
+      <div className="mb-4 space-y-3">
+        {/* Search Bar */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search products by name, SKU, or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          
+          {/* Location Filter */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showFilters ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+            </Button>
+          </div>
+          
+          {/* Add Product Button */}
+          <Button onClick={openAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Product
+          </Button>
+        </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Location:</label>
+                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {uniqueLocations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Clear Filters Button */}
+              {(searchQuery !== '' || selectedLocation !== 'all') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setDebouncedSearchQuery('');
+                    setSelectedLocation('all');
+                  }}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Results Summary */}
       <div className="mb-3 flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Showing {products.length} product{products.length === 1 ? '' : 's'}
+          Showing {filteredProducts.length} of {products.length} product{filteredProducts.length === 1 ? '' : 's'}
+          {debouncedSearchQuery && ` matching "${debouncedSearchQuery}"`}
+          {selectedLocation !== 'all' && ` in selected location`}
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Product
-        </Button>
       </div>
 
       <div className="rounded-md border">
@@ -104,14 +262,42 @@ export default function ProductsTab() {
           </TableHeader>
 
           <TableBody>
-            {products.length === 0 ? (
+            {filteredProducts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                  No products found
+                  {products.length === 0 ? (
+                    <div className="space-y-4">
+                      <p className="text-lg font-medium">No products found</p>
+                      <p className="text-sm">Create your first product to get started</p>
+                      <Button onClick={openAdd}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Product
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-lg font-medium">No products match your filters</p>
+                      <p className="text-sm">
+                        {debouncedSearchQuery && `No products found matching "${debouncedSearchQuery}"`}
+                        {selectedLocation !== 'all' && ` in the selected location`}
+                      </p>
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setDebouncedSearchQuery('');
+                          setSelectedLocation('all');
+                        }}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Clear Filters
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((p: any) => {
+              filteredProducts.map((p: any) => {
                 const name = p.name ?? p.title ?? p.product_name ?? '—';
                 const sku = p.sku ?? '—';
                 const locationName = p.location_name ?? '—';
@@ -139,7 +325,7 @@ export default function ProductsTab() {
                           variant="ghost"
                           size="icon"
                           title="View details"
-                          onClick={() => navigate(`/admin/products/${p.id}`)}
+                          onClick={() => openPreview(p)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -171,9 +357,12 @@ export default function ProductsTab() {
 
       {/* Add/Edit dialog (uses your existing product form) */}
       <Dialog open={showForm} onOpenChange={(open) => !open && onFormClose()}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+            <DialogDescription>
+              {editingProduct ? 'Update product information and settings.' : 'Create a new product with details, pricing, and inventory settings.'}
+            </DialogDescription>
           </DialogHeader>
           <ProductFormUnified
             product={editingProduct || undefined}
@@ -197,6 +386,87 @@ export default function ProductsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Product Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Product Details</DialogTitle>
+            <DialogDescription>
+              View complete product information and settings.
+            </DialogDescription>
+          </DialogHeader>
+          {previewProduct && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Product Name</Label>
+                  <p className="text-sm">{previewProduct.name}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">SKU</Label>
+                  <p className="text-sm">{previewProduct.sku}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                  <p className="text-sm">{previewProduct.category_name || '—'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Brand</Label>
+                  <p className="text-sm">{previewProduct.brand_name || '—'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Location</Label>
+                  <p className="text-sm">{previewProduct.location_name || '—'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Unit</Label>
+                  <p className="text-sm">{previewProduct.unit_name || '—'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Retail Price</Label>
+                  <p className="text-sm">{money(previewProduct.retail_price_num || previewProduct.retail_price)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Wholesale Price</Label>
+                  <p className="text-sm">{money(previewProduct.wholesale_price_num || previewProduct.wholesale_price)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Cost Price</Label>
+                  <p className="text-sm">{money(previewProduct.cost_price)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Stock Quantity</Label>
+                  <p className="text-sm">{previewProduct.stock_quantity || 0}</p>
+                </div>
+              </div>
+              {previewProduct.description && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                  <p className="text-sm">{previewProduct.description}</p>
+                </div>
+              )}
+              {previewProduct.barcode && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Barcode</Label>
+                  <p className="text-sm">{previewProduct.barcode}</p>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowPreview(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  setShowPreview(false);
+                  openEdit(previewProduct);
+                }}>
+                  Edit Product
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -13,13 +13,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { Upload, X, Package, Plus, Trash2, ArrowLeft, ArrowRight, Search, Filter } from 'lucide-react';
-import QuickCreateCategoryDialog from './QuickCreateCategoryDialog';
-import QuickCreateUnitDialog from './QuickCreateUnitDialog';
-import QuickCreateBrandDialog from './QuickCreateBrandDialog';
+
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useProductCRUD } from '@/features/products/crud/useProductCRUD';
 import { productSchema, ProductFormData } from '@/lib/validation-schemas';
 import { generateUniqueSku, makeVariantSku } from '@/lib/sku';
+import { generateUniqueBarcode, generateBarcodeFromProduct, formatBarcode } from '@/lib/barcode';
 
 // Helper function for SKU generation
 const slugify = (s: string) =>
@@ -58,10 +57,9 @@ interface ProductVariant {
   sku: string;
   price_adjustment: number;
   stock_quantity: number;
-  min_stock_level: number;
-  retail_price: number;
-  wholesale_price: number;
   cost_price: number;
+  wholesale_price: number;
+  retail_price: number;
   image_url?: string;
   is_active: boolean;
 }
@@ -87,7 +85,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   
   // Use unified CRUD hook
   const productCRUD = useProductCRUD(tenantId);
-  const { createItem: createProduct, updateItem: updateProduct, isLoading: isCreating } = productCRUD;
+  const { createItem: createProduct, updateItem: updateProduct, isLoading: isCreating, queryClient } = productCRUD;
   const isUpdating = isCreating;
   
   const [currentStep, setCurrentStep] = useState(0);
@@ -100,9 +98,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
-  const [showQuickCreateCategory, setShowQuickCreateCategory] = useState(false);
-  const [showQuickCreateUnit, setShowQuickCreateUnit] = useState(false);
-  const [showQuickCreateBrand, setShowQuickCreateBrand] = useState(false);
+
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [hasVariants, setHasVariants] = useState(false);
   const [hasExpiryDate, setHasExpiryDate] = useState(false);
@@ -122,7 +118,6 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       name: '',
       sku: '',
       description: '',
-      price: 0,
       wholesale_price: 0,
       retail_price: 0,
       cost_price: 0,
@@ -132,27 +127,60 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       category_id: '',
       subcategory_id: '',
       brand_id: '',
-      revenue_account_id: '',
       unit_id: '',
       stock_quantity: 0,
       min_stock_level: 0,
       has_expiry_date: false,
       is_active: true,
-      location_id: localStorage.getItem('selected_location') || '',
-      has_variants: false,
+      location_id: '', // Will be set after locations are loaded
       image_url: '',
     },
+    mode: 'onSubmit', // Only validate on submit to prevent premature validation
   });
 
   // Load initial data if editing
   useEffect(() => {
     if (product) {
+      console.log('Loading product data for editing:', product);
+      console.log('All available product fields:', Object.keys(product));
+      console.log('Product data values:', {
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        description: product.description,
+        wholesale_price: product.wholesale_price,
+        retail_price: product.retail_price,
+        cost_price: product.cost_price,
+        purchase_price: product.purchase_price,
+        default_profit_margin: product.default_profit_margin,
+        barcode: product.barcode,
+        category_id: product.category_id,
+        subcategory_id: product.subcategory_id,
+        brand_id: product.brand_id,
+        unit_id: product.unit_id,
+        stock_quantity: product.stock_quantity,
+        min_stock_level: product.min_stock_level,
+        has_expiry_date: product.has_expiry_date,
+        is_active: product.is_active,
+        location_id: product.location_id,
+        image_url: product.image_url,
+        // Additional fields that might exist in database
+        is_combo_product: product.is_combo_product,
+        allow_negative_stock: product.allow_negative_stock,
+        revenue_account_id: product.revenue_account_id,
+        expiry_date: product.expiry_date,
+        created_at: product.created_at,
+        updated_at: product.updated_at,
+        tenant_id: product.tenant_id,
+        price: product.price, // This is auto-calculated by database trigger
+      });
+      
+      // Reset form with ALL available product data
       form.reset({
         id: product.id,
         name: product.name || '',
         sku: product.sku || '',
         description: product.description || '',
-        price: product.price || 0,
         wholesale_price: product.wholesale_price || 0,
         retail_price: product.retail_price || 0,
         cost_price: product.cost_price || 0,
@@ -162,27 +190,57 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         category_id: product.category_id || '',
         subcategory_id: product.subcategory_id || '',
         brand_id: product.brand_id || '',
-        revenue_account_id: product.revenue_account_id || '',
         unit_id: product.unit_id || '',
         stock_quantity: product.stock_quantity || 0,
         min_stock_level: product.min_stock_level || 0,
         has_expiry_date: product.has_expiry_date || false,
         is_active: product.is_active ?? true,
         location_id: product.location_id || localStorage.getItem('selected_location') || '',
-        has_variants: product.has_variants || false,
         image_url: product.image_url || '',
       });
       
-      setHasVariants(product.has_variants || false);
+      // Set additional state variables
       setHasExpiryDate(product.has_expiry_date || false);
       setImagePreview(product.image_url || '');
       
-      // Load variants if editing
-      if (product.has_variants && product.variants) {
-        setVariants(product.variants);
+      // Set variant-related state if available
+      if (product.is_combo_product !== undefined) {
+        // This would need to be added to the form schema if we want to persist it
+        console.log('Product combo status:', product.is_combo_product);
       }
+      
+      if (product.allow_negative_stock !== undefined) {
+        // This would need to be added to the form schema if we want to persist it
+        console.log('Product negative stock setting:', product.allow_negative_stock);
+      }
+      
+      if (product.revenue_account_id) {
+        console.log('Product revenue account:', product.revenue_account_id);
+      }
+      
+      if (product.expiry_date) {
+        console.log('Product expiry date:', product.expiry_date);
+      }
+      
+      // Load variants from database for editing
+      loadProductVariants(product.id);
+      
+      // Reset to first step when editing
+      setCurrentStep(0);
+      
+      console.log('Form reset complete with product data');
     }
   }, [product, form]);
+
+  // Debug form state changes (only log, don't trigger validation)
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      if (name === 'category_id') {
+        console.log('Category field changed:', { value: value.category_id, type });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // Load reference data
   useEffect(() => {
@@ -199,6 +257,9 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
           .eq('is_active', true)
           .order('name');
         setCategories(categoriesData || []);
+
+        // Load subcategories - table doesn't exist yet, using empty array
+        setSubcategories([]);
 
         // Load brands
         const { data: brandsData } = await supabase
@@ -218,14 +279,45 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
           .order('name');
         setUnits(unitsData || []);
 
-        // Load locations
-        const { data: locationsData } = await supabase
+        // Load locations with enhanced error handling and logging
+        const { data: locationsData, error: locationsError } = await supabase
           .from('store_locations')
           .select('*')
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
           .order('name');
+        
+        if (locationsError) {
+          console.error('Error loading locations:', locationsError);
+          toast({
+            title: 'Warning',
+            description: 'Failed to load store locations. Some features may be limited.',
+            variant: 'destructive',
+          });
+        }
+        
         setLocations(locationsData || []);
+        console.log('Loaded locations:', locationsData);
+
+        // Set default location if none is currently selected
+        if (locationsData && locationsData.length > 0) {
+          const currentLocationId = form.getValues('location_id');
+          const defaultLocationId = getDefaultLocationId(locationsData, currentLocationId);
+          
+          if (defaultLocationId && defaultLocationId !== currentLocationId) {
+            form.setValue('location_id', defaultLocationId);
+            console.log('Setting default location:', defaultLocationId);
+          }
+        } else {
+          console.warn('No locations available for tenant:', tenantId);
+        }
+
+        // Load revenue accounts - table doesn't exist yet, using empty array
+        setRevenueAccounts([]);
+
+        // Load existing inventory asset data for reference
+        const inventoryData = await getInventoryAssetData();
+        console.log('Loaded inventory asset data:', inventoryData);
 
       } catch (error) {
         console.error('Error loading reference data:', error);
@@ -327,7 +419,6 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
 
   // Handle click outside to close search dropdown
   const searchRef = useRef<HTMLDivElement>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
   
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -342,24 +433,14 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       }
     };
 
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 200);
-    };
-
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('scroll', handleScroll);
     
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   // TODO: Re-enable when inventory_journal table is available
   // Auto-map product to inventory journal
@@ -392,9 +473,184 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   };
   */
 
+  // Helper function to get existing inventory asset journal data
+  const getInventoryAssetData = async () => {
+    try {
+      // Query for existing inventory-related data from available tables
+      const { data: inventoryData, error } = await supabase
+        .from('products')
+        .select('id, name, sku, stock_quantity, cost_price')
+        .eq('tenant_id', tenantId)
+        .not('stock_quantity', 'is', null)
+        .gt('stock_quantity', 0)
+        .limit(10);
+
+      if (error) {
+        console.warn('Error loading inventory data:', error);
+        return [];
+      }
+
+      return inventoryData || [];
+    } catch (error) {
+      console.warn('Error getting inventory asset data:', error);
+      return [];
+    }
+  };
+
+  // Helper function to get the best default location
+  const getDefaultLocationId = (locations: any[], currentLocationId?: string): string => {
+    // Priority: 1. Current selection, 2. localStorage, 3. First available location
+    if (currentLocationId && currentLocationId !== '') {
+      return currentLocationId;
+    }
+    
+    const storedLocation = localStorage.getItem('selected_location');
+    if (storedLocation && locations.some(loc => loc.id === storedLocation)) {
+      return storedLocation;
+    }
+    
+    // Fallback to first available location
+    return locations.length > 0 ? locations[0].id : '';
+  };
+  
+  // Function to refresh location data
+  const refreshLocationData = async () => {
+    if (!tenantId) return;
+    
+    try {
+      const { data: locationsData, error: locationsError } = await supabase
+        .from('store_locations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+      
+      if (locationsError) {
+        console.error('Error refreshing locations:', locationsError);
+        return;
+      }
+      
+      setLocations(locationsData || []);
+      console.log('Locations refreshed:', locationsData);
+      
+      // Update form if current location is no longer valid
+      const currentLocationId = form.getValues('location_id');
+      if (currentLocationId && !locationsData?.some(loc => loc.id === currentLocationId)) {
+        const defaultLocationId = getDefaultLocationId(locationsData || [], '');
+        if (defaultLocationId) {
+          form.setValue('location_id', defaultLocationId);
+          console.log('Updated to default location:', defaultLocationId);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing location data:', error);
+    }
+  };
+
+  // Helper function to load product variants from database
+  const loadProductVariants = async (productId: string) => {
+    try {
+      const { data: variantsData, error } = await supabase
+        .from('product_variants')
+        .select('*')
+        .eq('product_id', productId)
+        .order('name');
+      
+      if (error) {
+        console.error('Error loading product variants:', error);
+        return;
+      }
+      
+      if (variantsData && variantsData.length > 0) {
+        // Transform database variants to match our interface
+        const transformedVariants: ProductVariant[] = variantsData.map(variant => ({
+          id: variant.id,
+          name: variant.name,
+          value: variant.value,
+          sku: variant.sku,
+          price_adjustment: variant.price_adjustment || 0,
+          stock_quantity: variant.stock_quantity || 0,
+          cost_price: variant.cost_price || 0,
+          wholesale_price: variant.wholesale_price || 0,
+          retail_price: variant.retail_price || 0,
+          image_url: variant.image_url || '',
+          is_active: variant.is_active ?? true,
+        }));
+        
+        setVariants(transformedVariants);
+        setHasVariants(true);
+        console.log('Loaded variants for editing:', transformedVariants);
+      } else {
+        setVariants([]);
+        setHasVariants(false);
+      }
+    } catch (error) {
+      console.error('Error loading product variants:', error);
+      setVariants([]);
+      setHasVariants(false);
+    }
+  };
+
   // Handle form submission
   const onSubmit = async (data: ProductFormData) => {
     try {
+      setLoading(true);
+      
+      // Validate required fields before proceeding
+      if (!data.name?.trim()) {
+        toast({
+          title: 'Validation Error',
+          description: 'Product name is required',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      if (!data.category_id?.trim()) {
+        toast({
+          title: 'Validation Error',
+          description: 'Category is required',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Ensure location is set
+      if (!data.location_id?.trim()) {
+        // Try to get default location
+        const defaultLocationId = getDefaultLocationId(locations, '');
+        if (defaultLocationId) {
+          data.location_id = defaultLocationId;
+          form.setValue('location_id', defaultLocationId);
+          console.log('Auto-setting default location for product:', defaultLocationId);
+        } else {
+          toast({
+            title: 'Validation Error',
+            description: 'No location available. Please create a store location first.',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // CRITICAL: Validate that at least one price field has a valid value
+      // This ensures the database can properly calculate the main price field
+      const retailPrice = Number(data.retail_price) || 0;
+      const wholesalePrice = Number(data.wholesale_price) || 0;
+      const costPrice = Number(data.cost_price) || 0;
+      
+      if (retailPrice <= 0 && wholesalePrice <= 0 && costPrice <= 0) {
+        toast({
+          title: 'Pricing Required',
+          description: 'At least one price field (Retail, Wholesale, or Cost) must be greater than 0. Products cannot have zero pricing.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+      
       // Generate SKU if not provided
       let sku = data.sku?.trim();
       if (!sku) {
@@ -404,22 +660,144 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       // Ensure SKU uniqueness
       const baseSku = slugify(sku || data.name || 'SKU');
       sku = await ensureUniqueSku(baseSku);
+      
+      // Generate barcode if not provided
+      let barcode = data.barcode?.trim();
+      if (!barcode) {
+        if (sku && data.name) {
+          barcode = await generateBarcodeFromProduct(data.name, sku, tenantId);
+        } else {
+          barcode = await generateUniqueBarcode(tenantId);
+        }
+        console.log('Auto-generated barcode:', barcode);
+      }
 
-      // Prepare payload with generated SKU and tenant_id
+      // Clean the payload to handle empty fields properly
+      const cleanData = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => {
+          // Exclude ID field for updates to avoid UUID parsing errors
+          if (product && key === 'id') {
+            return [key, undefined];
+          }
+          
+          // Handle empty strings for different field types
+          if (value === '') {
+            // Required fields should never be empty
+            if (key === 'name' || key === 'sku' || key === 'category_id') {
+              return [key, value]; // Keep as empty string for validation
+            }
+            
+            // Optional string fields should be empty strings, not null
+            if (key === 'barcode' || key === 'description' || key === 'image_url') {
+              return [key, ''];
+            }
+            
+            // Optional ID fields can be null
+            if (key.includes('_id')) {
+              return [key, null];
+            }
+            
+            // Other optional fields
+            return [key, ''];
+          }
+          
+          return [key, value];
+        }).filter(([_, value]) => value !== undefined)
+      );
+      
+      console.log('Cleaned form data:', cleanData);
+
+      // Prepare payload with generated SKU, barcode and tenant_id
+      // Only include fields that exist in the database table
       const payload = { 
-        ...data, 
+        ...cleanData, 
         sku,
+        barcode,
         tenant_id: tenantId,
-        has_variants: hasVariants,
-        // Remove combo and negative stock settings
-        is_combo_product: false,
-        allow_negative_stock: false,
+        // Ensure the individual price fields are properly set
+        retail_price: retailPrice,
+        wholesale_price: wholesalePrice,
+        cost_price: costPrice,
+        // Note: has_variants, is_combo_product, allow_negative_stock columns 
+        // don't exist in the database, so we track them in component state only
+        // The database will handle the 'price' field automatically based on these values
       };
+      
+      // If editing, preserve any additional fields that exist in the original product
+      if (product && product.id) {
+        const additionalFields = {
+          // Preserve fields that might not be in the form but exist in database
+          is_combo_product: product.is_combo_product,
+          allow_negative_stock: product.allow_negative_stock,
+          revenue_account_id: product.revenue_account_id,
+          expiry_date: product.expiry_date,
+          // Don't override these as they're managed by the system
+          // created_at: product.created_at,
+          // updated_at: product.updated_at,
+          // tenant_id: product.tenant_id, // We set this explicitly
+        };
+        
+        // Only include fields that have actual values
+        Object.entries(additionalFields).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            (payload as any)[key] = value;
+          }
+        });
+        
+        console.log('Preserved additional fields from original product:', additionalFields);
+      }
+
+      // Debug: Log the payload being sent
+      console.log('=== DEBUG: PRODUCT FORM SUBMISSION ===');
+      console.log('Form data before cleaning:', data);
+      console.log('Category ID from form:', data.category_id);
+      console.log('Category ID type:', typeof data.category_id);
+      console.log('Category ID length:', data.category_id?.length);
+      console.log('Barcode from form:', data.barcode);
+      console.log('Generated barcode:', barcode);
+      console.log('Validated price values:', { retailPrice, wholesalePrice, costPrice });
+      console.log('Cleaned data:', cleanData);
+      console.log('Final payload:', payload);
+      console.log('Retail price in payload:', payload.retail_price);
+      console.log('Wholesale price in payload:', payload.wholesale_price);
+      console.log('Cost price in payload:', payload.cost_price);
+      console.log('Barcode in payload:', payload.barcode);
+      console.log('Validation schema expects:', Object.keys(productSchema.shape));
+      console.log('Location ID in payload:', payload.location_id);
+      console.log('Available locations:', locations);
+      console.log('Selected location name:', locations.find(loc => loc.id === payload.location_id)?.name || 'Unknown');
+      console.log('Category ID in payload:', payload.category_id);
+      console.log('Unit ID in payload:', payload.unit_id);
+      console.log('Form values:', form.getValues());
+      console.log('=== END DEBUG ===');
+      
+      // Validate location data before submission
+      if (!payload.location_id) {
+        toast({
+          title: 'Location Required',
+          description: 'Please select a location for this product.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Verify location exists in available locations
+      const locationExists = locations.some(loc => loc.id === payload.location_id);
+      if (!locationExists) {
+        toast({
+          title: 'Invalid Location',
+          description: 'Selected location is not available. Please choose a valid location.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
 
       let savedProduct;
       if (product) {
         // Update existing product
-        savedProduct = await updateProduct({ id: product.id, data: payload });
+        savedProduct = await updateProduct(product.id, payload);
         // TODO: Re-enable when inventory_journal table is available
         // await createInventoryJournalEntry(savedProduct, false);
       } else {
@@ -431,27 +809,79 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
 
       // Handle variants if product has variants
       if (hasVariants && variants.length > 0) {
-        for (const variant of variants) {
-          const variantPayload = {
-            ...variant,
-            product_id: savedProduct.id,
-            tenant_id: tenantId,
-            sku: variant.sku || makeVariantSku(savedProduct.sku, variant.name),
-          };
-
-          if (variant.id) {
-            // Update existing variant
-            await supabase
-              .from('product_variants')
-              .update(variantPayload)
-              .eq('id', variant.id);
-          } else {
-            // Create new variant
-            await supabase
-              .from('product_variants')
-              .insert(variantPayload);
+        // Validate variant pricing before processing
+        for (let i = 0; i < variants.length; i++) {
+          const variant = variants[i];
+          const variantRetailPrice = Number(variant.retail_price) || 0;
+          const variantWholesalePrice = Number(variant.wholesale_price) || 0;
+          const variantCostPrice = Number(variant.cost_price) || 0;
+          
+          if (variantRetailPrice <= 0 && variantWholesalePrice <= 0 && variantCostPrice <= 0) {
+            toast({
+              title: 'Variant Pricing Required',
+              description: `Variant "${variant.name}: ${variant.value}" must have at least one price field greater than 0.`,
+              variant: 'destructive',
+            });
+            setLoading(false);
+            return;
           }
         }
+
+        try {
+          for (const variant of variants) {
+            const variantPayload = {
+              name: variant.name,
+              value: variant.value,
+              sku: variant.sku || makeVariantSku(savedProduct.sku, variant.name),
+              price_adjustment: variant.price_adjustment,
+              stock_quantity: variant.stock_quantity,
+              cost_price: variant.cost_price,
+              wholesale_price: variant.wholesale_price,
+              retail_price: variant.retail_price,
+              image_url: variant.image_url,
+              is_active: variant.is_active,
+              product_id: savedProduct.id,
+            };
+
+            if (variant.id) {
+              // Update existing variant
+              const { error: updateError } = await supabase
+                .from('product_variants')
+                .update(variantPayload)
+                .eq('id', variant.id);
+              
+              if (updateError) {
+                console.error('Error updating variant:', updateError);
+                throw new Error(`Failed to update variant: ${updateError.message}`);
+              }
+            } else {
+              // Create new variant
+              const { error: insertError } = await supabase
+                .from('product_variants')
+                .insert(variantPayload);
+              
+              if (insertError) {
+                console.error('Error creating variant:', insertError);
+                throw new Error(`Failed to create variant: ${insertError.message}`);
+              }
+            }
+          }
+        } catch (variantError) {
+          console.error('Error handling variants:', variantError);
+          // Don't fail the entire product save, just log the variant error
+          toast({
+            title: 'Warning',
+            description: 'Product saved but there was an issue with variants. Check console for details.',
+            variant: 'destructive',
+          });
+        }
+      }
+      
+      // Invalidate queries to refresh product table
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: ['products', tenantId] });
+        queryClient.invalidateQueries({ queryKey: ['product_variants'] });
+        console.log('Product queries invalidated for real-time update');
       }
       
       onClose(true);
@@ -461,18 +891,71 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       });
     } catch (error) {
       console.error('Error saving product:', error);
+      
+      // Enhanced error logging for debugging
+      if (error && typeof error === 'object') {
+        console.error('Error details:', {
+          code: (error as any).code,
+          message: (error as any).message,
+          details: (error as any).details,
+          hint: (error as any).hint
+        });
+      }
+      
+      // Handle specific constraint violations with user-friendly messages
+      let userMessage = 'Failed to save product';
+      if (error && typeof error === 'object') {
+        const errorCode = (error as any).code;
+        const errorMsg = (error as any).message;
+        
+        switch (errorCode) {
+          case '23505': // Unique constraint violation
+            if (errorMsg.includes('barcode')) {
+              userMessage = 'A product with this barcode already exists. Please use a different barcode or leave it empty.';
+            } else if (errorMsg.includes('sku')) {
+              userMessage = 'A product with this SKU already exists. Please use a different SKU.';
+            } else {
+              userMessage = 'A product with these details already exists. Please check your input.';
+            }
+            break;
+          case '23502': // Not null constraint violation
+            userMessage = 'Required fields are missing. Please fill in all required fields.';
+            break;
+          case '23503': // Foreign key constraint violation
+            userMessage = 'Invalid reference selected. Please check your category, location, or other selections.';
+            break;
+          default:
+            userMessage = errorMsg || 'Unknown error occurred';
+        }
+      }
+      
       toast({
         title: 'Error',
-        description: 'Failed to save product',
+        description: userMessage,
         variant: 'destructive',
       });
+      
+      // Don't close the form on error - let user fix and retry
+      // onClose(false); // Commented out to prevent form closure on error
+    } finally {
+      setLoading(false);
     }
   };
 
   // Handle step navigation
   const nextStep = () => {
     if (currentStep < STEPS.length - 1) {
-      setCurrentStep(currentStep + 1);
+      let nextStepIndex = currentStep + 1;
+      
+      // All products go through all steps to ensure pricing and stock are set
+      console.log(`Moving from step ${currentStep} to step ${nextStepIndex}`, {
+        currentStep,
+        nextStepIndex,
+        hasVariants,
+        totalSteps: STEPS.length
+      });
+      
+      setCurrentStep(nextStepIndex);
     }
   };
 
@@ -514,10 +997,10 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       sku: '',
       price_adjustment: 0,
       stock_quantity: 0,
-      min_stock_level: 0,
-      retail_price: 0,
-      wholesale_price: 0,
       cost_price: 0,
+      wholesale_price: 0,
+      retail_price: 0,
+      image_url: '',
       is_active: true,
     };
     setVariants([...variants, newVariant]);
@@ -532,22 +1015,24 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   const updateVariant = (index: number, field: keyof ProductVariant, value: any) => {
     const updatedVariants = [...variants];
     updatedVariants[index] = { ...updatedVariants[index], [field]: value };
+    
+    // Auto-generate SKU when variant name or value changes
+    if ((field === 'name' || field === 'value') && value) {
+      const variant = updatedVariants[index];
+      const parentSku = form.getValues('sku') || '';
+      
+      if (parentSku && variant.name && variant.value) {
+        const autoSku = makeVariantSku(parentSku, `${variant.name}-${variant.value}`);
+        updatedVariants[index] = { ...variant, sku: autoSku };
+      }
+    }
+    
     setVariants(updatedVariants);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 overflow-y-auto max-h-[90vh] sm:max-h-[85vh]">
-      {/* Header - Mobile optimized */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sticky top-0 bg-background/95 backdrop-blur-sm z-10 pb-2">
-        <div className="text-center sm:text-left">
-          <h1 className="text-xl sm:text-2xl font-bold">
-            {product ? 'Edit Product' : 'Add New Product'}
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {STEPS[currentStep].description}
-          </p>
-        </div>
-      </div>
+    <div className="w-full max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+      {/* Header removed - now handled by overlay wrapper */}
 
       {/* Progress Steps - Mobile responsive */}
       <div className="mb-6">
@@ -579,7 +1064,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               Step {currentStep + 1} of {STEPS.length}
             </span>
             <span className="text-sm font-medium">
-              {STEPS[currentStep].title}
+              {STEPS[currentStep]?.title || 'Product Setup'}
             </span>
           </div>
           <div className="w-full bg-muted rounded-full h-2">
@@ -592,7 +1077,28 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       </div>
 
       {/* Form */}
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+        console.error('Form validation errors:', errors);
+        console.log('Form values at validation failure:', form.getValues());
+        
+        // Show specific validation errors
+        if (errors && Object.keys(errors).length > 0) {
+          const firstError = Object.values(errors)[0];
+          const errorMessage = firstError?.message || 'Please check the form fields and try again.';
+          
+          toast({
+            title: 'Validation Error',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Validation Error',
+            description: 'Please check the form fields and try again.',
+            variant: 'destructive',
+          });
+        }
+      })} className="space-y-6">
         {/* Step 1: Basic Information */}
         {currentStep === 0 && (
           <Card>
@@ -622,9 +1128,78 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                     placeholder="Enter SKU"
                     className="w-full"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    SKU must be unique. Leave empty to auto-generate.
+                  </p>
                   {form.formState.errors.sku && (
                     <p className="text-sm text-red-500">{form.formState.errors.sku.message}</p>
                   )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">Barcode</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      {...form.register('barcode')}
+                      placeholder="Enter barcode (optional)"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const generatedBarcode = await generateUniqueBarcode(tenantId!);
+                          form.setValue('barcode', generatedBarcode);
+                          toast({
+                            title: 'Barcode Generated',
+                            description: `Generated: ${formatBarcode(generatedBarcode)}`,
+                            variant: 'default',
+                          });
+                        } catch (error) {
+                          toast({
+                            title: 'Error',
+                            description: 'Failed to generate barcode',
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                      disabled={!tenantId}
+                    >
+                      Generate
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to auto-generate, or click Generate for a new one. Each barcode must be unique.
+                  </p>
+                  {form.watch('barcode') && (
+                    <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-xs text-blue-800">
+                        <strong>Barcode:</strong> {formatBarcode(form.watch('barcode') || '')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brand_id">Brand</Label>
+                  <Select
+                    value={form.watch('brand_id') || ''}
+                    onValueChange={(value) => form.setValue('brand_id', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               
@@ -638,113 +1213,23 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                 />
               </div>
 
-              {/* Product Search Bar */}
-              <div className="space-y-2">
-                <Label>Search Existing Products</Label>
-                <p className="text-xs text-muted-foreground">
-                  Search for existing products to copy their details or check for duplicates
-                </p>
-                <div className="relative" ref={searchRef}>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by name, SKU, or description..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onFocus={() => setShowProductSearch(true)}
-                        className="pl-10 pr-8 w-full"
-                      />
-                      {searchQuery && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6"
-                          onClick={() => setSearchQuery('')}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowProductSearch(!showProductSearch)}
-                      title="Toggle product search"
-                      className="self-end sm:self-auto"
-                    >
-                      <Filter className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  {/* Search Results Dropdown - Mobile responsive */}
-                  {showProductSearch && (searchQuery.trim() || selectedLocationFilter) && (
-                    <div className="absolute top-full left-0 right-0 z-50 bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto w-full sm:w-auto min-w-[280px] sm:min-w-[320px]">
-                      {/* Location Filter */}
-                      <div className="p-3 border-b">
-                        <Label className="text-sm font-medium">Filter by Location</Label>
-                        <Select
-                          value={selectedLocationFilter}
-                          onValueChange={setSelectedLocationFilter}
-                        >
-                          <SelectTrigger className="mt-2 w-full">
-                            <SelectValue placeholder="All locations" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">All locations</SelectItem>
-                            {locations.map((location) => (
-                              <SelectItem key={location.id} value={location.id}>
-                                {location.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* Search Results */}
-                      {searchLoading ? (
-                        <div className="p-3 text-center text-muted-foreground">
-                          <div className="text-sm">Loading products...</div>
-                        </div>
-                      ) : filteredProducts.length > 0 ? (
-                        <div className="p-2">
-                          {filteredProducts.map((p) => (
-                            <div
-                              key={p.id}
-                              className="p-3 hover:bg-muted rounded cursor-pointer border-b last:border-b-0 transition-colors min-h-[60px] flex flex-col justify-center"
-                              onClick={() => handleProductSelect(p)}
-                            >
-                              <div className="font-medium text-sm sm:text-base">{p.name}</div>
-                              <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                                SKU: {p.sku} • Stock: {p.stock_quantity || 0}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : searchQuery.trim() || selectedLocationFilter ? (
-                        <div className="p-3 text-center text-muted-foreground">
-                          <div className="text-sm">No products found</div>
-                          <div className="text-xs mt-1">Try adjusting your search or location filter</div>
-                        </div>
-                      ) : (
-                        <div className="p-3 text-center text-muted-foreground">
-                          <div className="text-sm">Start typing to search products</div>
-                          <div className="text-xs mt-1">Or use location filter to browse by location</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="location_id">Location *</Label>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex gap-2">
                   <Select
-                    value={form.watch('location_id')}
-                    onValueChange={(value) => form.setValue('location_id', value)}
+                    value={form.watch('location_id') || ''}
+                    onValueChange={(value) => {
+                      console.log('Setting location_id to:', value);
+                      form.setValue('location_id', value);
+                      
+                      // Store selected location in localStorage for future use
+                      if (value) {
+                        localStorage.setItem('selected_location', value);
+                        console.log('Location saved to localStorage:', value);
+                      }
+                    }}
                   >
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Select location" />
@@ -757,19 +1242,40 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                       ))}
                     </SelectContent>
                   </Select>
+                  
                   <Button
                     type="button"
                     variant="outline"
-                    size="icon"
-                    onClick={() => setShowQuickCreateUnit(true)}
-                    title="Quick create location"
-                    className="self-end sm:self-auto"
+                    size="sm"
+                    onClick={refreshLocationData}
+                    disabled={loading}
+                    title="Refresh locations"
                   >
-                    <Plus className="h-4 w-4" />
+                    <ArrowRight className="w-4 h-4" />
                   </Button>
                 </div>
+                
+                {locations.length === 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <p className="text-sm text-yellow-800">
+                      <strong>No Locations Available:</strong> Please create store locations first before adding products.
+                    </p>
+                  </div>
+                )}
+                
                 {form.formState.errors.location_id && (
                   <p className="text-sm text-red-500">{form.formState.errors.location_id.message}</p>
+                )}
+                
+                {/* Show current location info */}
+                {form.watch('location_id') && (
+                  <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-xs text-blue-800">
+                      <strong>Selected Location:</strong> {
+                        locations.find(loc => loc.id === form.watch('location_id'))?.name || 'Unknown'
+                      }
+                    </p>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -784,103 +1290,90 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               <CardDescription>Organize your product</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {categories.length === 0 && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    <strong>No Categories Available:</strong> Please create product categories first before adding products.
+                  </p>
+                </div>
+              )}
+                              <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="category_id">Category *</Label>
+                    {categories.length > 0 ? (
+                      <Select
+                        value={form.watch('category_id') || ''}
+                                            onValueChange={(value) => {
+                      console.log('Setting category_id to:', value);
+                      form.setValue('category_id', value);
+                      form.setValue('subcategory_id', '');
+                    }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <p className="text-sm text-yellow-800">
+                          <strong>No Categories Available:</strong> Please create product categories first.
+                        </p>
+                      </div>
+                    )}
+                    {form.formState.errors.category_id && (
+                      <p className="text-sm text-red-500">{form.formState.errors.category_id.message}</p>
+                    )}
+                  </div>
+
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category_id">Category *</Label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={form.watch('category_id')}
-                      onValueChange={(value) => {
-                        form.setValue('category_id', value);
-                        form.setValue('subcategory_id', '');
-                      }}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowQuickCreateCategory(true)}
-                      title="Quick create category"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {form.formState.errors.category_id && (
-                    <p className="text-sm text-red-500">{form.formState.errors.category_id.message}</p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
                   <Label htmlFor="brand_id">Brand</Label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={form.watch('brand_id')}
-                      onValueChange={(value) => form.setValue('brand_id', value)}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select brand" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {brands.map((brand) => (
-                          <SelectItem key={brand.id} value={brand.id}>
-                            {brand.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowQuickCreateBrand(true)}
-                      title="Quick create brand"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Select
+                    value={form.watch('brand_id')}
+                    onValueChange={(value) => form.setValue('brand_id', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
               </div>
 
               {productSettings.enableProductUnits && (
                 <div className="space-y-2">
                   <Label htmlFor="unit_id">Unit</Label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={form.watch('unit_id')}
-                      onValueChange={(value) => form.setValue('unit_id', value)}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {units.map((unit) => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {unit.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowQuickCreateUnit(true)}
-                      title="Quick create unit"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Select
+                    value={form.watch('unit_id')}
+                    onValueChange={(value) => form.setValue('unit_id', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {units.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </CardContent>
@@ -909,8 +1402,30 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>Product Expiry</Label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="has_expiry_date"
+                      checked={hasExpiryDate}
+                      onCheckedChange={setHasExpiryDate}
+                    />
+                    <Label htmlFor="has_expiry_date">Product has expiry date</Label>
+                  </div>
+                </div>
+              </div>
+
               {hasVariants && (
                 <div className="space-y-4">
+                  {/* Variant Pricing Requirements Hint */}
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                    <p className="text-sm text-amber-800">
+                      <strong>Variant Pricing Required:</strong> Each variant must have at least one price field greater than 0. 
+                      This ensures all product variants have valid selling prices.
+                    </p>
+                  </div>
+                  
                   <div className="flex items-center justify-between">
                     <Label>Product Variants</Label>
                     <Button
@@ -951,16 +1466,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                             placeholder="Auto-generated"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label>Price Adjustment</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={variant.price_adjustment}
-                            onChange={(e) => updateVariant(index, 'price_adjustment', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
-                          />
-                        </div>
+
                         <div className="space-y-2">
                           <Label>Stock Quantity</Label>
                           <Input
@@ -968,35 +1474,6 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                             value={variant.stock_quantity}
                             onChange={(e) => updateVariant(index, 'stock_quantity', parseInt(e.target.value) || 0)}
                             placeholder="0"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Min Stock Level</Label>
-                          <Input
-                            type="number"
-                            value={variant.min_stock_level}
-                            onChange={(e) => updateVariant(index, 'min_stock_level', parseInt(e.target.value) || 0)}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Retail Price</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={variant.retail_price}
-                            onChange={(e) => updateVariant(index, 'retail_price', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Wholesale Price</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={variant.wholesale_price}
-                            onChange={(e) => updateVariant(index, 'wholesale_price', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1009,6 +1486,62 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                             placeholder="0.00"
                           />
                         </div>
+
+                        <div className="space-y-2">
+                          <Label>Wholesale Price</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.wholesale_price}
+                            onChange={(e) => updateVariant(index, 'wholesale_price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Retail Price</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.retail_price}
+                            onChange={(e) => updateVariant(index, 'retail_price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Variant Image</Label>
+                          <div className="flex items-center space-x-4">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  // Handle file upload logic here
+                                  console.log('Variant image file selected:', file.name);
+                                  updateVariant(index, 'image_url', file.name); // Store filename for now
+                                }
+                              }}
+                              className="hidden"
+                              id={`variant-image-${index}`}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => document.getElementById(`variant-image-${index}`)?.click()}
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Image
+                            </Button>
+                            {variant.image_url && (
+                              <span className="text-sm text-muted-foreground">
+                                {variant.image_url}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
                         <div className="flex items-end">
                           <Button
                             type="button"
@@ -1037,66 +1570,64 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               <CardDescription>Pricing, inventory & image</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Pricing */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    {...form.register('price', { valueAsNumber: true })}
-                    placeholder="0.00"
-                  />
-                  {form.formState.errors.price && (
-                    <p className="text-sm text-red-500">{form.formState.errors.price.message}</p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="cost_price">Cost Price</Label>
-                  <Input
-                    id="cost_price"
-                    type="number"
-                    step="0.01"
-                    {...form.register('cost_price', { valueAsNumber: true })}
-                    placeholder="0.00"
-                  />
-                  {form.formState.errors.cost_price && (
-                    <p className="text-sm text-red-500">{form.formState.errors.cost_price.message}</p>
-                  )}
-                </div>
-              </div>
+              {/* Pricing - Only show for simple products */}
+              {!hasVariants && (
+                <div className="space-y-4">
+                  {/* Pricing Requirements Hint */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <strong>Pricing Required:</strong> At least one price field must be greater than 0. 
+                      This ensures your product has a valid selling price in the system.
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cost_price">Cost Price</Label>
+                      <Input
+                        id="cost_price"
+                        type="number"
+                        step="0.01"
+                        {...form.register('cost_price', { valueAsNumber: true })}
+                        placeholder="0.00"
+                      />
+                      {form.formState.errors.cost_price && (
+                        <p className="text-sm text-red-500">{form.formState.errors.cost_price.message}</p>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="wholesale_price">Wholesale Price</Label>
-                  <Input
-                    id="wholesale_price"
-                    type="number"
-                    step="0.01"
-                    {...form.register('wholesale_price', { valueAsNumber: true })}
-                    placeholder="0.00"
-                  />
-                  {form.formState.errors.wholesale_price && (
-                    <p className="text-sm text-red-500">{form.formState.errors.wholesale_price.message}</p>
-                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="wholesale_price">Wholesale Price</Label>
+                      <Input
+                        id="wholesale_price"
+                        type="number"
+                        step="0.01"
+                        {...form.register('wholesale_price', { valueAsNumber: true })}
+                        placeholder="0.00"
+                      />
+                      {form.formState.errors.wholesale_price && (
+                        <p className="text-sm text-red-500">{form.formState.errors.wholesale_price.message}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="retail_price">Retail Price</Label>
+                      <Input
+                        id="retail_price"
+                        type="number"
+                        step="0.01"
+                        {...form.register('retail_price', { valueAsNumber: true })}
+                        placeholder="0.00"
+                      />
+                      {form.formState.errors.retail_price && (
+                        <p className="text-sm text-red-500">{form.formState.errors.retail_price.message}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="retail_price">Retail Price</Label>
-                  <Input
-                    id="retail_price"
-                    type="number"
-                    step="0.01"
-                    {...form.register('retail_price', { valueAsNumber: true })}
-                    placeholder="0.00"
-                  />
-                  {form.formState.errors.retail_price && (
-                    <p className="text-sm text-red-500">{form.formState.errors.retail_price.message}</p>
-                  )}
-                </div>
-              </div>
+               )}
 
               {/* Inventory - Only show for simple products */}
               {!hasVariants && (
@@ -1203,73 +1734,36 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               </Button>
             )}
 
-            {currentStep < STEPS.length - 1 ? (
+            {(currentStep < STEPS.length - 1 && !(currentStep === 2 && hasVariants)) ? (
               <Button
                 type="button"
-                onClick={nextStep}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  nextStep();
+                }}
                 disabled={loading}
                 className="flex-1 sm:flex-none"
               >
                 Next
                 <ArrowRight className="w-4 w-4 ml-2" />
               </Button>
-            ) : (
+            ) : (currentStep === STEPS.length - 1 || (currentStep === 2 && hasVariants)) ? (
               <Button
                 type="submit"
-                disabled={loading || isCreating || isUpdating}
+                disabled={loading || isCreating || isUpdating || categories.length === 0 || locations.length === 0}
                 className="flex-1 sm:flex-none"
               >
                 {loading || isCreating || isUpdating ? 'Saving...' : (product ? 'Update Product' : 'Create Product')}
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
       </form>
 
-      {/* Quick Create Dialogs */}
-      <QuickCreateCategoryDialog
-        open={showQuickCreateCategory}
-        onOpenChange={setShowQuickCreateCategory}
-        onSuccess={(newCategory) => {
-          setCategories([...categories, newCategory]);
-          form.setValue('category_id', newCategory.id);
-          setShowQuickCreateCategory(false);
-        }}
-      />
 
-      <QuickCreateUnitDialog
-        open={showQuickCreateUnit}
-        onOpenChange={setShowQuickCreateUnit}
-        onSuccess={(newUnit) => {
-          setUnits([...units, newUnit]);
-          form.setValue('unit_id', newUnit.id);
-          setShowQuickCreateUnit(false);
-        }}
-      />
 
-      <QuickCreateBrandDialog
-        open={showQuickCreateBrand}
-        onOpenChange={setShowQuickCreateBrand}
-        onSuccess={(newBrand) => {
-          setBrands([...brands, newBrand]);
-          form.setValue('brand_id', newBrand.id);
-          setShowQuickCreateBrand(false);
-        }}
-      />
 
-      {/* Mobile Scroll to Top Button */}
-      {showScrollTop && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={scrollToTop}
-          className="fixed bottom-4 right-4 z-50 md:hidden shadow-lg bg-background/95 backdrop-blur-sm"
-          title="Scroll to top"
-        >
-          <ArrowLeft className="w-4 h-4 rotate-90" />
-        </Button>
-      )}
     </div>
   );
 }

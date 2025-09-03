@@ -12,12 +12,24 @@ import { AppOptimizer } from "./components/AppOptimizer";
 import CookieConsent from "./components/CookieConsent";
 import DomainRouterComponent from "./routes/DomainRouter";
 
+// TypeScript declaration for global debug flag
+declare global {
+  interface Window {
+    __DEBUG__?: boolean;
+  }
+}
+
+// Global debug flag to gate noisy console logs
+if (typeof window !== 'undefined') {
+  window.__DEBUG__ ??= false;
+}
+
 // Optimized query client configuration for better performance with tab stability
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 120000, // 2 minutes
-      gcTime: 300000, // 5 minutes
+      staleTime: 15_000, // 15 seconds - increased for better stability
+      gcTime: 10 * 60 * 1000, // 10 minutes - increased for better cache retention
       retry: 1,
       refetchOnWindowFocus: false, // Disabled to prevent performance issues
       refetchOnMount: false, // Disabled to prevent unnecessary refetches
@@ -27,6 +39,7 @@ const queryClient = new QueryClient({
     },
     mutations: {
       retry: 1, // Limit mutation retries
+      retryDelay: 1000, // Wait 1 second before retry
     },
   },
 });

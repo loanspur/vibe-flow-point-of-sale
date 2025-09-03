@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { isDevelopmentDomain, isLocalTenantSubdomain } from '@/lib/env-guards';
 
 interface SubdomainFeature {
   name: string;
@@ -46,7 +47,7 @@ export function useSubdomainFeatures() {
     const hostname = window.location.hostname;
     let subdomain = '';
     
-    if (hostname.includes('localhost')) {
+    if (isDevelopmentDomain(hostname)) {
       subdomain = 'localhost';
     } else if (hostname.includes('traction-energies')) {
       subdomain = 'traction-energies';
