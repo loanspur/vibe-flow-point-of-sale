@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Label } from '@/components/ui/label';
 
 import { useTenantProductsList } from '@/features/products/hooks/useTenantProductsList';
 import { useAuth } from '@/contexts/AuthContext';
@@ -308,7 +309,29 @@ export default function ProductsTab() {
 
                 return (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        {/* Product Image Badge */}
+                        {p.image_url ? (
+                          <div className="w-8 h-8 rounded-md overflow-hidden border border-border flex-shrink-0">
+                            <img 
+                              src={p.image_url} 
+                              alt={name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs text-muted-foreground">📦</span>
+                          </div>
+                        )}
+                        {/* Product Name */}
+                        <span className="truncate">{name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{sku}</TableCell>
                     <TableCell className="whitespace-pre-line">{locationName}</TableCell>
                     <TableCell>{money(retail)}</TableCell>
@@ -398,6 +421,22 @@ export default function ProductsTab() {
           </DialogHeader>
           {previewProduct && (
             <div className="space-y-4">
+              {/* Product Image */}
+              {previewProduct.image_url && (
+                <div className="flex justify-center mb-4">
+                  <div className="w-32 h-32 rounded-lg overflow-hidden border">
+                    <img 
+                      src={previewProduct.image_url} 
+                      alt={previewProduct.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Product Name</Label>
@@ -405,23 +444,23 @@ export default function ProductsTab() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">SKU</Label>
-                  <p className="text-sm">{previewProduct.sku}</p>
+                  <p className="text-sm">{previewProduct.sku || 'Not specified'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Category</Label>
-                  <p className="text-sm">{previewProduct.category_name || '—'}</p>
+                  <p className="text-sm">{previewProduct.category_name || 'Not specified'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Brand</Label>
-                  <p className="text-sm">{previewProduct.brand_name || '—'}</p>
+                  <p className="text-sm">{previewProduct.brand_name || 'Not specified'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Location</Label>
-                  <p className="text-sm">{previewProduct.location_name || '—'}</p>
+                  <p className="text-sm">{previewProduct.location_name || 'Not specified'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Unit</Label>
-                  <p className="text-sm">{previewProduct.unit_name || '—'}</p>
+                  <p className="text-sm">{previewProduct.unit_name || 'Not specified'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Retail Price</Label>
@@ -439,13 +478,31 @@ export default function ProductsTab() {
                   <Label className="text-sm font-medium text-muted-foreground">Stock Quantity</Label>
                   <p className="text-sm">{previewProduct.stock_quantity || 0}</p>
                 </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Min Stock Level</Label>
+                  <p className="text-sm">{previewProduct.min_stock_level || 'Not set'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                  <p className="text-sm">
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${
+                      previewProduct.status === 'active' || previewProduct.status === true 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {statusLabel(previewProduct.status)}
+                    </span>
+                  </p>
+                </div>
               </div>
+              
               {previewProduct.description && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Description</Label>
                   <p className="text-sm">{previewProduct.description}</p>
                 </div>
               )}
+              
               {previewProduct.barcode && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Barcode</Label>
