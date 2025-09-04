@@ -22,12 +22,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useEnsureBaseUnitPcs } from "@/hooks/useEnsureBaseUnitPcs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PaymentProcessor } from "./PaymentProcessor";
 import { EnhancedPaymentProcessor } from "./EnhancedPaymentProcessor";
 import { ShippingSection } from "./ShippingSection";
 import { InvoiceGenerator } from "./InvoiceGenerator";
 import { MpesaPaymentModal } from "./MpesaPaymentModal";
 import { Textarea } from "@/components/ui/textarea";
+import { useCashDrawer } from "@/hooks/useCashDrawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -143,6 +143,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { formatCurrency } = useApp();
+  const { currentDrawer, recordCashTransaction } = useCashDrawer();
   
   const { pos: posSettings, tax: taxSettings, inventory: inventorySettings, documents: docSettings } = useBusinessSettings();
   
@@ -909,6 +910,16 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
 
   const confirmCashPayment = () => {
+    // Check if cash drawer is open
+    if (!currentDrawer || currentDrawer.status !== 'open') {
+      toast({
+        title: "Cash Drawer Closed",
+        description: "Please open the cash drawer before processing cash payments",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const totalAmount = calculateTotal();
     const changeAmount = cashAmountPaid - totalAmount;
     
@@ -1154,7 +1165,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       return;
     }
 
-    const hasCreditPayment = payments.some(p => p.method.toLowerCase().includes('credit'));
+    const hasCreditPayment = enhancedPayments.some(p => p.method.toLowerCase().includes('credit'));
     
     // Auto-fetch first customer (non-walk-in) for credit sales
     if (hasCreditPayment && (!values.customer_id || values.customer_id === "walk-in")) {
@@ -1194,7 +1205,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const completeSale = async () => {
     console.log('completeSale function called');
     const values = form.getValues();
-    const hasCreditPayment = payments.some(p => p.method.toLowerCase().includes('credit'));
+    const hasCreditPayment = enhancedPayments.some(p => p.method.toLowerCase().includes('credit'));
 
     setIsSubmitting(true);
     setShowConfirmation(false);
@@ -1237,8 +1248,24 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       if (itemsError) throw itemsError;
 
       // Process payments and update cash drawer for cash payments
-      if (!hasCreditPayment && payments.length > 0) {
-        const paymentData = payments.map(payment => ({
+      if (!hasCreditPayment && enhancedPayments.length > 0) {
+        // Debug: Check current user role and profile before payment insertion
+        try {
+          const { data: roleData, error: roleError } = await supabase.rpc('get_current_user_role');
+          console.log('🔍 PAYMENT DEBUG: Current user role before payment insertion:', { roleData, roleError });
+          
+          // Also check the user's profile directly
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('user_id, role, tenant_id, full_name')
+            .eq('user_id', user.id)
+            .single();
+          console.log('🔍 PAYMENT DEBUG: User profile data:', { profileData, profileError });
+        } catch (error) {
+          console.log('🔍 PAYMENT DEBUG: Error checking user role/profile:', error);
+        }
+
+        const paymentData = enhancedPayments.map(payment => ({
           sale_id: sale.id,
           amount: payment.amount,
           payment_method: payment.method,
@@ -1246,15 +1273,25 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           tenant_id: tenantId,
         }));
 
+        console.log('🔍 PAYMENT DEBUG: Payment data to insert:', paymentData);
+
         const { error: paymentError } = await supabase
           .from("payments")
           .insert(paymentData);
 
         if (paymentError) throw paymentError;
 
-        // Update cash drawer for cash payments using helper
-        const cashPayments = payments.filter(p => p.method.toLowerCase().includes('cash'));
-        await updateCashDrawer(tenantId, user.id, cashPayments, receiptNumber, sale.id);
+        // Update cash drawer for cash payments using hook
+        const cashPayments = enhancedPayments.filter(p => p.method.toLowerCase().includes('cash'));
+        for (const cashPayment of cashPayments) {
+          await recordCashTransaction(
+            'sale_payment',
+            cashPayment.amount,
+            `Sale payment - Receipt: ${receiptNumber}`,
+            'sale',
+            sale.id
+          );
+        }
       }
 
       // Process inventory adjustments
@@ -1297,6 +1334,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       postSaleOperations.push(
         (async () => {
           try {
+            console.log('🔍 ACCOUNTING DEBUG: Enhanced payments array:', enhancedPayments);
             await createEnhancedSalesJournalEntry(tenantId, {
               saleId: sale.id,
               cashierId: user.id,
@@ -1305,7 +1343,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
               discountAmount: values.discount_amount,
               taxAmount: values.tax_amount,
               shippingAmount: values.shipping_amount,
-              payments: hasCreditPayment ? [] : payments,
+              payments: enhancedPayments, // Always pass actual payments to accounting system
             });
             console.log('Accounting entry created successfully');
           } catch (error) {
@@ -1371,6 +1409,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       form.reset();
       setSaleItems([]);
       setPayments([]);
+      setEnhancedPayments([]);
       setSearchTerm("");
       setSelectedProduct("");
       setSelectedVariant("");

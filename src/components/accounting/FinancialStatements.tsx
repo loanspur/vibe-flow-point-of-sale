@@ -32,7 +32,7 @@ interface IncomeStatementItem {
 
 export default function FinancialStatements() {
   const { tenantId } = useAuth();
-  const { tenantCurrency } = useApp();
+  const { tenantCurrency, formatCurrency } = useApp();
   const { toast } = useToast();
 
   const [balanceSheetData, setBalanceSheetData] = useState<BalanceSheetItem[]>([]);
@@ -211,12 +211,13 @@ export default function FinancialStatements() {
   }, [tenantId, dateRange]);
 
   // Helper functions
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: tenantCurrency || 'USD'
-    }).format(amount);
-  };
+  // Use centralized formatCurrency from AppContext instead of local implementation
+  // const formatCurrency = (amount: number) => {
+  //   return new Intl.NumberFormat('en-US', {
+  //     style: 'currency',
+  //     currency: tenantCurrency || 'USD'
+  //   }).format(amount);
+  // };
 
   const groupAccountsByType = (accounts: any[], categories: string[]) => {
     return accounts

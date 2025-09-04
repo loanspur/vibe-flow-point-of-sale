@@ -1,42 +1,102 @@
-hook.js:608 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. Error Component Stack
-    at EnhancedErrorBoundary (EnhancedErrorBoundary.tsx:28:5)
-    at App (<anonymous>)
-
-hook.js:608 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. Error Component Stack
-    at EnhancedErrorBoundary (EnhancedErrorBoundary.tsx:28:5)
-    at App (<anonymous>)
-AppContext.tsx:106 Real-time business settings updates disabled to prevent currency switching
-Settings.tsx:4 🏪 Settings page component is rendering!
-Settings.tsx:5 🏪 Current URL: http://traction-energies.localhost:5173/admin/settings
-Settings.tsx:6 🏪 Current timestamp: 2025-09-04T06:18:41.168Z
-BusinessSettingsEnhanced.tsx:258 Loading business data for tenant: 6742eb8a-434e-4c14-a91c-6d55adeb5750
-BusinessSettingsEnhanced.tsx:293 Loaded business settings: 
-{id: '8826520e-0a85-48e9-a32d-55faea0785e0', tenant_id: '6742eb8a-434e-4c14-a91c-6d55adeb5750', company_name: 'Traction Energies', company_logo_url: 'https://qwtybhvdbbkbcelisuek.supabase.co/storage/v…ject/public/product-images/logo-1753350587579.jpg', business_registration_number: '', …}
-BusinessSettingsEnhanced.tsx:302 Loaded store locations: 
-(2) [{…}, {…}]
-1467
-PaymentManagement.tsx:182 Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render. Error Component Stack
-    at PaymentManagement (PaymentManagement.tsx:94:30)
-    at div (<anonymous>)
-    at _c8 (card.tsx:62:6)
-    at div (<anonymous>)
-    at _c (card.tsx:8:6)
-    at div (<anonymous>)
-    at div (<anonymous>)
-    at _c4 (tabs.tsx:41:6)
-    at form (<anonymous>)
-    at BusinessSettingsEnhanced (BusinessSettingsEnhanced.tsx:227:30)
-    at div (<anonymous>)
-    at Settings (<anonymous>)
-    at sidebar.tsx:56:7
-    at TenantAdminLayout (TenantAdminLayout.tsx:25:29)
-    at SubscriptionGuard (SubscriptionGuard.tsx:19:52)
-    at ProtectedRoute (ProtectedRoute.tsx:14:3)
-    at AppOptimizer (AppOptimizer.tsx:8:73)
-    at AppProvider (AppContext.tsx:61:31)
-    at AuthProvider (AuthContext.tsx:45:32)
-    at TabStabilityProvider (TabStabilityProvider.tsx:9:81)
-    at EnhancedErrorBoundary (EnhancedErrorBoundary.tsx:28:5)
-    at App (<anonymous>)
-﻿
-
+| table_name                   | has_tenant_id | rls_enabled | has_policy | status       |
+| ---------------------------- | ------------- | ----------- | ---------- | ------------ |
+| account_types                | true          | true        | true       | COMPLIANT    |
+| accounting_entries           | true          | true        | true       | COMPLIANT    |
+| accounting_transactions      | true          | true        | true       | COMPLIANT    |
+| accounts                     | true          | true        | true       | COMPLIANT    |
+| accounts_payable             | true          | true        | true       | COMPLIANT    |
+| accounts_receivable          | true          | true        | true       | COMPLIANT    |
+| ai_automation_rules          | true          | true        | true       | COMPLIANT    |
+| ai_insights                  | true          | true        | true       | COMPLIANT    |
+| ai_models                    | true          | true        | true       | COMPLIANT    |
+| ai_performance_metrics       | true          | true        | true       | COMPLIANT    |
+| ai_recommendations           | true          | true        | true       | COMPLIANT    |
+| ar_ap_payments               | true          | true        | true       | COMPLIANT    |
+| billing_notifications        | true          | true        | true       | COMPLIANT    |
+| billing_plans                | true          | true        | true       | COMPLIANT    |
+| brands                       | true          | true        | true       | COMPLIANT    |
+| business_settings            | true          | true        | true       | COMPLIANT    |
+| cash_bank_transfer_requests  | true          | true        | true       | COMPLIANT    |
+| cash_drawers                 | true          | true        | true       | COMPLIANT    |
+| cash_transactions            | true          | true        | true       | COMPLIANT    |
+| cash_transfer_requests       | true          | true        | true       | COMPLIANT    |
+| client_reviews               | true          | true        | true       | COMPLIANT    |
+| combo_products               | true          | true        | true       | COMPLIANT    |
+| commission_agents            | true          | true        | true       | COMPLIANT    |
+| commission_transactions      | true          | true        | true       | COMPLIANT    |
+| communication_logs           | true          | true        | true       | COMPLIANT    |
+| contacts                     | true          | true        | true       | COMPLIANT    |
+| credit_payments              | true          | true        | true       | COMPLIANT    |
+| custom_permissions           | true          | true        | true       | COMPLIANT    |
+| customer_profiles            | true          | true        | true       | COMPLIANT    |
+| customer_segments            | true          | true        | true       | COMPLIANT    |
+| customers                    | true          | true        | true       | COMPLIANT    |
+| email_blacklist              | true          | true        | true       | COMPLIANT    |
+| email_campaign_recipients    | true          | true        | true       | COMPLIANT    |
+| email_queue                  | true          | true        | true       | COMPLIANT    |
+| email_templates              | true          | true        | true       | COMPLIANT    |
+| financial_periods            | true          | true        | true       | COMPLIANT    |
+| invoice_items                | true          | true        | true       | COMPLIANT    |
+| invoices                     | true          | true        | true       | COMPLIANT    |
+| legal_documents              | true          | true        | true       | COMPLIANT    |
+| loyalty_programs             | true          | true        | true       | COMPLIANT    |
+| marketing_campaigns          | true          | true        | true       | COMPLIANT    |
+| mpesa_configurations         | true          | true        | true       | COMPLIANT    |
+| mpesa_transactions           | true          | true        | true       | COMPLIANT    |
+| multiple_payments            | true          | true        | true       | COMPLIANT    |
+| notification_preferences     | true          | true        | true       | COMPLIANT    |
+| notifications                | true          | true        | true       | COMPLIANT    |
+| payment_history              | true          | true        | true       | COMPLIANT    |
+| payment_methods              | true          | true        | true       | COMPLIANT    |
+| payments                     | true          | true        | true       | COMPLIANT    |
+| pending_email_verifications  | true          | true        | true       | COMPLIANT    |
+| product_categories           | true          | true        | true       | COMPLIANT    |
+| product_history              | true          | true        | true       | COMPLIANT    |
+| product_migrations           | true          | true        | true       | COMPLIANT    |
+| product_subcategories        | true          | true        | true       | COMPLIANT    |
+| product_units                | true          | true        | true       | COMPLIANT    |
+| products                     | true          | true        | true       | COMPLIANT    |
+| profiles                     | true          | true        | true       | COMPLIANT    |
+| promotion_usage              | true          | true        | true       | COMPLIANT    |
+| promotions                   | true          | true        | true       | COMPLIANT    |
+| purchases                    | true          | true        | true       | COMPLIANT    |
+| quote_items                  | true          | true        | true       | COMPLIANT    |
+| quotes                       | true          | true        | true       | COMPLIANT    |
+| return_reason_codes          | true          | true        | true       | COMPLIANT    |
+| returns                      | true          | true        | true       | COMPLIANT    |
+| review_analytics             | true          | true        | true       | COMPLIANT    |
+| sales                        | true          | true        | true       | COMPLIANT    |
+| shipping_orders              | true          | true        | true       | COMPLIANT    |
+| stock_adjustments            | true          | true        | true       | COMPLIANT    |
+| stock_taking_sessions        | true          | true        | true       | COMPLIANT    |
+| stock_transfers              | true          | true        | true       | COMPLIANT    |
+| store_locations              | true          | true        | true       | COMPLIANT    |
+| system_health_logs           | true          | true        | true       | COMPLIANT    |
+| tax_calculations             | true          | true        | true       | COMPLIANT    |
+| tax_exemptions               | true          | true        | true       | COMPLIANT    |
+| tax_groups                   | true          | true        | true       | COMPLIANT    |
+| tax_jurisdictions            | true          | true        | true       | COMPLIANT    |
+| tax_rates                    | true          | true        | true       | COMPLIANT    |
+| tax_types                    | true          | true        | true       | COMPLIANT    |
+| tenant_custom_pricing        | true          | true        | false      | NEEDS_POLICY |
+| tenant_domains               | true          | true        | true       | COMPLIANT    |
+| tenant_feature_access        | true          | true        | true       | COMPLIANT    |
+| tenant_subscription_details  | true          | true        | true       | COMPLIANT    |
+| tenant_subscriptions         | true          | true        | true       | COMPLIANT    |
+| tenant_users                 | true          | true        | true       | COMPLIANT    |
+| tenant_version_tracking      | true          | true        | true       | COMPLIANT    |
+| tenant_whatsapp_configs      | true          | true        | true       | COMPLIANT    |
+| tenant_whatsapp_numbers      | true          | true        | true       | COMPLIANT    |
+| transfer_requests            | true          | true        | true       | COMPLIANT    |
+| user_activity_logs           | true          | true        | true       | COMPLIANT    |
+| user_activity_permissions    | true          | true        | false      | NEEDS_POLICY |
+| user_legal_acceptances       | true          | true        | true       | COMPLIANT    |
+| user_preferences             | true          | true        | true       | COMPLIANT    |
+| user_role_assignments        | true          | true        | true       | COMPLIANT    |
+| user_roles                   | true          | true        | true       | COMPLIANT    |
+| user_sessions                | true          | true        | true       | COMPLIANT    |
+| user_tenants                 | true          | true        | true       | COMPLIANT    |
+| whatsapp_automation_settings | true          | true        | true       | COMPLIANT    |
+| whatsapp_billing             | true          | true        | true       | COMPLIANT    |
+| whatsapp_bulk_campaigns      | true          | true        | true       | COMPLIANT    |
+| whatsapp_message_logs        | true          | true        | true       | COMPLIANT    |

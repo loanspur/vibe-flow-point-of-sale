@@ -2,6 +2,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { processSaleInventory } from './inventory-integration';
 import { initializeDefaultChartOfAccounts } from './default-accounts';
 
+// Utility function to round amounts to nearest whole number for accounting precision
+const roundAmount = (amount: number): number => {
+  return Math.round(amount);
+};
+
 // Enhanced payment method interface for accounting integration
 interface PaymentMethodAccount {
   id: string;
@@ -145,12 +150,24 @@ export const createJournalEntry = async (
   createdBy: string
 ) => {
   try {
-    // Validate double-entry bookkeeping
+    // Validate double-entry bookkeeping with proper rounding for fractional quantities
     const totalDebits = transaction.entries.reduce((sum, entry) => sum + (entry.debit_amount || 0), 0);
     const totalCredits = transaction.entries.reduce((sum, entry) => sum + (entry.credit_amount || 0), 0);
     
-    if (Math.abs(totalDebits - totalCredits) > 0.01) {
-      throw new Error('Journal entry must balance: debits must equal credits');
+    // Round to nearest whole number to handle fractional quantities
+    const roundedDebits = roundAmount(totalDebits);
+    const roundedCredits = roundAmount(totalCredits);
+    
+    if (Math.abs(roundedDebits - roundedCredits) > 0) {
+      console.error('Accounting balance check failed:', {
+        totalDebits,
+        totalCredits,
+        roundedDebits,
+        roundedCredits,
+        difference: Math.abs(roundedDebits - roundedCredits),
+        entries: transaction.entries
+      });
+      throw new Error(`Journal entry must balance: debits (${roundedDebits}) must equal credits (${roundedCredits})`);
     }
 
     // Generate transaction number
@@ -271,6 +288,8 @@ export const createEnhancedSalesJournalEntry = async (
     const accounts = await getDefaultAccounts(tenantId);
     const { totalAmount, discountAmount, taxAmount, payments } = saleData;
     
+    console.log('🔍 ACCOUNTING DEBUG: Processing payments:', payments);
+    
     // Correct calculation: totalAmount already includes tax and excludes discount
     // So subtotal before tax = totalAmount - taxAmount + discountAmount  
     // But for sales revenue, we want the amount before tax and discount
@@ -288,11 +307,12 @@ export const createEnhancedSalesJournalEntry = async (
       }
       
       // Debit the appropriate asset account for this payment method
-      entries.push({
+      const debitEntry = {
         account_id: accountId,
-        debit_amount: payment.amount,
+        debit_amount: roundAmount(payment.amount),
         description: `Payment via ${payment.method}`
-      });
+      };
+      entries.push(debitEntry);
     }
 
     // Credit: Sales Revenue (adjusted for shipping - shipping is separate income)
@@ -301,7 +321,7 @@ export const createEnhancedSalesJournalEntry = async (
     if (salesRevenue > 0) {
       entries.push({
         account_id: accounts.sales_revenue,
-        credit_amount: salesRevenue,
+        credit_amount: roundAmount(salesRevenue),
         description: 'Sales revenue'
       });
     }
@@ -312,7 +332,7 @@ export const createEnhancedSalesJournalEntry = async (
       const shippingAccount = accounts.shipping_revenue || accounts.sales_revenue;
       entries.push({
         account_id: shippingAccount,
-        credit_amount: saleData.shippingAmount,
+        credit_amount: roundAmount(saleData.shippingAmount),
         description: 'Shipping charges'
       });
     }
@@ -321,7 +341,7 @@ export const createEnhancedSalesJournalEntry = async (
     if (taxAmount > 0 && accounts.sales_tax_payable) {
       entries.push({
         account_id: accounts.sales_tax_payable,
-        credit_amount: taxAmount,
+        credit_amount: roundAmount(taxAmount),
         description: 'Sales tax collected'
       });
     }
@@ -330,7 +350,7 @@ export const createEnhancedSalesJournalEntry = async (
     if (discountAmount > 0 && accounts.discount_given) {
       entries.push({
         account_id: accounts.discount_given,
-        debit_amount: discountAmount,
+        debit_amount: roundAmount(discountAmount),
         description: 'Discount given to customer'
       });
     }
@@ -338,21 +358,23 @@ export const createEnhancedSalesJournalEntry = async (
     // Cost of Goods Sold and Inventory adjustment
     if (saleData.items && saleData.items.length > 0 && accounts.cost_of_goods_sold && accounts.inventory) {
       const totalCOGS = saleData.items.reduce((sum, item) => {
-        return sum + ((item.unitCost || 0) * item.quantity);
+        // Round to nearest whole number to handle fractional quantity precision issues
+        const itemCOGS = (item.unitCost || 0) * item.quantity;
+        return sum + roundAmount(itemCOGS);
       }, 0);
 
       if (totalCOGS > 0) {
         // Debit: Cost of Goods Sold
         entries.push({
           account_id: accounts.cost_of_goods_sold,
-          debit_amount: totalCOGS,
+          debit_amount: roundAmount(totalCOGS),
           description: 'Cost of goods sold'
         });
 
         // Credit: Inventory
         entries.push({
           account_id: accounts.inventory,
-          credit_amount: totalCOGS,
+          credit_amount: roundAmount(totalCOGS),
           description: 'Inventory reduction from sale'
         });
       }
@@ -677,7 +699,7 @@ export const createSalesJournalEntry = async (
     if (taxAmount > 0 && accounts.sales_tax_payable) {
       entries.push({
         account_id: accounts.sales_tax_payable,
-        credit_amount: taxAmount,
+        credit_amount: roundAmount(taxAmount),
         description: 'Sales tax collected'
       });
     }
@@ -686,7 +708,7 @@ export const createSalesJournalEntry = async (
     if (discountAmount > 0 && accounts.discount_given) {
       entries.push({
         account_id: accounts.discount_given,
-        debit_amount: discountAmount,
+        debit_amount: roundAmount(discountAmount),
         description: 'Discount given to customer'
       });
     }
@@ -694,21 +716,23 @@ export const createSalesJournalEntry = async (
     // Cost of Goods Sold and Inventory adjustment
     if (saleData.items && saleData.items.length > 0 && accounts.cost_of_goods_sold && accounts.inventory) {
       const totalCOGS = saleData.items.reduce((sum, item) => {
-        return sum + ((item.unitCost || 0) * item.quantity);
+        // Round to nearest whole number to handle fractional quantity precision issues
+        const itemCOGS = (item.unitCost || 0) * item.quantity;
+        return sum + roundAmount(itemCOGS);
       }, 0);
 
       if (totalCOGS > 0) {
         // Debit: Cost of Goods Sold
         entries.push({
           account_id: accounts.cost_of_goods_sold,
-          debit_amount: totalCOGS,
+          debit_amount: roundAmount(totalCOGS),
           description: 'Cost of goods sold'
         });
 
         // Credit: Inventory
         entries.push({
           account_id: accounts.inventory,
-          credit_amount: totalCOGS,
+          credit_amount: roundAmount(totalCOGS),
           description: 'Inventory reduction from sale'
         });
       }

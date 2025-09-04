@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,7 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
+import { usePaymentMethods, type PaymentMethod, type AssetAccount } from '@/hooks/usePaymentMethods';
 
 // Schema definitions
 const paymentMethodSchema = z.object({
@@ -61,32 +62,6 @@ const integrationSchema = z.object({
   currency_code: z.string().default("KES"),
 });
 
-// Interface definitions - temporary until types are regenerated
-interface PaymentMethod {
-  id: string;
-  tenant_id: string;
-  name: string;
-  type: "cash" | "card" | "mobile_money" | "bank_transfer" | "crypto" | "other";
-  account_id?: string;
-  account_name?: string;
-  account_code?: string;
-  is_active: boolean;
-  requires_reference: boolean;
-  description?: string;
-  processing_fee_percentage?: number;
-  minimum_amount?: number;
-  maximum_amount?: number;
-  display_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AssetAccount {
-  id: string;
-  name: string;
-  code: string;
-  category: string;
-}
 
 interface PaymentIntegration {
   id: string;
@@ -125,6 +100,7 @@ export function PaymentManagement() {
   const [showIntegrationDialog, setShowIntegrationDialog] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
   const [editingIntegration, setEditingIntegration] = useState<PaymentIntegration | null>(null);
+  const [methodToDelete, setMethodToDelete] = useState<PaymentMethod | null>(null);
   const [showSecrets, setShowSecrets] = useState<{[key: string]: boolean}>({});
 
   const methodForm = useForm<z.infer<typeof paymentMethodSchema>>({
@@ -257,14 +233,14 @@ export function PaymentManagement() {
 
       if (editingMethod) {
         // Update existing method using existing hook
-        await savePaymentMethod({ ...paymentMethodData, id: editingMethod.id });
+        await savePaymentMethod({ ...paymentMethodData, id: editingMethod.id }, true);
         toast({ 
           title: 'Success', 
           description: 'Payment method updated successfully' 
         });
       } else {
         // Add new method using existing hook
-        await savePaymentMethod(paymentMethodData);
+        await savePaymentMethod(paymentMethodData, false);
         toast({ 
           title: 'Success', 
           description: 'Payment method created successfully' 
@@ -334,23 +310,31 @@ export function PaymentManagement() {
     }
   };
 
-  const handleDeletePaymentMethod = async (id: string) => {
+  const handleDeletePaymentMethod = (id: string) => {
     const method = paymentMethods.find(m => m.id === id);
-    if (!method) return;
+    
+    if (!method) {
+      return;
+    }
 
-    if (window.confirm(`Are you sure you want to delete the payment method "${method.name}"?`)) {
-      try {
-        // Use existing hook for deletion
-        await deletePaymentMethod(id);
-        toast({ title: 'Success', description: 'Payment method deleted successfully' });
-      } catch (error) {
-        console.error('Error deleting payment method:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete payment method',
-          variant: 'destructive',
-        });
-      }
+    setMethodToDelete(method);
+  };
+
+  const confirmDeletePaymentMethod = async () => {
+    if (!methodToDelete) return;
+
+    try {
+      await deletePaymentMethod(methodToDelete.id);
+      toast({ title: 'Success', description: 'Payment method deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting payment method:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete payment method',
+        variant: 'destructive',
+      });
+    } finally {
+      setMethodToDelete(null);
     }
   };
 
@@ -966,6 +950,22 @@ export function PaymentManagement() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!methodToDelete} onOpenChange={(open) => !open && setMethodToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment Method?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the payment method "{methodToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setMethodToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePaymentMethod}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

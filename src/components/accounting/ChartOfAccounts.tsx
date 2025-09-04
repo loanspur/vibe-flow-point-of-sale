@@ -51,7 +51,7 @@ const categoryColors = {
 
 export default function ChartOfAccounts() {
   const { tenantId } = useAuth();
-  const { tenantCurrency } = useApp();
+  const { tenantCurrency, formatCurrency } = useApp();
   const { toast } = useToast();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
 
@@ -351,12 +351,13 @@ export default function ChartOfAccounts() {
     });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: tenantCurrency || 'USD'
-    }).format(amount);
-  };
+  // Use centralized formatCurrency from AppContext instead of local implementation
+  // const formatCurrency = (amount: number) => {
+  //   return new Intl.NumberFormat('en-US', {
+  //     style: 'currency',
+  //     currency: tenantCurrency || 'USD'
+  //   }).format(amount);
+  // };
 
   const getCategoryIcon = (category: string) => {
     const Icon = categoryIcons[category as keyof typeof categoryIcons] || Building;

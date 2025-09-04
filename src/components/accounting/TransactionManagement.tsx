@@ -54,7 +54,7 @@ interface Account {
 
 export default function TransactionManagement() {
   const { tenantId, user } = useAuth();
-  const { tenantCurrency } = useApp();
+  const { tenantCurrency, formatCurrency } = useApp();
   const { toast } = useToast();
   const { canDelete, logDeletionAttempt } = useDeletionControl();
 
@@ -415,12 +415,13 @@ export default function TransactionManagement() {
     setEntries(updatedEntries);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: tenantCurrency || 'USD'
-    }).format(amount);
-  };
+  // Use centralized formatCurrency from AppContext instead of local implementation
+  // const formatCurrency = (amount: number) => {
+  //   return new Intl.NumberFormat('en-US', {
+  //     style: 'currency',
+  //     currency: tenantCurrency || 'USD'
+  //   }).format(amount);
+  // };
 
   const getTotalDebits = () => entries.reduce((sum, entry) => sum + (entry.debit_amount || 0), 0);
   const getTotalCredits = () => entries.reduce((sum, entry) => sum + (entry.credit_amount || 0), 0);

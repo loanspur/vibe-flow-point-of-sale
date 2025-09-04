@@ -238,14 +238,34 @@ export function usePaymentMethods() {
     }
 
     try {
-      const { error } = await supabase
+      // First check if the payment method exists
+      const { data: existingMethod, error: fetchError } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .single();
+      
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+      
+      if (!existingMethod) {
+        return; // Method doesn't exist, consider it deleted
+      }
+      
+      // Attempt deletion
+      const { error, data } = await supabase
         .from('payment_methods')
         .delete()
         .eq('id', id)
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .select();
 
-      if (error) throw error;
-
+      if (error) {
+        throw error;
+      }
+      
       // Refresh the payment methods list
       await fetchPaymentMethods();
     } catch (err) {

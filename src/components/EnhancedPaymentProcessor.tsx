@@ -11,17 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
-
-interface PaymentMethod {
-  id: string;
-  name: string;
-  type: string;
-  requires_reference: boolean;
-  icon: string;
-  color: string;
-  is_active: boolean;
-}
+import { usePaymentMethods, type PaymentMethod } from '@/hooks/usePaymentMethods';
+import { useCashDrawer } from '@/hooks/useCashDrawer';
 
 interface Payment {
   id: string;
@@ -53,6 +44,7 @@ export function EnhancedPaymentProcessor({
   const { tenantId } = useAuth();
   const { toast } = useToast();
   const { formatCurrency } = useApp();
+  const { currentDrawer } = useCashDrawer();
   
   // Use the payment methods hook instead of local state
   const { 
@@ -80,6 +72,23 @@ export function EnhancedPaymentProcessor({
       setSelectedMethod(paymentMethods[0].id);
     }
   }, [paymentMethods, selectedMethod]);
+
+  // Auto-switch away from cash method if drawer is closed
+  useEffect(() => {
+    if (selectedMethod) {
+      const selectedMethodDetails = paymentMethods.find(m => m.id === selectedMethod);
+      const isCashMethod = selectedMethodDetails?.type === 'cash';
+      const isCashDisabled = isCashMethod && (!currentDrawer || currentDrawer.status !== 'open');
+      
+      if (isCashDisabled) {
+        // Switch to first available non-cash method
+        const availableMethod = paymentMethods.find(m => m.type !== 'cash');
+        if (availableMethod) {
+          setSelectedMethod(availableMethod.id);
+        }
+      }
+    }
+  }, [currentDrawer, selectedMethod, paymentMethods]);
 
   // Show error if payment methods fail to load
   useEffect(() => {
@@ -176,9 +185,21 @@ export function EnhancedPaymentProcessor({
     }
 
     // Handle special payment methods
-    if (methodDetails.type === 'cash' && onCashPayment) {
-      const shouldProceed = onCashPayment(paymentAmount);
-      if (!shouldProceed) return;
+    if (methodDetails.type === 'cash') {
+      // Check if cash drawer is open
+      if (!currentDrawer || currentDrawer.status !== 'open') {
+        toast({
+          title: "Cash Drawer Closed",
+          description: "Please open the cash drawer before processing cash payments",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (onCashPayment) {
+        const shouldProceed = onCashPayment(paymentAmount);
+        if (!shouldProceed) return;
+      }
     }
 
     if (methodDetails.type === 'mobile_money' && methodDetails.name.toLowerCase().includes('mpesa') && onMpesaPayment) {
@@ -291,6 +312,29 @@ export function EnhancedPaymentProcessor({
           )}
         </div>
 
+        {/* Cash Drawer Status */}
+        {currentDrawer && (
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Banknote className="h-4 w-4" />
+              <span className="text-sm font-medium">Cash Drawer</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant={currentDrawer.status === 'open' ? "default" : "destructive"}
+                className={currentDrawer.status === 'open' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}
+              >
+                {currentDrawer.status === 'open' ? 'Open' : 'Closed'}
+              </Badge>
+              {currentDrawer.status === 'open' && (
+                <span className="text-sm text-muted-foreground">
+                  Balance: {formatCurrency(currentDrawer.current_balance)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         <Separator />
 
         {/* Add Payment Form */}
@@ -303,14 +347,29 @@ export function EnhancedPaymentProcessor({
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.map((method) => (
-                    <SelectItem key={method.id} value={method.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{method.icon}</span>
-                        <span>{method.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {paymentMethods.map((method) => {
+                    const isCashMethod = method.type === 'cash';
+                    const isCashDisabled = isCashMethod && (!currentDrawer || currentDrawer.status !== 'open');
+                    
+                    return (
+                      <SelectItem 
+                        key={method.id} 
+                        value={method.id}
+                        disabled={isCashDisabled}
+                        className={isCashDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>{method.icon}</span>
+                          <span>{method.name}</span>
+                          {isCashDisabled && (
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              (Drawer Closed)
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

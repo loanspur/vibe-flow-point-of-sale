@@ -89,16 +89,27 @@ export const useCashDrawer = () => {
     try {
       console.log('Fetching cash drawer for:', { userId: user.id, tenantId });
       
+      // Use the helper function to get or create drawer safely
+      const { data: drawerId, error: drawerError } = await supabase.rpc('get_or_create_cash_drawer', {
+        p_tenant_id: tenantId,
+        p_user_id: user.id,
+        p_drawer_name: 'Main Cash Drawer'
+      });
+
+      if (drawerError) {
+        console.error('Error getting/creating drawer:', drawerError);
+        return;
+      }
+
+      // Now fetch the drawer details
       const { data, error } = await supabase
         .from('cash_drawers')
         .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .maybeSingle();
+        .eq('id', drawerId)
+        .single();
 
       if (error) {
-        console.error('Error fetching drawer:', error);
+        console.error('Error fetching drawer details:', error);
         return;
       }
 
@@ -182,19 +193,28 @@ export const useCashDrawer = () => {
     if (!user?.id || !tenantId) return;
 
     try {
+      // Use the helper function to get or create drawer safely
+      const { data: drawerId, error: drawerError } = await supabase.rpc('get_or_create_cash_drawer', {
+        p_tenant_id: tenantId,
+        p_user_id: user.id,
+        p_drawer_name: 'Main Cash Drawer'
+      });
+
+      if (drawerError) {
+        console.error('Error getting/creating drawer:', drawerError);
+        toast.error('Failed to initialize cash drawer');
+        return;
+      }
+
+      // Fetch the drawer details
       const { data, error } = await supabase
         .from('cash_drawers')
-        .insert({
-          tenant_id: tenantId,
-          user_id: user.id,
-          drawer_name: 'Main Cash Drawer',
-          status: 'closed'
-        })
-        .select()
+        .select('*')
+        .eq('id', drawerId)
         .single();
 
       if (error) {
-        console.error('Error creating drawer:', error);
+        console.error('Error fetching drawer details:', error);
         toast.error('Failed to initialize cash drawer');
         return;
       }

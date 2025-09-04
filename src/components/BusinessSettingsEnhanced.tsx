@@ -492,12 +492,12 @@ export function BusinessSettingsEnhanced() {
         const result = await supabase
           .from('business_settings')
           .insert({
-            tenant_id: tenantId,
-            ...values,
-            updated_at: new Date().toISOString()
-          })
-          .select()
-          .single();
+          tenant_id: tenantId,
+          ...values,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
         data = result.data;
         error = result.error;
       }
