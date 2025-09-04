@@ -28,7 +28,6 @@ import {
 import { Link } from 'react-router-dom';
 
 import { useEffectivePricing } from '@/hooks/useEffectivePricing';
-import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -750,8 +749,6 @@ function TenantAdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* AI Assistant */}
-      <FloatingAIAssistant />
     </div>
   );
 }

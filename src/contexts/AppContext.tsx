@@ -128,6 +128,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     businessSettings,
     formatCurrency,
     fetchBusinessSettings,
+    refreshBusinessSettings: fetchBusinessSettings, // Alias for compatibility
     isLoading,
   }), [businessSettings, formatCurrency, fetchBusinessSettings, isLoading]);
 

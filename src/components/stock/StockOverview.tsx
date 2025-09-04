@@ -15,6 +15,37 @@ import { useApp } from '@/contexts/AppContext';
 import { useSoftWarnings } from '@/hooks/useSoftWarnings';
 import { useLowStockProducts } from '@/features/products/hooks/useLowStockProducts';
 import { supabase } from '@/integrations/supabase/client';
+import { useStockWithRefresh } from '@/hooks/useUnifiedStock';
+
+// Unified Stock Display Component for Stock Overview
+const StockDisplay = ({ productId, locationId, fallbackStock }: { 
+  productId: string; 
+  locationId?: string; 
+  fallbackStock?: number;
+}) => {
+  const { stockData, loadStock } = useStockWithRefresh(productId, locationId);
+  const [hasLoaded, setHasLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!hasLoaded) {
+      loadStock();
+      setHasLoaded(true);
+    }
+  }, [loadStock, hasLoaded]);
+
+  const displayStock = stockData?.stock ?? fallbackStock ?? 0;
+  const isLoading = stockData?.isLoading ?? false;
+
+  if (isLoading) {
+    return <span className="text-muted-foreground">Loading...</span>;
+  }
+
+  return (
+    <span className={displayStock > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+      {displayStock}
+    </span>
+  );
+};
 
 export const StockOverview: React.FC = () => {
   const [inventoryData, setInventoryData] = useState<any[]>([]);
@@ -333,8 +364,10 @@ export const StockOverview: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {pagedData.map((product) => {
-                  const status = getStockStatus(product.stock_quantity, product.min_stock_level || 0);
-                  const value = (product.stock_quantity || 0) * (product.cost_price || 0);
+                  // Use fallback stock for status calculation (will be updated by StockDisplay component)
+                  const fallbackStock = product.stock_quantity || 0;
+                  const status = getStockStatus(fallbackStock, product.min_stock_level || 0);
+                  const value = fallbackStock * (product.cost_price || 0);
                   
                   return (
                     <TableRow 
@@ -345,7 +378,13 @@ export const StockOverview: React.FC = () => {
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.sku || '-'}</TableCell>
                       <TableCell>{product.store_locations?.name || 'N/A'}</TableCell>
-                      <TableCell>{product.stock_quantity || 0}</TableCell>
+                      <TableCell>
+                        <StockDisplay 
+                          productId={product.id} 
+                          locationId={product.location_id} 
+                          fallbackStock={product.stock_quantity || 0}
+                        />
+                      </TableCell>
                       <TableCell>{product.min_stock_level || 0}</TableCell>
                       <TableCell>
                         <Badge className={`text-white ${status.color}`}>

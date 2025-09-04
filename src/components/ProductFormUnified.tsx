@@ -18,6 +18,8 @@ import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useProductCRUD } from '@/features/products/crud/useProductCRUD';
 import { productSchema, ProductFormData } from '@/lib/validation-schemas';
 import { generateUniqueSku, makeVariantSku } from '@/lib/sku';
+import { updateProductInventory } from '@/lib/inventory-integration';
+import { useUnifiedStock } from '@/hooks/useUnifiedStock';
 import { generateUniqueBarcode, generateBarcodeFromProduct, formatBarcode } from '@/lib/barcode';
 
 // Helper function for SKU generation
@@ -78,6 +80,9 @@ const STEPS = [
 
 export default function ProductFormUnified({ product, onClose }: ProductFormProps) {
   const { tenantId } = useAuth();
+  
+  // Unified stock hook for cache management
+  const { clearCache: clearStockCache } = useUnifiedStock();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,7 +90,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   
   // Use unified CRUD hook
   const productCRUD = useProductCRUD(tenantId);
-  const { createItem: createProduct, updateItem: updateProduct, isLoading: isCreating, queryClient } = productCRUD;
+  const { createItem: createProduct, updateItem: updateProduct, isLoading: isCreating } = productCRUD;
   const isUpdating = isCreating;
   
   const [currentStep, setCurrentStep] = useState(0);
@@ -141,9 +146,9 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   // Load initial data if editing
   useEffect(() => {
     if (product) {
-      console.log('Loading product data for editing:', product);
-      console.log('All available product fields:', Object.keys(product));
-      console.log('Product data values:', {
+      console.log('🔍 PRODUCT FORM DEBUG: Loading product data for editing:', product);
+      console.log('🔍 PRODUCT FORM DEBUG: All available product fields:', Object.keys(product));
+      console.log('🔍 PRODUCT FORM DEBUG: Product data values:', {
         id: product.id,
         name: product.name,
         sku: product.sku,
@@ -175,8 +180,21 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         price: product.price, // This is auto-calculated by database trigger
       });
       
+      // Check current form values before reset
+      console.log('🔍 PRODUCT FORM DEBUG: Current form values before reset:', form.getValues());
+      
+      // Log pricing data from database for debugging
+      console.log('🔍 PRODUCT FORM DEBUG: Product pricing data loaded:', {
+        wholesale_price: product.wholesale_price,
+        retail_price: product.retail_price,
+        cost_price: product.cost_price,
+        wholesale_price_type: typeof product.wholesale_price,
+        retail_price_type: typeof product.retail_price,
+        cost_price_type: typeof product.cost_price,
+      });
+
       // Reset form with ALL available product data
-      form.reset({
+      const formData = {
         id: product.id,
         name: product.name || '',
         sku: product.sku || '',
@@ -197,7 +215,36 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         is_active: product.is_active ?? true,
         location_id: product.location_id || localStorage.getItem('selected_location') || '',
         image_url: product.image_url || '',
+      };
+      
+      console.log('🔍 PRODUCT FORM DEBUG: Form data being reset with:', formData);
+      console.log('🔍 PRODUCT FORM DEBUG: Specific pricing values in formData:', {
+        wholesale_price: formData.wholesale_price,
+        retail_price: formData.retail_price,
+        cost_price: formData.cost_price,
       });
+      form.reset(formData);
+      
+      // Check form values after reset with multiple delays to catch any timing issues
+      setTimeout(() => {
+        const formValues = form.getValues();
+        console.log('🔍 PRODUCT FORM DEBUG: Form values after reset (100ms):', formValues);
+        console.log('🔍 PRODUCT FORM DEBUG: Specific pricing values after reset (100ms):', {
+          wholesale_price: formValues.wholesale_price,
+          retail_price: formValues.retail_price,
+          cost_price: formValues.cost_price,
+        });
+      }, 100);
+      
+      setTimeout(() => {
+        const formValues = form.getValues();
+        console.log('🔍 PRODUCT FORM DEBUG: Form values after reset (500ms):', formValues);
+        console.log('🔍 PRODUCT FORM DEBUG: Specific pricing values after reset (500ms):', {
+          wholesale_price: formValues.wholesale_price,
+          retail_price: formValues.retail_price,
+          cost_price: formValues.cost_price,
+        });
+      }, 500);
       
       // Set additional state variables
       setHasExpiryDate(product.has_expiry_date || false);
@@ -641,7 +688,20 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       const wholesalePrice = Number(data.wholesale_price) || 0;
       const costPrice = Number(data.cost_price) || 0;
       
-      if (retailPrice <= 0 && wholesalePrice <= 0 && costPrice <= 0) {
+      // Log pricing validation for debugging
+      console.log('Pricing validation:', {
+        retailPrice,
+        wholesalePrice,
+        costPrice,
+        isEditing: !!product,
+      });
+      
+      // For new products, require at least one price field
+      // For existing products, allow zero prices if they were originally null in database
+      const isNewProduct = !product;
+      const hasValidPricing = retailPrice > 0 || wholesalePrice > 0 || costPrice > 0;
+      
+      if (isNewProduct && !hasValidPricing) {
         toast({
           title: 'Pricing Required',
           description: 'At least one price field (Retail, Wholesale, or Cost) must be greater than 0. Products cannot have zero pricing.',
@@ -704,7 +764,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
           return [key, value];
         }).filter(([_, value]) => value !== undefined)
       );
-      
+
       console.log('Cleaned form data:', cleanData);
 
       // Prepare payload with generated SKU, barcode and tenant_id
@@ -747,29 +807,14 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         console.log('Preserved additional fields from original product:', additionalFields);
       }
 
-      // Debug: Log the payload being sent
-      console.log('=== DEBUG: PRODUCT FORM SUBMISSION ===');
-      console.log('Form data before cleaning:', data);
-      console.log('Category ID from form:', data.category_id);
-      console.log('Category ID type:', typeof data.category_id);
-      console.log('Category ID length:', data.category_id?.length);
-      console.log('Barcode from form:', data.barcode);
-      console.log('Generated barcode:', barcode);
-      console.log('Validated price values:', { retailPrice, wholesalePrice, costPrice });
-      console.log('Cleaned data:', cleanData);
-      console.log('Final payload:', payload);
-      console.log('Retail price in payload:', payload.retail_price);
-      console.log('Wholesale price in payload:', payload.wholesale_price);
-      console.log('Cost price in payload:', payload.cost_price);
-      console.log('Barcode in payload:', payload.barcode);
-      console.log('Validation schema expects:', Object.keys(productSchema.shape));
-      console.log('Location ID in payload:', payload.location_id);
-      console.log('Available locations:', locations);
-      console.log('Selected location name:', locations.find(loc => loc.id === payload.location_id)?.name || 'Unknown');
-      console.log('Category ID in payload:', payload.category_id);
-      console.log('Unit ID in payload:', payload.unit_id);
-      console.log('Form values:', form.getValues());
-      console.log('=== END DEBUG ===');
+      // Log key submission data
+      console.log('Product form submission:', {
+        productId: product?.id,
+        name: data.name,
+        categoryId: data.category_id,
+        locationId: payload.location_id,
+        pricing: { retailPrice, wholesalePrice, costPrice }
+      });
       
       // Validate location data before submission
       if (!payload.location_id) {
@@ -795,100 +840,226 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       }
 
       let savedProduct;
+      let stockChanged = false;
+      let oldStockQuantity = 0;
+      
       if (product) {
+        // Track stock change for inventory journal
+        oldStockQuantity = product.stock_quantity || 0;
+        const newStockQuantity = payload.stock_quantity || 0;
+        stockChanged = oldStockQuantity !== newStockQuantity;
+        
         // Update existing product
         savedProduct = await updateProduct(product.id, payload);
-        // TODO: Re-enable when inventory_journal table is available
-        // await createInventoryJournalEntry(savedProduct, false);
+        
+        // Create inventory journal entry if stock changed
+        if (stockChanged && payload.location_id) {
+          try {
+            const stockDifference = newStockQuantity - oldStockQuantity;
+            const inventoryTransactions = [{
+              productId: savedProduct.id,
+              quantity: Math.abs(stockDifference),
+              type: 'adjustment' as const,
+              referenceId: `product_edit_${savedProduct.id}`,
+              referenceType: 'product_edit',
+              notes: `Stock ${stockDifference > 0 ? 'increase' : 'decrease'} via product edit: ${oldStockQuantity} → ${newStockQuantity}`
+            }];
+            
+            await updateProductInventory(tenantId, inventoryTransactions);
+            console.log('Inventory journal entry created for product stock change');
+          } catch (inventoryError) {
+            console.warn('Failed to create inventory journal entry:', inventoryError);
+            // Don't fail the product update if inventory journal fails
+          }
+        }
       } else {
         // Create new product
         savedProduct = await createProduct(payload);
-        // TODO: Re-enable when inventory_journal table is available
-        // await createInventoryJournalEntry(savedProduct, true);
+        
+        // Create inventory journal entry for new product with initial stock
+        if (payload.stock_quantity && payload.stock_quantity > 0 && payload.location_id) {
+          try {
+            const inventoryTransactions = [{
+              productId: savedProduct.id,
+              quantity: payload.stock_quantity,
+              type: 'adjustment' as const,
+              referenceId: `product_create_${savedProduct.id}`,
+              referenceType: 'product_create',
+              notes: `Initial stock for new product: ${payload.stock_quantity}`
+            }];
+            
+            await updateProductInventory(tenantId, inventoryTransactions);
+            console.log('Inventory journal entry created for new product initial stock');
+          } catch (inventoryError) {
+            console.warn('Failed to create inventory journal entry for new product:', inventoryError);
+            // Don't fail the product creation if inventory journal fails
+          }
+        }
       }
 
       // Handle variants if product has variants
       if (hasVariants && variants.length > 0) {
-        // Validate variant pricing before processing
-        for (let i = 0; i < variants.length; i++) {
-          const variant = variants[i];
-          const variantRetailPrice = Number(variant.retail_price) || 0;
-          const variantWholesalePrice = Number(variant.wholesale_price) || 0;
-          const variantCostPrice = Number(variant.cost_price) || 0;
-          
-          if (variantRetailPrice <= 0 && variantWholesalePrice <= 0 && variantCostPrice <= 0) {
-            toast({
-              title: 'Variant Pricing Required',
-              description: `Variant "${variant.name}: ${variant.value}" must have at least one price field greater than 0.`,
-              variant: 'destructive',
-            });
-            setLoading(false);
-            return;
-          }
-        }
-
+        console.log('Processing variants:', { count: variants.length });
+        
         try {
+          // Process variants using direct Supabase calls for reliability
+          const processedVariants = [];
+          
           for (const variant of variants) {
             const variantPayload = {
               name: variant.name,
               value: variant.value,
               sku: variant.sku || makeVariantSku(savedProduct.sku, variant.name),
-              price_adjustment: variant.price_adjustment,
-              stock_quantity: variant.stock_quantity,
-              cost_price: variant.cost_price,
-              wholesale_price: variant.wholesale_price,
-              retail_price: variant.retail_price,
-              image_url: variant.image_url,
-              is_active: variant.is_active,
+              price_adjustment: Number(variant.price_adjustment) || 0,
+              stock_quantity: Number(variant.stock_quantity) || 0,
+              cost_price: Number(variant.cost_price) || 0,
+              wholesale_price: Number(variant.wholesale_price) || 0,
+              retail_price: Number(variant.retail_price) || 0,
+              image_url: variant.image_url || null,
+              is_active: variant.is_active !== false,
               product_id: savedProduct.id,
+              tenant_id: tenantId, // Required for RLS policy
             };
+
+            console.log('Processing variant:', { 
+              variantId: variant.id, 
+              name: variant.name, 
+              value: variant.value
+            });
 
             if (variant.id) {
               // Update existing variant
-              const { error: updateError } = await supabase
+              console.log('Updating existing variant:', variant.id);
+              
+              // First, check if the variant exists and belongs to current tenant
+              const { data: existingVariant, error: checkError } = await supabase
+                .from('product_variants')
+                .select('id, tenant_id, product_id')
+                .eq('id', variant.id)
+                .eq('tenant_id', tenantId)
+                .single();
+              
+              if (checkError || !existingVariant) {
+                console.log('Variant not found, creating new one:', variant.id);
+                // Variant doesn't exist, create a new one
+                const { data: insertData, error: insertError } = await supabase
+                  .from('product_variants')
+                  .insert(variantPayload)
+                  .select('*')
+                  .single();
+                
+                if (insertError) {
+                  console.error('Error creating variant:', insertError);
+                  throw new Error(`Failed to create variant "${variant.name}: ${variant.value}": ${insertError.message}`);
+                }
+                
+                processedVariants.push(insertData);
+                console.log('Variant created successfully:', insertData.id);
+              } else {
+                // Variant exists, update it
+                                const { data: updateData, error: updateError } = await supabase
                 .from('product_variants')
                 .update(variantPayload)
-                .eq('id', variant.id);
+                  .eq('id', variant.id)
+                  .select('*');
               
               if (updateError) {
                 console.error('Error updating variant:', updateError);
-                throw new Error(`Failed to update variant: ${updateError.message}`);
+                  throw new Error(`Failed to update variant "${variant.name}: ${variant.value}": ${updateError.message}`);
+                }
+                
+                if (!updateData || updateData.length === 0) {
+                  console.log('Update returned no data, creating new variant');
+                  // Update returned no data, try creating a new variant instead
+                  const { data: insertData, error: insertError } = await supabase
+                    .from('product_variants')
+                    .insert(variantPayload)
+                    .select('*')
+                    .single();
+                  
+                  if (insertError) {
+                    console.error('Error creating variant as fallback:', insertError);
+                    throw new Error(`Failed to create variant "${variant.name}: ${variant.value}": ${insertError.message}`);
+                  }
+                  
+                  processedVariants.push(insertData);
+                  console.log('Variant created successfully (fallback):', insertData.id);
+                } else {
+                  processedVariants.push(updateData[0]);
+                  console.log('Variant updated successfully:', variant.id);
+                }
               }
             } else {
               // Create new variant
-              const { error: insertError } = await supabase
+              console.log('Creating new variant');
+              const { data: insertData, error: insertError } = await supabase
                 .from('product_variants')
-                .insert(variantPayload);
+                .insert(variantPayload)
+                .select('*')
+                .single();
               
               if (insertError) {
                 console.error('Error creating variant:', insertError);
-                throw new Error(`Failed to create variant: ${insertError.message}`);
-              }
+                  throw new Error(`Failed to create variant "${variant.name}: ${variant.value}": ${insertError.message}`);
+                }
+                
+                processedVariants.push(insertData);
+                console.log('Variant created successfully');
             }
           }
-        } catch (variantError) {
-          console.error('Error handling variants:', variantError);
-          // Don't fail the entire product save, just log the variant error
+          
+          console.log('All variants processed successfully:', processedVariants.length);
+          
+          // Show success message with variant count
           toast({
-            title: 'Warning',
-            description: 'Product saved but there was an issue with variants. Check console for details.',
+            title: 'Product Saved Successfully',
+            description: `Product and ${processedVariants.length} variant${processedVariants.length !== 1 ? 's' : ''} saved successfully.`,
+            variant: 'default',
+          });
+          
+        } catch (variantError) {
+          console.error('Error processing variants:', variantError);
+          
+          // Show detailed error to user
+          toast({
+            title: 'Variant Processing Failed',
+            description: `Product was saved, but variants failed: ${variantError.message}`,
             variant: 'destructive',
           });
+          
+          // Don't return here - let the product save succeed
+          // User can retry variant updates later
         }
+      } else {
+        // No variants - show simple success message
+        toast({
+          title: 'Product Saved Successfully',
+          description: 'Product saved successfully.',
+          variant: 'default',
+        });
       }
       
       // Invalidate queries to refresh product table
-      if (queryClient) {
-        queryClient.invalidateQueries({ queryKey: ['products', tenantId] });
-        queryClient.invalidateQueries({ queryKey: ['product_variants'] });
+      // if (queryClient) { // queryClient is no longer available here
+      //   queryClient.invalidateQueries({ queryKey: ['products', tenantId] });
+      //   queryClient.invalidateQueries({ queryKey: ['product_variants'] });
+      //   console.log('Product queries invalidated for real-time update');
+      // }
+      // Invalidate queries to refresh product table
+try {
+  await productCRUD.invalidate();
         console.log('Product queries invalidated for real-time update');
+} catch (error) {
+  console.warn('Failed to invalidate queries:', error);
+      }
+      
+      // Clear stock cache to ensure real-time updates across all components
+      if (stockChanged || !product) {
+        clearStockCache();
+        console.log('Stock cache cleared after product update');
       }
       
       onClose(true);
-      toast({
-        title: 'Success',
-        description: product ? 'Product updated successfully' : 'Product created successfully',
-      });
     } catch (error) {
       console.error('Error saving product:', error);
       
@@ -1141,9 +1312,9 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                 <div className="space-y-2">
                   <Label htmlFor="barcode">Barcode</Label>
                   <div className="flex gap-2">
-                    <Input
-                      {...form.register('barcode')}
-                      placeholder="Enter barcode (optional)"
+                  <Input
+                    {...form.register('barcode')}
+                    placeholder="Enter barcode (optional)"
                       className="flex-1"
                     />
                     <Button
@@ -1218,7 +1389,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               <div className="space-y-2">
                 <Label htmlFor="location_id">Location *</Label>
                 <div className="flex gap-2">
-                  <Select
+                <Select
                     value={form.watch('location_id') || ''}
                     onValueChange={(value) => {
                       console.log('Setting location_id to:', value);
@@ -1232,16 +1403,16 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                     }}
                   >
                     <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                   
                   <Button
                     type="button"
@@ -1297,29 +1468,29 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                   </p>
                 </div>
               )}
-                              <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="category_id">Category *</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category_id">Category *</Label>
                     {categories.length > 0 ? (
-                      <Select
+                  <Select
                         value={form.watch('category_id') || ''}
-                                            onValueChange={(value) => {
+                    onValueChange={(value) => {
                       console.log('Setting category_id to:', value);
                       form.setValue('category_id', value);
                       form.setValue('subcategory_id', '');
                     }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                     ) : (
                       <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                         <p className="text-sm text-yellow-800">
@@ -1327,10 +1498,10 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                         </p>
                       </div>
                     )}
-                    {form.formState.errors.category_id && (
-                      <p className="text-sm text-red-500">{form.formState.errors.category_id.message}</p>
-                    )}
-                  </div>
+                  {form.formState.errors.category_id && (
+                    <p className="text-sm text-red-500">{form.formState.errors.category_id.message}</p>
+                  )}
+                </div>
 
               </div>
               
@@ -1606,10 +1777,15 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                         step="0.01"
                         {...form.register('wholesale_price', { valueAsNumber: true })}
                         placeholder="0.00"
+                        onChange={(e) => {
+                          console.log('🔍 WHOLESALE PRICE INPUT: onChange triggered with value:', e.target.value);
+                          form.register('wholesale_price', { valueAsNumber: true }).onChange(e);
+                        }}
                       />
                       {form.formState.errors.wholesale_price && (
                         <p className="text-sm text-red-500">{form.formState.errors.wholesale_price.message}</p>
                       )}
+                      <p className="text-xs text-gray-500">Current value: {form.watch('wholesale_price')}</p>
                     </div>
                     
                     <div className="space-y-2">
@@ -1620,10 +1796,15 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
                         step="0.01"
                         {...form.register('retail_price', { valueAsNumber: true })}
                         placeholder="0.00"
+                        onChange={(e) => {
+                          console.log('🔍 RETAIL PRICE INPUT: onChange triggered with value:', e.target.value);
+                          form.register('retail_price', { valueAsNumber: true }).onChange(e);
+                        }}
                       />
                       {form.formState.errors.retail_price && (
                         <p className="text-sm text-red-500">{form.formState.errors.retail_price.message}</p>
                       )}
+                      <p className="text-xs text-gray-500">Current value: {form.watch('retail_price')}</p>
                     </div>
                   </div>
                 </div>

@@ -1,5 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Import the stock cache clearing function
+let clearStockCache: (() => void) | null = null;
+
+// Function to set the cache clearing function (will be called from the hook)
+export const setStockCacheClearFunction = (clearFn: () => void) => {
+  clearStockCache = clearFn;
+};
+
 export interface InventoryTransaction {
   productId: string;
   variantId?: string;
@@ -110,14 +118,15 @@ export const updateProductInventory = async (
           continue;
         }
 
-        // Get business settings for negative stock control
+        // Get business settings for negative stock control and overselling
         const { data: businessSettings } = await supabase
           .from('business_settings')
-          .select('enable_negative_stock, stock_accounting_method')
+          .select('enable_negative_stock, enable_overselling, stock_accounting_method')
           .eq('tenant_id', tenantId)
           .single();
 
         const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+        const allowOverselling = businessSettings?.enable_overselling ?? false;
 
         const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
           ? (variant.stock_quantity || 0) + transaction.quantity
@@ -126,7 +135,7 @@ export const updateProductInventory = async (
         const { error: updateVariantError } = await supabase
           .from('product_variants')
           .update({ 
-            stock_quantity: allowNegativeStock ? newQuantity : Math.max(0, newQuantity) 
+            stock_quantity: (allowNegativeStock || allowOverselling) ? newQuantity : Math.max(0, newQuantity) 
           })
           .eq('id', transaction.variantId);
 
@@ -146,14 +155,15 @@ export const updateProductInventory = async (
           continue;
         }
 
-        // Get business settings for negative stock control and costing method
+        // Get business settings for negative stock control, overselling, and costing method
         const { data: businessSettings } = await supabase
           .from('business_settings')
-          .select('enable_negative_stock, stock_accounting_method')
+          .select('enable_negative_stock, enable_overselling, stock_accounting_method')
           .eq('tenant_id', tenantId)
           .single();
 
         const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+        const allowOverselling = businessSettings?.enable_overselling ?? false;
         const stockMethod = businessSettings?.stock_accounting_method || 'FIFO';
 
         const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
@@ -162,7 +172,7 @@ export const updateProductInventory = async (
 
         // Prepare update data
         const updateData: any = { 
-          stock_quantity: allowNegativeStock ? newQuantity : Math.max(0, newQuantity) 
+          stock_quantity: (allowNegativeStock || allowOverselling) ? newQuantity : Math.max(0, newQuantity) 
         };
 
         // Update purchase price for purchase transactions
@@ -196,6 +206,11 @@ export const updateProductInventory = async (
     }
 
     console.log('Inventory and purchase prices updated successfully for', transactions.length, 'transactions');
+    
+    // Clear stock cache to ensure real-time updates across all components
+    if (clearStockCache) {
+      clearStockCache();
+    }
   } catch (error) {
     console.error('Error updating inventory:', error);
     throw error;

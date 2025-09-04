@@ -191,9 +191,9 @@ export const UnifiedMigration: React.FC = () => {
     }
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
     try {
-      const template = migrationService.generateTemplate(importType);
+      const template = await migrationService.generateTemplate(importType);
       migrationService.downloadCSV(template.csvContent, template.fileName);
       
       toast({

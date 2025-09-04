@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useStableCallback, useStableValue } from "@/hooks/useStableCallback";
 import { createEnhancedSalesJournalEntry } from "@/lib/accounting-integration";
 import { processSaleInventory } from "@/lib/inventory-integration";
+import { useUnifiedStock } from "@/hooks/useUnifiedStock";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   
   const { pos: posSettings, tax: taxSettings, inventory: inventorySettings, documents: docSettings } = useBusinessSettings();
   
+  // Unified stock hook for cache management
+  const { clearCache: clearStockCache } = useUnifiedStock();
+  
   // Centralized warning system
   const {
     showLowStockWarning,
@@ -176,13 +180,14 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedVariant, setSelectedVariant] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(1.0);
   const [customPrice, setCustomPrice] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [payments, setPayments] = useState<any[]>([]);
   const [remainingBalance, setRemainingBalance] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mode, setMode] = useState<"sale" | "quote">(initialMode);
+  const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showCashChangeModal, setShowCashChangeModal] = useState(false);
   const [showMpesaModal, setShowMpesaModal] = useState(false);
@@ -519,15 +524,33 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
 
     let variant = null;
-    let unitPrice = product.price;
+    let unitPrice = getCustomerAppropriatePrice(product);
     let productName = product.name;
 
+    // Log pricing information for debugging
+    console.log('💰 PRICING LOGIC:', {
+      customerName: selectedCustomer?.name,
+      isReseller: selectedCustomer?.is_reseller,
+      productName: product.name,
+      retailPrice: product.retail_price || product.price,
+      wholesalePrice: product.wholesale_price || product.price,
+      selectedPrice: unitPrice,
+      pricingType: selectedCustomer?.is_reseller ? 'WHOLESALE' : 'RETAIL'
+    });
 
     if (selectedVariant && selectedVariant !== "no-variant") {
       variant = product.product_variants.find((v: any) => v.id === selectedVariant);
       if (variant) {
-        unitPrice = variant.sale_price || product.price;
+        unitPrice = getCustomerAppropriatePrice(product, variant);
         productName = `${productName} - ${variant.name}: ${variant.value}`;
+        
+        console.log('💰 VARIANT PRICING LOGIC:', {
+          variantName: `${variant.name}: ${variant.value}`,
+          variantRetailPrice: variant.retail_price || product.retail_price || product.price,
+          variantWholesalePrice: variant.wholesale_price || product.wholesale_price || product.price,
+          selectedPrice: unitPrice,
+          pricingType: selectedCustomer?.is_reseller ? 'WHOLESALE' : 'RETAIL'
+        });
       }
     }
 
@@ -772,7 +795,78 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
   const handleCustomerChange = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
-    setSelectedCustomer(customer || { id: 'walk-in', name: 'Walk-in Customer' });
+    const newCustomer = customer || { id: 'walk-in', name: 'Walk-in Customer' };
+    setSelectedCustomer(newCustomer);
+    
+    // Update prices for existing items in cart based on new customer type
+    if (saleItems.length > 0) {
+      setIsUpdatingPrices(true);
+      console.log('🔄 UPDATING CART PRICES FOR CUSTOMER CHANGE:', {
+        customerName: newCustomer.name,
+        isReseller: newCustomer.is_reseller,
+        itemsCount: saleItems.length
+      });
+      
+      const updatedItems = saleItems.map(item => {
+        // Find the product for this item
+        const product = products.find(p => p.id === item.product_id);
+        if (!product) return item;
+        
+        // Find variant if applicable
+        let variant = null;
+        if (item.variant_id) {
+          variant = product.product_variants?.find((v: any) => v.id === item.variant_id);
+        }
+        
+        // Get the appropriate price for the new customer type
+        const newUnitPrice = getCustomerAppropriatePrice(product, variant, newCustomer);
+        
+        // Only update if price actually changed
+        if (newUnitPrice !== item.unit_price) {
+          const newTotalPrice = newUnitPrice * item.quantity;
+          
+          console.log('💰 PRICE UPDATE:', {
+            productName: item.product_name,
+            variantName: item.variant_name || 'N/A',
+            oldPrice: item.unit_price,
+            newPrice: newUnitPrice,
+            quantity: item.quantity,
+            oldTotal: item.total_price,
+            newTotal: newTotalPrice,
+            pricingType: newCustomer.is_reseller ? 'WHOLESALE' : 'RETAIL'
+          });
+          
+          return {
+            ...item,
+            unit_price: newUnitPrice,
+            total_price: newTotalPrice
+          };
+        }
+        
+        return item;
+      });
+      
+      // Update the sale items with new prices
+      setSaleItems(updatedItems);
+      
+      // Show notification about price changes
+      const priceChanges = updatedItems.filter((item, index) => 
+        item.unit_price !== saleItems[index].unit_price
+      );
+      
+      if (priceChanges.length > 0) {
+        toast({
+          title: 'Prices Updated',
+          description: `Updated prices for ${priceChanges.length} item${priceChanges.length !== 1 ? 's' : ''} based on ${newCustomer.is_reseller ? 'wholesale' : 'retail'} pricing.`,
+          variant: 'default',
+        });
+      }
+      
+      // Reset loading state after a brief delay to show the update
+      setTimeout(() => {
+        setIsUpdatingPrices(false);
+      }, 1000);
+    }
     
     // Show enhanced wholesale pricing warning for reseller customers
     if (customer?.is_reseller) {
@@ -795,8 +889,10 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     }
   };
 
-  const getCustomerAppropriatePrice = (product: any, variant?: any) => {
-    if (selectedCustomer?.is_reseller) {
+  const getCustomerAppropriatePrice = (product: any, variant?: any, customer?: any) => {
+    const currentCustomer = customer || selectedCustomer;
+    
+    if (currentCustomer?.is_reseller) {
       // Return wholesale price for resellers
       if (variant) {
         return variant.wholesale_price || variant.sale_price || product.wholesale_price || product.price;
@@ -1170,6 +1266,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       }));
       await processSaleInventory(sale.id, tenantId, inventoryItems);
 
+      // Clear stock cache to ensure real-time updates across all components
+      clearStockCache();
+
       // Process all post-sale operations in parallel for better performance
       const postSaleOperations = [];
 
@@ -1310,6 +1409,32 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           </Button>
         </div>
       </div>
+
+      {/* Reseller Customer Alert Badge */}
+      {selectedCustomer?.is_reseller && (
+        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center animate-pulse">
+                <span className="text-orange-600 text-sm font-bold">W</span>
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-orange-800 font-semibold text-sm">
+                Wholesale Pricing Active
+              </h3>
+              <p className="text-orange-700 text-xs mt-1">
+                All items in this {mode === "sale" ? "sale" : "quote"} are using wholesale pricing for <strong>{selectedCustomer.name}</strong>
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                Reseller Customer
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(validateAndPrepareSubmit)} className="space-y-6">
@@ -1484,14 +1609,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                      min="0"
                                      step="0.01"
                                      placeholder={(() => {
-                                       let defaultPrice = product.price;
-                                       if (selectedVariant && selectedVariant !== "no-variant") {
-                                         const variant = product.product_variants.find((v: any) => v.id === selectedVariant);
-                                         if (variant) {
-                                           defaultPrice = variant.sale_price || product.price;
-                                         }
-                                       }
-                                       return `Default: ${formatCurrency(defaultPrice)}`;
+                                       const defaultPrice = getCustomerAppropriatePrice(product, selectedVariant && selectedVariant !== "no-variant" ? product.product_variants.find((v: any) => v.id === selectedVariant) : undefined);
+                                       const pricingType = selectedCustomer?.is_reseller ? 'Wholesale' : 'Retail';
+                                       return `${pricingType}: ${formatCurrency(defaultPrice)}`;
                                      })()}
                                      value={customPrice || ""}
                                      onChange={(e) => setCustomPrice(e.target.value ? parseFloat(e.target.value) : null)}
@@ -1506,23 +1626,23 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                                        <Input
                                          type="number"
                                          min="0"
-                                         step="1"
+                                         step="0.01"
                                          value={quantity}
                                          onChange={(e) => {
                                            const value = e.target.value;
                                            if (value === '') {
                                              setQuantity(0);
                                            } else {
-                                             const num = parseInt(value);
+                                             const num = parseFloat(value);
                                              setQuantity(isNaN(num) || num < 0 ? 0 : num);
                                            }
                                          }}
                                          onBlur={(e) => {
                                            if (quantity === 0) {
-                                             setQuantity(1);
+                                             setQuantity(1.0);
                                            }
                                          }}
-                                         placeholder="Enter quantity"
+                                         placeholder="Enter quantity (e.g., 1.5, 2.25)"
                                        />
                                     </div>
                                                                          <Button 
@@ -1557,19 +1677,25 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                         <ScrollArea className="h-48">
                           <div className="space-y-2">
                             {saleItems.map((item, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                              <div key={index} className={`flex items-center justify-between p-2 bg-muted/50 rounded transition-all duration-300 ${isUpdatingPrices ? 'animate-pulse bg-blue-50' : ''}`}>
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{item.product_name}</p>
                                   <p className="text-xs text-muted-foreground">
                                     {item.quantity} × {formatCurrency(item.unit_price)}
+                                    {isUpdatingPrices && (
+                                      <span className="ml-2 text-blue-600 text-xs">Updating...</span>
+                                    )}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold">{formatCurrency(item.total_price)}</span>
+                                  <span className={`font-semibold transition-colors duration-300 ${isUpdatingPrices ? 'text-blue-600' : ''}`}>
+                                    {formatCurrency(item.total_price)}
+                                  </span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => removeItem(index)}
+                                    disabled={isUpdatingPrices}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -1624,14 +1750,24 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                       name="customer_id"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Customer</FormLabel>
+                          <FormLabel className="flex items-center gap-2">
+                            Customer
+                            {selectedCustomer?.is_reseller && (
+                              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                                Wholesale Pricing
+                              </span>
+                            )}
+                            {isUpdatingPrices && (
+                              <span className="text-xs text-blue-600 animate-pulse">Updating prices...</span>
+                            )}
+                          </FormLabel>
                           <div className="flex gap-1">
                             <Select onValueChange={(value) => {
                               field.onChange(value);
                               handleCustomerChange(value);
-                            }} value={field.value}>
+                            }} value={field.value} disabled={isUpdatingPrices}>
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className={isUpdatingPrices ? 'animate-pulse' : ''}>
                                   <SelectValue placeholder="Select customer" />
                                 </SelectTrigger>
                               </FormControl>

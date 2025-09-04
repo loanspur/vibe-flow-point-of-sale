@@ -465,20 +465,56 @@ export function BusinessSettingsEnhanced() {
 
       console.log('Saving business settings:', values);
 
-      // Upsert business settings to Supabase
-      const { data, error } = await supabase
+      // Check if settings exist first, then update or insert
+      const { data: existingSettings } = await supabase
         .from('business_settings')
-        .upsert({
-          tenant_id: tenantId,
-          ...values,
-          updated_at: new Date().toISOString()
-        })
-        .select()
+        .select('id')
+        .eq('tenant_id', tenantId)
         .single();
+
+      let data, error;
+      
+      if (existingSettings) {
+        // Update existing settings
+        const result = await supabase
+          .from('business_settings')
+          .update({
+            ...values,
+            updated_at: new Date().toISOString()
+          })
+          .eq('tenant_id', tenantId)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      } else {
+        // Insert new settings
+        const result = await supabase
+          .from('business_settings')
+          .insert({
+            tenant_id: tenantId,
+            ...values,
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error('Error saving business settings:', error);
-        throw error;
+        
+        // Handle specific error types
+        if (error.code === '23505') {
+          throw new Error('Settings already exist for this tenant. Please try refreshing the page.');
+        } else if (error.code === '23503') {
+          throw new Error('Invalid reference data. Please check your tenant configuration.');
+        } else if (error.code === 'PGRST116') {
+          throw new Error('Database constraint violation. Please check your input data.');
+        } else {
+          throw new Error(`Database error: ${error.message}`);
+        }
       }
 
       console.log('Saved business settings:', data);
@@ -492,9 +528,23 @@ export function BusinessSettingsEnhanced() {
       });
     } catch (error) {
       console.error('Error saving settings:', error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to save settings. Please try again.';
+      
+      if (error.message.includes('tenant')) {
+        errorMessage = 'Tenant configuration error. Please contact support.';
+      } else if (error.message.includes('constraint')) {
+        errorMessage = 'Invalid data provided. Please check your input and try again.';
+      } else if (error.message.includes('Database error')) {
+        errorMessage = error.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: "Error",
-        description: `Failed to save settings: ${error.message}`,
+        title: "Error Saving Settings",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
