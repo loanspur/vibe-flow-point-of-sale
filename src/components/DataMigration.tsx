@@ -26,7 +26,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { recalculateInventoryLevels } from '@/lib/inventory-integration';
+import { recalculateInventoryLevels, updateProductInventory } from '@/lib/inventory-integration';
+import { useUnifiedStock } from '@/hooks/useUnifiedStock';
 
 interface RecordStatus {
   rowNumber: number;
@@ -63,6 +64,9 @@ export const DataMigration: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [recordStatuses, setRecordStatuses] = useState<RecordStatus[]>([]);
+  
+  // Unified stock hook for cache management
+  const { clearCache: clearStockCache } = useUnifiedStock();
 
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -103,8 +107,8 @@ export const DataMigration: React.FC = () => {
   };
 
   const validateProductsData = (headers: string[]) => {
-    const requiredFields = ['name', 'price'];
-    const optionalFields = ['description', 'sku', 'barcode', 'cost_price', 'stock_quantity', 'category', 'brand', 'location', 'unit'];
+    const requiredFields = ['name'];
+    const optionalFields = ['description', 'sku', 'barcode', 'retail_price', 'wholesale_price', 'cost_price', 'stock_quantity', 'min_stock_level', 'category', 'unit', 'location'];
     return validateHeaders(headers, requiredFields, optionalFields);
   };
 
@@ -503,6 +507,7 @@ export const DataMigration: React.FC = () => {
   };
 
   const exportData = async () => {
+    console.log('📊 exportData called - generating export with unified stock calculation');
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -542,27 +547,123 @@ export const DataMigration: React.FC = () => {
         case 'products':
           const { data: products, error: productsError } = await supabase
             .from('products')
-            .select('*, product_categories(name)')
+            .select(`
+              *,
+              product_categories(name),
+              locations(name)
+            `)
             .eq('tenant_id', profile.tenant_id);
           
           console.log('Products export query result:', { products, error: productsError });
           console.log('Products count:', products?.length || 0);
           
-          data = (products || []).map(p => {
+          // Calculate unified stock for each product
+          data = await Promise.all((products || []).map(async (p) => {
+            let calculatedStock = p.stock_quantity || 0;
+            
+            try {
+              // Get business settings for negative stock control
+              const { data: businessSettings } = await supabase
+                .from('business_settings')
+                .select('enable_negative_stock, enable_overselling')
+                .eq('tenant_id', profile.tenant_id)
+                .single();
+
+              const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+              const allowOverselling = businessSettings?.enable_overselling ?? false;
+              
+              // Calculate stock adjustments
+              let adjustments = 0;
+              if (p.location_id) {
+                const { data: adjustmentData } = await supabase
+                  .from('stock_adjustment_items')
+                  .select(`
+                    adjustment_quantity,
+                    stock_adjustments!inner(tenant_id, status)
+                  `)
+                  .eq('product_id', p.id)
+                  .eq('location_id', p.location_id)
+                  .eq('stock_adjustments.tenant_id', profile.tenant_id)
+                  .eq('stock_adjustments.status', 'approved');
+
+                if (adjustmentData) {
+                  adjustments = adjustmentData.reduce((total, adj) => total + adj.adjustment_quantity, 0);
+                }
+              }
+
+              // Calculate recent sales
+              let recentSales = 0;
+              if (p.location_id) {
+                const { data: salesData } = await supabase
+                  .from('sale_items')
+                  .select(`
+                    quantity,
+                    sales!inner(tenant_id, location_id, created_at)
+                  `)
+                  .eq('product_id', p.id)
+                  .eq('sales.tenant_id', profile.tenant_id)
+                  .eq('sales.location_id', p.location_id)
+                  .gte('sales.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+                if (salesData) {
+                  recentSales = salesData.reduce((total, sale) => total + sale.quantity, 0);
+                }
+              }
+
+              // Calculate final stock using unified method
+              calculatedStock = (p.stock_quantity || 0) + adjustments - recentSales;
+              
+              // Apply minimum stock threshold only if negative stock is not allowed
+              if (!allowNegativeStock && !allowOverselling) {
+                calculatedStock = Math.max(0, calculatedStock);
+              }
+              
+              console.log(`Unified stock calculation for ${p.name}:`, {
+                baseStock: p.stock_quantity || 0,
+                adjustments,
+                recentSales,
+                finalStock: calculatedStock,
+                allowNegativeStock,
+                allowOverselling
+              });
+              
+            } catch (stockError) {
+              console.warn(`Error calculating unified stock for ${p.name}:`, stockError);
+              // Fall back to raw stock_quantity if calculation fails
+            }
+            
             const mappedData = {
               name: p.name || '',
               description: p.description || '',
-              price: p.price || 0,
-              cost_price: p.cost_price || 0,
               sku: p.sku || '',
               barcode: p.barcode || '',
-              stock_quantity: p.stock_quantity != null ? p.stock_quantity : 0,
-              category: p.product_categories?.name || ''
+              retail_price: p.retail_price || p.price || 0,
+              wholesale_price: p.wholesale_price || 0,
+              cost_price: p.cost_price || 0,
+              stock_quantity: calculatedStock,
+              min_stock_level: p.min_stock_level || 0,
+              category: p.product_categories?.name || '',
+              unit: 'pcs', // Default unit
+              location: p.locations?.name || 'Main Store'
             };
-            console.log('Mapped product data:', p.name, 'stock_quantity:', p.stock_quantity, 'mapped:', mappedData.stock_quantity);
+            console.log('Mapped product data:', p.name, 'raw_stock:', p.stock_quantity, 'calculated_stock:', calculatedStock);
+            
+            // Special logging for water tank
+            if (p.name && p.name.toLowerCase().includes('water')) {
+              console.log('🌊 WATER TANK EXPORT DATA:', {
+                name: p.name,
+                rawStock: p.stock_quantity,
+                calculatedStock,
+                retailPrice: p.retail_price,
+                wholesalePrice: p.wholesale_price,
+                costPrice: p.cost_price
+              });
+            }
+            
             return mappedData;
-          });
-          headers = ['name', 'description', 'price', 'cost_price', 'sku', 'barcode', 'stock_quantity', 'category'];
+          }));
+          
+          headers = ['name', 'description', 'sku', 'barcode', 'retail_price', 'wholesale_price', 'cost_price', 'stock_quantity', 'min_stock_level', 'category', 'unit', 'location'];
           filename = 'products_export.csv';
           break;
 
@@ -633,6 +734,24 @@ export const DataMigration: React.FC = () => {
       for (const productToFix of migratedProductsToFix) {
         console.log(`Attempting to fix ${productToFix.name} to ${productToFix.correctStock} units`);
         
+        // First, get the current product data to track stock changes
+        const { data: currentProduct, error: fetchError } = await supabase
+          .from('products')
+          .select('id, name, stock_quantity, location_id')
+          .eq('tenant_id', profile.tenant_id)
+          .eq('name', productToFix.name)
+          .single();
+          
+        if (fetchError || !currentProduct) {
+          console.error(`Error fetching product ${productToFix.name}:`, fetchError);
+          continue;
+        }
+        
+        const oldStockQuantity = currentProduct.stock_quantity || 0;
+        const newStockQuantity = productToFix.correctStock;
+        const stockDifference = newStockQuantity - oldStockQuantity;
+        
+        // Update the product stock quantity directly
         const { data: updateResult, error: fixError } = await supabase
           .from('products')
           .update({ stock_quantity: productToFix.correctStock })
@@ -644,6 +763,26 @@ export const DataMigration: React.FC = () => {
           console.error(`Error fixing ${productToFix.name}:`, fixError);
         } else {
           console.log(`Successfully updated ${productToFix.name}:`, updateResult);
+          
+          // Create inventory journal entry for the stock change
+          if (stockDifference !== 0 && currentProduct.location_id) {
+            try {
+              const inventoryTransactions = [{
+                productId: currentProduct.id,
+                quantity: Math.abs(stockDifference),
+                type: 'adjustment' as const,
+                referenceId: `data_migration_fix_${currentProduct.id}`,
+                referenceType: 'data_migration',
+                notes: `Stock ${stockDifference > 0 ? 'increase' : 'decrease'} via data migration fix: ${oldStockQuantity} → ${newStockQuantity}`
+              }];
+              
+              await updateProductInventory(profile.tenant_id, inventoryTransactions);
+              console.log(`Inventory journal entry created for ${productToFix.name} stock change`);
+            } catch (inventoryError) {
+              console.warn(`Failed to create inventory journal entry for ${productToFix.name}:`, inventoryError);
+              // Don't fail the stock fix if inventory journal fails
+            }
+          }
         }
       }
       
@@ -657,6 +796,10 @@ export const DataMigration: React.FC = () => {
       console.log('Stock after fix:', updatedProducts);
       
       const results = await recalculateInventoryLevels(profile.tenant_id);
+      
+      // Clear stock cache to ensure real-time updates across all components
+      clearStockCache();
+      console.log('Stock cache cleared after inventory recalculation');
       
       toast({
         title: "Inventory Recalculation Complete",
@@ -676,57 +819,216 @@ export const DataMigration: React.FC = () => {
     }
   };
 
-  const downloadSampleTemplate = () => {
-    const templates = {
-      contacts: {
-        headers: ['name', 'type', 'email', 'phone', 'company', 'address', 'notes'],
-        samples: [
-          ['John Doe', 'customer', 'john@example.com', '+1234567890', 'ABC Corp', '123 Main St, City', 'VIP customer'],
-          ['Jane Smith', 'supplier', 'jane@supplier.com', '+0987654321', 'XYZ Supplies', '456 Business Ave, Town', 'Reliable supplier'],
-          ['Bob Wilson', 'customer', 'bob@email.com', '+1122334455', '', '789 Customer Blvd', '']
-        ]
-      },
-      categories: {
-        headers: ['name', 'description', 'color'],
-        samples: [
-          ['Electronics', 'Electronic devices and accessories', '#3B82F6'],
-          ['Clothing', 'Fashion and apparel items', '#10B981'],
-          ['Food & Beverages', 'Consumable items and drinks', '#F59E0B']
-        ]
-      },
-      products: {
-        headers: ['name', 'location', 'sku', 'category', 'unit', 'price', 'cost_price', 'stock_quantity'],
-        samples: [
-          ['Wireless Headphones', 'Main Store', 'WH001', 'Electronics', 'pcs', '99.99', '45.00', '50'],
-          ['Cotton T-Shirt', 'Warehouse A', 'TS001', 'Clothing', 'pcs', '19.99', '8.50', '100'],
-          ['Coffee Beans', 'Store Front', 'CB001', 'Food & Beverages', 'kg', '12.99', '6.00', '25']
-        ]
-      },
-    };
+  const downloadSampleTemplate = async () => {
+    console.log('🔧 downloadSampleTemplate called - generating template with real data');
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user?.id)
+        .single();
 
-    const template = templates[importType];
-    const csvContent = [
-      template.headers.join(','),
-      ...template.samples.map(row => 
+      if (!profile?.tenant_id) throw new Error('Tenant not found');
+
+      let csvContent = '';
+      let filename = '';
+
+      switch (importType) {
+        case 'contacts':
+          const { data: contacts } = await supabase
+            .from('contacts')
+            .select('*')
+            .eq('tenant_id', profile.tenant_id)
+            .limit(5); // Get first 5 contacts as samples
+          
+          const contactHeaders = ['name', 'type', 'email', 'phone', 'company', 'address', 'notes'];
+          const contactData = (contacts || []).map(c => [
+            c.name || '',
+            c.type || '',
+            c.email || '',
+            c.phone || '',
+            c.company || '',
+            c.address || '',
+            c.notes || ''
+          ]);
+          
+          csvContent = [
+            contactHeaders.join(','),
+            ...contactData.map(row => 
         row.map(cell => 
           typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
         ).join(',')
       )
     ].join('\n');
+          filename = 'contacts_template.csv';
+          break;
+
+        case 'categories':
+          const { data: categories } = await supabase
+            .from('product_categories')
+            .select('*')
+            .eq('tenant_id', profile.tenant_id)
+            .limit(5); // Get first 5 categories as samples
+          
+          const categoryHeaders = ['name', 'description', 'color'];
+          const categoryData = (categories || []).map(c => [
+            c.name || '',
+            c.description || '',
+            c.color || '#3B82F6'
+          ]);
+          
+          csvContent = [
+            categoryHeaders.join(','),
+            ...categoryData.map(row => 
+              row.map(cell => 
+                typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+              ).join(',')
+            )
+          ].join('\n');
+          filename = 'categories_template.csv';
+          break;
+
+        case 'products':
+          const { data: products } = await supabase
+            .from('products')
+            .select(`
+              *,
+              product_categories(name),
+              locations(name)
+            `)
+            .eq('tenant_id', profile.tenant_id)
+            .limit(10); // Get first 10 products as samples
+          
+          // Calculate unified stock for each product
+          const productData = await Promise.all((products || []).map(async (p) => {
+            let calculatedStock = p.stock_quantity || 0;
+            
+            try {
+              // Get business settings for negative stock control
+              const { data: businessSettings } = await supabase
+                .from('business_settings')
+                .select('enable_negative_stock, enable_overselling')
+                .eq('tenant_id', profile.tenant_id)
+                .single();
+
+              const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+              const allowOverselling = businessSettings?.enable_overselling ?? false;
+              
+              // Calculate stock adjustments
+              let adjustments = 0;
+              if (p.location_id) {
+                const { data: adjustmentData } = await supabase
+                  .from('stock_adjustment_items')
+                  .select(`
+                    adjustment_quantity,
+                    stock_adjustments!inner(tenant_id, status)
+                  `)
+                  .eq('product_id', p.id)
+                  .eq('location_id', p.location_id)
+                  .eq('stock_adjustments.tenant_id', profile.tenant_id)
+                  .eq('stock_adjustments.status', 'approved');
+
+                if (adjustmentData) {
+                  adjustments = adjustmentData.reduce((total, adj) => total + adj.adjustment_quantity, 0);
+                }
+              }
+
+              // Calculate recent sales
+              let recentSales = 0;
+              if (p.location_id) {
+                const { data: salesData } = await supabase
+                  .from('sale_items')
+                  .select(`
+                    quantity,
+                    sales!inner(tenant_id, location_id, created_at)
+                  `)
+                  .eq('product_id', p.id)
+                  .eq('sales.tenant_id', profile.tenant_id)
+                  .eq('sales.location_id', p.location_id)
+                  .gte('sales.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+                if (salesData) {
+                  recentSales = salesData.reduce((total, sale) => total + sale.quantity, 0);
+                }
+              }
+
+              // Calculate final stock using unified method
+              calculatedStock = (p.stock_quantity || 0) + adjustments - recentSales;
+              
+              // Apply minimum stock threshold only if negative stock is not allowed
+              if (!allowNegativeStock && !allowOverselling) {
+                calculatedStock = Math.max(0, calculatedStock);
+              }
+              
+              console.log(`Template unified stock calculation for ${p.name}:`, {
+                baseStock: p.stock_quantity || 0,
+                adjustments,
+                recentSales,
+                finalStock: calculatedStock,
+                allowNegativeStock,
+                allowOverselling
+              });
+              
+            } catch (stockError) {
+              console.warn(`Error calculating unified stock for ${p.name}:`, stockError);
+              // Fall back to raw stock_quantity if calculation fails
+            }
+            
+            return [
+              p.name || '',
+              p.description || '',
+              p.sku || '',
+              p.barcode || '',
+              p.retail_price || p.price || 0,
+              p.wholesale_price || 0,
+              p.cost_price || 0,
+              calculatedStock,
+              p.min_stock_level || 0,
+              p.product_categories?.name || '',
+              'pcs', // Default unit
+              p.locations?.name || 'Main Store'
+            ];
+          }));
+          
+          const productHeaders = ['name', 'description', 'sku', 'barcode', 'retail_price', 'wholesale_price', 'cost_price', 'stock_quantity', 'min_stock_level', 'category', 'unit', 'location'];
+          
+          csvContent = [
+            productHeaders.join(','),
+            ...productData.map(row => 
+              row.map(cell => 
+                typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+              ).join(',')
+            )
+          ].join('\n');
+          filename = 'products_template.csv';
+          break;
+
+        default:
+          throw new Error('Invalid import type');
+      }
 
     // Download file
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${importType}_template.csv`;
+      a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
 
     toast({
       title: "Template Downloaded",
-      description: `Sample ${importType} template has been downloaded successfully.`,
-    });
+        description: `Real ${importType} data template has been downloaded successfully.`,
+      });
+
+    } catch (error) {
+      console.error('Error generating template:', error);
+      toast({
+        title: "Template Error",
+        description: error instanceof Error ? error.message : 'Failed to generate template',
+        variant: "destructive",
+      });
+    }
   };
 
   const getValidationStatus = () => {

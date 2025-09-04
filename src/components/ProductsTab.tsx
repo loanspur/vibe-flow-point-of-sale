@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Trash2, Plus, Search, Filter, X } from 'lucide-react';
+import { Eye, Pencil, Trash2, Plus, Search, Filter, X, RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useTenantProductsList } from '@/features/products/hooks/useTenantProductsList';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useStockWithRefresh } from '@/hooks/useUnifiedStock';
 
 // 👉 if you already have ProductFormUnified, re-use it here:
 import ProductFormUnified from '@/components/ProductFormUnified'; // keep your existing form component
@@ -30,11 +32,42 @@ const statusLabel = (raw: unknown) => {
   return String(raw);
 };
 
+// Unified Stock Display Component
+const StockDisplay = ({ productId, locationId, fallbackStock }: { 
+  productId: string; 
+  locationId?: string; 
+  fallbackStock?: number;
+}) => {
+  const { stockData, loadStock } = useStockWithRefresh(productId, locationId);
+  const [hasLoaded, setHasLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!hasLoaded) {
+      loadStock();
+      setHasLoaded(true);
+    }
+  }, [loadStock, hasLoaded]);
+
+  const displayStock = stockData?.stock ?? fallbackStock ?? 0;
+  const isLoading = stockData?.isLoading ?? false;
+
+  if (isLoading) {
+    return <span className="text-muted-foreground">Loading...</span>;
+  }
+
+  return (
+    <span className={displayStock > 0 ? 'text-green-600' : 'text-red-600'}>
+      {displayStock}
+    </span>
+  );
+};
+
 export default function ProductsTab() {
   const navigate = useNavigate();
   const { tenantId } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading } = useTenantProductsList();
+  const { data: products = [], isLoading, refetch } = useTenantProductsList();
 
   // Debug: Log products data to see location information
   React.useEffect(() => {
@@ -114,10 +147,13 @@ export default function ProductsTab() {
       .eq('tenant_id', tenantId);
     setProductToDelete(null);
     if (!error) {
-      // Success - cache will be updated optimistically by the mutation
-      // No need for manual refetch
+      // Invalidate and refetch products data after successful deletion
+      queryClient.invalidateQueries({ queryKey: ['products:list', tenantId] });
+      refetch();
+      console.log('ProductsTab: Refreshing product data after deletion');
+    } else {
+      console.error('ProductsTab: Failed to delete product:', error);
     }
-    // optional: toast on success/error (left out to avoid UI churn)
   };
 
   const openAdd = () => {
@@ -126,6 +162,20 @@ export default function ProductsTab() {
   };
 
   const openEdit = (p: any) => {
+    console.log('🔍 PRODUCTS TAB DEBUG: Opening edit for product:', p);
+    console.log('🔍 PRODUCTS TAB DEBUG: Product keys:', Object.keys(p));
+    console.log('🔍 PRODUCTS TAB DEBUG: Product values:', {
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      description: p.description,
+      wholesale_price: p.wholesale_price,
+      retail_price: p.retail_price,
+      cost_price: p.cost_price,
+      category_id: p.category_id,
+      location_id: p.location_id,
+      stock_quantity: p.stock_quantity
+    });
     setEditingProduct(p);           // ✅ open in-place dialog instead of redirecting
     setShowForm(true);
   };
@@ -139,8 +189,10 @@ export default function ProductsTab() {
     setShowForm(false);
     setEditingProduct(null);
     if (didSave) {
-      // Success - cache will be updated optimistically by the mutation
-      // No need for manual refetch
+      // Invalidate and refetch products data for real-time updates
+      queryClient.invalidateQueries({ queryKey: ['products:list', tenantId] });
+      refetch();
+      console.log('ProductsTab: Refreshing product data after save/update');
     }
   };
 
@@ -156,30 +208,31 @@ export default function ProductsTab() {
     <div className="w-full">
       {/* Search and Filter Toolbar */}
       <div className="mb-4 space-y-3">
-        {/* Search Bar */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search products by name, SKU, or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-          
-          {/* Location Filter */}
-          <div className="flex items-center gap-2">
+        {/* Search Bar and Controls Row */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Left side: Search and Filters */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search products by name, SKU, or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+            
+            {/* Location Filter */}
             <Button
               variant={showFilters ? "default" : "outline"}
               size="sm"
@@ -190,7 +243,7 @@ export default function ProductsTab() {
             </Button>
           </div>
           
-          {/* Add Product Button */}
+          {/* Right side: Add Product Button */}
           <Button onClick={openAdd}>
             <Plus className="mr-2 h-4 w-4" />
             Add Product
@@ -336,7 +389,13 @@ export default function ProductsTab() {
                     <TableCell className="whitespace-pre-line">{locationName}</TableCell>
                     <TableCell>{money(retail)}</TableCell>
                     <TableCell>{money(wholesale)}</TableCell>
-                    <TableCell className="text-right">{stock}</TableCell>
+                    <TableCell className="text-right">
+                      <StockDisplay 
+                        productId={p.id} 
+                        locationId={p.location_id} 
+                        fallbackStock={stock}
+                      />
+                    </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">
                         {stLabel}

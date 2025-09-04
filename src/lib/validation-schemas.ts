@@ -76,12 +76,9 @@ export const productVariantSchema = z.object({
   sku: z.string().min(1, "Variant SKU is required").max(100, "Variant SKU must be less than 100 characters"),
   price_adjustment: z.coerce.number().default(0),
   stock_quantity: z.coerce.number().min(0, "Stock quantity must be non-negative").default(0),
-  min_stock_level: z.coerce.number().min(0, "Minimum stock level must be non-negative").default(0),
-  default_profit_margin: z.coerce.number().min(0, "Profit margin must be non-negative").max(100, "Profit margin cannot exceed 100%").default(0),
-  sale_price: z.coerce.number().min(0, "Sale price must be non-negative").default(0),
+  cost_price: z.coerce.number().min(0, "Cost price must be non-negative").default(0),
   wholesale_price: z.coerce.number().min(0, "Wholesale price must be non-negative").default(0),
   retail_price: z.coerce.number().min(0, "Retail price must be non-negative").default(0),
-  cost_price: z.coerce.number().min(0, "Cost price must be non-negative").default(0),
   image_url: z.string().optional(),
   is_active: z.boolean().default(true),
 });

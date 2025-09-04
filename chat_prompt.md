@@ -1,67 +1,33 @@
-hook.js:608 The above error occurred in the <ProductsTab> component:
+hook.js:608 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. Error Component Stack
+    at EnhancedErrorBoundary (EnhancedErrorBoundary.tsx:28:5)
+    at App (<anonymous>)
 
-    at ProductsTab (http://traction-energies.localhost:5173/src/components/ProductsTab.tsx?t=1756916192906:52:22)
-    at Suspense
-    at SafeErrorBoundary (http://traction-energies.localhost:5173/src/components/SafeWrapper.tsx:85:9)
-    at SafeWrapper (http://traction-energies.localhost:5173/src/components/SafeWrapper.tsx:91:31)
-    at div
-    at http://traction-energies.localhost:5173/node_modules/.vite/deps/chunk-AT6CSIJO.js?v=223a8e0b:43:13
-    at Presence (http://traction-energies.localhost:5173/node_modules/.vite/deps/chunk-57TCVHD5.js?v=223a8e0b:24:11)
-    at http://traction-energies.localhost:5173/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=223a8e0b:178:13
-    at _c4 (http://traction-energies.localhost:5173/src/components/ui/tabs.tsx:47:61)
-    at div
-    at http://traction-energies.localhost:5173/node_modules/.vite/deps/chunk-AT6CSIJO.js?v=223a8e0b:43:13
-    at Provider (http://traction-energies.localhost:5173/node_modules/.vite/deps/chunk-3RXG37ZK.js?v=223a8e0b:38:15)
-    at http://traction-energies.localhost:5173/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=223a8e0b:55:7
-    at div
-    at UnifiedProductManagement (http://traction-energies.localhost:5173/src/components/UnifiedProductManagement.tsx?t=1756916100188:40:44)
-    at div
-    at Products
-    at RenderedRoute (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4088:5)
-    at Outlet (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4494:26)
-    at main
-    at div
-    at div
-    at div
-    at http://traction-energies.localhost:5173/src/components/ui/sidebar.tsx:49:72
-    at TenantAdminLayout (http://traction-energies.localhost:5173/src/routes/TenantAdminLayout.tsx:34:31)
-    at RenderedRoute (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4088:5)
-    at Outlet (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4494:26)
-    at SubscriptionGuard (http://traction-energies.localhost:5173/src/routes/SubscriptionGuard.tsx:33:54)
-    at RenderedRoute (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4088:5)
-    at Outlet (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4494:26)
-    at ProtectedRoute (http://traction-energies.localhost:5173/src/routes/ProtectedRoute.tsx:26:27)
-    at RenderedRoute (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4088:5)
-    at Routes (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4558:5)
-    at Suspense
-    at DomainRouter
-    at DomainRouter
-    at AppOptimizer (http://traction-energies.localhost:5173/src/components/AppOptimizer.tsx:26:36)
-    at Provider (http://traction-energies.localhost:5173/node_modules/.vite/deps/chunk-3RXG37ZK.js?v=223a8e0b:38:15)
-    at TooltipProvider (http://traction-energies.localhost:5173/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=223a8e0b:65:5)
-    at AppProvider (http://traction-energies.localhost:5173/src/contexts/AppContext.tsx:26:31)
-    at AuthProvider (http://traction-energies.localhost:5173/src/contexts/AuthContext.tsx:41:32)
-    at QueryClientProvider (http://traction-energies.localhost:5173/node_modules/.vite/deps/@tanstack_react-query.js?v=223a8e0b:2934:3)
-    at TabStabilityProvider (http://traction-energies.localhost:5173/src/components/TabStabilityProvider.tsx:26:44)
-    at Router (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:4501:15)
-    at BrowserRouter (http://traction-energies.localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=223a8e0b:5247:5)
-    at EnhancedErrorBoundary (http://traction-energies.localhost:5173/src/components/EnhancedErrorBoundary.tsx:101:5)
-    at App
-
-React will try to recreate this component tree from scratch using the error boundary you provided, SafeErrorBoundary.
-SafeWrapper.tsx:24 🚨 Component Error Boundary Caught: ReferenceError: Label is not defined
-    at ProductsTab (ProductsTab.tsx:403:20)
- 
-{componentStack: '\n    at ProductsTab (http://traction-energies.loca…nents/EnhancedErrorBoundary.tsx:101:5)\n    at App'}
- Error Component Stack
-    at SafeErrorBoundary (SafeWrapper.tsx:15:5)
-    at SafeWrapper (SafeWrapper.tsx:51:31)
+hook.js:608 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. Error Component Stack
+    at EnhancedErrorBoundary (EnhancedErrorBoundary.tsx:28:5)
+    at App (<anonymous>)
+AppContext.tsx:106 Real-time business settings updates disabled to prevent currency switching
+Settings.tsx:4 🏪 Settings page component is rendering!
+Settings.tsx:5 🏪 Current URL: http://traction-energies.localhost:5173/admin/settings
+Settings.tsx:6 🏪 Current timestamp: 2025-09-04T06:18:41.168Z
+BusinessSettingsEnhanced.tsx:258 Loading business data for tenant: 6742eb8a-434e-4c14-a91c-6d55adeb5750
+BusinessSettingsEnhanced.tsx:293 Loaded business settings: 
+{id: '8826520e-0a85-48e9-a32d-55faea0785e0', tenant_id: '6742eb8a-434e-4c14-a91c-6d55adeb5750', company_name: 'Traction Energies', company_logo_url: 'https://qwtybhvdbbkbcelisuek.supabase.co/storage/v…ject/public/product-images/logo-1753350587579.jpg', business_registration_number: '', …}
+BusinessSettingsEnhanced.tsx:302 Loaded store locations: 
+(2) [{…}, {…}]
+1467
+PaymentManagement.tsx:182 Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render. Error Component Stack
+    at PaymentManagement (PaymentManagement.tsx:94:30)
+    at div (<anonymous>)
+    at _c8 (card.tsx:62:6)
+    at div (<anonymous>)
+    at _c (card.tsx:8:6)
+    at div (<anonymous>)
     at div (<anonymous>)
     at _c4 (tabs.tsx:41:6)
+    at form (<anonymous>)
+    at BusinessSettingsEnhanced (BusinessSettingsEnhanced.tsx:227:30)
     at div (<anonymous>)
-    at UnifiedProductManagement (UnifiedProductManagement.tsx:26:85)
-    at div (<anonymous>)
-    at Products (<anonymous>)
+    at Settings (<anonymous>)
     at sidebar.tsx:56:7
     at TenantAdminLayout (TenantAdminLayout.tsx:25:29)
     at SubscriptionGuard (SubscriptionGuard.tsx:19:52)

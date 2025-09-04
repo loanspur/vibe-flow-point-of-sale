@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,12 +31,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 
 // Schema definitions
 const paymentMethodSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  type: z.enum(["cash", "card", "mobile_money", "bank_transfer", "crypto", "other"]),
-  account_id: z.string().uuid("Please select an accounting account"),
+  type: z.enum(["cash", "card", "mobile_money", "bank_transfer", "crypto", "other"]).default("cash"),
+  account_id: z.string().optional().refine(
+    (val) => !val || val === "" || z.string().uuid().safeParse(val).success,
+    { message: "Please select a valid accounting account" }
+  ),
   is_active: z.boolean().default(true),
   requires_reference: z.boolean().default(false),
   description: z.string().optional(),
@@ -105,10 +109,18 @@ export function PaymentManagement() {
   const { businessSettings } = useApp();
   const { toast } = useToast();
   
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  // Use existing payment methods hook
+  const { 
+    paymentMethods, 
+    loading, 
+    error, 
+    savePaymentMethod, 
+    deletePaymentMethod,
+    fetchPaymentMethods
+  } = usePaymentMethods();
+  
   const [integrations, setIntegrations] = useState<PaymentIntegration[]>([]);
   const [assetAccounts, setAssetAccounts] = useState<AssetAccount[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showMethodDialog, setShowMethodDialog] = useState(false);
   const [showIntegrationDialog, setShowIntegrationDialog] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
@@ -139,61 +151,14 @@ export function PaymentManagement() {
     }
   });
 
+
   useEffect(() => {
     if (tenantId) {
-      fetchPaymentMethods();
       fetchIntegrations();
       fetchAssetAccounts();
     }
   }, [tenantId]);
 
-  const fetchPaymentMethods = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('display_order');
-
-      if (error) throw error;
-      
-      // Enhance payment methods with account information
-      const enhancedMethods = await Promise.all(
-        (data || []).map(async (method: any) => {
-          let account_name = '';
-          let account_code = '';
-          
-          if (method.account_id) {
-            const { data: accountData } = await supabase
-              .from('accounts')
-              .select('name, code')
-              .eq('id', method.account_id)
-              .maybeSingle();
-              
-            if (accountData) {
-              account_name = accountData.name;
-              account_code = accountData.code;
-            }
-          }
-          
-          return {
-            ...method,
-            account_name,
-            account_code,
-          };
-        })
-      );
-      
-      setPaymentMethods(enhancedMethods);
-    } catch (error) {
-      console.error('Error fetching payment methods:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch payment methods',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const fetchAssetAccounts = async () => {
     try {
@@ -220,11 +185,20 @@ export function PaymentManagement() {
       }));
       
       setAssetAccounts(formattedAccounts);
+      
+      // If no asset accounts are available, show a helpful message
+      if (formattedAccounts.length === 0) {
+        toast({
+          title: 'No Asset Accounts Found',
+          description: 'Please create asset accounts in your accounting setup to link payment methods.',
+          variant: 'default',
+        });
+      }
     } catch (error) {
       console.error('Error fetching asset accounts:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch asset accounts',
+        description: 'Failed to fetch asset accounts. Payment methods can still be created without account linking.',
         variant: 'destructive',
       });
     }
@@ -263,18 +237,15 @@ export function PaymentManagement() {
       setIntegrations(defaultIntegrations);
     } catch (error) {
       console.error('Error fetching integrations:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSavePaymentMethod = async (values: z.infer<typeof paymentMethodSchema>) => {
     try {
       const paymentMethodData = {
-        tenant_id: tenantId,
         name: values.name,
-        type: values.type,
-        account_id: values.account_id,
+        type: values.type || 'other',
+        account_id: values.account_id && values.account_id !== '' ? values.account_id : null,
         is_active: values.is_active,
         requires_reference: values.requires_reference,
         description: values.description || null,
@@ -284,37 +255,21 @@ export function PaymentManagement() {
         display_order: editingMethod?.display_order || paymentMethods.length + 1,
       };
 
-      let result;
       if (editingMethod) {
-        // Update existing method
-        result = await supabase
-          .from('payment_methods')
-          .update(paymentMethodData)
-          .eq('id', editingMethod.id)
-          .eq('tenant_id', tenantId)
-          .select();
-          
+        // Update existing method using existing hook
+        await savePaymentMethod({ ...paymentMethodData, id: editingMethod.id });
         toast({ 
           title: 'Success', 
           description: 'Payment method updated successfully' 
         });
       } else {
-        // Add new method
-        result = await supabase
-          .from('payment_methods')
-          .insert([paymentMethodData])
-          .select();
-          
+        // Add new method using existing hook
+        await savePaymentMethod(paymentMethodData);
         toast({ 
           title: 'Success', 
           description: 'Payment method created successfully' 
         });
       }
-      
-      if (result.error) throw result.error;
-      
-      // Refresh the payment methods list
-      await fetchPaymentMethods();
       
       setShowMethodDialog(false);
       setEditingMethod(null);
@@ -380,26 +335,22 @@ export function PaymentManagement() {
   };
 
   const handleDeletePaymentMethod = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('payment_methods')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', tenantId);
-        
-      if (error) throw error;
-      
-      // Refresh the payment methods list
-      await fetchPaymentMethods();
-      
-      toast({ title: 'Success', description: 'Payment method deleted successfully' });
-    } catch (error) {
-      console.error('Error deleting payment method:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete payment method',
-        variant: 'destructive',
-      });
+    const method = paymentMethods.find(m => m.id === id);
+    if (!method) return;
+
+    if (window.confirm(`Are you sure you want to delete the payment method "${method.name}"?`)) {
+      try {
+        // Use existing hook for deletion
+        await deletePaymentMethod(id);
+        toast({ title: 'Success', description: 'Payment method deleted successfully' });
+      } catch (error) {
+        console.error('Error deleting payment method:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete payment method',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -490,6 +441,17 @@ export function PaymentManagement() {
 
   if (loading) {
     return <div className="flex items-center justify-center p-8">Loading...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading payment methods: {error}</p>
+          <Button onClick={() => fetchPaymentMethods()}>Retry</Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -649,9 +611,9 @@ export function PaymentManagement() {
             <DialogTitle>
               {editingMethod ? 'Edit' : 'Add'} Payment Method
             </DialogTitle>
-            <p id="payment-method-description" className="text-sm text-muted-foreground">
+            <DialogDescription id="payment-method-description">
               Configure payment methods and link them to accounting asset accounts for proper financial tracking.
-            </p>
+            </DialogDescription>
           </DialogHeader>
           <Form {...methodForm}>
             <form onSubmit={methodForm.handleSubmit(handleSavePaymentMethod)} className="space-y-4">
@@ -845,9 +807,9 @@ export function PaymentManagement() {
             <DialogTitle>
               {editingIntegration ? 'Edit' : 'Add'} Payment Integration
             </DialogTitle>
-            <p id="payment-integration-description" className="text-sm text-muted-foreground">
+            <DialogDescription id="payment-integration-description">
               Configure payment gateway integrations and API settings for online payment processing.
-            </p>
+            </DialogDescription>
           </DialogHeader>
           <Form {...integrationForm}>
             <form onSubmit={integrationForm.handleSubmit(handleSaveIntegration)} className="space-y-4">

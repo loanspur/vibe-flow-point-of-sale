@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 
 interface PaymentMethod {
   id: string;
@@ -53,7 +54,15 @@ export function EnhancedPaymentProcessor({
   const { toast } = useToast();
   const { formatCurrency } = useApp();
   
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  // Use the payment methods hook instead of local state
+  const { 
+    paymentMethods: dbPaymentMethods, 
+    loading: paymentMethodsLoading, 
+    error: paymentMethodsError,
+    getActivePaymentMethods,
+    getDefaultPaymentMethods 
+  } = usePaymentMethods();
+  
   const [selectedMethod, setSelectedMethod] = useState<string>('');
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [paymentReference, setPaymentReference] = useState<string>('');
@@ -63,48 +72,26 @@ export function EnhancedPaymentProcessor({
   const isFullyPaid = remainingBalance <= 0;
   const hasCreditPayment = payments.some(p => p.method.toLowerCase().includes('credit'));
 
+  // Get active payment methods or fallback to defaults
+  const paymentMethods = dbPaymentMethods.length > 0 ? getActivePaymentMethods() : getDefaultPaymentMethods();
+
   useEffect(() => {
-    fetchPaymentMethods();
-  }, [tenantId]);
+    if (paymentMethods.length > 0 && !selectedMethod) {
+      setSelectedMethod(paymentMethods[0].id);
+    }
+  }, [paymentMethods, selectedMethod]);
 
-  const fetchPaymentMethods = async () => {
-    if (!tenantId) return;
-    
-    try {
-      // Fetch payment methods from the payment_methods table (configured in business settings)
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('display_order');
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setPaymentMethods(data);
-        setSelectedMethod(data[0].id);
-      } else {
-        // Set default payment methods if none exist
-        const defaultMethods: PaymentMethod[] = [
-          { id: 'cash', name: 'Cash', type: 'cash', requires_reference: false, icon: '💵', color: '#28a745', is_active: true },
-          { id: 'card', name: 'Card', type: 'card', requires_reference: false, icon: '💳', color: '#007bff', is_active: true },
-          { id: 'mpesa', name: 'M-Pesa', type: 'mobile_money', requires_reference: true, icon: '📱', color: '#ff6b35', is_active: true },
-          { id: 'credit', name: 'Credit', type: 'credit', requires_reference: true, icon: '📋', color: '#fd7e14', is_active: true },
-          { id: 'bank_transfer', name: 'Bank Transfer', type: 'bank_transfer', requires_reference: true, icon: '🏦', color: '#6f42c1', is_active: true }
-        ];
-        setPaymentMethods(defaultMethods);
-        setSelectedMethod('cash');
-      }
-    } catch (error) {
-      console.error('Error fetching payment methods:', error);
+  // Show error if payment methods fail to load
+  useEffect(() => {
+    if (paymentMethodsError) {
       toast({
-        title: "Error",
-        description: "Failed to load payment methods",
+        title: "Payment Methods Error",
+        description: "Failed to load payment methods. Using default options.",
         variant: "destructive",
       });
     }
-  };
+  }, [paymentMethodsError, toast]);
+
 
   const getSelectedMethodDetails = () => {
     return paymentMethods.find(m => m.id === selectedMethod);
@@ -242,6 +229,28 @@ export function EnhancedPaymentProcessor({
     const method = paymentMethods.find(m => m.name === methodName);
     return method?.color || '#000000';
   };
+
+  // Show loading state while payment methods are being fetched
+  if (paymentMethodsLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Payment Methods
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">Loading payment methods...</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

@@ -7,11 +7,7 @@ import {
   Home,
   TrendingUp,
   Calculator,
-  Mail,
-  Brain,
-  Zap,
-  Activity,
-  Crown
+  Mail
 } from 'lucide-react';
 import { NavLink, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,11 +44,6 @@ const businessItems = [
   { title: "Communications", url: "/admin/communications", icon: Mail, featureRequired: "advanced_notifications" },
 ];
 
-const aiItems = [
-  { title: "AI Dashboard", url: "/admin/ai-dashboard", icon: Brain, featureRequired: "ai_features" },
-  { title: "AI Automation", url: "/admin/ai-automation", icon: Zap, featureRequired: "ai_features" },
-  { title: "AI Performance", url: "/admin/ai-performance", icon: Activity, featureRequired: "ai_features" },
-];
 
 const systemItems = [
   { title: "Settings", url: "/admin/settings", icon: Settings },
@@ -66,10 +57,6 @@ export function TenantAdminSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
 
-  // Check if current tenant is traction-energies (test tenant)
-  const isTestTenant = tenantId === 'traction-energies' || 
-                      window.location.hostname.includes('traction-energies') ||
-                      window.location.hostname.includes('localhost');
 
   const tenantLogo = useTenantLogo();
   const fallbackLogo = '/lovable-uploads/96478f6e-8bdd-4f18-930b-f1dfa142cefb.png';
@@ -183,44 +170,6 @@ export function TenantAdminSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* AI Features - Only visible for test tenant */}
-        {isTestTenant && (
-          <SidebarGroup>
-            <SidebarGroupLabel>AI Features</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {aiItems.map((item) => {
-                  const hasAccess = !item.featureRequired || hasFeature(item.featureRequired);
-                  const showUpgradeBadge = !hasAccess && !isOnTrial; // Don't show badge if on trial
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild>
-                        <NavLink 
-                          to={hasAccess || isOnTrial ? item.url : "/admin/settings?tab=billing"}
-                          className={({ isActive: navActive }) => 
-                            `${getNavCls(navActive)} ${!hasAccess && !isOnTrial ? 'opacity-60' : ''}`
-                          }
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {!collapsed && (
-                            <div className="flex items-center justify-between w-full">
-                              <span>{item.title}</span>
-                              {showUpgradeBadge && (
-                                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                                  AI
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
 
         {/* System */}
         <SidebarGroup>

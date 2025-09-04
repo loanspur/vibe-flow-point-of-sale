@@ -54,11 +54,54 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
     await qc.invalidateQueries({ queryKey: baseQueryKey, exact: false, refetchType: "active" });
   };
 
+  // Helper function to filter out non-database fields
+  const filterDatabaseFields = (input: Partial<T>): Record<string, unknown> => {
+    // Get the table schema to know which fields are valid
+    const tableSchema = supabase.from(table).select('*').limit(0);
+    
+    // Define known database fields for each table to prevent hasVariants errors
+    const knownFields: Record<string, string[]> = {
+      'products': [
+        'id', 'name', 'sku', 'description', 'wholesale_price', 'retail_price', 'cost_price',
+        'purchase_price', 'default_profit_margin', 'barcode', 'category_id', 'subcategory_id',
+        'brand_id', 'unit_id', 'stock_quantity', 'min_stock_level', 'has_expiry_date',
+        'is_active', 'location_id', 'image_url', 'tenant_id', 'created_at', 'updated_at',
+        'created_by', 'is_combo_product', 'allow_negative_stock', 'revenue_account_id', 'expiry_date'
+      ],
+      'product_variants': [
+        'id', 'name', 'value', 'sku', 'price_adjustment', 'stock_quantity', 'cost_price',
+        'wholesale_price', 'retail_price', 'image_url', 'is_active', 'product_id', 'tenant_id',
+        'created_at', 'updated_at'
+      ]
+    };
+    
+    const validFields = knownFields[table] || [];
+    
+    // Filter input to only include valid database fields
+    const filteredInput = Object.fromEntries(
+      Object.entries(input).filter(([key, value]) => {
+        // Always include tenant_id for RLS
+        if (key === 'tenant_id') return true;
+        
+        // Only include fields that exist in the known database schema
+        return validFields.includes(key);
+      })
+    );
+    
+    // Log any filtered fields for debugging
+    const filteredOut = Object.keys(input).filter(key => !validFields.includes(key) && key !== 'tenant_id');
+    if (filteredOut.length > 0) {
+      console.warn(`[useUnifiedCRUD] Filtered out non-database fields for ${table}:`, filteredOut);
+    }
+    
+    return filteredInput;
+  };
+
   const createMutation = useMutation({
     mutationFn: async (input: Partial<T>) => {
       // Enforce tenant_id on every create to satisfy RLS
       const payload = {
-        ...input,
+        ...filterDatabaseFields(input), // ✅ Filter fields before spreading
         tenant_id: effectiveTenant,
         // Common audit column if present
         created_by: user?.id ?? null,
@@ -84,10 +127,13 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, input }: { id: Id; input: Partial<T> }) => {
+      // Filter input to only include valid database fields
+      const filteredInput = filterDatabaseFields(input);
+      
       // Preserve tenant_id if present, otherwise use the hook's tenantId
       const parsed = schema.partial().parse({ 
-        ...input, 
-        tenant_id: (input as any)?.tenant_id ?? tenantId 
+        ...filteredInput, // ✅ Now spreading filtered fields only
+        tenant_id: (filteredInput as any)?.tenant_id ?? tenantId 
       });
       const { data, error } = await supabase
         .from(table)

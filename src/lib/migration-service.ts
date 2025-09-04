@@ -566,57 +566,145 @@ export class MigrationService {
 
   // Generate bulk update template with all product details
   async generateBulkUpdateTemplate(): Promise<{ csvContent: string; fileName: string }> {
+    console.log('🔧 MigrationService generateBulkUpdateTemplate called - generating template with unified stock calculation');
+    
     const { data: products, error } = await supabase
       .from('products')
       .select(`
         *,
         product_categories(name),
-        product_units(name, abbreviation),
-        store_locations(name),
-        accounts!revenue_account_id(name)
+        store_locations(name)
       `)
       .eq('tenant_id', this.tenantId)
       .eq('is_active', true);
 
     if (error) throw error;
 
+    // Calculate unified stock for each product
+    const productData = await Promise.all((products || []).map(async (p) => {
+      let calculatedStock = p.stock_quantity || 0;
+      
+      try {
+        // Get business settings for negative stock control
+        const { data: businessSettings } = await supabase
+          .from('business_settings')
+          .select('enable_negative_stock, enable_overselling')
+          .eq('tenant_id', this.tenantId)
+          .single();
+
+        const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+        const allowOverselling = businessSettings?.enable_overselling ?? false;
+        
+        // Calculate stock adjustments
+        let adjustments = 0;
+        if (p.location_id) {
+          const { data: adjustmentData } = await supabase
+            .from('stock_adjustment_items')
+            .select(`
+              adjustment_quantity,
+              stock_adjustments!inner(tenant_id, status)
+            `)
+            .eq('product_id', p.id)
+            .eq('location_id', p.location_id)
+            .eq('stock_adjustments.tenant_id', this.tenantId)
+            .eq('stock_adjustments.status', 'approved');
+
+          if (adjustmentData) {
+            adjustments = adjustmentData.reduce((total, adj) => total + adj.adjustment_quantity, 0);
+          }
+        }
+
+        // Calculate recent sales
+        let recentSales = 0;
+        if (p.location_id) {
+          const { data: salesData } = await supabase
+            .from('sale_items')
+            .select(`
+              quantity,
+              sales!inner(tenant_id, location_id, created_at)
+            `)
+            .eq('product_id', p.id)
+            .eq('sales.tenant_id', this.tenantId)
+            .eq('sales.location_id', p.location_id)
+            .gte('sales.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+          if (salesData) {
+            recentSales = salesData.reduce((total, sale) => total + sale.quantity, 0);
+          }
+        }
+
+        // Calculate final stock using unified method
+        calculatedStock = (p.stock_quantity || 0) + adjustments - recentSales;
+        
+        // Apply minimum stock threshold only if negative stock is not allowed
+        if (!allowNegativeStock && !allowOverselling) {
+          calculatedStock = Math.max(0, calculatedStock);
+        }
+        
+        console.log(`MigrationService unified stock calculation for ${p.name}:`, {
+          baseStock: p.stock_quantity || 0,
+          adjustments,
+          recentSales,
+          finalStock: calculatedStock,
+          allowNegativeStock,
+          allowOverselling
+        });
+        
+        // Special logging for water tank
+        if (p.name && p.name.toLowerCase().includes('water')) {
+          console.log('🌊 WATER TANK MIGRATION SERVICE DATA:', {
+            name: p.name,
+            rawStock: p.stock_quantity,
+            calculatedStock,
+            retailPrice: p.retail_price,
+            wholesalePrice: p.wholesale_price,
+            costPrice: p.cost_price
+          });
+        }
+        
+      } catch (stockError) {
+        console.warn(`Error calculating unified stock for ${p.name}:`, stockError);
+        // Fall back to raw stock_quantity if calculation fails
+      }
+      
+      return [
+        p.name || '',
+        p.description || '',
+        p.sku || '',
+        p.barcode || '',
+        p.retail_price || p.price || 0,
+        p.wholesale_price || 0,
+        p.cost_price || 0,
+        calculatedStock,
+        p.min_stock_level || 0,
+        p.product_categories?.name || '',
+        'pcs', // Default unit
+        p.store_locations?.name || 'Main Store'
+      ];
+    }));
+
     const headers = [
-      'id',
       'name',
-      'description',
+      'description', 
       'sku',
       'barcode',
-      'cost_price',
-      'price',
+      'retail_price',
       'wholesale_price',
+      'cost_price',
       'stock_quantity',
       'min_stock_level',
       'category',
       'unit',
-      'location',
-      'revenue_account',
-      'is_active'
+      'location'
     ];
     
     const csvContent = [
       headers.join(','),
-      ...(products || []).map(product => [
-        product.id,
-        `"${product.name}"`,
-        `"${product.description || ''}"`,
-        `"${product.sku || ''}"`,
-        `"${product.barcode || ''}"`,
-        product.cost_price || 0,
-        product.retail_price || product.price || 0,
-        product.wholesale_price || 0,
-        product.stock_quantity || 0,
-        product.min_stock_level || 0,
-        `"${product.product_categories?.name || ''}"`,
-        `"${product.product_units?.name || ''}"`,
-        `"${product.store_locations?.name || ''}"`,
-        `"${product.accounts?.name || ''}"`,
-        product.is_active ? 'true' : 'false'
-      ].join(','))
+      ...productData.map(row => 
+        row.map(cell => 
+          typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+        ).join(',')
+      )
     ].join('\n');
 
     const fileName = `products_bulk_update_template_${new Date().toISOString().split('T')[0]}.csv`;
@@ -885,20 +973,149 @@ export class MigrationService {
   }
 
   // Generate sample template
-  generateTemplate(entityType: 'products' | 'contacts' | 'categories'): { csvContent: string; fileName: string } {
-    const headers = MIGRATION_CONFIG.exportFields[entityType];
-    const sampleData = this.getSampleData(entityType);
+  async generateTemplate(entityType: 'products' | 'contacts' | 'categories'): Promise<{ csvContent: string; fileName: string }> {
+    console.log('🔧 MigrationService generateTemplate called - generating template with real data');
     
-    const csvContent = [
-      headers.join(','),
-      ...sampleData.map(row => 
-        headers.map(header => row[header] || '').join(',')
-      )
-    ].join('\n');
+    if (entityType === 'products') {
+      // Use the same logic as generateBulkUpdateTemplate but limit to 5 products
+      const { data: products, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_categories(name),
+          store_locations(name)
+        `)
+        .eq('tenant_id', this.tenantId)
+        .eq('is_active', true)
+        .limit(5);
 
-    const fileName = `${entityType}_migration_template.csv`;
+      if (error) throw error;
 
-    return { csvContent, fileName };
+      // Calculate unified stock for each product (same logic as bulk update)
+      const productData = await Promise.all((products || []).map(async (p) => {
+        let calculatedStock = p.stock_quantity || 0;
+        
+        try {
+          // Get business settings for negative stock control
+          const { data: businessSettings } = await supabase
+            .from('business_settings')
+            .select('enable_negative_stock, enable_overselling')
+            .eq('tenant_id', this.tenantId)
+            .single();
+
+          const allowNegativeStock = businessSettings?.enable_negative_stock ?? false;
+          const allowOverselling = businessSettings?.enable_overselling ?? false;
+          
+          // Calculate stock adjustments
+          let adjustments = 0;
+          if (p.location_id) {
+            const { data: adjustmentData } = await supabase
+              .from('stock_adjustment_items')
+              .select(`
+                adjustment_quantity,
+                stock_adjustments!inner(tenant_id, status)
+              `)
+              .eq('product_id', p.id)
+              .eq('location_id', p.location_id)
+              .eq('stock_adjustments.tenant_id', this.tenantId)
+              .eq('stock_adjustments.status', 'approved');
+
+            if (adjustmentData) {
+              adjustments = adjustmentData.reduce((total, adj) => total + adj.adjustment_quantity, 0);
+            }
+          }
+
+          // Calculate recent sales
+          let recentSales = 0;
+          if (p.location_id) {
+            const { data: salesData } = await supabase
+              .from('sale_items')
+              .select(`
+                quantity,
+                sales!inner(tenant_id, location_id, created_at)
+              `)
+              .eq('product_id', p.id)
+              .eq('sales.tenant_id', this.tenantId)
+              .eq('sales.location_id', p.location_id)
+              .gte('sales.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+            if (salesData) {
+              recentSales = salesData.reduce((total, sale) => total + sale.quantity, 0);
+            }
+          }
+
+          // Calculate final stock using unified method
+          calculatedStock = (p.stock_quantity || 0) + adjustments - recentSales;
+          
+          // Apply minimum stock threshold only if negative stock is not allowed
+          if (!allowNegativeStock && !allowOverselling) {
+            calculatedStock = Math.max(0, calculatedStock);
+          }
+          
+        } catch (stockError) {
+          console.warn(`Error calculating unified stock for ${p.name}:`, stockError);
+          // Fall back to raw stock_quantity if calculation fails
+        }
+        
+        return [
+          p.name || '',
+          p.description || '',
+          p.sku || '',
+          p.barcode || '',
+          p.retail_price || p.price || 0,
+          p.wholesale_price || 0,
+          p.cost_price || 0,
+          calculatedStock,
+          p.min_stock_level || 0,
+          p.product_categories?.name || '',
+          'pcs', // Default unit
+          p.store_locations?.name || 'Main Store'
+        ];
+      }));
+
+      const headers = [
+        'name',
+        'description', 
+        'sku',
+        'barcode',
+        'retail_price',
+        'wholesale_price',
+        'cost_price',
+        'stock_quantity',
+        'min_stock_level',
+        'category',
+        'unit',
+        'location'
+      ];
+      
+      const csvContent = [
+        headers.join(','),
+        ...productData.map(row => 
+          row.map(cell => 
+            typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+          ).join(',')
+        )
+      ].join('\n');
+
+      const fileName = `${entityType}_migration_template.csv`;
+
+      return { csvContent, fileName };
+    } else {
+      // For contacts and categories, use the original logic
+      const headers = MIGRATION_CONFIG.exportFields[entityType];
+      const sampleData = this.getSampleData(entityType);
+      
+      const csvContent = [
+        headers.join(','),
+        ...sampleData.map(row => 
+          headers.map(header => row[header] || '').join(',')
+        )
+      ].join('\n');
+
+      const fileName = `${entityType}_migration_template.csv`;
+
+      return { csvContent, fileName };
+    }
   }
 
   private getSampleData(entityType: 'products' | 'contacts' | 'categories') {
