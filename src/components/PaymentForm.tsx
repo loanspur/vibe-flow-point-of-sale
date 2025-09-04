@@ -12,6 +12,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePaymentMethods, type PaymentMethod } from '@/hooks/usePaymentMethods';
+import { useCashDrawer } from '@/hooks/useCashDrawer';
 
 interface Payment {
   id: string;
@@ -42,6 +43,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 }) => {
   const { tenantCurrency, formatLocalCurrency } = useApp();
   const { toast } = useToast();
+  const { currentDrawer } = useCashDrawer();
   
   // Use centralized payment methods hook
   const { 
@@ -64,7 +66,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   const purchasePaymentMethods = getActivePaymentMethods().filter(method => method.type !== 'credit' as any);
   
   // Set default payment method if none selected
-  React.useEffect(() => {
+  React.  useEffect(() => {
     if (purchasePaymentMethods.length > 0 && !newPayment.method) {
       setNewPayment(prev => ({ 
         ...prev, 
@@ -72,6 +74,20 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       }));
     }
   }, [purchasePaymentMethods, newPayment.method]);
+
+  // Auto-switch away from cash method if drawer is closed
+  useEffect(() => {
+    if (newPayment.method === 'cash' && (!currentDrawer || currentDrawer.status !== 'open')) {
+      // Switch to first available non-cash method
+      const availableMethod = purchasePaymentMethods.find(m => m.type !== 'cash');
+      if (availableMethod) {
+        setNewPayment(prev => ({ 
+          ...prev, 
+          method: availableMethod.type 
+        }));
+      }
+    }
+  }, [currentDrawer, newPayment.method, purchasePaymentMethods]);
 
   const handleAddPayment = async () => {
     if (!newPayment.method || newPayment.amount <= 0) {
@@ -89,6 +105,16 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       toast({
         title: "Reference Required",
         description: "This payment method requires a reference number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if cash drawer is open for cash payments
+    if (newPayment.method === 'cash' && (!currentDrawer || currentDrawer.status !== 'open')) {
+      toast({
+        title: "Cash Drawer Closed",
+        description: "Please open the cash drawer before processing cash payments",
         variant: "destructive",
       });
       return;
@@ -218,14 +244,29 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     <SelectValue placeholder="Select payment method" />
                   </SelectTrigger>
                   <SelectContent>
-                    {purchasePaymentMethods.map((method) => (
-                      <SelectItem key={method.id} value={method.type}>
-                        <div className="flex items-center gap-2">
-                          {getPaymentMethodIcon(method.type)}
-                          <span>{method.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {purchasePaymentMethods.map((method) => {
+                      const isCashMethod = method.type === 'cash';
+                      const isCashDisabled = isCashMethod && (!currentDrawer || currentDrawer.status !== 'open');
+                      
+                      return (
+                        <SelectItem 
+                          key={method.id} 
+                          value={method.type}
+                          disabled={isCashDisabled}
+                          className={isCashDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
+                          <div className="flex items-center gap-2">
+                            {getPaymentMethodIcon(method.type)}
+                            <span>{method.name}</span>
+                            {isCashDisabled && (
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                (Drawer Closed)
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

@@ -21,7 +21,7 @@ interface BalanceCheckData {
 
 export default function AccountingBalanceCheck() {
   const { tenantId } = useAuth();
-  const { tenantCurrency } = useApp();
+  const { tenantCurrency, formatCurrency } = useApp();
   const { toast } = useToast();
   const [balanceData, setBalanceData] = useState<BalanceCheckData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -126,12 +126,13 @@ export default function AccountingBalanceCheck() {
     }
   }, [tenantId]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: tenantCurrency || 'USD'
-    }).format(amount);
-  };
+  // Use centralized formatCurrency from AppContext instead of local implementation
+  // const formatCurrency = (amount: number) => {
+  //   return new Intl.NumberFormat('en-US', {
+  //     style: 'currency',
+  //     currency: tenantCurrency || 'USD'
+  //   }).format(amount);
+  // };
 
   const isJournalBalanced = balanceData?.journalBalance === 0;
   const isEquationBalanced = Math.abs(balanceData?.accountingEquationBalance || 0) < 0.01;
