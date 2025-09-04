@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { isAuthPath } from '@/lib/route-helpers';
+import { log } from '@/lib/logger';
 
 interface SubscriptionGuardProps {
   children: ReactNode;
@@ -27,6 +29,11 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const navigate = useNavigate();
+  
+  // Bypass: allow all /auth paths to render without subscription checks
+  if (typeof window !== 'undefined' && isAuthPath(window.location.pathname)) {
+    return <>{children}</>;
+  }
   
   useEffect(() => {
     if (!user || !tenantId || authLoading) {
@@ -51,7 +58,7 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
           .maybeSingle();
 
         if (error) {
-          console.error('Error fetching subscription:', error);
+          log.error('Error fetching subscription:', error);
           // For new tenants, grant access if no subscription found yet
           setHasAccess(true);
           setLoading(false);
@@ -85,7 +92,7 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
           setHasAccess(data.status !== 'cancelled' && data.status !== 'expired');
         }
       } catch (error) {
-        console.error('Error checking subscription:', error);
+        log.error('Error checking subscription:', error);
         // Grant access by default to avoid blocking legitimate users
         setHasAccess(true);
       } finally {
@@ -107,7 +114,7 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
       });
 
       if (error) {
-        console.error('Error creating checkout:', error);
+        log.error('Error creating checkout:', error);
         return;
       }
 
@@ -115,7 +122,7 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
         window.location.href = data.authorization_url;
       }
     } catch (error) {
-      console.error('Error upgrading subscription:', error);
+      log.error('Error upgrading subscription:', error);
     }
   };
 

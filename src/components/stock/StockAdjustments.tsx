@@ -9,66 +9,38 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RotateCw, Plus, TrendingUp, TrendingDown } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { processStockAdjustment } from '@/lib/inventory-integration';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
+import { useStockCRUD } from '@/features/stock/crud/useStockCRUD';
 
 export const StockAdjustments: React.FC = () => {
-  const [adjustments, setAdjustments] = useState<any[]>([]);
+  const { tenantId } = useAuth();
+  const { list: stockAdjustments, isLoading: loading } = useStockCRUD(tenantId);
   const [products, setProducts] = useState<any[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [adjustmentItems, setAdjustmentItems] = useState<any[]>([]);
-  const { user } = useAuth();
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { currency } = useBusinessSettings();
+  
+  // Get adjustments from unified hook
+  const adjustments = stockAdjustments.data || [];
 
   useEffect(() => {
-    fetchAdjustments();
     fetchProducts();
-  }, [user]);
-
-  const fetchAdjustments = async () => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (!profile?.tenant_id) return;
-
-      const { data, error } = await supabase
-        .from('stock_adjustments')
-        .select('*')
-        .eq('tenant_id', profile.tenant_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setAdjustments(data || []);
-    } catch (error) {
-      console.error('Error fetching stock adjustments:', error);
-    }
-  };
+  }, [tenantId]);
 
   const fetchProducts = async () => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (!profile?.tenant_id) return;
+      if (!tenantId) return;
 
       const { data, error } = await supabase
         .from('products')
         .select('id, name, sku, stock_quantity, cost_price')
-        .eq('tenant_id', profile.tenant_id)
+        .eq('tenant_id', tenantId)
         .eq('is_active', true);
 
       if (error) throw error;

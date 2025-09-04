@@ -2,6 +2,16 @@ import { useEffect } from 'react';
 
 export const GlobalErrorHandler = () => {
   useEffect(() => {
+    // Diagnostic handler for eval-related errors
+    if (typeof window !== "undefined") {
+      window.addEventListener("error", (e) => {
+        if (String(e.message || "").includes("Unexpected identifier 'Supabase'")) {
+          // eslint-disable-next-line no-console
+          console.warn("[diagnostic] A script tried to EVAL a log string. Likely a browser extension (hook.js).");
+        }
+      });
+    }
+
     // Error event handler
     const handleError = (event: ErrorEvent) => {
       const message = event.message?.toLowerCase() || '';

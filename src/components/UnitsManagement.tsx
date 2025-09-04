@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUnitCRUD } from "@/features/units/crud/useUnitCRUD";
+import { unitSchema, UnitFormData } from "@/lib/validation-schemas";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -30,18 +31,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { FeatureGuard } from '@/components/FeatureGuard';
 
-const unitSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1, "Name is required"),
-  abbreviation: z.string().min(1, "Abbreviation is required"),
-  code: z.string().min(1, "Code is required"),
-  is_base_unit: z.boolean().default(false),
-  base_unit_id: z.string().nullable().optional(),
-  conversion_factor: z.coerce.number().positive().default(1),
-  is_active: z.boolean().default(true),
-});
 
-type UnitFormData = z.infer<typeof unitSchema>;
 
 type UnitRecord = {
   id: string;
@@ -269,90 +259,12 @@ export default function UnitsManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<UnitRecord | null>(null);
 
-  const { data: units = [], isLoading } = useQuery<UnitRecord[]>({
-    queryKey: ["product_units", tenantId],
-    queryFn: async () => {
-const { data, error } = await supabase
-        .from("product_units")
-        .select("id, name, abbreviation, code, base_unit_id, conversion_factor, is_active")
-        .eq("tenant_id", tenantId)
-        .order("name");
-      if (error) throw error;
-      const withComputed = (data || []).map((d: any) => ({
-        ...d,
-        is_base_unit: !d.base_unit_id,
-      }));
-      return withComputed as UnitRecord[];
-    },
-    enabled: !!tenantId,
-  });
-
+  // Use unified CRUD hook
+  const { list, createItem: createUnit, updateItem: updateUnit, deleteItem: deleteUnit, invalidate } = useUnitCRUD(tenantId);
+  
+  const units = list?.data ?? [];
+  const unitsLoading = list?.isLoading ?? false;
   const baseUnits = useMemo(() => units.filter(u => !!u.is_base_unit), [units]);
-
-  const createMutation = useMutation({
-    mutationFn: async (payload: UnitFormData) => {
-const insertData = {
-        tenant_id: tenantId,
-        name: payload.name,
-        abbreviation: payload.abbreviation,
-        code: payload.code,
-        base_unit_id: payload.is_base_unit ? null : (payload.base_unit_id || null),
-        conversion_factor: payload.is_base_unit ? 1 : (payload.conversion_factor || 1),
-        is_active: payload.is_active,
-      };
-      const { error } = await supabase.from("product_units").insert(insertData);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["product_units", tenantId] });
-      toast({ title: "Unit created" });
-      setDialogOpen(false);
-    },
-    onError: (e: any) => toast({ title: "Failed to create unit", description: e.message, variant: "destructive" }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (payload: UnitFormData) => {
-      if (!payload.id) throw new Error("Missing unit id");
-const updateData = {
-        name: payload.name,
-        abbreviation: payload.abbreviation,
-        code: payload.code,
-        base_unit_id: payload.is_base_unit ? null : (payload.base_unit_id || null),
-        conversion_factor: payload.is_base_unit ? 1 : (payload.conversion_factor || 1),
-        is_active: payload.is_active,
-      };
-      const { error } = await supabase
-        .from("product_units")
-        .update(updateData)
-        .eq("id", payload.id)
-        .eq("tenant_id", tenantId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["product_units", tenantId] });
-      toast({ title: "Unit updated" });
-      setDialogOpen(false);
-      setEditing(null);
-    },
-    onError: (e: any) => toast({ title: "Failed to update unit", description: e.message, variant: "destructive" }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("product_units")
-        .delete()
-        .eq("id", id)
-        .eq("tenant_id", tenantId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["product_units", tenantId] });
-      toast({ title: "Unit deleted" });
-    },
-    onError: (e: any) => toast({ title: "Unable to delete unit", description: e.message, variant: "destructive" }),
-  });
 
   const startCreate = () => {
     setEditing(null);
@@ -364,11 +276,23 @@ const updateData = {
     setDialogOpen(true);
   };
 
-  const handleSubmit = (data: UnitFormData) => {
-    if (editing?.id) {
-      updateMutation.mutate({ ...data, id: editing.id });
-    } else {
-      createMutation.mutate(data);
+  const handleSubmit = async (data: UnitFormData) => {
+    try {
+      if (editing?.id) {
+        await updateUnit(editing.id, data);
+      } else {
+        await createUnit(data);
+      }
+      await invalidate();
+      setDialogOpen(false);
+      setEditing(null);
+    } catch (error) {
+      console.error('Error saving unit:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save unit. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -385,7 +309,7 @@ const updateData = {
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {unitsLoading ? (
           <div className="py-10 text-center opacity-80">Loading units…</div>
         ) : (
           <div className="overflow-x-auto">
@@ -420,7 +344,7 @@ const updateData = {
                         <Button
                           variant="destructive"
                           size="icon"
-                          onClick={() => deleteMutation.mutate(u.id)}
+                          onClick={() => deleteUnit(u.id)}
                           aria-label="Delete"
                         >
                           <Trash2 className="h-4 w-4" />

@@ -84,7 +84,7 @@ export const generateUniqueSKU = async (productName: string, tenantId: string): 
 };
 
 // Centralized price mapping logic
-export const mapProductPrices = (data: any) => {
+export const mapProductPrices = (data: Record<string, string | number>) => {
   return {
     cost_price: parseFloat(data.cost_price) || 0,
     retail_price: parseFloat(data.price) || parseFloat(data.retail_price) || 0,
@@ -164,7 +164,7 @@ export const getInventoryAccountId = async (tenantId: string): Promise<string | 
 };
 
 // Centralized duplicate prevention
-export const checkProductDuplicates = async (data: any, tenantId: string) => {
+export const checkProductDuplicates = async (data: Record<string, string>, tenantId: string) => {
   const errors: string[] = [];
   
   // Check for duplicate product names
@@ -232,14 +232,14 @@ export const processCSVData = (csvText: string) => {
       throw new Error('CSV file has no valid headers');
     }
     
-    const data: any[] = [];
+    const data: Record<string, string>[] = [];
     
     for (let i = 1; i < lines.length; i++) {
       if (lines[i].trim() === '') continue;
       
       try {
         const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-        const row: any = {};
+        const row: Record<string, string> = {};
         
         headers.forEach((header, index) => {
           row[header] = values[index] || '';
@@ -273,7 +273,7 @@ export const processCSVData = (csvText: string) => {
 // Centralized migration tracking
 export const createMigrationRecord = async (
   tenantId: string,
-  migrationType: 'import' | 'export',
+  migrationType: 'import' | 'export' | 'bulk_update',
   fileName: string,
   totalRecords: number
 ) => {

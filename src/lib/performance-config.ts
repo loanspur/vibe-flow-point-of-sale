@@ -58,7 +58,7 @@ export const performanceUtils = {
   getRealtimeDebounce: () => Number.MAX_SAFE_INTEGER, // Effectively disable
   
   /**
-   * Performance-optimized query options with aggressive caching
+   * Performance-optimized query options with real-time caching
    */
   getQueryOptions: () => ({
     staleTime: PERFORMANCE_CONFIG.QUERY_STALE_TIME,

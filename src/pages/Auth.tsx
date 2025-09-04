@@ -38,39 +38,76 @@ const Auth = () => {
 
   // Check if subdomain exists when component loads using domain manager
   useEffect(() => {
-    const checkSubdomain = async () => {
-      if (domainConfig && domainConfig.isSubdomain && !domainConfig.tenantId) {
-        setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
-      }
-    };
+    // Debounce domain config changes to prevent rapid re-renders
+    const timeoutId = setTimeout(() => {
+      const checkSubdomain = async () => {
+        if (domainConfig && domainConfig.isSubdomain && !domainConfig.tenantId) {
+          // DEV SUBDOMAIN BYPASS: If tenantless but allowed on localhost, don't show error
+          const host = typeof window !== "undefined" ? window.location.hostname : "";
+          const allowTenantless = !!domainConfig.allowTenantlessAuth && host.endsWith(".localhost");
+          
+          if (!allowTenantless) {
+            setSubdomainError('This business workspace does not exist. Please check the URL or sign up on our main website.');
+          }
+        }
+      };
+      
+      checkSubdomain();
+    }, 100); // 100ms debounce to prevent rapid changes
     
-    checkSubdomain();
+    return () => clearTimeout(timeoutId);
   }, [domainConfig]);
 
-  // Redirect after login on subdomains - avoid infinite loops
+  // Unified redirect logic after successful login
   useEffect(() => {
     if (!user) return;
+    
     const domain = window.location.hostname;
     const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
-    if (!isMainDomain) {
-      // Add a small delay to prevent rapid redirects and ensure auth state is stable
-      const redirectTimer = setTimeout(() => {
-        navigate(fromPath, { replace: true });
-      }, 100);
-      
-      return () => clearTimeout(redirectTimer);
-    }
-  }, [user, navigate, fromPath]);
-
-  // On main domain, auto-redirect superadmins to /superadmin after login
-  useEffect(() => {
-    if (!user) return;
-    const domain = window.location.hostname;
-    const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
-    if (isMainDomain && (userRole?.toLowerCase() === 'superadmin')) {
-      navigate('/superadmin', { replace: true });
-    }
-  }, [user, userRole, navigate]);
+    
+    AUTH_DEBUG && console.log('🔄 Redirect logic triggered:', { 
+      user: user.id, 
+      userRole, 
+      domain, 
+      isMainDomain, 
+      fromPath 
+    });
+    
+    // Add a small delay to ensure auth state is stable and prevent rapid redirects
+    const redirectTimer = setTimeout(() => {
+      try {
+        if (isMainDomain) {
+          // Main domain logic
+          if (userRole?.toLowerCase() === 'superadmin') {
+            AUTH_DEBUG && console.log('🎯 Redirecting superadmin to /superadmin');
+            navigate('/superadmin', { replace: true });
+          } else {
+            // Regular users on main domain go to dashboard
+            AUTH_DEBUG && console.log('🎯 Redirecting main domain user to /dashboard');
+            navigate('/dashboard', { replace: true });
+          }
+        } else {
+          // Subdomain logic - tenant users
+          if (fromPath && fromPath !== '/') {
+            // Navigate to the intended destination
+            AUTH_DEBUG && console.log('🎯 Redirecting tenant user to intended path:', fromPath);
+            navigate(fromPath, { replace: true });
+          } else {
+            // Default to dashboard for tenant users
+            AUTH_DEBUG && console.log('🎯 Redirecting tenant user to /dashboard (default)');
+            navigate('/dashboard', { replace: true });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Redirect error:', error);
+        // Fallback: always redirect to dashboard if navigation fails
+        AUTH_DEBUG && console.log('🆘 Fallback redirect to /dashboard due to error');
+        navigate('/dashboard', { replace: true });
+      }
+    }, 300); // Increased delay for better stability and to prevent shaking
+    
+    return () => clearTimeout(redirectTimer);
+  }, [user?.id, userRole, navigate, fromPath]); // Stabilized dependencies
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -138,14 +175,18 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in."
       });
-      // On subdomains, wait for tenant context to resolve before navigating
-      const domain = window.location.hostname;
-      const isMainDomain = domain === 'vibenet.online' || domain === 'www.vibenet.online';
-      if (!isMainDomain) {
-        // Trigger a domain refresh; Auth effect will navigate when ready
-        refreshConfig().catch(() => {});
-      }
-
+      
+      // Clear any existing errors
+      setSubdomainError('');
+      
+      // The redirect will be handled by the useEffect above
+      // Add a safety fallback redirect in case useEffect doesn't trigger
+      setTimeout(() => {
+        if (window.location.pathname === '/auth' || window.location.pathname === '/login') {
+          AUTH_DEBUG && console.log('🆘 Safety fallback redirect triggered');
+          navigate('/dashboard', { replace: true });
+        }
+      }, 1000); // 1 second fallback
     }
 
     setLoading(false);
@@ -202,16 +243,28 @@ const Auth = () => {
     return <GoogleAuthTest />;
   }
 
+  // Show loading state while domain config is being resolved
+  if (!domainConfig) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card>
+            <CardContent className="flex items-center justify-center p-8">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading workspace...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md" style={{ minHeight: '400px' }}>
         <div className="text-center mb-8">
-          <Button variant="ghost" asChild className="mb-4">
-            <Link to="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
-            </Link>
-          </Button>
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-lg">V</span>
@@ -265,7 +318,7 @@ const Auth = () => {
               </Alert>
             )}
             
-            {!showForgotPassword && !subdomainError ? (
+            {!showForgotPassword && (!subdomainError || (domainConfig?.allowTenantlessAuth && window.location.hostname.endsWith('.localhost'))) ? (
               <div className="w-full">
                 {/* Google Sign In Option - Only show on main domain, not on tenant subdomains */}
                 {!domainConfig?.isSubdomain && (
@@ -367,7 +420,7 @@ const Auth = () => {
                   </Button>
                 </form>
               </div>
-            ) : showForgotPassword && !subdomainError ? (
+            ) : showForgotPassword && (!subdomainError || (domainConfig?.allowTenantlessAuth && window.location.hostname.endsWith('.localhost'))) ? (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">Email</Label>

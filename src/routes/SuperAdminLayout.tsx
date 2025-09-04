@@ -1,7 +1,7 @@
-import { ReactNode } from 'react';
+import { useEffect } from 'react';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Bell, Search, User, LogOut } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { 
@@ -12,19 +12,22 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { SuperAdminSidebar } from './SuperAdminSidebar';
+import { SuperAdminSidebar } from '@/components/SuperAdminSidebar';
 import { LazyImage } from '@/components/ui/image-lazy';
 import { useTenantLogo } from '@/hooks/useTenantLogo';
 
-interface SuperAdminLayoutProps {
-  children: ReactNode;
-}
-
-export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
+export function SuperAdminLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const tenantLogo = useTenantLogo();
   const fallbackLogo = '/lovable-uploads/8ec254a5-4e90-416c-afc2-2521bf634890.png';
+
+  // Sentinel: detect if SuperAdminLayout is mounted on /auth (should never happen)
+  useEffect(() => {
+    if (window.location.pathname.startsWith('/auth')) {
+      console.warn('[sentinel] SuperAdminLayout mounted on /auth — this should never happen');
+    }
+  }, []);
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -103,7 +106,7 @@ export function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
 
           {/* Main Content with mobile padding */}
           <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-            {children}
+            <Outlet />
           </main>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,15 +36,8 @@ import {
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-
-const brandSchema = z.object({
-  name: z.string().min(1, 'Brand name is required'),
-  description: z.string().optional(),
-  logo_url: z.string().optional(),
-});
-
-type BrandFormData = z.infer<typeof brandSchema>;
+import { useBrandCRUD } from '@/features/brands/crud/useBrandCRUD';
+import { brandSchema, BrandFormData } from '@/lib/validation-schemas';
 
 interface Brand {
   id: string;
@@ -61,12 +53,17 @@ interface Brand {
 export default function BrandManagement() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
+
+  // Use unified CRUD hook
+  const { list, createItem: createBrand, updateItem: updateBrand, deleteItem: deleteBrand, invalidate, isLoading } = useBrandCRUD(tenantId);
+  
+  // Get brands from unified hook
+  const brands = list.data || [];
+  const loading = list.isLoading;
 
   const form = useForm<BrandFormData>({
     resolver: zodResolver(brandSchema),
@@ -74,82 +71,24 @@ export default function BrandManagement() {
       name: '',
       description: '',
       logo_url: '',
+      is_active: true,
     },
   });
 
-  const fetchBrands = async () => {
-    if (!tenantId) return;
-
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('brands')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setBrands(data || []);
-    } catch (error) {
-      console.error('Error fetching brands:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch brands',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBrands();
-  }, [tenantId]);
+  // Data is automatically fetched by TanStack Query
 
   const onSubmit = async (data: BrandFormData) => {
-    if (!tenantId) return;
-
     try {
       if (editingBrand) {
-        // Update existing brand
-        const { error } = await supabase
-          .from('brands')
-          .update({
-            ...data,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingBrand.id)
-          .eq('tenant_id', tenantId);
-
-        if (error) throw error;
-
-        toast({
-          title: 'Success',
-          description: 'Brand updated successfully',
-        });
+        await updateBrand(editingBrand.id, data);
       } else {
-        // Create new brand
-        const { error } = await supabase
-          .from('brands')
-          .insert({
-            ...data,
-            tenant_id: tenantId,
-            is_active: true,
-          });
-
-        if (error) throw error;
-
-        toast({
-          title: 'Success',
-          description: 'Brand created successfully',
-        });
+        await createBrand(data);
       }
-
+      
+      await invalidate();
       setShowForm(false);
       setEditingBrand(null);
       form.reset();
-      fetchBrands();
     } catch (error: any) {
       console.error('Error saving brand:', error);
       toast({
@@ -171,7 +110,7 @@ export default function BrandManagement() {
   };
 
   const handleDelete = async () => {
-    if (!deletingBrand || !tenantId) return;
+    if (!deletingBrand) return;
 
     try {
       // Check if brand is used by any products
@@ -192,22 +131,9 @@ export default function BrandManagement() {
         return;
       }
 
-      // Soft delete by setting is_active to false
-      const { error } = await supabase
-        .from('brands')
-        .update({ is_active: false })
-        .eq('id', deletingBrand.id)
-        .eq('tenant_id', tenantId);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'Brand deleted successfully',
-      });
-
+      // Use unified CRUD delete (soft delete)
+      deleteBrand(deletingBrand.id);
       setDeletingBrand(null);
-      fetchBrands();
     } catch (error: any) {
       console.error('Error deleting brand:', error);
       toast({

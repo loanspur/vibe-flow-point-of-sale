@@ -5,9 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useUnifiedCRUD } from '@/hooks/useUnifiedCRUD';
+import { categorySchema, subcategorySchema, CategoryFormData, SubcategoryFormData } from '@/lib/validation-schemas';
 import { Plus, Edit, Trash2, FolderOpen, Tag } from 'lucide-react';
 import {
   Dialog,
@@ -52,8 +53,38 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
   const { tenantId } = useAuth();
   const { toast } = useToast();
   
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use unified CRUD hook for categories
+  const { 
+    list: listCategories, 
+    createItem: createCategory, 
+    updateItem: updateCategory, 
+    deleteItem: deleteCategory, 
+    isLoading: loadingCategories,
+    invalidate: invalidateCategories
+  } = useUnifiedCRUD<CategoryFormData>({
+    entityName: "Category",
+    table: "product_categories",
+    tenantId,
+    schema: categorySchema,
+    baseQueryKey: ["product_categories", tenantId],
+  });
+
+  // Use unified CRUD hook for subcategories
+  const { 
+    list: listSubcategories, 
+    createItem: createSubcategory, 
+    updateItem: updateSubcategory, 
+    deleteItem: deleteSubcategory, 
+    isLoading: loadingSubcategories,
+    invalidate: invalidateSubcategories
+  } = useUnifiedCRUD<SubcategoryFormData>({
+    entityName: "Subcategory",
+    table: "product_subcategories",
+    tenantId,
+    schema: subcategorySchema,
+    baseQueryKey: ["product_subcategories", tenantId],
+  });
+
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showSubcategoryForm, setShowSubcategoryForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -72,41 +103,12 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
     category_id: undefined,
   });
 
-  useEffect(() => {
-    if (tenantId) {
-      fetchCategories();
-    }
-  }, [tenantId]);
+  // Get categories from the unified CRUD hook
+  const categories = listCategories.data || [];
+  const subcategories = listSubcategories.data || [];
+  const loading = loadingCategories || loadingSubcategories;
 
-  const fetchCategories = async () => {
-    if (!tenantId) {
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('product_categories')
-        .select(`
-          *,
-          product_subcategories (*)
-        `)
-        .eq('tenant_id', tenantId)
-        .order('name');
 
-      if (error) throw error;
-      setCategories(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error fetching categories",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,27 +119,17 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
         tenant_id: tenantId,
       };
 
-      let error;
       if (selectedCategory) {
-        ({ error } = await supabase
-          .from('product_categories')
-          .update(categoryData)
-          .eq('id', selectedCategory.id));
+        await updateCategory(selectedCategory.id, categoryData);
       } else {
-        ({ error } = await supabase
-          .from('product_categories')
-          .insert([categoryData]));
+        await createCategory(categoryData);
       }
-
-      if (error) throw error;
 
       toast({
         title: selectedCategory ? "Category updated" : "Category created",
         description: `${categoryForm.name} has been ${selectedCategory ? 'updated' : 'created'} successfully.`,
       });
 
-      // Persist changes and refresh
-      await fetchCategories();
       setShowCategoryForm(false);
       setSelectedCategory(null);
       setCategoryForm({ name: '', description: '', color: '#3B82F6' });
@@ -160,27 +152,17 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
         tenant_id: tenantId,
       };
 
-      let error;
       if (selectedSubcategory) {
-        ({ error } = await supabase
-          .from('product_subcategories')
-          .update(subcategoryData)
-          .eq('id', selectedSubcategory.id));
+        await updateSubcategory(selectedSubcategory.id, subcategoryData);
       } else {
-        ({ error } = await supabase
-          .from('product_subcategories')
-          .insert([subcategoryData]));
+        await createSubcategory(subcategoryData);
       }
-
-      if (error) throw error;
 
       toast({
         title: selectedSubcategory ? "Subcategory updated" : "Subcategory created",
         description: `${subcategoryForm.name} has been ${selectedSubcategory ? 'updated' : 'created'} successfully.`,
       });
 
-      // Persist changes and refresh
-      await fetchCategories();
       setShowSubcategoryForm(false);
       setSelectedSubcategory(null);
       setSubcategoryForm({ name: '', description: '', category_id: undefined });
@@ -196,19 +178,13 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
 
   const handleDeleteCategory = async (categoryId: string) => {
     try {
-      const { error } = await supabase
-        .from('product_categories')
-        .delete()
-        .eq('id', categoryId);
-
-      if (error) throw error;
+      await deleteCategory(categoryId);
 
       toast({
         title: "Category deleted",
         description: "Category has been successfully deleted.",
       });
 
-      fetchCategories();
       onUpdate?.();
     } catch (error: any) {
       toast({
@@ -221,19 +197,13 @@ export default function CategoryManagement({ onUpdate }: CategoryManagementProps
 
   const handleDeleteSubcategory = async (subcategoryId: string) => {
     try {
-      const { error } = await supabase
-        .from('product_subcategories')
-        .delete()
-        .eq('id', subcategoryId);
-
-      if (error) throw error;
+      await deleteSubcategory(subcategoryId);
 
       toast({
         title: "Subcategory deleted",
         description: "Subcategory has been successfully deleted.",
       });
 
-      fetchCategories();
       onUpdate?.();
     } catch (error: any) {
       toast({

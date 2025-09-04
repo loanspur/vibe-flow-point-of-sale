@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { isSubdomain } from '@/lib/domain-manager';
+import { isAuthPath } from '@/lib/route-helpers';
 
 // User roles are now dynamically managed via user_roles table
 type UserRole = string; // Dynamic role from database
@@ -19,6 +20,11 @@ const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const { user, loading, userRole: authUserRole } = useAuth();
   const location = useLocation();
+
+  // Short-circuit: allow any /auth path to render without role checks
+  if (isAuthPath(location.pathname)) {
+    return <>{children}</>;
+  }
 
   // Simple role mapping for basic functionality
   const mapRole = (role: string): string => {

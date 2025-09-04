@@ -32,9 +32,11 @@ import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { CashDrawerCard } from '@/components/CashDrawerCard';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
-// Removed unused recharts import that was causing module loading issues
+import { SubdomainFeatureAlerts } from '@/components/SubdomainFeatureAlerts';
+import { dlog } from '@/lib/logger';
+// Removed unused imports that were causing build issues
+// import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+// import { useDebouncedRealtimeRefresh } from '@/hooks/useDebouncedRealtimeRefresh';
 
 const getTimeBasedGreeting = () => {
   const hour = new Date().getHours();
@@ -58,7 +60,7 @@ function TenantAdminDashboard() {
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null}>({ start: new Date(), end: new Date() });
   
 
-  console.log('🏠 Dashboard auth state:', { user: !!user, tenantId, userEmail: user?.email });
+  dlog('🏠 Dashboard auth state:', { user: !!user, tenantId, userEmail: user?.email });
 
   // Get effective pricing for the current subscription
   const { effectivePricing } = useEffectivePricing(
@@ -138,7 +140,7 @@ function TenantAdminDashboard() {
     if (!tenantId) return;
     
     try {
-      console.log('Fetching subscription for tenant:', tenantId);
+             dlog('Fetching subscription for tenant:', tenantId);
       const { data, error } = await supabase
         .from('tenant_subscription_details')
         .select(`
@@ -153,7 +155,7 @@ function TenantAdminDashboard() {
         .in('status', ['active', 'pending', 'trialing', 'trial'])
         .maybeSingle();
 
-      console.log('Subscription fetch result:', { data, error });
+             dlog('Subscription fetch result:', { data, error });
       if (error && error.code !== 'PGRST116') throw error;
       setCurrentSubscription(data);
     } catch (error) {
@@ -214,7 +216,7 @@ function TenantAdminDashboard() {
     const endDate = `${format(rangeEnd, 'yyyy-MM-dd')}T23:59:59.999Z`;
 
     try {
-      console.log('🚀 Dashboard fetch for tenant with filters:', { tenantId, dateFilter, startDate, endDate });
+             dlog('🚀 Dashboard fetch for tenant with filters:', { tenantId, dateFilter, startDate, endDate });
 
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       const next30Str = format(addDays(new Date(), 30), 'yyyy-MM-dd');
@@ -332,7 +334,7 @@ function TenantAdminDashboard() {
         endDate
       };
 
-      console.log('📈 Dashboard metrics:', result);
+             dlog('📈 Dashboard metrics:', result);
       setDashboardData(result);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -356,7 +358,7 @@ function TenantAdminDashboard() {
     }
   };
 
-  console.log('🎯 CURRENT DASHBOARD DATA:', {
+  dlog('🎯 CURRENT DASHBOARD DATA:', {
     loading,
     dashboardData,
     tenantId
@@ -517,6 +519,9 @@ function TenantAdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Subdomain Feature Alerts */}
+      <SubdomainFeatureAlerts />
 
       {/* Stock Alerts */}
       <Card>

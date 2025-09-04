@@ -1,11 +1,14 @@
 import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { log } from './logger';
+import { isLocalTenantSubdomain, isDevelopmentDomain, isVibenetSubdomain, isMainDomain } from './env-guards';
 
 export interface DomainConfig {
   tenantId: string | null;
   domain: string;
   isCustomDomain: boolean;
   isSubdomain: boolean;
+  allowTenantlessAuth?: boolean;
 }
 
 class DomainManager {
@@ -34,15 +37,15 @@ class DomainManager {
       
       // If on subdomain with tenant, set up context
       if (domainConfig?.isSubdomain && domainConfig.tenantId) {
-        console.log('🏢 Setting up tenant context for:', domainConfig.tenantId);
+        log.trace("domain", "Setting up tenant context for:", domainConfig.tenantId);
         try {
           await this.setupTenantContext(domainConfig.tenantId);
         } catch (error) {
-          console.warn('⚠️ Tenant context setup failed:', error);
+          log.warn('Tenant context setup failed:', error);
         }
       }
     } catch (error) {
-      console.warn('Domain initialization failed:', error);
+      log.warn('Domain initialization failed:', error);
     }
   }
 
@@ -57,34 +60,34 @@ class DomainManager {
         .maybeSingle();
 
       if (error) {
-        console.warn(`Error fetching tenant ${tenantId}:`, error);
+        log.warn(`Error fetching tenant ${tenantId}:`, error);
         return;
       }
 
       if (!tenant) {
-        console.warn(`Tenant ${tenantId} not found or inactive`);
+        log.warn(`Tenant ${tenantId} not found or inactive`);
         return;
       }
 
-      console.log(`✅ Tenant context set up for: ${tenant.name} (${tenant.status})`);
+      log.trace("domain", `Tenant context set up for: ${tenant.name} (${tenant.status})`);
       
       // Store tenant context
       sessionStorage.setItem('domain-tenant-id', tenantId);
       sessionStorage.setItem('domain-tenant-name', tenant.name);
       sessionStorage.setItem('domain-tenant-status', tenant.status);
     } catch (error) {
-      console.error('Error setting up tenant context:', error);
+      log.error('Error setting up tenant context:', error);
     }
   }
 
   private parseDomain(domain: string): DomainConfig {
     // Development domains (main domains only)
-    if (domain === 'localhost' || domain.endsWith('.lovableproject.com')) {
+    if (isDevelopmentDomain(domain)) {
       return { tenantId: null, domain, isCustomDomain: false, isSubdomain: false };
     }
     
     // Localhost subdomains (any domain ending with .localhost except localhost itself)
-    if (domain.endsWith('.localhost') && domain !== 'localhost') {
+    if (isLocalTenantSubdomain(domain)) {
       return { tenantId: null, domain, isCustomDomain: false, isSubdomain: true };
     }
 
@@ -107,20 +110,21 @@ class DomainManager {
 
   async getCurrentDomainConfig(): Promise<DomainConfig> {
     const currentDomain = window.location.hostname;
+    const pathname = window.location.pathname;
     
-    // Don't log for every call to reduce noise
-    // console.log('🔍 Getting domain config for:', currentDomain);
+          log.trace("domain", { host: currentDomain, pathname, isSubdomain: isLocalTenantSubdomain(currentDomain) });
     
     // Check cache first
     const cached = this.cache.get(currentDomain);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TIMEOUT) {
-      // console.log('📦 Using cached config for:', currentDomain);
-      return {
+      const config = {
         tenantId: cached.tenantId,
         domain: currentDomain,
-        isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-        isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
+        isCustomDomain: !isVibenetSubdomain(currentDomain) && !isMainDomain(currentDomain) && !isLocalTenantSubdomain(currentDomain) && !isDevelopmentDomain(currentDomain),
+        isSubdomain: isVibenetSubdomain(currentDomain) || isLocalTenantSubdomain(currentDomain)
       };
+      log.trace("domain", "resolved-config", config);
+      return config;
     }
 
     const domainInfo = this.parseDomain(currentDomain);
@@ -138,13 +142,68 @@ class DomainManager {
         currentDomain === 'www.vibenet.shop' ||
         currentDomain === 'vibenet.online' ||
         currentDomain === 'www.vibenet.online') {
-      console.log('🏠 Development/main domain detected:', currentDomain);
+      log.trace("domain", 'Development/main domain detected:', currentDomain);
       return domainInfo;
+    }
+
+    // Handle localhost subdomains
+    if (isLocalTenantSubdomain(currentDomain)) {
+      log.trace("domain", 'Localhost subdomain detected:', currentDomain);
+      
+      // Extract subdomain name
+      const subdomain = currentDomain.replace('.localhost', '');
+      
+      try {
+        // Query database for tenant with this subdomain
+        const { data: tenants, error } = await supabase
+          .from('tenants')
+          .select('id, name, subdomain, status')
+          .eq('subdomain', subdomain)
+          .in('status', ['active', 'trial'])
+          .limit(1);
+
+        if (error) {
+          log.warn('Error querying tenants for localhost subdomain:', error);
+          this.negativeCache.set(currentDomain, Date.now());
+          return domainInfo;
+        }
+
+        if (tenants && tenants.length > 0) {
+          const tenantId = tenants[0].id;
+          log.trace("domain", `Resolved localhost tenant: ${subdomain} -> ${tenantId}`);
+          
+          const resolvedConfig: DomainConfig = {
+            ...domainInfo,
+            tenantId
+          };
+          
+          // Cache the result
+          this.cache.set(currentDomain, {
+            tenantId,
+            timestamp: Date.now()
+          });
+          
+          return resolvedConfig;
+        } else {
+          log.warn(`No tenant found for localhost subdomain: ${subdomain}, tenantless auth allowed on localhost`);
+          this.negativeCache.set(currentDomain, Date.now());
+          const config = {
+            ...domainInfo,
+            allowTenantlessAuth: true
+          };
+          log.trace("domain", "resolved-config", config);
+          return config;
+        }
+      } catch (error) {
+        log.warn('Failed to resolve localhost tenant:', error);
+        this.negativeCache.set(currentDomain, Date.now());
+        return domainInfo;
+      }
     }
 
     // Prevent concurrent resolutions for the same domain
     if (this.resolving.has(currentDomain)) {
-      console.log('⏳ Domain already being resolved, waiting...', currentDomain);
+      log.trace("domain", 'Domain already being resolved, waiting...', currentDomain);
       // Wait for ongoing resolution to complete with shorter timeout
       let attempts = 0;
       while (this.resolving.has(currentDomain) && attempts < 30) { // 3 second timeout
@@ -154,19 +213,19 @@ class DomainManager {
       
       // If timeout reached, force continue with resolution
       if (attempts >= 30) {
-        console.warn('⚠️ Domain resolution timeout, forcing new resolution for:', currentDomain);
+        log.warn('Domain resolution timeout, forcing new resolution for:', currentDomain);
         this.resolving.delete(currentDomain);
       }
       
       // Check cache again after waiting
       const cachedAfterWait = this.cache.get(currentDomain);
       if (cachedAfterWait && Date.now() - cachedAfterWait.timestamp < this.CACHE_TIMEOUT) {
-        console.log('📦 Using cached config after wait:', currentDomain);
+        log.trace("domain", 'Using cached config after wait:', currentDomain);
         return {
           tenantId: cachedAfterWait.tenantId,
           domain: currentDomain,
-          isCustomDomain: !currentDomain.endsWith('.vibenet.shop') && !currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.shop' && currentDomain !== 'vibenet.online' && currentDomain !== 'localhost' && !currentDomain.endsWith('.lovableproject.com'),
-          isSubdomain: (currentDomain.endsWith('.vibenet.shop') && currentDomain !== 'vibenet.shop') || (currentDomain.endsWith('.vibenet.online') && currentDomain !== 'vibenet.online')
+          isCustomDomain: !isVibenetSubdomain(currentDomain) && !isMainDomain(currentDomain) && !isLocalTenantSubdomain(currentDomain) && !isDevelopmentDomain(currentDomain),
+          isSubdomain: isVibenetSubdomain(currentDomain) || isLocalTenantSubdomain(currentDomain)
         };
       }
       const negAfterWait = this.negativeCache.get(currentDomain);
@@ -183,10 +242,10 @@ class DomainManager {
       
       // Special handling for localhost subdomains
       let resolvedTenantId: string | null = null;
-      if (currentDomain.endsWith('.localhost') && currentDomain !== 'localhost') {
+      if (isLocalTenantSubdomain(currentDomain)) {
         // Extract the full subdomain part (everything before .localhost)
         const subdomainPart = currentDomain.replace('.localhost', '');
-        console.log('🔍 Resolving localhost subdomain:', subdomainPart);
+        log.trace("domain", 'Resolving localhost subdomain:', subdomainPart);
         
         // Try to find tenant by subdomain
         const { data: tenant, error: tenantError } = await supabase
@@ -197,10 +256,10 @@ class DomainManager {
           .maybeSingle();
           
         if (tenantError) {
-          console.warn('⚠️ Error finding tenant by subdomain:', tenantError);
+          log.warn('Error finding tenant by subdomain:', tenantError);
         } else if (tenant) {
           resolvedTenantId = tenant.id;
-          console.log('✅ Found tenant for localhost subdomain:', resolvedTenantId, 'Name:', tenant.name, 'Subdomain:', tenant.subdomain);
+          log.trace("domain", 'Found tenant for localhost subdomain:', resolvedTenantId, 'Name:', tenant.name, 'Subdomain:', tenant.subdomain);
         } else {
           // Debug: Let's see what tenants exist with similar names
           const { data: allTenants, error: allError } = await supabase
@@ -209,14 +268,14 @@ class DomainManager {
             .in('status', ['active', 'trial']);
             
           if (!allError && allTenants) {
-            console.log('🔍 Available tenants:', allTenants.map(t => ({ name: t.name, subdomain: t.subdomain, status: t.status })));
+            log.trace("domain", 'Available tenants:', allTenants.map(t => ({ name: t.name, subdomain: t.subdomain, status: t.status })));
             
             // Try to find by normalized name
             for (const t of allTenants) {
               const normalizedName = t.name?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
               if (normalizedName === subdomainPart) {
                 resolvedTenantId = t.id;
-                console.log('✅ Found tenant by normalized name:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
+                log.trace("domain", 'Found tenant by normalized name:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
                 break;
               }
             }
@@ -226,7 +285,7 @@ class DomainManager {
               for (const t of allTenants) {
                 if (t.subdomain && subdomainPart.includes(t.subdomain)) {
                   resolvedTenantId = t.id;
-                  console.log('✅ Found tenant by partial subdomain match:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
+                  log.trace("domain", 'Found tenant by partial subdomain match:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
                   break;
                 }
               }
@@ -238,25 +297,39 @@ class DomainManager {
                 const normalizedTenantName = t.name?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
                 if (normalizedTenantName && subdomainPart.includes(normalizedTenantName)) {
                   resolvedTenantId = t.id;
-                  console.log('✅ Found tenant by partial name match:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
+                  log.trace("domain", 'Found tenant by partial name match:', resolvedTenantId, 'Name:', t.name, 'Subdomain:', t.subdomain);
                   break;
                 }
               }
             }
+          }
+          
+          // If no tenant found for localhost subdomain, allow tenantless auth
+          if (!resolvedTenantId && isLocalTenantSubdomain(currentDomain)) {
+            log.warn(`No tenant found for localhost subdomain: ${subdomainPart}, tenantless auth allowed on localhost`);
+            const localhostConfig: DomainConfig = {
+              ...domainInfo,
+              allowTenantlessAuth: true
+            };
+            
+            // Cache the result
+            this.negativeCache.set(currentDomain, Date.now());
+            this.resolving.delete(currentDomain);
+            return localhostConfig;
           }
         }
       }
       
       // If not resolved by localhost logic, try normal domain resolution
       if (!resolvedTenantId) {
-        const { data: tenantId, error } = await supabase
-          .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
+      const { data: tenantId, error } = await supabase
+        .rpc('get_tenant_by_domain', { domain_name_param: currentDomain });
 
-              if (error) {
-          console.error('❌ Error resolving tenant by domain:', error);
-          this.resolving.delete(currentDomain); // Clean up
-          return domainInfo;
-        }
+      if (error) {
+        log.error('Error resolving tenant by domain:', error);
+        this.resolving.delete(currentDomain); // Clean up
+        return domainInfo;
+      }
 
         resolvedTenantId = tenantId || null;
       }
@@ -270,19 +343,19 @@ class DomainManager {
             : null;
 
         if (altDomain) {
-          console.log('🪄 Trying alternate TLD for domain resolution:', altDomain);
+          log.trace("domain", 'Trying alternate TLD for domain resolution:', altDomain);
           const { data: altTenantId, error: altError } = await supabase
             .rpc('get_tenant_by_domain', { domain_name_param: altDomain });
           if (altError) {
-            console.warn('⚠️ Alternate TLD resolution error:', altError);
+            log.warn('Alternate TLD resolution error:', altError);
           } else if (altTenantId) {
             resolvedTenantId = altTenantId;
-            console.log('✅ Resolved via alternate TLD:', altTenantId);
+            log.trace("domain", 'Resolved via alternate TLD:', altTenantId);
           }
         }
       }
 
-      console.log('✅ Tenant resolved:', resolvedTenantId);
+      log.trace("domain", 'Tenant resolved:', resolvedTenantId);
 
       const resolvedConfig: DomainConfig = {
         ...domainInfo,
@@ -295,7 +368,7 @@ class DomainManager {
           tenantId: resolvedTenantId,
           timestamp: Date.now()
         });
-        console.log('💾 Cached domain config for:', currentDomain);
+        log.trace("domain", 'Cached domain config for:', currentDomain);
       } else {
         // Negative cache to prevent rapid re-resolution loops
         this.negativeCache.set(currentDomain, Date.now());
@@ -304,7 +377,7 @@ class DomainManager {
       this.resolving.delete(currentDomain); // Clean up
       return resolvedConfig;
     } catch (error) {
-      console.error('❌ Error in getCurrentDomainConfig:', error);
+      log.error('Error in getCurrentDomainConfig:', error);
       this.resolving.delete(currentDomain); // Clean up
       return domainInfo;
     }
@@ -324,7 +397,7 @@ class DomainManager {
         .rpc('get_tenant_by_domain', { domain_name_param: targetDomain });
 
       if (error) {
-        console.error('Error resolving tenant:', error);
+        log.error('Error resolving tenant:', error);
         return null;
       }
 
@@ -341,11 +414,11 @@ class DomainManager {
         if (altDomain) {
           const { data: altTenantId, error: altError } = await supabase
             .rpc('get_tenant_by_domain', { domain_name_param: altDomain });
-          if (altError) {
-            console.warn('Alternate TLD resolution error:', altError);
-          } else if (altTenantId) {
-            resolvedTenantId = altTenantId;
-          }
+                  if (altError) {
+          log.warn('Alternate TLD resolution error:', altError);
+        } else if (altTenantId) {
+          resolvedTenantId = altTenantId;
+        }
         }
       }
 
@@ -359,7 +432,7 @@ class DomainManager {
 
       return resolvedTenantId;
     } catch (error) {
-      console.error('Error resolving tenant from domain:', error);
+      log.error('Error resolving tenant from domain:', error);
       return null;
     }
   }
@@ -429,9 +502,20 @@ export const domainManager = new DomainManager();
 // Helper functions
 export const getCurrentDomain = () => window.location.hostname;
 
-export const isDevelopmentDomain = (domain: string = getCurrentDomain()) => {
-  return domain === 'localhost' || domain.endsWith('.lovableproject.com') || domain.endsWith('.localhost');
-};
+/**
+ * Helper function to determine if auth can be rendered without a tenant
+ * @param cfg Domain configuration
+ * @param path Current pathname
+ * @returns true if auth can be rendered without tenant
+ */
+export function canRenderAuthWithoutTenant(cfg: DomainConfig, path: string): boolean {
+  return cfg?.allowTenantlessAuth && path.startsWith("/auth");
+}
+
+/**
+ * Centralized helper functions to eliminate duplicated localhost subdomain logic
+ * Now imported from ./env-guards.ts
+ */
 
 export const getBaseDomain = (domain: string = getCurrentDomain()) => {
   // Respect environment: use the current TLD if already on vibenet.shop or vibenet.online
@@ -451,15 +535,13 @@ export const getBaseDomain = (domain: string = getCurrentDomain()) => {
 };
 
 export const isCustomDomain = (domain: string = getCurrentDomain()) => {
-  const isMain = domain === 'vibenet.shop' || domain === 'vibenet.online';
-  const isSub = domain.endsWith('.vibenet.shop') || domain.endsWith('.vibenet.online');
+  const isMain = isMainDomain(domain);
+  const isSub = isVibenetSubdomain(domain) || isLocalTenantSubdomain(domain);
   return !isSub && !isMain && !isDevelopmentDomain(domain);
 };
 
 export const isSubdomain = (domain: string = getCurrentDomain()) => {
-  return (domain.endsWith('.vibenet.shop') && domain !== 'vibenet.shop') ||
-         (domain.endsWith('.vibenet.online') && domain !== 'vibenet.online') ||
-         (domain.endsWith('.localhost') && domain !== 'localhost');
+  return isVibenetSubdomain(domain) || isLocalTenantSubdomain(domain);
 };
 
 export const getSubdomainName = (domain: string = getCurrentDomain()) => {
@@ -485,49 +567,55 @@ export const useDomainContext = () => {
   const [initialized, setInitialized] = React.useState(globalInitialized);
 
   React.useEffect(() => {
-    // If already initialized globally, use the cached result
-    if (globalInitialized && globalDomainConfig) {
-      setDomainConfig(globalDomainConfig);
-      setLoading(false);
-      setInitialized(true);
-      return;
-    }
+          // If already initialized globally, use the cached result
+      if (globalInitialized && globalDomainConfig) {
+        React.startTransition(() => {
+          setDomainConfig(globalDomainConfig);
+          setLoading(false);
+          setInitialized(true);
+        });
+        return;
+      }
 
-    // If initialization is in progress, wait for it
-    if (globalPromise) {
-      globalPromise.then((config) => {
-        setDomainConfig(config);
-        setLoading(false);
-        setInitialized(true);
-      }).catch((error) => {
-        console.error('Domain initialization failed:', error);
-        const fallbackConfig: DomainConfig = {
-          tenantId: null,
-          domain: window.location.hostname,
-          isCustomDomain: false,
-          isSubdomain: false
-        };
-        setDomainConfig(fallbackConfig);
-        setLoading(false);
-        setInitialized(true);
-      });
-      return;
-    }
+      // If initialization is in progress, wait for it
+      if (globalPromise) {
+        globalPromise.then((config) => {
+          React.startTransition(() => {
+            setDomainConfig(config);
+            setLoading(false);
+            setInitialized(true);
+          });
+        }).catch((error) => {
+          log.error('Domain initialization failed:', error);
+          const fallbackConfig: DomainConfig = {
+            tenantId: null,
+            domain: window.location.hostname,
+            isCustomDomain: false,
+            isSubdomain: false
+          };
+          React.startTransition(() => {
+            setDomainConfig(fallbackConfig);
+            setLoading(false);
+            setInitialized(true);
+          });
+        });
+        return;
+      }
 
     // Start initialization
     const initializeDomain = async (): Promise<DomainConfig> => {
-      console.log('🌐 Initializing domain context for:', window.location.hostname);
+      log.trace("domain", 'Initializing domain context for:', window.location.hostname);
       
       const config = await domainManager.getCurrentDomainConfig();
-      console.log('🔍 Domain config resolved:', config);
+      log.trace("domain", 'Domain config resolved:', config);
       
       // Set up tenant context if needed
       if (config?.isSubdomain && config.tenantId) {
-        console.log('🏢 Setting up tenant context for:', config.tenantId);
+        log.trace("domain", 'Setting up tenant context for:', config.tenantId);
         try {
           await domainManager.setupTenantContext(config.tenantId);
         } catch (error) {
-          console.warn('⚠️ Tenant context setup failed:', error);
+          log.warn('Tenant context setup failed:', error);
         }
       }
       
@@ -543,11 +631,14 @@ export const useDomainContext = () => {
     globalPromise = initializeDomain();
     
     globalPromise.then((config) => {
-      setDomainConfig(config);
-      setLoading(false);
-      setInitialized(true);
+      // Batch state updates to prevent rapid re-renders
+      React.startTransition(() => {
+        setDomainConfig(config);
+        setLoading(false);
+        setInitialized(true);
+      });
     }).catch((error) => {
-      console.error('Domain initialization failed:', error);
+      log.error('Domain initialization failed:', error);
       const fallbackConfig: DomainConfig = {
         tenantId: null,
         domain: window.location.hostname,
@@ -558,9 +649,12 @@ export const useDomainContext = () => {
       globalLoading = false;
       globalInitialized = true;
       
-      setDomainConfig(fallbackConfig);
-      setLoading(false);
-      setInitialized(true);
+      // Batch state updates to prevent rapid re-renders
+      React.startTransition(() => {
+        setDomainConfig(fallbackConfig);
+        setLoading(false);
+        setInitialized(true);
+      });
     });
 
   }, []); // Empty dependency array - only run once
@@ -582,11 +676,13 @@ export const useDomainContext = () => {
       globalLoading = false;
       globalInitialized = true;
       
-      setDomainConfig(config);
-      setLoading(false);
+      // Batch state updates to prevent rapid re-renders
+      React.startTransition(() => {
+        setDomainConfig(config);
+        setLoading(false);
+      });
     }
   };
 };
 
 export default domainManager;
-

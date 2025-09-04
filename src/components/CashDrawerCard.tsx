@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Link } from 'react-router-dom';
+import { dlog } from '@/lib/logger';
 
 interface CashDrawerData {
   id: string;
@@ -63,7 +64,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
   // Listen for bank transfer updates
   useEffect(() => {
     const handleBankTransferUpdate = () => {
-      console.log('🏦 Bank transfer update detected, refreshing cash drawer data');
+      dlog('🏦 Bank transfer update detected, refreshing cash drawer data');
       setTimeout(() => {
         fetchCashDrawerData();
       }, 1500); // Give extra time for database to sync
@@ -75,6 +76,27 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
       window.removeEventListener('bankTransferUpdated', handleBankTransferUpdate);
     };
   }, []);
+
+  // Log bank transfer updates for debugging
+  useEffect(() => {
+    dlog('🏦 Bank transfer update detected, refreshing cash drawer data');
+  }, [bankTransfers]);
+
+  // Calculate cash totals
+  const cashCalculations = useMemo(() => {
+    const totalUnbankedCash = cashDrawers.reduce((sum, drawer) => sum + (drawer.current_balance || 0), 0);
+    const totalBankedCash = bankTransfers.reduce((sum, transfer) => sum + (transfer.amount || 0), 0);
+    
+    dlog('💰 Cash calculations:', {
+      cashDrawers: cashDrawers.length,
+      bankTransfers: bankTransfers.length,
+      totalUnbankedCash,
+      totalBankedCash,
+      bankTransfersData: bankTransfers
+    });
+    
+    return { totalUnbankedCash, totalBankedCash };
+  }, [cashDrawers, bankTransfers]);
 
   const fetchCashDrawerData = async () => {
     try {
@@ -102,7 +124,7 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
         .lte('created_at', endDate)
         .eq('status', 'approved');
 
-      console.log('🏦 Bank transfers query result:', {
+      dlog('🏦 Bank transfers query result:', {
         transfersData,
         transfersError,
         dateRange: { startDate, endDate },
@@ -121,18 +143,10 @@ export function CashDrawerCard({ dateRange, refreshKey }: CashDrawerCardProps) {
   };
 
   // Calculate totals
-  const totalUnbankedCash = cashDrawers.reduce((sum, drawer) => sum + drawer.current_balance, 0);
-  const totalBankedCash = bankTransfers.reduce((sum, transfer) => sum + transfer.amount, 0);
+  const totalUnbankedCash = cashCalculations.totalUnbankedCash;
+  const totalBankedCash = cashCalculations.totalBankedCash;
   const openDrawersCount = cashDrawers.filter(drawer => drawer.status === 'open').length;
   const totalDrawersCount = cashDrawers.length;
-
-  console.log('💰 Cash calculations:', {
-    cashDrawers: cashDrawers.length,
-    bankTransfers: bankTransfers.length,
-    totalUnbankedCash,
-    totalBankedCash,
-    bankTransfersData: bankTransfers
-  });
 
   if (loading) {
     return (

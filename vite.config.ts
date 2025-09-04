@@ -1,55 +1,70 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { componentTagger } from "lovable-tagger";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    hmr: {
-      overlay: false,
-      port: 24678
-    },
-    force: true
-  },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
+export default defineConfig({
+  plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    host: 'localhost',
+    port: 5173,
+    strictPort: false,
+    hmr: {
+      port: 5174,
+    },
+    fs: {
+      allow: ['..'],
+    },
+    middlewareMode: false,
+  },
   build: {
+    target: 'es2015',
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name][extname]',
-        manualChunks(id) {
-          if (id.includes('node_modules')) return 'vendor';
-        }
-      }
+        // Simplified output configuration
+        chunkFileNames: 'js/[name]-[hash].js',
+        entryFileNames: 'js/[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          const name = assetInfo.name || 'asset';
+          const info = name.split('.');
+          const ext = info[info.length - 1];
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
+            return `images/[name]-[hash][extname]`;
+          }
+          if (/css/i.test(ext)) {
+            return `css/[name]-[hash][extname]`;
+          }
+          return `assets/[name]-[hash][extname]`;
+        },
+      },
     },
-    target: 'es2020',
-    minify: 'esbuild',
-    cssMinify: true,
-    reportCompressedSize: false,
     chunkSizeWarningLimit: 1000,
-    sourcemap: false,
-    // Enhanced build optimizations
-    assetsInlineLimit: 8192,
-    emptyOutDir: true,
-    optimizeDeps: {
-      include: ['react', 'react-dom', '@supabase/supabase-js'],
-      force: false
-    },
-    // Faster builds
-    write: true,
-    copyPublicDir: true
-  }
-}));
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'react-hook-form',
+      '@hookform/resolvers/zod',
+      'zod',
+      '@supabase/supabase-js',
+      'lucide-react',
+      'date-fns',
+      'clsx',
+      'tailwind-merge',
+    ],
+  },
+  define: {
+    __DEV__: process.env.NODE_ENV === 'development',
+  },
+});

@@ -48,6 +48,9 @@ export function usePaginatedQuery<T>(
     resetPagination
   } = usePagination(initialPageSize);
 
+  // Ensure pagination is always defined
+  const safePagination = pagination || { page: 1, pageSize: initialPageSize, total: 0 };
+
   const executeQuery = useCallback(async () => {
     if (!enabled) return;
 
@@ -107,16 +110,17 @@ export function usePaginatedQuery<T>(
     tableName,
     selectClause,
     searchTerm,
-    JSON.stringify(filters),
+    filters.tenant_id, // FIXED: Only include primitive values, not entire object
     orderBy.column,
     orderBy.ascending,
-    pagination.page,
-    pagination.pageSize
+    getSupabaseRange,
+    updatePagination
   ]);
 
-  // Execute query when dependencies change
+  // Execute query when dependencies change - with debouncing to prevent excessive calls
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const runQuery = async () => {
       if (isMounted) {
@@ -124,10 +128,12 @@ export function usePaginatedQuery<T>(
       }
     };
     
-    runQuery();
+    // Debounce the query execution to prevent rapid successive calls
+    timeoutId = setTimeout(runQuery, 300); // FIXED: Match useDebounce timing
     
     return () => {
       isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -139,7 +145,7 @@ export function usePaginatedQuery<T>(
     if (pagination.page > 1) {
       handlePageChange(1);
     }
-  }, [searchTerm, JSON.stringify(filters), handlePageChange]);
+  }, [searchTerm, filters.tenant_id, handlePageChange]); // FIXED: Stable dependencies
 
   const refetch = useCallback(async () => {
     await executeQuery();
@@ -149,7 +155,7 @@ export function usePaginatedQuery<T>(
     data,
     loading,
     error,
-    pagination,
+    pagination: safePagination,
     handlePageChange,
     handlePageSizeChange,
     refetch,

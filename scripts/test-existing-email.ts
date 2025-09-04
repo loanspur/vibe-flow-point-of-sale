@@ -55,7 +55,7 @@ async function testExistingEmailFunctionality() {
     if (error) {
       console.log('✅ Function error handling works (expected for test data):');
       console.log(`   Error: ${error.message}`);
-      console.log(`   Code: ${(error as any).code || 'N/A'}`);
+      console.log(`   Code: ${(error as { code?: string }).code || 'N/A'}`);
     } else {
       console.log('✅ Function executed successfully');
       console.log(`   Response: ${JSON.stringify(data, null, 2)}`);

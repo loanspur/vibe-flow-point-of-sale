@@ -1,100 +1,47 @@
-export interface LogContext {
-  requestId?: string;
-  userId?: string;
-  tenantId?: string;
-  email?: string;
-  templateId?: string;
-  driver?: string;
-  [key: string]: any;
+// Snapshot native console methods to prevent extension interference
+// @ts-ignore
+if (typeof window !== "undefined" && !window.__nativeConsole) {
+  // @ts-ignore
+  window.__nativeConsole = { 
+    error: console.error,
+    warn: console.warn,
+    info: console.info,
+    debug: console.debug,
+    log: console.log
+  };
 }
 
-export class Logger {
-  private static generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  static info(message: string, context: LogContext = {}): void {
-    const logEntry = {
-      level: 'INFO',
-      timestamp: new Date().toISOString(),
-      message,
-      requestId: context.requestId || this.generateRequestId(),
-      ...context
-    };
-
-    console.log('📝', JSON.stringify(logEntry, null, 2));
-  }
-
-  static warn(message: string, context: LogContext = {}): void {
-    const logEntry = {
-      level: 'WARN',
-      timestamp: new Date().toISOString(),
-      message,
-      requestId: context.requestId || this.generateRequestId(),
-      ...context
-    };
-
-    console.warn('⚠️', JSON.stringify(logEntry, null, 2));
-  }
-
-  static error(message: string, error?: any, context: LogContext = {}): void {
-    const logEntry = {
-      level: 'ERROR',
-      timestamp: new Date().toISOString(),
-      message,
-      requestId: context.requestId || this.generateRequestId(),
-      error: error ? {
-        name: error.name,
-        message: error.message,
-        code: error.code,
-        statusCode: error.statusCode,
-        stack: error.stack
-      } : undefined,
-      ...context
-    };
-
-    console.error('❌', JSON.stringify(logEntry, null, 2));
-  }
-
-  static emailSuccess(emailId: string, recipient: string, driver: string, context: LogContext = {}): void {
-    this.info('Email sent successfully', {
-      emailId,
-      recipient,
-      driver,
-      ...context
-    });
-  }
-
-  static emailError(error: any, recipient: string, driver: string, context: LogContext = {}): void {
-    this.error('Email sending failed', error, {
-      recipient,
-      driver,
-      ...context
-    });
-  }
-
-  static inviteStarted(email: string, role: string, tenantId: string, context: LogContext = {}): void {
-    this.info('User invitation started', {
-      email,
-      role,
-      tenantId,
-      ...context
-    });
-  }
-
-  static inviteSuccess(userId: string, email: string, emailId: string, context: LogContext = {}): void {
-    this.info('User invitation completed successfully', {
-      userId,
-      email,
-      emailId,
-      ...context
-    });
-  }
-
-  static inviteError(error: any, email: string, context: LogContext = {}): void {
-    this.error('User invitation failed', error, {
-      email,
-      ...context
-    });
-  }
+type Level = "error"|"warn"|"info"|"debug";
+function enabled(level: Level) {
+  const env = (import.meta?.env?.VITE_LOG_LEVEL ?? "warn").toLowerCase();
+  const order: Record<Level,number> = { error:0, warn:1, info:2, debug:3 };
+  return (order[level] ?? 1) <= (order[env as Level] ?? 1);
 }
+export function isTrace(kind?: string) {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    if (!p.has("trace")) return false;
+    if (!kind) return true;
+    const raw = p.get("trace");
+    return raw === "*" || raw?.split(",").includes(kind);
+  } catch { return false; }
+}
+
+// Use native console methods to prevent extension interference
+const nativeConsole = typeof window !== "undefined" ? 
+  // @ts-ignore
+  (window.__nativeConsole || console) : console;
+
+export const log = {
+  error: (...a:any[]) => enabled("error") && nativeConsole.error(...a),
+  warn:  (...a:any[]) => enabled("warn")  && nativeConsole.warn(...a),
+  info:  (...a:any[]) => enabled("info")  && nativeConsole.info(...a),
+  debug: (...a:any[]) => enabled("debug") && nativeConsole.debug(...a),
+  trace: (kind:string, ...a:any[]) => isTrace(kind) && nativeConsole.info(`[TRACE:${kind}]`, ...a),
+};
+
+// Logger helper to gate noisy console logs
+export const DEBUG = (import.meta.env.DEV && (window as any).__DEBUG__) === true;
+export const dlog = (...args: any[]) => { if (DEBUG) console.log(...args); };
+export const dwarn = (...args: any[]) => { if (DEBUG) console.warn(...args); };
+export const derror = (...args: any[]) => { if (DEBUG) console.error(...args); };

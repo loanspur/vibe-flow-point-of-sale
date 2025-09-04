@@ -9,6 +9,7 @@ import { Building2, Mail, User, Loader2, Phone, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { countriesData, CountryData, getCountryByName } from '@/lib/countries-data';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 

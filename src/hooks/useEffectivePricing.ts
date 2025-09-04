@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { dlog } from '@/lib/logger';
 
 interface EffectivePricing {
   effective_amount: number;
@@ -26,7 +27,7 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
     setError(null);
     
     try {
-      console.log('Fetching effective pricing for:', { tenantId, billingPlanId });
+      dlog('Fetching effective pricing for:', { tenantId, billingPlanId });
       
       const { data, error } = await supabase
         .rpc('get_tenant_effective_pricing', {
@@ -35,11 +36,11 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
         });
 
       if (error) throw error;
-      console.log('RPC response:', data);
+      dlog('RPC response:', data);
 
       if (data && data.length > 0) {
         // Always fetch setup fee from custom pricing if available
-        console.log('Fetching setup fee from custom pricing...');
+        dlog('Fetching setup fee from custom pricing...');
         const today = new Date().toISOString().split('T')[0];
         const { data: customPricing, error: customError } = await supabase
           .from('tenant_custom_pricing')
@@ -53,17 +54,17 @@ export const useEffectivePricing = (tenantId?: string, billingPlanId?: string) =
           .limit(1)
           .maybeSingle();
         
-        console.log('Custom pricing setup fee response:', { customPricing, customError });
+        dlog('Custom pricing setup fee response:', { customPricing, customError });
         
         const setupFee = customPricing?.setup_fee || 0;
-        console.log('Final setup fee:', setupFee);
+        dlog('Final setup fee:', setupFee);
         
         const finalPricing = {
           ...data[0],
           setup_fee: setupFee
         };
         
-        console.log('Final effective pricing:', finalPricing);
+        dlog('Final effective pricing:', finalPricing);
         setEffectivePricing(finalPricing);
       } else {
         setEffectivePricing(null);
