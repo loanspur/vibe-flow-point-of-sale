@@ -48,7 +48,6 @@ interface AppContextType {
   loading: boolean;
   refreshBusinessSettings: () => Promise<void>;
   formatCurrency: (amount: number) => string;
-  formatLocalCurrency: (amount: number) => string;
   convertFromKES: (amount: number) => Promise<number>;
   tenantCurrency: string | null;
   currencySymbol: string;
@@ -126,11 +125,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   // Simplified context value
   const contextValue = useMemo(() => ({
     businessSettings,
+    loading: isLoading,
+    refreshBusinessSettings: fetchBusinessSettings,
     formatCurrency,
-    fetchBusinessSettings,
-    refreshBusinessSettings: fetchBusinessSettings, // Alias for compatibility
-    isLoading,
-  }), [businessSettings, formatCurrency, fetchBusinessSettings, isLoading]);
+    convertFromKES: async (amount: number) => amount, // Placeholder - not implemented
+    tenantCurrency: currencyCache?.code || businessSettings?.currency_code || 'USD',
+    currencySymbol: currencyCache?.symbol || businessSettings?.currency_symbol || '$',
+    currencyCode: currencyCache?.code || businessSettings?.currency_code || 'USD',
+    triggerCurrencyUpdate: () => {}, // Placeholder - not implemented
+  }), [businessSettings, isLoading, fetchBusinessSettings, formatCurrency, currencyCache]);
 
   return (
     <AppContext.Provider value={contextValue}>

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { formatStockQuantity } from '@/utils/commonUtils';
 
 // Import the stock cache clearing function
 let clearStockCache: (() => void) | null = null;
@@ -129,8 +130,8 @@ export const updateProductInventory = async (
         const allowOverselling = businessSettings?.enable_overselling ?? false;
 
         const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
-          ? (variant.stock_quantity || 0) + transaction.quantity
-          : (variant.stock_quantity || 0) - transaction.quantity;
+          ? Math.round(((variant.stock_quantity || 0) + transaction.quantity) * 100) / 100
+          : Math.round(((variant.stock_quantity || 0) - transaction.quantity) * 100) / 100;
 
         const { error: updateVariantError } = await supabase
           .from('product_variants')
@@ -167,8 +168,8 @@ export const updateProductInventory = async (
         const stockMethod = businessSettings?.stock_accounting_method || 'FIFO';
 
         const newQuantity = transaction.type === 'purchase' || transaction.type === 'return' || transaction.type === 'stock_transfer_in'
-          ? (product.stock_quantity || 0) + transaction.quantity
-          : (product.stock_quantity || 0) - transaction.quantity;
+          ? Math.round(((product.stock_quantity || 0) + transaction.quantity) * 100) / 100
+          : Math.round(((product.stock_quantity || 0) - transaction.quantity) * 100) / 100;
 
         // Prepare update data
         const updateData: any = { 
@@ -181,7 +182,7 @@ export const updateProductInventory = async (
             // Weighted Average Cost - calculate new average
             const currentValue = (product.stock_quantity || 0) * (product.purchase_price || 0);
             const newValue = transaction.quantity * transaction.unitCost;
-            const totalQuantity = (product.stock_quantity || 0) + transaction.quantity;
+            const totalQuantity = Math.round(((product.stock_quantity || 0) + transaction.quantity) * 100) / 100;
             
             if (totalQuantity > 0) {
               updateData.purchase_price = (currentValue + newValue) / totalQuantity;
@@ -576,7 +577,7 @@ export const recalculateInventoryLevels = async (tenantId: string) => {
         const updateData: any = {};
         
         if (needsStockUpdate) {
-          updateData.stock_quantity = Math.max(0, calculatedStock);
+          updateData.stock_quantity = Math.max(0, Math.round(calculatedStock * 100) / 100);
         }
         
         if (needsPriceUpdate) {
@@ -704,6 +705,49 @@ export const processStockTransfer = async (
     console.log('Stock transfer inventory levels updated for both locations');
   } catch (error) {
     console.error('Error processing stock transfer:', error);
+    throw error;
+  }
+};
+
+// Process purchase and update inventory with location support
+export const processPurchaseInventory = async (
+  tenantId: string,
+  purchaseId: string,
+  purchaseItems: Array<{
+    productId: string;
+    quantity: number;
+    unitCost: number;
+    locationId?: string;
+  }>,
+  locationId?: string
+) => {
+  try {
+    const inventoryTransactions: InventoryTransaction[] = purchaseItems.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      type: 'purchase' as const,
+      referenceId: purchaseId,
+      referenceType: 'purchase',
+      notes: `Purchase transaction ${purchaseId}${locationId ? ` at location ${locationId}` : ''}`
+    }));
+
+    await updateProductInventory(tenantId, inventoryTransactions);
+    
+    // Update product cost prices
+    for (const item of purchaseItems) {
+      await supabase
+        .from('products')
+        .update({
+          cost_price: item.unitCost,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', item.productId)
+        .eq('tenant_id', tenantId);
+    }
+    
+    console.log('Purchase inventory processed and updated');
+  } catch (error) {
+    console.error('Error processing purchase inventory:', error);
     throw error;
   }
 };

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatStockQuantity } from '@/utils/commonUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { recalculateInventoryLevels, updateProductInventory } from '@/lib/inventory-integration';
 import { useUnifiedStock } from '@/hooks/useUnifiedStock';

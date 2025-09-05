@@ -26,7 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MigrationService, MigrationResult, ImportPreview, BulkUpdateResult } from '@/lib/migration-service';
 
 export const UnifiedMigration: React.FC = () => {
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState('import');
@@ -38,11 +38,21 @@ export const UnifiedMigration: React.FC = () => {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [bulkUpdateResult, setBulkUpdateResult] = useState<BulkUpdateResult | null>(null);
 
-  const migrationService = new MigrationService(tenantId!);
+  // Don't create migration service if tenantId is not available
+  const migrationService = tenantId ? new MigrationService(tenantId) : null;
 
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!migrationService) {
+      toast({
+        title: "Authentication Error",
+        description: "Please wait for authentication to complete or refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!file.name.endsWith('.csv')) {
       toast({
@@ -78,7 +88,14 @@ export const UnifiedMigration: React.FC = () => {
   }, [importType, migrationService, toast]);
 
   const handleImport = async () => {
-    if (!selectedFile || !tenantId) return;
+    if (!selectedFile || !tenantId || !migrationService) {
+      toast({
+        title: "Error",
+        description: "Please wait for authentication to complete or refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsProcessing(true);
     setProgress(0);
@@ -231,7 +248,14 @@ export const UnifiedMigration: React.FC = () => {
   };
 
   const handleBulkUpdate = async () => {
-    if (!selectedFile || !tenantId) return;
+    if (!selectedFile || !tenantId || !migrationService) {
+      toast({
+        title: "Error",
+        description: "Please wait for authentication to complete or refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsProcessing(true);
     setProgress(0);
@@ -295,6 +319,25 @@ export const UnifiedMigration: React.FC = () => {
       default: return type;
     }
   };
+
+  // Show loading state if authentication is not ready
+  if (!user || !tenantId) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold">Data Migration</h2>
+            <p className="text-muted-foreground">
+              Loading authentication...
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

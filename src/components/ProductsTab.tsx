@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { useTenantProductsList } from '@/features/products/hooks/useTenantProductsList';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useStockWithRefresh } from '@/hooks/useUnifiedStock';
+import { useStockWithRefresh, useUnifiedStock } from '@/hooks/useUnifiedStock';
+import { formatStockQuantity } from '@/utils/commonUtils';
 
 // 👉 if you already have ProductFormUnified, re-use it here:
 import ProductFormUnified from '@/components/ProductFormUnified'; // keep your existing form component
@@ -57,7 +58,7 @@ const StockDisplay = ({ productId, locationId, fallbackStock }: {
 
   return (
     <span className={displayStock > 0 ? 'text-green-600' : 'text-red-600'}>
-      {displayStock}
+      {formatStockQuantity(displayStock)}
     </span>
   );
 };
@@ -65,21 +66,11 @@ const StockDisplay = ({ productId, locationId, fallbackStock }: {
 export default function ProductsTab() {
   const navigate = useNavigate();
   const { tenantId } = useAuth();
+  const { calculateStock } = useUnifiedStock();
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading, refetch } = useTenantProductsList();
 
-  // Debug: Log products data to see location information
-  React.useEffect(() => {
-    if (products.length > 0) {
-      console.log('ProductsTab: Received products with location data:', products.map(p => ({
-        id: p.id,
-        name: p.name,
-        location_id: p.location_id,
-        location_name: p.location_name
-      })));
-    }
-  }, [products]);
 
   // Add/Edit form state
   const [showForm, setShowForm] = useState(false);
@@ -88,6 +79,7 @@ export default function ProductsTab() {
   // Product preview state
   const [previewProduct, setPreviewProduct] = useState<any | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewCalculatedStock, setPreviewCalculatedStock] = useState<number | null>(null);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,9 +142,6 @@ export default function ProductsTab() {
       // Invalidate and refetch products data after successful deletion
       queryClient.invalidateQueries({ queryKey: ['products:list', tenantId] });
       refetch();
-      console.log('ProductsTab: Refreshing product data after deletion');
-    } else {
-      console.error('ProductsTab: Failed to delete product:', error);
     }
   };
 
@@ -162,27 +151,23 @@ export default function ProductsTab() {
   };
 
   const openEdit = (p: any) => {
-    console.log('🔍 PRODUCTS TAB DEBUG: Opening edit for product:', p);
-    console.log('🔍 PRODUCTS TAB DEBUG: Product keys:', Object.keys(p));
-    console.log('🔍 PRODUCTS TAB DEBUG: Product values:', {
-      id: p.id,
-      name: p.name,
-      sku: p.sku,
-      description: p.description,
-      wholesale_price: p.wholesale_price,
-      retail_price: p.retail_price,
-      cost_price: p.cost_price,
-      category_id: p.category_id,
-      location_id: p.location_id,
-      stock_quantity: p.stock_quantity
-    });
-    setEditingProduct(p);           // ✅ open in-place dialog instead of redirecting
+    setEditingProduct(p);
     setShowForm(true);
   };
 
-  const openPreview = (p: any) => {
+  const openPreview = async (p: any) => {
     setPreviewProduct(p);
     setShowPreview(true);
+    
+    // Calculate the actual stock using the same logic as the products table
+    if (p.id) {
+      try {
+        const stockResult = await calculateStock(p.id, p.location_id);
+        setPreviewCalculatedStock(stockResult.stock);
+      } catch (error) {
+        setPreviewCalculatedStock(null);
+      }
+    }
   };
 
   const onFormClose = (didSave?: boolean) => {
@@ -192,7 +177,6 @@ export default function ProductsTab() {
       // Invalidate and refetch products data for real-time updates
       queryClient.invalidateQueries({ queryKey: ['products:list', tenantId] });
       refetch();
-      console.log('ProductsTab: Refreshing product data after save/update');
     }
   };
 
@@ -304,21 +288,22 @@ export default function ProductsTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[28%]">Product</TableHead>
-              <TableHead className="w-[14%]">SKU</TableHead>
-              <TableHead className="w-[16%]">Location</TableHead>
-              <TableHead className="w-[12%]">Retail Price</TableHead>
-              <TableHead className="w-[12%]">Wholesale Price</TableHead>
+              <TableHead className="w-[24%]">Product</TableHead>
+              <TableHead className="w-[12%]">Category</TableHead>
+              <TableHead className="w-[12%]">SKU</TableHead>
+              <TableHead className="w-[14%]">Location</TableHead>
+              <TableHead className="w-[10%]">Retail Price</TableHead>
+              <TableHead className="w-[10%]">Wholesale Price</TableHead>
               <TableHead className="w-[8%] text-right">Stock</TableHead>
-              <TableHead className="w-[8%]">Status</TableHead>
-              <TableHead className="w-[10%] text-right">Actions</TableHead>
+              <TableHead className="w-[6%]">Status</TableHead>
+              <TableHead className="w-[8%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
             {filteredProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                   {products.length === 0 ? (
                     <div className="space-y-4">
                       <p className="text-lg font-medium">No products found</p>
@@ -354,6 +339,7 @@ export default function ProductsTab() {
               filteredProducts.map((p: any) => {
                 const name = p.name ?? p.title ?? p.product_name ?? '—';
                 const sku = p.sku ?? '—';
+                const categoryName = p.category_name ?? '—';
                 const locationName = p.location_name ?? '—';
                 const retail = p.retail_price_num ?? p.retail_price ?? null;
                 const wholesale = p.wholesale_price_num ?? p.wholesale_price ?? null;
@@ -384,6 +370,11 @@ export default function ProductsTab() {
                         {/* Product Name */}
                         <span className="truncate">{name}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-1 text-xs font-medium">
+                        {categoryName}
+                      </span>
                     </TableCell>
                     <TableCell>{sku}</TableCell>
                     <TableCell className="whitespace-pre-line">{locationName}</TableCell>
@@ -535,11 +526,17 @@ export default function ProductsTab() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Stock Quantity</Label>
-                  <p className="text-sm">{previewProduct.stock_quantity || 0}</p>
+                  <p className="text-sm">{formatStockQuantity(previewProduct.stock_quantity)}</p>
+                  {previewCalculatedStock !== null && previewCalculatedStock !== previewProduct.stock_quantity && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      <p>📊 <strong>Calculated Stock:</strong> {formatStockQuantity(previewCalculatedStock)}</p>
+                      <p className="text-amber-600">⚠️ Includes adjustments and recent sales</p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Min Stock Level</Label>
-                  <p className="text-sm">{previewProduct.min_stock_level || 'Not set'}</p>
+                  <p className="text-sm">{previewProduct.min_stock_level ? formatStockQuantity(previewProduct.min_stock_level) : 'Not set'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Status</Label>

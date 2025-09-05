@@ -17,9 +17,15 @@ import { createEnhancedPurchaseJournalEntry } from '@/lib/accounting-integration
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useProductSettingsValidation } from '@/hooks/useProductSettingsValidation';
 import { useCashDrawer } from '@/hooks/useCashDrawer';
+import { useUnifiedStock } from '@/hooks/useUnifiedStock';
+import { processPurchaseInventory } from '@/lib/inventory-integration';
+import { fallbackCurrencyFormatter } from '@/constants/currency';
+import { useCommonData } from '@/hooks/useCommonData';
 
 interface PurchaseFormProps {
   onPurchaseCompleted?: () => void;
+  mode?: 'standalone' | 'modal';
+  onClose?: () => void;
 }
 
 interface PurchaseItem {
@@ -31,25 +37,59 @@ interface PurchaseItem {
   total_cost: number;
 }
 
-export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
+export function PurchaseForm({ onPurchaseCompleted, mode = 'standalone', onClose }: PurchaseFormProps) {
   const { tenantId } = useAuth();
   useEnsureBaseUnitPcs();
-  const { formatLocalCurrency } = useApp();
+  
+  // Safety check for AppContext
+  let formatCurrency: (amount: number) => string;
+  try {
+    const appContext = useApp();
+    formatCurrency = appContext.formatCurrency;
+  } catch (error) {
+    // Fallback if AppContext is not available
+    formatCurrency = fallbackCurrencyFormatter;
+  }
   const { toast } = useToast();
   const { purchase: purchaseSettings, tax: taxSettings } = useBusinessSettings();
   const { validatePurchase, showValidationErrors } = useProductSettingsValidation();
   const { currentDrawer, recordCashTransaction } = useCashDrawer();
+  const { clearCache: clearStockCache, calculateStock } = useUnifiedStock();
   
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [locations, setLocations] = useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<string>(localStorage.getItem('selected_location') || '');
+  const [productStocks, setProductStocks] = useState<Record<string, number>>({});
   
-  // Location handler with persistence
+  // Use centralized data management (same as sales form)
+  const { products, locations, loading: dataLoading, error: dataError, refreshData } = useCommonData();
+  
+  // Location state management (same as sales form)
+  const [selectedLocation, setSelectedLocation] = useState<string>(localStorage.getItem('selected_location') || '');
+  const [selectedLocationName, setSelectedLocationName] = useState<string>('');
+  
+  // Location handler with persistence (same as sales form)
   const handleLocationChange = (value: string) => {
     setSelectedLocation(value);
     localStorage.setItem('selected_location', value);
+    
+    // Update location name
+    const location = locations.find(loc => loc.id === value);
+    setSelectedLocationName(location?.name || '');
   };
+  
+  // Update location name when locations change
+  useEffect(() => {
+    if (selectedLocation && locations.length > 0) {
+      const location = locations.find(loc => loc.id === selectedLocation);
+      setSelectedLocationName(location?.name || '');
+    } else if (!selectedLocation && locations.length > 0) {
+      // Set first location as default if no location is selected
+      const firstLocation = locations[0];
+      setSelectedLocation(firstLocation.id);
+      setSelectedLocationName(firstLocation.name);
+      localStorage.setItem('selected_location', firstLocation.id);
+    }
+  }, [selectedLocation, locations]);
+  
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [remainingBalance, setRemainingBalance] = useState(0);
@@ -66,10 +106,14 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
   useEffect(() => {
     if (tenantId) {
       fetchSuppliers();
-      fetchProducts();
-      fetchLocations();
     }
   }, [tenantId]);
+
+  useEffect(() => {
+    if (products.length > 0 && selectedLocation) {
+      loadProductStocks();
+    }
+  }, [products, selectedLocation]);
 
   const fetchSuppliers = async () => {
     try {
@@ -81,204 +125,106 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         .eq('is_active', true);
       
       if (error) throw error;
-      console.log('🔍 Raw suppliers data:', data);
       
-      // Filter out any invalid suppliers before setting state
-      const validSuppliers = (data || []).filter(supplier => {
-        const isValid = supplier && 
-          supplier.id && 
-          typeof supplier.id === 'string' && 
-          supplier.id.trim() !== '' &&
-          supplier.name;
-        
-        if (!isValid) {
-          console.warn('❌ Invalid supplier filtered out:', supplier);
-        }
-        return isValid;
-      });
+      const validSuppliers = (data || []).filter(supplier => 
+        supplier && supplier.id && supplier.name
+      );
       
-      console.log('✅ Valid suppliers after filtering:', validSuppliers);
       setSuppliers(validSuppliers);
     } catch (error) {
-      console.error('Error fetching suppliers:', error);
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      console.log('🔍 Fetching products for tenant:', tenantId);
-      
-      if (!tenantId) {
-        console.warn('❌ No tenant ID available for products fetch');
-        setProducts([]);
-        return;
+  const loadProductStocks = async () => {
+    if (!products.length || !selectedLocation) return;
+    
+    const stockPromises = products.map(async (product) => {
+      try {
+        const stockResult = await calculateStock(product.id, selectedLocation);
+        return { productId: product.id, stock: stockResult.stock };
+      } catch (error) {
+        return { productId: product.id, stock: 0 };
       }
+    });
+    
+    const stockResults = await Promise.all(stockPromises);
+    const stockMap = stockResults.reduce((acc, { productId, stock }) => {
+      acc[productId] = stock;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    setProductStocks(stockMap);
+  };
 
-      // Use explicit tenant_id filter instead of relying on RLS context
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          id, 
-          name, 
-          sku, 
-          cost_price,
-          unit_id,
-          brand_id,
-          brands (
-            id,
-            name
-          ),
-          product_units (
-            id,
-            name,
-            abbreviation
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) {
-        console.error('❌ Database error fetching products:', error);
-        console.error('Error details:', {
-          message: error.message,
-          code: error.code,
-          hint: error.hint
-        });
-        throw error;
-      }
-      
-      console.log('🔍 Raw products data:', data);
-      console.log('🔢 Products count:', data?.length || 0);
-      
-      // Filter out any invalid products before setting state
-      const validProducts = (data || []).filter(product => {
-        const isValid = product && 
-          product.id && 
-          typeof product.id === 'string' && 
-          product.id.trim() !== '' &&
-          product.name && 
-          product.name.trim() !== '';
-        
-        if (!isValid) {
-          console.warn('❌ Invalid product filtered out:', product);
-        }
-        return isValid;
-      });
-      
-      console.log('✅ Valid products after filtering:', validProducts);
-      console.log('🔢 Number of valid products:', validProducts.length);
-      
-      if (validProducts.length === 0) {
-        console.warn('⚠️ No valid products found for tenant', tenantId);
-      }
-      
-      setProducts(validProducts);
-    } catch (error) {
-      console.error('💥 Error fetching products:', error);
-      setProducts([]); // Set empty array on error
+
+
+  const addItemToPurchase = () => {
+    if (!selectedProduct || selectedProduct.trim() === '') {
       toast({
-        title: "Error Loading Products",
-        description: "Failed to load products. Please try refreshing the page.",
+        title: "Error",
+        description: "Please select a product.",
         variant: "destructive",
       });
-    }
-  };
-
-  const fetchLocations = async () => {
-    if (!tenantId) {
-      setLocations([]);
       return;
     }
     
-    try {
-      const { data, error } = await supabase
-        .from("store_locations")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("is_active", true)
-        .order("name");
-      
-      if (error) {
-        console.error('Error fetching locations:', error);
-        return;
-      }
-      
-      if (data && Array.isArray(data)) {
-        setLocations(data);
-        // Set first location as default if no location is selected
-        if (data.length > 0 && !selectedLocation) {
-          setSelectedLocation(data[0].id);
-        }
-      } else {
-        setLocations([]);
-      }
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-      setLocations([]);
+    const product = products.find(p => p.id === selectedProduct);
+    if (!product) {
+      toast({
+        title: "Error", 
+        description: "Product not found. Please try selecting again.",
+        variant: "destructive",
+      });
+      return;
     }
-  };
+    
+    const validQuantity = Number(quantity);
+    if (isNaN(validQuantity) || validQuantity <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid quantity greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const validUnitCost = Number(unitCost);
+    if (isNaN(validUnitCost) || validUnitCost <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid unit cost greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const addItemToPurchase = () => {
-    try {
-      console.log("🛒 Adding item to purchase:", { 
-        selectedProduct, 
-        quantity, 
-        unitCost, 
-        productsLength: products.length,
-        selectedProductType: typeof selectedProduct,
-        quantityType: typeof quantity,
-        unitCostType: typeof unitCost
+    // Check if product already exists in the list
+    const existingItemIndex = purchaseItems.findIndex(item => item.product_id === selectedProduct);
+    
+    if (existingItemIndex >= 0) {
+      // Update existing item quantity
+      setPurchaseItems(prevItems => {
+        const updatedItems = [...prevItems];
+        const existingItem = updatedItems[existingItemIndex];
+        const newQuantity = existingItem.quantity + validQuantity;
+        const newTotalCost = newQuantity * validUnitCost;
+        
+        updatedItems[existingItemIndex] = {
+          ...existingItem,
+          quantity: newQuantity,
+          unit_cost: validUnitCost, // Update unit cost to latest
+          total_cost: newTotalCost,
+        };
+        
+        return updatedItems;
       });
       
-      // Validate selectedProduct
-      if (!selectedProduct || selectedProduct.trim() === '') {
-        console.warn("❌ No product selected!");
-        toast({
-          title: "Error",
-          description: "Please select a product.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const product = products.find(p => p.id === selectedProduct);
-      console.log("🔍 Found product:", product);
-      
-      if (!product) {
-        console.warn("❌ Product not found for ID:", selectedProduct);
-        toast({
-          title: "Error", 
-          description: "Product not found. Please try selecting again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Validate quantity
-      const validQuantity = Number(quantity);
-      if (isNaN(validQuantity) || validQuantity <= 0) {
-        console.warn("❌ Invalid quantity:", quantity, "converted:", validQuantity);
-        toast({
-          title: "Error",
-          description: "Please enter a valid quantity greater than 0.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Validate unit cost
-      const validUnitCost = Number(unitCost);
-      if (isNaN(validUnitCost) || validUnitCost <= 0) {
-        console.warn("❌ Invalid unit cost:", unitCost, "converted:", validUnitCost);
-        toast({
-          title: "Error",
-          description: "Please enter a valid unit cost greater than 0.",
-          variant: "destructive",
-        });
-        return;
-      }
-
+      toast({
+        title: "Item Updated",
+        description: `${product.name} quantity increased to ${purchaseItems[existingItemIndex].quantity + validQuantity}`,
+      });
+    } else {
+      // Add new item
       const newItem: PurchaseItem = {
         product_id: selectedProduct,
         product_name: product.name,
@@ -287,35 +233,19 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         unit_cost: unitCost,
         total_cost: quantity * unitCost,
       };
-
-      console.log("✅ New item created:", newItem);
       
-      setPurchaseItems(prevItems => {
-        const updatedItems = [...prevItems, newItem];
-        console.log("📦 Updated purchase items:", updatedItems);
-        return updatedItems;
-      });
-      
-      // Reset form fields
-      setSelectedProduct('');
-      setQuantity(1);
-      setUnitCost(0);
+      setPurchaseItems(prevItems => [...prevItems, newItem]);
       
       toast({
         title: "Item Added",
         description: `${product.name} added to purchase`,
       });
-      
-      console.log("🎉 Item successfully added to purchase");
-      
-    } catch (error) {
-      console.error("💥 Error in addItemToPurchase:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add item to purchase. Please try again.",
-        variant: "destructive",
-      });
     }
+    
+    // Reset form fields
+    setSelectedProduct('');
+    setQuantity(1);
+    setUnitCost(0);
   };
 
   const removeItem = (index: number) => {
@@ -375,6 +305,15 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       return;
     }
 
+    if (!tenantId) {
+      toast({
+        title: "Error",
+        description: "Tenant ID not found. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check if cash drawer is open for cash payments
     const hasCashPayments = payments.some(p => p.method === 'cash');
     if (hasCashPayments && (!currentDrawer || currentDrawer.status !== 'open')) {
@@ -395,44 +334,55 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       const totalAmount = calculateTotal();
       const purchaseNumber = `PO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
+      // Prepare purchase data with proper validation
+      const purchaseData = {
+        purchase_number: purchaseNumber,
+        supplier_id: selectedSupplier,
+        location_id: selectedLocation || null,
+        total_amount: Number(totalAmount.toFixed(2)),
+        shipping_amount: Number((shippingAmount || 0).toFixed(2)),
+        tax_amount: Number((taxAmount || (purchaseSettings?.defaultTaxRate > 0 ? (calculateSubtotal() + shippingAmount) * (purchaseSettings.defaultTaxRate / 100) : 0) || 0).toFixed(2)),
+        discount_amount: 0, // Add missing discount_amount field
+        status: purchaseSettings?.autoReceive ? 'received' : 'ordered',
+        order_date: new Date().toISOString().split('T')[0],
+        expected_date: new Date().toISOString().split('T')[0], // Add missing expected_date field
+        received_date: (purchaseSettings?.autoReceive ? new Date().toISOString().split('T')[0] : null) || null,
+        notes: notes || null,
+        created_by: user.id,
+        tenant_id: tenantId,
+      };
+
+
       // Create purchase record
       const { data: purchase, error: purchaseError } = await supabase
         .from('purchases')
-        .insert({
-          purchase_number: purchaseNumber,
-          supplier_id: selectedSupplier,
-          location_id: selectedLocation || null,
-          total_amount: totalAmount,
-          shipping_amount: shippingAmount,
-          tax_amount: taxAmount || (purchaseSettings.defaultTaxRate > 0 ? (calculateSubtotal() + shippingAmount) * (purchaseSettings.defaultTaxRate / 100) : 0),
-          status: purchaseSettings.autoReceive ? 'received' : 'completed',
-          order_date: new Date().toISOString().split('T')[0],
-          received_date: purchaseSettings.autoReceive ? new Date().toISOString().split('T')[0] : null,
-          notes,
-          created_by: user.id,
-          tenant_id: tenantId,
-        })
+        .insert(purchaseData)
         .select()
         .single();
 
-      if (purchaseError) throw purchaseError;
+      if (purchaseError) {
+        throw purchaseError;
+      }
 
-      // Create purchase items
+      // Create purchase items with proper validation
       const purchaseItemsData = purchaseItems.map(item => ({
         purchase_id: purchase.id,
         product_id: item.product_id,
-        unit_id: item.unit_id,
-        quantity_ordered: item.quantity,
-        quantity_received: item.quantity,
-        unit_cost: item.unit_cost,
-        total_cost: item.total_cost,
+        unit_id: item.unit_id || null,
+        quantity_ordered: Number(item.quantity),
+        quantity_received: Number(item.quantity),
+        unit_cost: Number(item.unit_cost.toFixed(2)),
+        total_cost: Number(item.total_cost.toFixed(2)),
       }));
+
 
       const { error: itemsError } = await supabase
         .from('purchase_items')
         .insert(purchaseItemsData);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        throw itemsError;
+      }
 
       // Create purchase payments if any (using ar_ap_payments table)
       if (payments.length > 0) {
@@ -451,7 +401,6 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
           .insert(paymentData);
 
         if (paymentsError) {
-          console.error('Purchase payments error:', paymentsError);
           // Continue with purchase completion even if payments fail
         }
 
@@ -468,35 +417,33 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         }
       }
 
-      // Update product stock levels
-      for (const item of purchaseItems) {
-        // Get current stock first
-        const { data: currentProduct, error: fetchError } = await supabase
-          .from('products')
-          .select('stock_quantity')
-          .eq('id', item.product_id)
-          .eq('tenant_id', tenantId)
-          .single();
-
-        if (!fetchError && currentProduct) {
-          const newStock = (currentProduct.stock_quantity || 0) + item.quantity;
-          
-          await supabase
-            .from('products')
-            .update({
-              stock_quantity: newStock,
-              cost_price: item.unit_cost, // Update product cost
-            })
-            .eq('id', item.product_id)
-            .eq('tenant_id', tenantId);
-        }
+      // Update product stock levels using existing inventory integration
+      const inventoryItems = purchaseItems.map(item => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        unitCost: item.unit_cost,
+        locationId: selectedLocation
+      }));
+      
+      try {
+        await processPurchaseInventory(tenantId, purchase.id, inventoryItems, selectedLocation);
+      } catch (inventoryError) {
+        toast({
+          title: "Warning",
+          description: "Purchase completed but inventory update failed",
+          variant: "destructive",
+        });
       }
 
-      // Create accounting entries
+      // Clear stock cache to ensure real-time updates across all components
+      clearStockCache();
+
+      // Create accounting entries with location context
       const itemsWithCost = purchaseItems.map(item => ({
         productId: item.product_id,
         quantity: item.quantity,
         unitCost: item.unit_cost,
+        locationId: selectedLocation
       }));
 
       try {
@@ -508,10 +455,9 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
           isReceived: true,
           payments: payments,
           createdBy: user.id,
-          items: itemsWithCost,
+          items: itemsWithCost
         });
       } catch (accountingError) {
-        console.error('Accounting entry error:', accountingError);
         toast({
           title: "Warning",
           description: "Purchase completed but accounting entry failed",
@@ -521,10 +467,10 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
 
       toast({
         title: "Purchase Completed",
-        description: `Purchase Order #${purchaseNumber} - Total: ${formatLocalCurrency(totalAmount)}`,
+        description: `Purchase Order #${purchaseNumber} - Total: ${formatCurrency(totalAmount)}${selectedLocationName ? ` at ${selectedLocationName}` : ''}`,
       });
 
-      // Reset form
+      // Reset form but preserve location selection
       setPurchaseItems([]);
       setPayments([]);
       setRemainingBalance(0);
@@ -535,6 +481,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       setShippingAmount(0);
       setTaxAmount(0);
       setNotes('');
+      // Keep selectedLocation and selectedLocationName for persistence
       onPurchaseCompleted?.();
 
     } catch (error: any) {
@@ -548,11 +495,11 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
     }
   };
 
-  return (
+  const renderContent = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
         {/* Left side - Product Selection (2/3 width) */}
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           <Card className="h-fit">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -562,7 +509,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Product Addition Form */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                  <div className="space-y-2">
                    <Label>Product</Label>
                    <Select value={selectedProduct} onValueChange={(value) => {
@@ -579,13 +526,24 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                       <SelectContent>
                         {products.length > 0 ? (
                           products.map((product) => {
-                            console.log('🎯 Rendering product SelectItem:', { id: product.id, name: product.name });
+                            const currentStock = productStocks[product.id] || 0;
+                            const isLowStock = currentStock <= (product.low_stock_threshold || 10);
                             return (
                               <SelectItem key={product.id} value={product.id}>
-                                {product.name} - {product.sku || 'No SKU'} {product.brands && `[${product.brands.name}]`} {product.product_units && `(${product.product_units.abbreviation})`}
+                                <div className="flex items-center justify-between w-full">
+                                  <span>
+                                    {product.name} - {product.sku || 'No SKU'} {product.brands && `[${product.brands.name}]`} {product.product_units && `(${product.product_units.abbreviation})`}
+                                  </span>
+                                  <Badge 
+                                    variant={isLowStock ? "destructive" : "secondary"} 
+                                    className="ml-2 text-xs"
+                                  >
+                                    Stock: {currentStock} {product.product_units?.abbreviation || ''}
+                                  </Badge>
+                                </div>
                               </SelectItem>
                             );
-                           })
+                          })
                          ) : (
                            <SelectItem key="no-products" value="disabled-no-products" disabled>
                              No products available
@@ -642,7 +600,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                              {item.quantity} {(() => {
                                const product = products.find(p => p.id === item.product_id);
                                return product?.product_units ? `${product.product_units.abbreviation}` : 'pcs';
-                             })()} × {formatLocalCurrency(item.unit_cost)}
+                             })()} × {formatCurrency(item.unit_cost)}
                              {(() => {
                                const product = products.find(p => p.id === item.product_id);
                                return product?.brands ? ` • ${product.brands.name}` : '';
@@ -650,7 +608,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                            </p>
                          </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-lg">{formatLocalCurrency(item.total_cost)}</span>
+                          <span className="font-bold text-sm text-right break-all min-w-[80px]">{formatCurrency(item.total_cost)}</span>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -670,7 +628,7 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
         </div>
 
         {/* Right side - Purchase Summary (1/3 width) */}
-        <div className="lg:col-span-1">
+        <div className="xl:col-span-1">
           <Card className="h-fit sticky top-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -679,8 +637,19 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Selected Location Display */}
+              {selectedLocationName && (
+                <div className="mb-4 p-3 bg-muted/20 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Purchase Location:</span>
+                    <Badge variant="outline">{selectedLocationName}</Badge>
+                  </div>
+                </div>
+              )}
+
               {/* Supplier and Location Selection */}
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Supplier *</Label>
                   <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
@@ -689,14 +658,11 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                     </SelectTrigger>
                     <SelectContent>
                       {suppliers.length > 0 ? (
-                        suppliers.map((supplier) => {
-                          console.log('🎯 Rendering supplier SelectItem:', { id: supplier.id, name: supplier.name });
-                          return (
+                        suppliers.map((supplier) => (
                             <SelectItem key={supplier.id} value={supplier.id}>
                               {supplier.name} {supplier.company ? `(${supplier.company})` : ''}
                             </SelectItem>
-                          );
-                         })
+                        ))
                        ) : (
                          <SelectItem key="no-suppliers" value="disabled-no-suppliers" disabled>
                            No suppliers available
@@ -708,18 +674,48 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
                 
                  <div className="space-y-2">
                    <Label>Location *</Label>
-                   <Select value={selectedLocation} onValueChange={handleLocationChange}>
+                  <Select value={selectedLocation} onValueChange={handleLocationChange} disabled={dataLoading}>
                      <SelectTrigger>
-                       <SelectValue placeholder="Select location" />
+                      <SelectValue placeholder={
+                        dataLoading 
+                          ? "Loading locations..." 
+                          : dataError 
+                            ? "Error loading locations" 
+                            : "Select location"
+                      } />
                      </SelectTrigger>
                      <SelectContent>
-                       {locations.map((location) => (
+                      {dataLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Loading locations...
+                        </SelectItem>
+                      ) : dataError ? (
+                        <SelectItem value="error" disabled>
+                          Error: {dataError}
+                        </SelectItem>
+                      ) : locations.length > 0 ? (
+                        locations.map((location) => (
                          <SelectItem key={location.id} value={location.id}>
-                           {location.name}
+                            {location.name} {location.is_primary && "(Primary)"}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-locations" disabled>
+                          No locations available
                          </SelectItem>
-                       ))}
+                      )}
                      </SelectContent>
                    </Select>
+                  {selectedLocationName && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {selectedLocationName}
+                    </p>
+                  )}
+                  {dataError && (
+                    <p className="text-xs text-red-500">
+                      Error loading locations: {dataError}
+                    </p>
+                  )}
                  </div>
               </div>
 
@@ -765,27 +761,27 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
 
               {/* Totals */}
               <Card className="bg-muted/20">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span className="font-medium">{formatLocalCurrency(calculateSubtotal())}</span>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="flex-1">Subtotal:</span>
+                    <span className="font-medium text-right min-w-[100px]">{formatCurrency(calculateSubtotal())}</span>
                   </div>
                    {shippingAmount > 0 && (
-                     <div className="flex justify-between text-sm">
-                       <span>Shipping:</span>
-                       <span className="font-medium">{formatLocalCurrency(shippingAmount)}</span>
+                     <div className="flex justify-between items-center text-sm">
+                       <span className="flex-1">Shipping:</span>
+                       <span className="font-medium text-right min-w-[100px]">{formatCurrency(shippingAmount)}</span>
                      </div>
                    )}
                    {(taxAmount > 0 || purchaseSettings.defaultTaxRate > 0) && (
-                     <div className="flex justify-between text-sm">
-                       <span>Tax:</span>
-                       <span className="font-medium">{formatLocalCurrency(taxAmount || (purchaseSettings.defaultTaxRate > 0 ? (calculateSubtotal() + shippingAmount) * (purchaseSettings.defaultTaxRate / 100) : 0))}</span>
+                     <div className="flex justify-between items-center text-sm">
+                       <span className="flex-1">Tax:</span>
+                       <span className="font-medium text-right min-w-[100px]">{formatCurrency(taxAmount || (purchaseSettings.defaultTaxRate > 0 ? (calculateSubtotal() + shippingAmount) * (purchaseSettings.defaultTaxRate / 100) : 0))}</span>
                      </div>
                    )}
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total:</span>
-                      <span className="text-3xl">{formatLocalCurrency(calculateTotal())}</span>
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-bold flex-1">Total:</span>
+                      <span className="text-lg font-bold text-right min-w-[120px]">{formatCurrency(calculateTotal())}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -836,4 +832,15 @@ export function PurchaseForm({ onPurchaseCompleted }: PurchaseFormProps) {
       </div>
     </div>
   );
+
+  // Render based on mode
+  if (mode === 'modal') {
+    return (
+      <div className="space-y-4">
+        {renderContent()}
+      </div>
+    );
+  }
+
+  return renderContent();
 }

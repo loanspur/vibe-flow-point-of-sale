@@ -25,7 +25,7 @@ import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import QuickCreateSupplierDialog from './QuickCreateSupplierDialog';
+import { PurchaseForm } from './PurchaseForm';
 import { 
   ShoppingCart, 
   Plus, 
@@ -142,17 +142,10 @@ const PurchaseManagement = () => {
   const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [purchasePayments, setPurchasePayments] = useState<PurchasePayment[]>([]);
-  const [selectedItems, setSelectedItems] = useState<any[]>([{ product_id: null, variant_id: null, quantity: 1, unit_cost: 0 }]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // Form states
-  const [formData, setFormData] = useState({
-    supplier_id: '',
-    expected_date: '',
-    notes: '',
-    items: [] as any[]
-  });
 
   // Optimized purchase data fetching with caching - auto-loads when component mounts
   const { data: purchases = [], loading, refetch: refetchPurchases } = useOptimizedQuery(
@@ -713,7 +706,7 @@ const PurchaseManagement = () => {
         .eq('tenant_id', tenantId)
         .eq('reference_id', purchaseId)
         .eq('reference_type', 'purchase')
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle no records gracefully
 
       if (apError && apError.code !== 'PGRST116') {
         console.error('Error fetching AP record:', apError);
@@ -775,7 +768,7 @@ const PurchaseManagement = () => {
         .eq('tenant_id', tenantId)
         .eq('reference_id', paymentPurchase.id)
         .eq('reference_type', 'purchase')
-        .single();
+        .maybeSingle();
 
       if (apSearchError && apSearchError.code !== 'PGRST116') {
         console.error('Error checking existing AP:', apSearchError);
@@ -857,7 +850,7 @@ const PurchaseManagement = () => {
             .from('accounts_payable')
             .select('status')
             .eq('id', apRecordId)
-            .single();
+            .maybeSingle();
 
           if (!apCheckError && updatedAP?.status === 'paid') {
             console.log('Purchase fully paid, updating purchase status');
@@ -964,258 +957,26 @@ const PurchaseManagement = () => {
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button>
               <Plus className="h-4 w-4 mr-2" />
               Create Purchase Order
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-4xl max-h-[80vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Create Purchase Order</DialogTitle>
               <DialogDescription>
                 Create a new purchase order for your suppliers
               </DialogDescription>
             </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="supplier">Supplier *</Label>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={formData.supplier_id}
-                        onValueChange={(value) => setFormData({...formData, supplier_id: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select supplier" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {suppliers.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name} ({supplier.company})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <QuickCreateSupplierDialog onSupplierCreated={() => fetchSuppliers()} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="expected_date">Expected Delivery Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !formData.expected_date && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.expected_date ? format(new Date(formData.expected_date), "PPP") : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.expected_date ? new Date(formData.expected_date) : undefined}
-                          onSelect={(date) => setFormData({...formData, expected_date: date ? format(date, 'yyyy-MM-dd') : ''})}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Purchase Items</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addItem}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Item
-                    </Button>
-                  </div>
-
-                  {selectedItems.map((item, index) => {
-                    const selectedProduct = products.find(p => p.id === item.product_id);
-                    const hasExpiry = selectedProduct?.has_expiry_date;
-                    
-                    return (
-                      <div key={index} className="grid grid-cols-12 gap-2 items-end p-4 border rounded-lg">
-                        <div className="col-span-3">
-                          <Label>Product *</Label>
-                          <Select
-                            value={item.product_id || ''}
-                            onValueChange={(value) => updateItem(index, 'product_id', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.map((product) => (
-                                <SelectItem key={product.id} value={product.id}>
-                                  {product.name} ({product.sku})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {selectedProduct?.product_variants && selectedProduct.product_variants.length > 0 && (
-                          <div className="col-span-2">
-                            <Label>Variant</Label>
-                            <Select
-                              value={item.variant_id || 'no-variant'}
-                              onValueChange={(value) => updateItem(index, 'variant_id', value === 'no-variant' ? null : value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select variant" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="no-variant">No Variant</SelectItem>
-                                {selectedProduct.product_variants.map((variant) => (
-                                  <SelectItem key={variant.id} value={variant.id}>
-                                    {variant.name}: {variant.value}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-
-                         <div className={selectedProduct?.product_variants && selectedProduct.product_variants.length > 0 ? "col-span-2" : "col-span-4"}>
-                           <Label>Quantity *</Label>
-                           <Input
-                             type="number"
-                             min="0"
-                             step="1"
-                             value={item.quantity}
-                             onChange={(e) => {
-                               const value = e.target.value;
-                               if (value === '') {
-                                 updateItem(index, 'quantity', 0);
-                               } else {
-                                 const num = parseInt(value);
-                                 updateItem(index, 'quantity', isNaN(num) || num < 0 ? 0 : num);
-                               }
-                             }}
-                             onBlur={(e) => {
-                               if (item.quantity === 0) {
-                                 updateItem(index, 'quantity', 1);
-                               }
-                             }}
-                             placeholder="Enter quantity"
-                           />
-                         </div>
-
-                         <div className="col-span-2">
-                           <Label>Unit Cost *</Label>
-                           <Input
-                             type="number"
-                             step="0.01"
-                             min="0"
-                             value={item.unit_cost}
-                             onChange={(e) => {
-                               const value = e.target.value;
-                               if (value === '') {
-                                 updateItem(index, 'unit_cost', 0);
-                               } else {
-                                 const num = parseFloat(value);
-                                 updateItem(index, 'unit_cost', isNaN(num) || num < 0 ? 0 : num);
-                               }
-                             }}
-                             onBlur={(e) => {
-                               if (item.unit_cost === 0) {
-                                 // Don't auto-fill on blur for unit cost, allow 0 values
-                               }
-                             }}
-                             placeholder="Enter unit cost"
-                           />
-                         </div>
-
-                        {hasExpiry && (
-                          <div className="col-span-2">
-                            <Label>Expiry Date *</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full justify-start text-left font-normal text-sm",
-                                    !item.expiry_date && "text-muted-foreground"
-                                  )}
-                                >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {item.expiry_date ? format(new Date(item.expiry_date), "PPP") : "Pick date"}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                  mode="single"
-                                  selected={item.expiry_date ? new Date(item.expiry_date) : undefined}
-                                  onSelect={(date) => updateItem(index, 'expiry_date', date ? format(date, 'yyyy-MM-dd') : '')}
-                                  disabled={(date) => date < new Date()}
-                                  initialFocus
-                                  className="p-3 pointer-events-auto"
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                        )}
-
-                        <div className={hasExpiry ? "col-span-1" : "col-span-2"}>
-                          <Label>Total</Label>
-                          <div className="text-sm font-medium p-2 bg-muted rounded">
-                            {formatCurrency(item.quantity * item.unit_cost)}
-                          </div>
-                        </div>
-
-                        <div className="col-span-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeItem(index)}
-                            disabled={selectedItems.length === 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <div className="text-right">
-                    <div className="text-lg font-semibold">
-                      Total: {formatCurrency(selectedItems.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0))}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                    placeholder="Additional notes or special instructions"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={createPurchase}>Create Purchase Order</Button>
-                </div>
-              </div>
+            <PurchaseForm 
+              mode="modal" 
+              onPurchaseCompleted={() => {
+                setIsCreateOpen(false);
+                refetchPurchases();
+              }}
+              onClose={() => setIsCreateOpen(false)}
+            />
           </DialogContent>
         </Dialog>
       </div>

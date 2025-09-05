@@ -1,102 +1,141 @@
-| table_name                   | has_tenant_id | rls_enabled | has_policy | status       |
-| ---------------------------- | ------------- | ----------- | ---------- | ------------ |
-| account_types                | true          | true        | true       | COMPLIANT    |
-| accounting_entries           | true          | true        | true       | COMPLIANT    |
-| accounting_transactions      | true          | true        | true       | COMPLIANT    |
-| accounts                     | true          | true        | true       | COMPLIANT    |
-| accounts_payable             | true          | true        | true       | COMPLIANT    |
-| accounts_receivable          | true          | true        | true       | COMPLIANT    |
-| ai_automation_rules          | true          | true        | true       | COMPLIANT    |
-| ai_insights                  | true          | true        | true       | COMPLIANT    |
-| ai_models                    | true          | true        | true       | COMPLIANT    |
-| ai_performance_metrics       | true          | true        | true       | COMPLIANT    |
-| ai_recommendations           | true          | true        | true       | COMPLIANT    |
-| ar_ap_payments               | true          | true        | true       | COMPLIANT    |
-| billing_notifications        | true          | true        | true       | COMPLIANT    |
-| billing_plans                | true          | true        | true       | COMPLIANT    |
-| brands                       | true          | true        | true       | COMPLIANT    |
-| business_settings            | true          | true        | true       | COMPLIANT    |
-| cash_bank_transfer_requests  | true          | true        | true       | COMPLIANT    |
-| cash_drawers                 | true          | true        | true       | COMPLIANT    |
-| cash_transactions            | true          | true        | true       | COMPLIANT    |
-| cash_transfer_requests       | true          | true        | true       | COMPLIANT    |
-| client_reviews               | true          | true        | true       | COMPLIANT    |
-| combo_products               | true          | true        | true       | COMPLIANT    |
-| commission_agents            | true          | true        | true       | COMPLIANT    |
-| commission_transactions      | true          | true        | true       | COMPLIANT    |
-| communication_logs           | true          | true        | true       | COMPLIANT    |
-| contacts                     | true          | true        | true       | COMPLIANT    |
-| credit_payments              | true          | true        | true       | COMPLIANT    |
-| custom_permissions           | true          | true        | true       | COMPLIANT    |
-| customer_profiles            | true          | true        | true       | COMPLIANT    |
-| customer_segments            | true          | true        | true       | COMPLIANT    |
-| customers                    | true          | true        | true       | COMPLIANT    |
-| email_blacklist              | true          | true        | true       | COMPLIANT    |
-| email_campaign_recipients    | true          | true        | true       | COMPLIANT    |
-| email_queue                  | true          | true        | true       | COMPLIANT    |
-| email_templates              | true          | true        | true       | COMPLIANT    |
-| financial_periods            | true          | true        | true       | COMPLIANT    |
-| invoice_items                | true          | true        | true       | COMPLIANT    |
-| invoices                     | true          | true        | true       | COMPLIANT    |
-| legal_documents              | true          | true        | true       | COMPLIANT    |
-| loyalty_programs             | true          | true        | true       | COMPLIANT    |
-| marketing_campaigns          | true          | true        | true       | COMPLIANT    |
-| mpesa_configurations         | true          | true        | true       | COMPLIANT    |
-| mpesa_transactions           | true          | true        | true       | COMPLIANT    |
-| multiple_payments            | true          | true        | true       | COMPLIANT    |
-| notification_preferences     | true          | true        | true       | COMPLIANT    |
-| notifications                | true          | true        | true       | COMPLIANT    |
-| payment_history              | true          | true        | true       | COMPLIANT    |
-| payment_methods              | true          | true        | true       | COMPLIANT    |
-| payments                     | true          | true        | true       | COMPLIANT    |
-| pending_email_verifications  | true          | true        | true       | COMPLIANT    |
-| product_categories           | true          | true        | true       | COMPLIANT    |
-| product_history              | true          | true        | true       | COMPLIANT    |
-| product_migrations           | true          | true        | true       | COMPLIANT    |
-| product_subcategories        | true          | true        | true       | COMPLIANT    |
-| product_units                | true          | true        | true       | COMPLIANT    |
-| products                     | true          | true        | true       | COMPLIANT    |
-| profiles                     | true          | true        | true       | COMPLIANT    |
-| promotion_usage              | true          | true        | true       | COMPLIANT    |
-| promotions                   | true          | true        | true       | COMPLIANT    |
-| purchases                    | true          | true        | true       | COMPLIANT    |
-| quote_items                  | true          | true        | true       | COMPLIANT    |
-| quotes                       | true          | true        | true       | COMPLIANT    |
-| return_reason_codes          | true          | true        | true       | COMPLIANT    |
-| returns                      | true          | true        | true       | COMPLIANT    |
-| review_analytics             | true          | true        | true       | COMPLIANT    |
-| sales                        | true          | true        | true       | COMPLIANT    |
-| shipping_orders              | true          | true        | true       | COMPLIANT    |
-| stock_adjustments            | true          | true        | true       | COMPLIANT    |
-| stock_taking_sessions        | true          | true        | true       | COMPLIANT    |
-| stock_transfers              | true          | true        | true       | COMPLIANT    |
-| store_locations              | true          | true        | true       | COMPLIANT    |
-| system_health_logs           | true          | true        | true       | COMPLIANT    |
-| tax_calculations             | true          | true        | true       | COMPLIANT    |
-| tax_exemptions               | true          | true        | true       | COMPLIANT    |
-| tax_groups                   | true          | true        | true       | COMPLIANT    |
-| tax_jurisdictions            | true          | true        | true       | COMPLIANT    |
-| tax_rates                    | true          | true        | true       | COMPLIANT    |
-| tax_types                    | true          | true        | true       | COMPLIANT    |
-| tenant_custom_pricing        | true          | true        | false      | NEEDS_POLICY |
-| tenant_domains               | true          | true        | true       | COMPLIANT    |
-| tenant_feature_access        | true          | true        | true       | COMPLIANT    |
-| tenant_subscription_details  | true          | true        | true       | COMPLIANT    |
-| tenant_subscriptions         | true          | true        | true       | COMPLIANT    |
-| tenant_users                 | true          | true        | true       | COMPLIANT    |
-| tenant_version_tracking      | true          | true        | true       | COMPLIANT    |
-| tenant_whatsapp_configs      | true          | true        | true       | COMPLIANT    |
-| tenant_whatsapp_numbers      | true          | true        | true       | COMPLIANT    |
-| transfer_requests            | true          | true        | true       | COMPLIANT    |
-| user_activity_logs           | true          | true        | true       | COMPLIANT    |
-| user_activity_permissions    | true          | true        | false      | NEEDS_POLICY |
-| user_legal_acceptances       | true          | true        | true       | COMPLIANT    |
-| user_preferences             | true          | true        | true       | COMPLIANT    |
-| user_role_assignments        | true          | true        | true       | COMPLIANT    |
-| user_roles                   | true          | true        | true       | COMPLIANT    |
-| user_sessions                | true          | true        | true       | COMPLIANT    |
-| user_tenants                 | true          | true        | true       | COMPLIANT    |
-| whatsapp_automation_settings | true          | true        | true       | COMPLIANT    |
-| whatsapp_billing             | true          | true        | true       | COMPLIANT    |
-| whatsapp_bulk_campaigns      | true          | true        | true       | COMPLIANT    |
-| whatsapp_message_logs        | true          | true        | true       | COMPLIANT    |
+Stock calculation for product 3764a92c-be64-47a1-a141-1c3b5c359132 at location c78b14a5-a671-4e95-9a84-201b9d212dad: {baseStock: 172, adjustments: 0, recentSales: 9.15, finalStockBeforeThreshold: 162.85, locationId: 'c78b14a5-a671-4e95-9a84-201b9d212dad'}
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_categories?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.Plumbing&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_categories?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.Plumbing&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_categories?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.Plumbing&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error
+@supabase_supabase-js.js?v=223a8e0b:4216  GET https://qwtybhvdbbkbcelisuek.supabase.co/rest/v1/product_units?select=id&tenant_id=eq.6742eb8a-434e-4c14-a91c-6d55adeb5750&name=eq.pcs&is_active=eq.true 406 (Not Acceptable)
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4216
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4237
+fulfilled @ @supabase_supabase-js.js?v=223a8e0b:4189
+Promise.then
+step @ @supabase_supabase-js.js?v=223a8e0b:4202
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4204
+__awaiter6 @ @supabase_supabase-js.js?v=223a8e0b:4186
+(anonymous) @ @supabase_supabase-js.js?v=223a8e0b:4227
+then @ @supabase_supabase-js.js?v=223a8e0b:90Understand this error

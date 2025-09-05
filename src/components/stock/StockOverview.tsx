@@ -16,6 +16,7 @@ import { useSoftWarnings } from '@/hooks/useSoftWarnings';
 import { useLowStockProducts } from '@/features/products/hooks/useLowStockProducts';
 import { supabase } from '@/integrations/supabase/client';
 import { useStockWithRefresh } from '@/hooks/useUnifiedStock';
+import { formatStockQuantity } from '@/utils/commonUtils';
 
 // Unified Stock Display Component for Stock Overview
 const StockDisplay = ({ productId, locationId, fallbackStock }: { 
@@ -42,7 +43,7 @@ const StockDisplay = ({ productId, locationId, fallbackStock }: {
 
   return (
     <span className={displayStock > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-      {displayStock}
+      {formatStockQuantity(displayStock)}
     </span>
   );
 };
@@ -385,7 +386,7 @@ export const StockOverview: React.FC = () => {
                           fallbackStock={product.stock_quantity || 0}
                         />
                       </TableCell>
-                      <TableCell>{product.min_stock_level || 0}</TableCell>
+                      <TableCell>{formatStockQuantity(product.min_stock_level)}</TableCell>
                       <TableCell>
                         <Badge className={`text-white ${status.color}`}>
                           {status.label}
