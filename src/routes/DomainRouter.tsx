@@ -13,6 +13,16 @@ const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 
 // SUPER ADMIN pages (auth-only, not tenant-bound)
 const SuperAdminDashboard = lazy(() => import('../pages/SuperAdminDashboard'));
+const SuperAdminTenantManagement = lazy(() => import('../pages/TenantManagement'));
+const SuperAdminUserManagement = lazy(() => import('../pages/SuperAdminUserManagement'));
+const SuperAdminAnalytics = lazy(() => import('../pages/SuperAdminAnalytics'));
+const SuperAdminRevenue = lazy(() => import('../pages/SuperAdminRevenue'));
+const SuperAdminPlanManagement = lazy(() => import('../pages/SuperAdminPlanManagement'));
+const SuperAdminSystemHealth = lazy(() => import('../pages/SuperAdminSystemHealth'));
+const SuperAdminDatabase = lazy(() => import('../pages/SuperAdminDatabase'));
+const SuperAdminSecurity = lazy(() => import('../pages/SuperAdminSecurity'));
+const SuperAdminCommunications = lazy(() => import('../pages/SuperAdminCommunications'));
+const SuperAdminSettings = lazy(() => import('../pages/SuperAdminSettings'));
 
 // ADMIN pages (private)
 const TenantAdminDashboard = lazy(() => import('../pages/TenantAdminDashboard'));
@@ -46,7 +56,16 @@ export default function DomainRouter() {
         <Route element={<ProtectedRoute requireAuth={true} />}>
           <Route element={<SuperAdminLayout />}>
             <Route path="/superadmin" element={<SuperAdminDashboard />} />
-            {/* add nested /superadmin/* pages here */}
+            <Route path="/superadmin/tenants" element={<SuperAdminTenantManagement />} />
+            <Route path="/superadmin/users" element={<SuperAdminUserManagement />} />
+            <Route path="/superadmin/analytics" element={<SuperAdminAnalytics />} />
+            <Route path="/superadmin/revenue" element={<SuperAdminRevenue />} />
+            <Route path="/superadmin/plans" element={<SuperAdminPlanManagement />} />
+            <Route path="/superadmin/system" element={<SuperAdminSystemHealth />} />
+            <Route path="/superadmin/database" element={<SuperAdminDatabase />} />
+            <Route path="/superadmin/security" element={<SuperAdminSecurity />} />
+            <Route path="/superadmin/communications" element={<SuperAdminCommunications />} />
+            <Route path="/superadmin/settings" element={<SuperAdminSettings />} />
           </Route>
         </Route>
 

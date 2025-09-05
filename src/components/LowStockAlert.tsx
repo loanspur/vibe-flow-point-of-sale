@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Package, Eye } from 'lucide-react';
+import { formatStockQuantity } from '@/utils/commonUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -102,7 +103,7 @@ export function LowStockAlert() {
             </div>
             <div className="text-right">
               <Badge variant="destructive" className="text-xs">
-                {item.stock_quantity} / {item.min_stock_level}
+                {formatStockQuantity(item.stock_quantity)} / {formatStockQuantity(item.min_stock_level)}
               </Badge>
             </div>
           </div>

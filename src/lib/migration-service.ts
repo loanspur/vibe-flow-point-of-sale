@@ -208,13 +208,6 @@ export class MigrationService {
           errorMessage = JSON.stringify(error);
         }
         
-        // Log detailed error for debugging
-        console.error(`Migration row ${i + 1} error:`, {
-          row,
-          error,
-          errorMessage,
-          rowName: row.name || 'unnamed'
-        });
         
         errors.push(`Row ${i + 1} (${row.name || 'unnamed'}): ${errorMessage}`);
         details.imported.push({ name: row.name, status: 'failed', error: errorMessage });
@@ -509,7 +502,6 @@ export class MigrationService {
         notes: `Initial stock from product import: ${productName}`
       }]);
     } catch (error) {
-      console.warn('Failed to create inventory transaction:', error);
       // Don't fail the import if inventory integration fails
     }
   }
@@ -566,7 +558,6 @@ export class MigrationService {
 
   // Generate bulk update template with all product details
   async generateBulkUpdateTemplate(): Promise<{ csvContent: string; fileName: string }> {
-    console.log('🔧 MigrationService generateBulkUpdateTemplate called - generating template with unified stock calculation');
     
     const { data: products, error } = await supabase
       .from('products')
@@ -641,61 +632,44 @@ export class MigrationService {
           calculatedStock = Math.max(0, calculatedStock);
         }
         
-        console.log(`MigrationService unified stock calculation for ${p.name}:`, {
-          baseStock: p.stock_quantity || 0,
-          adjustments,
-          recentSales,
-          finalStock: calculatedStock,
-          allowNegativeStock,
-          allowOverselling
-        });
-        
-        // Special logging for water tank
-        if (p.name && p.name.toLowerCase().includes('water')) {
-          console.log('🌊 WATER TANK MIGRATION SERVICE DATA:', {
-            name: p.name,
-            rawStock: p.stock_quantity,
-            calculatedStock,
-            retailPrice: p.retail_price,
-            wholesalePrice: p.wholesale_price,
-            costPrice: p.cost_price
-          });
-        }
         
       } catch (stockError) {
-        console.warn(`Error calculating unified stock for ${p.name}:`, stockError);
         // Fall back to raw stock_quantity if calculation fails
       }
       
       return [
+        p.id, // Product ID - REQUIRED for bulk updates
         p.name || '',
         p.description || '',
         p.sku || '',
         p.barcode || '',
-        p.retail_price || p.price || 0,
-        p.wholesale_price || 0,
         p.cost_price || 0,
+        p.retail_price || p.price || 0, // This is the 'price' field
+        p.wholesale_price || 0,
         calculatedStock,
-        p.min_stock_level || 0,
         p.product_categories?.name || '',
-        'pcs', // Default unit
-        p.store_locations?.name || 'Main Store'
+        '', // brand (empty for now)
+        p.store_locations?.name || 'Main Store',
+        'pcs', // unit
+        '' // revenue_account (empty for now)
       ];
     }));
 
     const headers = [
+      'id', // Product ID - REQUIRED for bulk updates
       'name',
       'description', 
       'sku',
       'barcode',
-      'retail_price',
-      'wholesale_price',
       'cost_price',
+      'price', // This is the required field
+      'wholesale_price',
       'stock_quantity',
-      'min_stock_level',
       'category',
+      'brand',
+      'location',
       'unit',
-      'location'
+      'revenue_account'
     ];
     
     const csvContent = [
@@ -774,85 +748,134 @@ export class MigrationService {
           changes.push('name');
         }
 
-        if (row.description !== undefined && row.description !== existingProduct.description) {
-          updateData.description = row.description;
-          changes.push('description');
-        }
-
-        if (row.sku && row.sku.trim() !== existingProduct.sku) {
-          updateData.sku = row.sku.trim();
-          changes.push('sku');
-        }
-
-        if (row.barcode !== undefined && row.barcode !== existingProduct.barcode) {
-          updateData.barcode = row.barcode || null;
-          changes.push('barcode');
-        }
-
-        // Update prices
-        if (row.cost_price !== undefined && parseFloat(row.cost_price) !== existingProduct.cost_price) {
-          updateData.cost_price = parseFloat(row.cost_price) || 0;
-          changes.push('cost_price');
-        }
-
-        if (row.price !== undefined && parseFloat(row.price) !== existingProduct.price) {
-          updateData.price = parseFloat(row.price) || 0;
-          changes.push('price');
-        }
-
-        if (row.wholesale_price !== undefined && parseFloat(row.wholesale_price) !== existingProduct.wholesale_price) {
-          updateData.wholesale_price = parseFloat(row.wholesale_price) || 0;
-          changes.push('wholesale_price');
-        }
-
-        // Update stock
-        if (row.stock_quantity !== undefined && parseInt(row.stock_quantity) !== existingProduct.stock_quantity) {
-          updateData.stock_quantity = parseInt(row.stock_quantity) || 0;
-          changes.push('stock_quantity');
-        }
-
-        if (row.min_stock_level !== undefined && parseInt(row.min_stock_level) !== existingProduct.min_stock_level) {
-          updateData.min_stock_level = parseInt(row.min_stock_level) || 0;
-          changes.push('min_stock_level');
-        }
-
-        // Update related entities
-        if (row.category && row.category.trim()) {
-          const categoryId = await findEntityId(row.category, 'categories', this.tenantId);
-          if (categoryId && categoryId !== existingProduct.category_id) {
-            updateData.category_id = categoryId;
-            changes.push('category');
+        if (row.description !== undefined) {
+          const newDescription = row.description.trim() || null;
+          const existingDescription = existingProduct.description || null;
+          if (newDescription !== existingDescription) {
+            updateData.description = newDescription;
+            changes.push('description');
           }
         }
 
-        if (row.unit && row.unit.trim()) {
-          const unitId = await findEntityId(row.unit, 'units', this.tenantId);
-          if (unitId && unitId !== existingProduct.unit_id) {
-            updateData.unit_id = unitId;
-            changes.push('unit');
+        if (row.sku !== undefined) {
+          const newSku = row.sku.trim() || null;
+          const existingSku = existingProduct.sku || null;
+          if (newSku !== existingSku) {
+            updateData.sku = newSku;
+            changes.push('sku');
           }
         }
 
-        if (row.location && row.location.trim()) {
-          const locationId = await findEntityId(row.location, 'locations', this.tenantId);
-          if (locationId && locationId !== existingProduct.location_id) {
-            updateData.location_id = locationId;
-            changes.push('location');
+        if (row.barcode !== undefined) {
+          const newBarcode = row.barcode.trim() || null;
+          const existingBarcode = existingProduct.barcode || null;
+          if (newBarcode !== existingBarcode) {
+            updateData.barcode = newBarcode;
+            changes.push('barcode');
           }
         }
 
-        if (row.revenue_account && row.revenue_account.trim()) {
-          const { data: account } = await supabase
-            .from('accounts')
-            .select('id')
-            .eq('tenant_id', this.tenantId)
-            .eq('is_active', true)
-            .eq('name', row.revenue_account.trim())
-            .single();
-          
-          if (account && account.id !== existingProduct.revenue_account_id) {
-            updateData.revenue_account_id = account.id;
-            changes.push('revenue_account');
+        // Update prices with proper type conversion
+        if (row.cost_price !== undefined) {
+          const newCostPrice = parseFloat(row.cost_price) || 0;
+          const existingCostPrice = parseFloat(existingProduct.cost_price) || 0;
+          if (Math.abs(newCostPrice - existingCostPrice) > 0.01) {
+            updateData.cost_price = newCostPrice;
+            changes.push('cost_price');
+          }
+        }
+
+        if (row.price !== undefined) {
+          const newPrice = parseFloat(row.price) || 0;
+          const existingRetailPrice = parseFloat(existingProduct.retail_price) || 0;
+          if (Math.abs(newPrice - existingRetailPrice) > 0.01) {
+            // Update retail_price since that's what the template exports as 'price'
+            updateData.retail_price = newPrice;
+            changes.push('retail_price');
+          }
+        }
+
+        if (row.wholesale_price !== undefined) {
+          const newWholesalePrice = parseFloat(row.wholesale_price) || 0;
+          const existingWholesalePrice = parseFloat(existingProduct.wholesale_price) || 0;
+          if (Math.abs(newWholesalePrice - existingWholesalePrice) > 0.01) {
+            updateData.wholesale_price = newWholesalePrice;
+            changes.push('wholesale_price');
+          }
+        }
+
+        // Update stock with proper type conversion
+        if (row.stock_quantity !== undefined) {
+          const newStockQuantity = parseFloat(row.stock_quantity) || 0;
+          const existingStockQuantity = parseFloat(existingProduct.stock_quantity) || 0;
+          if (Math.abs(newStockQuantity - existingStockQuantity) > 0.01) {
+            updateData.stock_quantity = newStockQuantity;
+            changes.push('stock_quantity');
+          }
+        }
+
+        if (row.min_stock_level !== undefined) {
+          const newMinStockLevel = parseFloat(row.min_stock_level) || 0;
+          const existingMinStockLevel = parseFloat(existingProduct.min_stock_level) || 0;
+          if (Math.abs(newMinStockLevel - existingMinStockLevel) > 0.01) {
+            updateData.min_stock_level = newMinStockLevel;
+            changes.push('min_stock_level');
+          }
+        }
+
+        // Update related entities with error handling
+        if (row.category && String(row.category).trim()) {
+          try {
+            const categoryId = await findEntityId(String(row.category), 'categories', this.tenantId);
+            if (categoryId && categoryId !== existingProduct.category_id) {
+              updateData.category_id = categoryId;
+              changes.push('category');
+            }
+          } catch (error) {
+            // Continue without updating category
+          }
+        }
+
+        if (row.unit && String(row.unit).trim()) {
+          try {
+            const unitId = await findEntityId(String(row.unit), 'units', this.tenantId);
+            if (unitId && unitId !== existingProduct.unit_id) {
+              updateData.unit_id = unitId;
+              changes.push('unit');
+            }
+          } catch (error) {
+            // Continue without updating unit
+          }
+        }
+
+        if (row.location && String(row.location).trim()) {
+          try {
+            const locationId = await findEntityId(String(row.location), 'locations', this.tenantId);
+            if (locationId && locationId !== existingProduct.location_id) {
+              updateData.location_id = locationId;
+              changes.push('location');
+            }
+          } catch (error) {
+            // Continue without updating location
+          }
+        }
+
+        if (row.revenue_account && String(row.revenue_account).trim()) {
+          try {
+            const { data: account } = await supabase
+              .from('accounts')
+              .select('id')
+              .eq('tenant_id', this.tenantId)
+              .eq('is_active', true)
+              .eq('name', String(row.revenue_account).trim())
+              .single();
+            
+            if (account && account.id !== existingProduct.revenue_account_id) {
+              updateData.revenue_account_id = account.id;
+              changes.push('revenue_account');
+            }
+          } catch (error) {
+            // Continue without updating revenue account
           }
         }
 
@@ -873,6 +896,7 @@ export class MigrationService {
           });
           continue;
         }
+
 
         // Update the product
         const { error: updateError } = await supabase
@@ -974,7 +998,6 @@ export class MigrationService {
 
   // Generate sample template
   async generateTemplate(entityType: 'products' | 'contacts' | 'categories'): Promise<{ csvContent: string; fileName: string }> {
-    console.log('🔧 MigrationService generateTemplate called - generating template with real data');
     
     if (entityType === 'products') {
       // Use the same logic as generateBulkUpdateTemplate but limit to 5 products
@@ -1053,39 +1076,42 @@ export class MigrationService {
           }
           
         } catch (stockError) {
-          console.warn(`Error calculating unified stock for ${p.name}:`, stockError);
           // Fall back to raw stock_quantity if calculation fails
         }
         
         return [
+          p.id, // Product ID - REQUIRED for bulk updates
           p.name || '',
           p.description || '',
           p.sku || '',
           p.barcode || '',
-          p.retail_price || p.price || 0,
-          p.wholesale_price || 0,
           p.cost_price || 0,
+          p.retail_price || p.price || 0, // This is the 'price' field
+          p.wholesale_price || 0,
           calculatedStock,
-          p.min_stock_level || 0,
           p.product_categories?.name || '',
-          'pcs', // Default unit
-          p.store_locations?.name || 'Main Store'
+          '', // brand (empty for now)
+          p.store_locations?.name || 'Main Store',
+          'pcs', // unit
+          '' // revenue_account (empty for now)
         ];
       }));
 
       const headers = [
+        'id', // Product ID - REQUIRED for bulk updates
         'name',
         'description', 
         'sku',
         'barcode',
-        'retail_price',
-        'wholesale_price',
         'cost_price',
+        'price', // This is the required field
+        'wholesale_price',
         'stock_quantity',
-        'min_stock_level',
         'category',
+        'brand',
+        'location',
         'unit',
-        'location'
+        'revenue_account'
       ];
       
       const csvContent = [

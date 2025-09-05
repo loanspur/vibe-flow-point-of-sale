@@ -13,30 +13,42 @@ export function useLowStockProducts(tenantId?: string | null) {
     refetchOnWindowFocus: false,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error, status } = await supabase
-        .from("low_stock_products")
-        .select("id, tenant_id, stock_quantity, min_stock_level")
-        .eq("tenant_id", tenantId!);
-
-      // View missing (404 from PostgREST) or relation missing (42P01 from PG)
-      if (error && (status === 404 || (error as any)?.code === "42P01")) {
-        // Fallback: fetch products and filter in-memory (still one roundtrip)
-        const { data: prods, error: e2 } = await supabase
-          .from("products")
+      try {
+        const { data, error, status } = await supabase
+          .from("low_stock_products")
           .select("id, tenant_id, stock_quantity, min_stock_level")
           .eq("tenant_id", tenantId!);
 
-        if (e2) throw e2;
-        return (prods ?? []).filter(
-          (p) =>
-            typeof p.stock_quantity === "number" &&
-            typeof p.min_stock_level === "number" &&
-            p.stock_quantity < p.min_stock_level
-        );
-      }
+        // View missing (404 from PostgREST) or relation missing (42P01 from PG) or 400 Bad Request
+        if (error && (status === 404 || status === 400 || (error as any)?.code === "42P01")) {
+          console.warn("low_stock_products view not available, falling back to products table:", error);
+          
+          // Fallback: fetch products and filter in-memory (still one roundtrip)
+          const { data: prods, error: e2 } = await supabase
+            .from("products")
+            .select("id, tenant_id, stock_quantity, min_stock_level")
+            .eq("tenant_id", tenantId!)
+            .eq("is_active", true);
 
-      if (error) throw error;
-      return data ?? [];
+          if (e2) {
+            console.error("Fallback query also failed:", e2);
+            throw e2;
+          }
+          
+          return (prods ?? []).filter(
+            (p) =>
+              typeof p.stock_quantity === "number" &&
+              typeof p.min_stock_level === "number" &&
+              p.stock_quantity <= p.min_stock_level
+          );
+        }
+
+        if (error) throw error;
+        return data ?? [];
+      } catch (error) {
+        console.error("Error in useLowStockProducts:", error);
+        throw error;
+      }
     },
   });
 }

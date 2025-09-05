@@ -56,6 +56,7 @@ import {
   validateCustomerCredit,
   generateUniqueId
 } from '@/utils/commonUtils';
+import { formatStockQuantity } from '@/utils/commonUtils';
 
 // Enhanced StockBadge component with stable state management
 const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock, locationName }: {
@@ -98,9 +99,10 @@ const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock
   }
 
   const stockAmount = stock ?? 0;
+  const formattedStock = formatStockQuantity(stockAmount);
   const displayText = locationId && locationName 
-    ? `Stock at ${locationName}: ${stockAmount}`
-    : `Stock: ${stockAmount}`;
+    ? `Stock at ${locationName}: ${formattedStock}`
+    : `Stock: ${formattedStock}`;
 
   return (
     <Badge 

@@ -1,5 +1,21 @@
 import { useApp } from '@/contexts/AppContext';
 
+// Stock formatting utility to handle floating-point precision issues
+export const formatStockQuantity = (quantity: number | null | undefined): string => {
+  if (quantity === null || quantity === undefined) return '0';
+  
+  // Round to 2 decimal places to handle floating-point precision issues
+  const rounded = Math.round((quantity + Number.EPSILON) * 100) / 100;
+  
+  // If the number is a whole number, display without decimals
+  if (rounded % 1 === 0) {
+    return rounded.toString();
+  }
+  
+  // Otherwise, display with up to 2 decimal places
+  return rounded.toFixed(2).replace(/\.?0+$/, '');
+};
+
 // Common validation functions
 export const validateQuantity = (quantity: number): { isValid: boolean; error?: string } => {
   if (quantity <= 0) {

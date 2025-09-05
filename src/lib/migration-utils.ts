@@ -11,7 +11,7 @@ export const MIGRATION_CONFIG = {
   
   // Optional fields for different entity types
   optionalFields: {
-    products: ['description', 'sku', 'barcode', 'cost_price', 'wholesale_price', 'stock_quantity', 'category', 'brand', 'location', 'unit', 'revenue_account'],
+    products: ['id', 'description', 'sku', 'barcode', 'cost_price', 'wholesale_price', 'stock_quantity', 'category', 'brand', 'location', 'unit', 'revenue_account'],
     contacts: ['email', 'phone', 'company', 'address', 'notes'],
     categories: ['description', 'color']
   },
@@ -37,7 +37,7 @@ export const MIGRATION_CONFIG = {
   
   // Export field mappings
   exportFields: {
-    products: ['name', 'description', 'sku', 'cost_price', 'price', 'wholesale_price', 'stock_quantity', 'category', 'unit', 'location', 'revenue_account'],
+    products: ['id', 'name', 'description', 'sku', 'barcode', 'cost_price', 'price', 'wholesale_price', 'stock_quantity', 'category', 'brand', 'location', 'unit', 'revenue_account'],
     contacts: ['name', 'type', 'email', 'phone', 'company', 'address', 'notes'],
     categories: ['name', 'description', 'color']
   }

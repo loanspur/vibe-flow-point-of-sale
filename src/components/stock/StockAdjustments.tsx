@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RotateCw, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { formatStockQuantity } from '@/utils/commonUtils';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { processStockAdjustment } from '@/lib/inventory-integration';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';

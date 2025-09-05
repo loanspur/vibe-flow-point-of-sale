@@ -14,6 +14,7 @@ import { ArrowUpDown, Plus, Truck, Package, CheckCircle, Eye, Edit, Trash2 } fro
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { formatStockQuantity } from '@/utils/commonUtils';
 import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { processStockTransfer } from '@/lib/inventory-integration';
 
@@ -663,7 +664,7 @@ export const StockTransfers: React.FC = () => {
                                          key={`${product.id}-${product.variant_id || 'main'}`} 
                                          value={`${product.id}|${product.variant_id || 'null'}`}
                                        >
-                                         {product.display_name} - Stock: {product.stock_quantity}
+                                         {product.display_name} - Stock: {formatStockQuantity(product.stock_quantity)}
                                        </SelectItem>
                                      ))}
                                    </SelectContent>
@@ -711,7 +712,7 @@ export const StockTransfers: React.FC = () => {
                              </div>
                              {item.available_stock !== undefined && item.quantity_requested > item.available_stock && (
                                <p className="text-sm text-destructive mt-2">
-                                 Quantity exceeds available stock ({item.available_stock})
+                                 Quantity exceeds available stock ({formatStockQuantity(item.available_stock)})
                                </p>
                              )}
                           </CardContent>
@@ -1004,7 +1005,7 @@ export const StockTransfers: React.FC = () => {
                                 <Label>Available Stock</Label>
                                 <Input
                                   type="number"
-                                  value={product?.stock_quantity || 0}
+                                  value={formatStockQuantity(product?.stock_quantity)}
                                   readOnly
                                   className="bg-muted"
                                 />

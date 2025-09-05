@@ -20,6 +20,7 @@ import { productSchema, ProductFormData } from '@/lib/validation-schemas';
 import { generateUniqueSku, makeVariantSku } from '@/lib/sku';
 import { updateProductInventory } from '@/lib/inventory-integration';
 import { useUnifiedStock } from '@/hooks/useUnifiedStock';
+import { formatStockQuantity } from '@/utils/commonUtils';
 import { generateUniqueBarcode, generateBarcodeFromProduct, formatBarcode } from '@/lib/barcode';
 
 // Helper function for SKU generation
@@ -92,6 +93,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   const productCRUD = useProductCRUD(tenantId);
   const { createItem: createProduct, updateItem: updateProduct, isLoading: isCreating } = productCRUD;
   const isUpdating = isCreating;
+  const { calculateStock } = useUnifiedStock();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -107,6 +109,7 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [hasVariants, setHasVariants] = useState(false);
   const [hasExpiryDate, setHasExpiryDate] = useState(false);
+  const [calculatedStock, setCalculatedStock] = useState<number | null>(null);
   
   // Search and filter functionality
   const [searchQuery, setSearchQuery] = useState('');
@@ -145,53 +148,8 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
 
   // Load initial data if editing
   useEffect(() => {
-    if (product) {
-      console.log('🔍 PRODUCT FORM DEBUG: Loading product data for editing:', product);
-      console.log('🔍 PRODUCT FORM DEBUG: All available product fields:', Object.keys(product));
-      console.log('🔍 PRODUCT FORM DEBUG: Product data values:', {
-        id: product.id,
-        name: product.name,
-        sku: product.sku,
-        description: product.description,
-        wholesale_price: product.wholesale_price,
-        retail_price: product.retail_price,
-        cost_price: product.cost_price,
-        purchase_price: product.purchase_price,
-        default_profit_margin: product.default_profit_margin,
-        barcode: product.barcode,
-        category_id: product.category_id,
-        subcategory_id: product.subcategory_id,
-        brand_id: product.brand_id,
-        unit_id: product.unit_id,
-        stock_quantity: product.stock_quantity,
-        min_stock_level: product.min_stock_level,
-        has_expiry_date: product.has_expiry_date,
-        is_active: product.is_active,
-        location_id: product.location_id,
-        image_url: product.image_url,
-        // Additional fields that might exist in database
-        is_combo_product: product.is_combo_product,
-        allow_negative_stock: product.allow_negative_stock,
-        revenue_account_id: product.revenue_account_id,
-        expiry_date: product.expiry_date,
-        created_at: product.created_at,
-        updated_at: product.updated_at,
-        tenant_id: product.tenant_id,
-        price: product.price, // This is auto-calculated by database trigger
-      });
-      
-      // Check current form values before reset
-      console.log('🔍 PRODUCT FORM DEBUG: Current form values before reset:', form.getValues());
-      
-      // Log pricing data from database for debugging
-      console.log('🔍 PRODUCT FORM DEBUG: Product pricing data loaded:', {
-        wholesale_price: product.wholesale_price,
-        retail_price: product.retail_price,
-        cost_price: product.cost_price,
-        wholesale_price_type: typeof product.wholesale_price,
-        retail_price_type: typeof product.retail_price,
-        cost_price_type: typeof product.cost_price,
-      });
+    const loadProductData = async () => {
+      if (product) {
 
       // Reset form with ALL available product data
       const formData = {
@@ -217,34 +175,19 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         image_url: product.image_url || '',
       };
       
-      console.log('🔍 PRODUCT FORM DEBUG: Form data being reset with:', formData);
-      console.log('🔍 PRODUCT FORM DEBUG: Specific pricing values in formData:', {
-        wholesale_price: formData.wholesale_price,
-        retail_price: formData.retail_price,
-        cost_price: formData.cost_price,
-      });
+      
+      // Calculate the actual stock using the same logic as the products table
+      if (product.id) {
+        try {
+          const stockResult = await calculateStock(product.id, product.location_id);
+          setCalculatedStock(stockResult.stock);
+        } catch (error) {
+          setCalculatedStock(null);
+        }
+      }
+      
       form.reset(formData);
       
-      // Check form values after reset with multiple delays to catch any timing issues
-      setTimeout(() => {
-        const formValues = form.getValues();
-        console.log('🔍 PRODUCT FORM DEBUG: Form values after reset (100ms):', formValues);
-        console.log('🔍 PRODUCT FORM DEBUG: Specific pricing values after reset (100ms):', {
-          wholesale_price: formValues.wholesale_price,
-          retail_price: formValues.retail_price,
-          cost_price: formValues.cost_price,
-        });
-      }, 100);
-      
-      setTimeout(() => {
-        const formValues = form.getValues();
-        console.log('🔍 PRODUCT FORM DEBUG: Form values after reset (500ms):', formValues);
-        console.log('🔍 PRODUCT FORM DEBUG: Specific pricing values after reset (500ms):', {
-          wholesale_price: formValues.wholesale_price,
-          retail_price: formValues.retail_price,
-          cost_price: formValues.cost_price,
-        });
-      }, 500);
       
       // Set additional state variables
       setHasExpiryDate(product.has_expiry_date || false);
@@ -276,8 +219,11 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       setCurrentStep(0);
       
       console.log('Form reset complete with product data');
-    }
-  }, [product, form]);
+      }
+    };
+    
+    loadProductData();
+  }, [product, form, calculateStock]);
 
   // Debug form state changes (only log, don't trigger validation)
   useEffect(() => {
@@ -304,6 +250,38 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
           .eq('is_active', true)
           .order('name');
         setCategories(categoriesData || []);
+        
+        // If no categories exist, create a default one
+        if (!categoriesData || categoriesData.length === 0) {
+          try {
+            const { data: defaultCategory, error: createError } = await supabase
+              .from('product_categories')
+              .insert({
+                name: 'General',
+                description: 'Default category for products',
+                tenant_id: tenantId,
+                is_active: true
+              })
+              .select()
+              .single();
+            
+            if (createError) {
+              console.error('Error creating default category:', createError);
+            } else if (defaultCategory) {
+              setCategories([defaultCategory]);
+              form.setValue('category_id', defaultCategory.id);
+            }
+          } catch (error) {
+            console.error('Error creating default category:', error);
+          }
+        } else {
+          // Set default category if none is selected and categories are available
+          const currentCategoryId = form.getValues('category_id');
+          if (!currentCategoryId || currentCategoryId.trim() === '') {
+            // Set the first category as default
+            form.setValue('category_id', categoriesData[0].id);
+          }
+        }
 
         // Load subcategories - table doesn't exist yet, using empty array
         setSubcategories([]);
@@ -643,6 +621,16 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
     try {
       setLoading(true);
       
+      // Check if categories are loaded
+      if (categories.length === 0) {
+        toast({
+          title: 'Loading Error',
+          description: 'Categories are still loading. Please wait and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       // Validate required fields before proceeding
       if (!data.name?.trim()) {
         toast({
@@ -653,10 +641,11 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         return;
       }
       
-      if (!data.category_id?.trim()) {
+      // Validate category_id
+      if (!data.category_id || data.category_id.trim() === '') {
         toast({
           title: 'Validation Error',
-          description: 'Category is required',
+          description: 'Please select a category for the product',
           variant: 'destructive',
         });
         setLoading(false);
@@ -1821,6 +1810,13 @@ try {
                       {...form.register('stock_quantity', { valueAsNumber: true })}
                       placeholder="0"
                     />
+                    {calculatedStock !== null && calculatedStock !== form.watch('stock_quantity') && (
+                      <div className="text-xs text-muted-foreground">
+                        <p>📊 <strong>Current Calculated Stock:</strong> {formatStockQuantity(calculatedStock)}</p>
+                        <p>💾 <strong>Database Stock:</strong> {formatStockQuantity(form.watch('stock_quantity'))}</p>
+                        <p className="text-amber-600">⚠️ Calculated stock includes adjustments and recent sales</p>
+                      </div>
+                    )}
                     {form.formState.errors.stock_quantity && (
                       <p className="text-sm text-red-500">{form.formState.errors.stock_quantity.message}</p>
                     )}

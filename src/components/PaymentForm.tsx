@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   onRemovePayment,
   disabled = false
 }) => {
-  const { tenantCurrency, formatLocalCurrency } = useApp();
+  const { tenantCurrency, formatCurrency } = useApp();
   const { toast } = useToast();
   const { currentDrawer } = useCashDrawer();
   
@@ -213,21 +213,21 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             <div className="text-sm text-muted-foreground">Total Amount</div>
             <div className="text-lg font-semibold flex items-center justify-center gap-1">
               <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
-              {formatLocalCurrency(totalAmount)}
+              {formatCurrency(totalAmount)}
             </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Paid Amount</div>
             <div className="text-lg font-semibold flex items-center justify-center gap-1">
               <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
-              {formatLocalCurrency(totalPaid)}
+              {formatCurrency(totalPaid)}
             </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground">Remaining</div>
             <div className={`text-lg font-semibold flex items-center justify-center gap-1 ${remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
               <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
-              {formatLocalCurrency(remainingAmount)}
+              {formatCurrency(remainingAmount)}
             </div>
           </div>
         </div>
@@ -348,7 +348,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     <div className="text-right">
                       <div className="font-medium flex items-center gap-1">
                         <CurrencyIcon currency={tenantCurrency || 'USD'} className="h-4 w-4" />
-                        {formatLocalCurrency(payment.amount)}
+                        {formatCurrency(payment.amount)}
                       </div>
                       <div className="flex items-center gap-1">
                         <div className={`w-2 h-2 rounded-full ${getStatusColor(payment.status)}`}></div>
@@ -378,7 +378,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               <span className="font-medium">Payment Complete</span>
             </div>
             <p className="text-sm text-green-700 mt-1">
-              All payments have been received. Total paid: {formatLocalCurrency(totalPaid)}
+              All payments have been received. Total paid: {formatCurrency(totalPaid)}
             </p>
           </div>
         )}

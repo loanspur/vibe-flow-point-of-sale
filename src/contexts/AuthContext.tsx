@@ -66,6 +66,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       nr === "superadmin" || nr === "super_admin" ||
       nr === "platform_admin" || nr === "sysadmin";
 
+    log.info("[auth] routing decision", { role, normalizedRole: nr, isSuper });
+
     if (isSuper) {
       log.info("[auth] routing → /superadmin");
       navigate("/superadmin", { replace: true });
@@ -100,6 +102,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
+        log.info("[auth] profile fetched", { 
+          userId, 
+          role: profile.role, 
+          tenantId: profile.tenant_id,
+          source 
+        });
+        
         if (userRole === profile.role && tenantId === profile.tenant_id && requirePasswordChange === (profile.require_password_change || false)) {
           return;
         }
@@ -113,6 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setShowPasswordChangeModal(true);
         }
       } else {
+        log.warn("[auth] no profile found", { userId, source });
         setUserRole('user');
         const domainTenantId = domainManager.getDomainTenantId();
         setTenantId(domainTenantId || null);
