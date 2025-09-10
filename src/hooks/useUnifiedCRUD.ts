@@ -66,7 +66,11 @@ export function useUnifiedCRUD<T = unknown>(opts: UseUnifiedCRUDOpts<T>): Unifie
         'purchase_price', 'default_profit_margin', 'barcode', 'category_id', 'subcategory_id',
         'brand_id', 'unit_id', 'stock_quantity', 'min_stock_level', 'has_expiry_date',
         'is_active', 'location_id', 'image_url', 'tenant_id', 'created_at', 'updated_at',
-        'created_by', 'is_combo_product', 'allow_negative_stock', 'revenue_account_id', 'expiry_date'
+        'created_by', 'is_combo_product', 'allow_negative_stock', 'revenue_account_id', 'expiry_date',
+        // Additional fields that were missing
+        'unit_precision', 'track_expiry', 'expiry_alert_days', 'reorder_level', 'reorder_quantity',
+        'supplier_id', 'tax_rate', 'discount_rate', 'weight', 'dimensions', 'notes',
+        'tags', 'custom_fields', 'is_featured', 'sort_order', 'meta_title', 'meta_description'
       ],
       'product_variants': [
         'id', 'name', 'value', 'sku', 'price_adjustment', 'stock_quantity', 'cost_price',

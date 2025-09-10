@@ -16,13 +16,16 @@ import { useEnsureBaseUnitPcs } from '@/hooks/useEnsureBaseUnitPcs';
 import { processStockAdjustment } from '@/lib/inventory-integration';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { useStockCRUD } from '@/features/stock/crud/useStockCRUD';
+import { supabase } from '@/integrations/supabase/client';
 
 export const StockAdjustments: React.FC = () => {
-  const { tenantId } = useAuth();
-  const { list: stockAdjustments, isLoading: loading } = useStockCRUD(tenantId);
+  const { tenantId, user } = useAuth();
+  const { list: stockAdjustments, isLoading: stockAdjustmentsLoading } = useStockCRUD(tenantId);
   const [products, setProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [adjustmentItems, setAdjustmentItems] = useState<any[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   useEnsureBaseUnitPcs();
   const { toast } = useToast();
   const { currency } = useBusinessSettings();
@@ -36,18 +39,35 @@ export const StockAdjustments: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      if (!tenantId) return;
+      if (!tenantId) {
+        console.log('No tenantId available for fetching products');
+        return;
+      }
 
+      setProductsLoading(true);
+      console.log('Fetching products for tenant:', tenantId);
       const { data, error } = await supabase
         .from('products')
         .select('id, name, sku, stock_quantity, cost_price')
         .eq('tenant_id', tenantId)
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
+      
+      console.log('Fetched products:', data);
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch products for stock adjustment",
+        variant: "destructive",
+      });
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -77,10 +97,14 @@ export const StockAdjustments: React.FC = () => {
     
     // Auto-fill system quantity when product is selected
     if (field === 'product_id') {
+      console.log('Product selected:', value, 'Available products:', products);
       const product = products.find(p => p.id === value);
       if (product) {
+        console.log('Found product:', product);
         updatedItems[index].system_quantity = product.stock_quantity || 0;
         updatedItems[index].unit_cost = product.cost_price || 0;
+      } else {
+        console.log('Product not found in products array');
       }
     }
     
@@ -92,7 +116,7 @@ export const StockAdjustments: React.FC = () => {
   };
 
   const createAdjustment = async (formData: FormData) => {
-    setLoading(true);
+    setSubmitting(true);
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -179,7 +203,7 @@ export const StockAdjustments: React.FC = () => {
         variant: 'destructive'
       });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -282,11 +306,17 @@ export const StockAdjustments: React.FC = () => {
                                     <SelectValue placeholder="Select product" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {products.map((product) => (
-                                      <SelectItem key={product.id} value={product.id}>
-                                        {product.name} ({product.sku})
+                                    {products.length === 0 ? (
+                                      <SelectItem value="" disabled>
+                                        {productsLoading ? "Loading products..." : "No products available"}
                                       </SelectItem>
-                                    ))}
+                                    ) : (
+                                      products.map((product) => (
+                                        <SelectItem key={product.id} value={product.id}>
+                                          {product.name} ({product.sku})
+                                        </SelectItem>
+                                      ))
+                                    )}
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -351,8 +381,8 @@ export const StockAdjustments: React.FC = () => {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={loading || adjustmentItems.length === 0}>
-                    {loading ? 'Creating...' : 'Create Adjustment'}
+                  <Button type="submit" disabled={submitting || adjustmentItems.length === 0}>
+                    {submitting ? 'Creating...' : 'Create Adjustment'}
                   </Button>
                 </div>
               </div>
