@@ -741,9 +741,14 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
               return [key, ''];
             }
             
-            // Optional ID fields can be null
-            if (key.includes('_id')) {
+            // Optional ID fields can be null (but NOT numeric fields)
+            if (key.includes('_id') && !key.includes('price') && !key.includes('quantity')) {
               return [key, null];
+            }
+            
+            // Numeric fields should be 0, not empty string
+            if (key.includes('price') || key.includes('quantity') || key.includes('margin') || key.includes('level')) {
+              return [key, 0];
             }
             
             // Other optional fields
@@ -755,6 +760,13 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
       );
 
       console.log('Cleaned form data:', cleanData);
+      console.log('Original form data for comparison:', {
+        retail_price: data.retail_price,
+        wholesale_price: data.wholesale_price,
+        cost_price: data.cost_price,
+        stock_quantity: data.stock_quantity,
+        min_stock_level: data.min_stock_level
+      });
 
       // Prepare payload with generated SKU, barcode and tenant_id
       // Only include fields that exist in the database table
@@ -763,10 +775,15 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         sku,
         barcode,
         tenant_id: tenantId,
-        // Ensure the individual price fields are properly set
-        retail_price: retailPrice,
-        wholesale_price: wholesalePrice,
-        cost_price: costPrice,
+        // Ensure the individual price fields are properly set from form data
+        retail_price: data.retail_price,
+        wholesale_price: data.wholesale_price,
+        cost_price: data.cost_price,
+        purchase_price: data.purchase_price,
+        default_profit_margin: data.default_profit_margin,
+        // Ensure stock fields are properly set from form data
+        stock_quantity: data.stock_quantity,
+        min_stock_level: data.min_stock_level,
         // Note: has_variants, is_combo_product, allow_negative_stock columns 
         // don't exist in the database, so we track them in component state only
         // The database will handle the 'price' field automatically based on these values
@@ -802,7 +819,26 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         name: data.name,
         categoryId: data.category_id,
         locationId: payload.location_id,
-        pricing: { retailPrice, wholesalePrice, costPrice }
+        pricing: { 
+          retail_price: data.retail_price, 
+          wholesale_price: data.wholesale_price, 
+          cost_price: data.cost_price 
+        },
+        stock: {
+          stock_quantity: data.stock_quantity,
+          min_stock_level: data.min_stock_level
+        }
+      });
+      
+      // Log final payload being sent to database
+      console.log('Final payload being sent to database:', {
+        retail_price: payload.retail_price,
+        wholesale_price: payload.wholesale_price,
+        cost_price: payload.cost_price,
+        stock_quantity: payload.stock_quantity,
+        min_stock_level: payload.min_stock_level,
+        location_id: payload.location_id,
+        name: payload.name
       });
       
       // Validate location data before submission
@@ -841,48 +877,27 @@ export default function ProductFormUnified({ product, onClose }: ProductFormProp
         // Update existing product
         savedProduct = await updateProduct(product.id, payload);
         
-        // Create inventory journal entry if stock changed
-        if (stockChanged && payload.location_id) {
-          try {
-            const stockDifference = newStockQuantity - oldStockQuantity;
-            const inventoryTransactions = [{
-              productId: savedProduct.id,
-              quantity: Math.abs(stockDifference),
-              type: 'adjustment' as const,
-              referenceId: `product_edit_${savedProduct.id}`,
-              referenceType: 'product_edit',
-              notes: `Stock ${stockDifference > 0 ? 'increase' : 'decrease'} via product edit: ${oldStockQuantity} → ${newStockQuantity}`
-            }];
-            
-            await updateProductInventory(tenantId, inventoryTransactions);
-            console.log('Inventory journal entry created for product stock change');
-          } catch (inventoryError) {
-            console.warn('Failed to create inventory journal entry:', inventoryError);
-            // Don't fail the product update if inventory journal fails
-          }
+        // NOTE: We don't create inventory journal entries for product form edits
+        // because the stock_quantity is already updated directly via the unified CRUD
+        // Creating inventory journal entries here would cause double-updates and conflicts
+        if (stockChanged) {
+          console.log('Stock changed via product edit:', { 
+            productId: savedProduct.id, 
+            oldQuantity: oldStockQuantity, 
+            newQuantity: newStockQuantity 
+          });
         }
       } else {
         // Create new product
         savedProduct = await createProduct(payload);
         
-        // Create inventory journal entry for new product with initial stock
-        if (payload.stock_quantity && payload.stock_quantity > 0 && payload.location_id) {
-          try {
-            const inventoryTransactions = [{
-              productId: savedProduct.id,
-              quantity: payload.stock_quantity,
-              type: 'adjustment' as const,
-              referenceId: `product_create_${savedProduct.id}`,
-              referenceType: 'product_create',
-              notes: `Initial stock for new product: ${payload.stock_quantity}`
-            }];
-            
-            await updateProductInventory(tenantId, inventoryTransactions);
-            console.log('Inventory journal entry created for new product initial stock');
-          } catch (inventoryError) {
-            console.warn('Failed to create inventory journal entry for new product:', inventoryError);
-            // Don't fail the product creation if inventory journal fails
-          }
+        // NOTE: We don't create inventory journal entries for new products
+        // because the stock_quantity is already set directly via the unified CRUD
+        if (payload.stock_quantity && payload.stock_quantity > 0) {
+          console.log('New product created with initial stock:', { 
+            productId: savedProduct.id, 
+            initialStock: payload.stock_quantity 
+          });
         }
       }
 

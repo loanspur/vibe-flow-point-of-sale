@@ -30,6 +30,7 @@ const Products = lazy(() => import('../pages/Products'));
 const Customers = lazy(() => import('../pages/Customers'));
 const Sales = lazy(() => import('../pages/Sales'));
 const Purchases = lazy(() => import('../pages/Purchases'));
+const Stock = lazy(() => import('../pages/Stock'));
 const Accounting = lazy(() => import('../pages/Accounting'));
 const Reports = lazy(() => import('../pages/Reports'));
 const Settings = lazy(() => import('../pages/Settings'));
@@ -79,6 +80,7 @@ export default function DomainRouter() {
               <Route path="/admin/customers" element={<Customers />} />
               <Route path="/admin/sales" element={<Sales />} />
               <Route path="/admin/purchases" element={<Purchases />} />
+              <Route path="/admin/stock" element={<Stock />} />
               <Route path="/admin/accounting" element={<Accounting />} />
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/settings" element={<Settings />} />
