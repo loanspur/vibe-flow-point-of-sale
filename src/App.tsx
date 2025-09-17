@@ -51,7 +51,7 @@ const DomainRouter = () => {
 const App = () => {
   return (
     <EnhancedErrorBoundary>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <TabStabilityProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>

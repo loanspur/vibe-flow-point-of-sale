@@ -1,12 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
+import { API_CONFIG, domainHelpers, emailHelpers, responseHelpers } from "../_shared/constants.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface WelcomeEmailRequest {
   tenantName: string;
@@ -22,7 +18,7 @@ interface WelcomeEmailRequest {
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return responseHelpers.cors();
   }
 
   try {
@@ -33,9 +29,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Determine login URL - use subdomain if provided, otherwise construct from tenant data
     let loginUrl = subdomainUrl;
     if (!loginUrl && subdomain) {
-      // Determine domain based on current environment
-      const currentHost = Deno.env.get('SUPABASE_URL')?.includes('vibenet.shop') ? 'vibenet.shop' : 'vibenet.online';
-      loginUrl = `https://${subdomain}.${currentHost}`;
+      loginUrl = domainHelpers.buildUrl(subdomain);
     }
     
     if (!loginUrl) {
