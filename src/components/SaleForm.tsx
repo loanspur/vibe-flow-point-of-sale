@@ -45,6 +45,8 @@ import { useCommonData } from "@/hooks/useCommonData";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, WARNING_MESSAGES } from '@/utils/errorMessages';
 import { generateReceiptNumber, calculateSaleTotal, validateSaleData, prepareSaleItemsData, updateCashDrawer } from '@/utils/saleHelpers';
 import type { SaleItem as SaleItemType, PaymentRecord } from '@/utils/saleHelpers';
+import { UI_TEXT, uiHelpers } from '@/constants/uiText';
+import { loggers, errorLogger } from '@/utils/logger';
 import { 
   validateQuantity, 
   validateLocation, 
@@ -80,7 +82,7 @@ const StockBadge = ({ productId, variantId, locationId, getLocationSpecificStock
       let stockAmount = await getLocationSpecificStock(productId, variantId, locationId);
       setStock(stockAmount);
     } catch (error) {
-      console.error('Error fetching stock:', error);
+      errorLogger.logError(error as Error, { productId, locationId });
       // Set to 0 on error to show unavailable
       setStock(0);
     } finally {
@@ -229,7 +231,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         checkMpesaConfig(),
         fetchBusinessSettings()
       ]).catch(error => {
-        console.error('Error during data fetching:', error);
+        errorLogger.logError(error as Error, { context: 'data fetching' });
       });
     } else {
       setFilteredProducts([]);
@@ -255,7 +257,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         setBusinessSettings(data);
       }
     } catch (error) {
-      console.error('Error fetching business settings:', error);
+      errorLogger.logError(error as Error, { context: 'business settings' });
     }
   };
 
@@ -272,7 +274,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     } catch (error) {
-      console.error('Error filtering products:', error);
+      errorLogger.logError(error as Error, { context: 'product filtering', searchTerm });
       return [];
     }
   }, [products, searchTerm]);
@@ -302,7 +304,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       setMpesaEnabled(!!(data as any)?.is_enabled);
     } catch (error) {
-      console.error('Error checking Mpesa config:', error);
+      errorLogger.logError(error as Error, { context: 'Mpesa config check' });
       setMpesaEnabled(false);
     }
   };
@@ -369,7 +371,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         .eq('product_id', productId)
         .eq('sales.tenant_id', tenantId)
         .eq('sales.location_id', locationId)
-        .gte('sales.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+        .gte('sales.created_at', new Date(Date.now() - UI_TEXT.TIME.HOURS_24).toISOString()); // Last 24 hours
       
       let recentSalesTotal = 0;
       if (recentSales) {
@@ -378,7 +380,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       let locationStock = baseStock + adjustmentTotal - recentSalesTotal;
       
-      console.log(`Stock calculation for product ${productId} at location ${locationId}:`, {
+      loggers.sale.debug(`Stock calculation for product ${productId} at location ${locationId}`, {
         baseStock,
         adjustmentTotal,
         recentSalesTotal,
@@ -398,7 +400,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 
       return locationStock;
     } catch (error) {
-      console.error('Error calculating location-specific stock:', error);
+      errorLogger.logError(error as Error, { productId, locationId, context: 'location-specific stock calculation' });
       // Fallback to basic product stock on error
       const product = products.find(p => p.id === productId);
       if (variantId && product?.product_variants) {
@@ -412,7 +414,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
 // Remove redundant getActualStock function - using unified stock calculation
 
   const addItemToSale = async () => {
-    console.log('addItemToSale called with:', {
+    loggers.sale.debug('addItemToSale called', {
       selectedProduct,
       selectedVariant,
       selectedLocation,
@@ -472,9 +474,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         selectedVariant !== "no-variant" ? selectedVariant : undefined,
         selectedLocation
       );
-      console.log('Stock check result:', { currentStock, quantity, selectedLocation });
+      loggers.sale.debug('Stock check result', { currentStock, quantity, selectedLocation });
     } catch (error) {
-      console.error('Error getting stock:', error);
+      errorLogger.logError(error as Error, { context: 'stock check', selectedProduct, selectedVariant, selectedLocation });
       // Fallback to basic product stock on error
       const product = products.find(p => p.id === selectedProduct);
       if (selectedVariant !== "no-variant" && product?.product_variants) {
@@ -490,7 +492,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     const allowOverselling = businessSettings?.enable_overselling || false;
     const locationName = locations.find(loc => loc.id === selectedLocation)?.name;
     
-    console.log('Stock settings:', { allowNegativeStock, allowOverselling, currentStock, quantity });
+    loggers.sale.debug('Stock settings', { allowNegativeStock, allowOverselling, currentStock, quantity });
     
     // Show low stock warning
     showLowStockWarning(product.name, currentStock, locationName);
@@ -512,11 +514,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           currentStock, 
           () => {
             // Continue with adding item
-            console.log('Overselling confirmed, continuing...');
+            loggers.sale.debug('Overselling confirmed, continuing');
           },
           () => {
             // Cancel adding item
-            console.log('Overselling cancelled');
+            loggers.sale.debug('Overselling cancelled');
             return;
           }
         );
@@ -531,7 +533,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     let productName = product.name;
 
     // Log pricing information for debugging
-    console.log('💰 PRICING LOGIC:', {
+    loggers.sale.debug('Pricing logic', {
       customerName: selectedCustomer?.name,
       isReseller: selectedCustomer?.is_reseller,
       productName: product.name,
@@ -547,7 +549,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         unitPrice = getCustomerAppropriatePrice(product, variant);
         productName = `${productName} - ${variant.name}: ${variant.value}`;
         
-        console.log('💰 VARIANT PRICING LOGIC:', {
+        loggers.sale.debug('Variant pricing logic', {
           variantName: `${variant.name}: ${variant.value}`,
           variantRetailPrice: variant.retail_price || product.retail_price || product.price,
           variantWholesalePrice: variant.wholesale_price || product.wholesale_price || product.price,
@@ -569,7 +571,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       (item.variant_id === currentVariantId || (!item.variant_id && !currentVariantId))
     );
 
-    console.log('Adding item with details:', {
+    loggers.sale.debug('Adding item with details', {
       productName,
       unitPrice,
       quantity,
@@ -598,11 +600,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
             currentStock, 
             () => {
               // Continue with updating item
-              console.log('Overselling confirmed for existing item, continuing...');
+              loggers.sale.debug('Overselling confirmed for existing item, continuing');
             },
             () => {
               // Cancel updating item
-              console.log('Overselling cancelled for existing item');
+              loggers.sale.debug('Overselling cancelled for existing item');
               return;
             }
           );
@@ -621,7 +623,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       updatedItems[existingItemIndex].total_price = updatedItems[existingItemIndex].unit_price * updatedItems[existingItemIndex].quantity;
       setSaleItems(updatedItems);
       
-      console.log('Updated existing item:', updatedItems[existingItemIndex]);
+      loggers.sale.debug('Updated existing item', updatedItems[existingItemIndex]);
       
       toast({
         title: "Item Updated",
@@ -640,12 +642,12 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         total_price: totalPrice,
       };
       
-      console.log('Adding new item:', newItem);
+      loggers.sale.debug('Adding new item', newItem);
       
       const newSaleItems = [...saleItems, newItem];
       setSaleItems(newSaleItems);
       
-      console.log('New sale items array:', newSaleItems);
+      loggers.sale.debug('New sale items array', newSaleItems);
       
       // Show out of stock warning if adding item with zero stock
       if (currentStock === 0 && allowOverselling) {
@@ -679,7 +681,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     setQuantity(1);
     setCustomPrice(null);
     
-    console.log('addItemToSale completed, final saleItems length:', saleItems.length + 1);
+    loggers.sale.debug('addItemToSale completed', { finalSaleItemsLength: saleItems.length + 1 });
   };
 
   const removeItem = (index: number) => {
@@ -697,7 +699,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       setCustomPrice(null);
       // Don't clear search term immediately to maintain UI stability
     } catch (error) {
-      console.error('Error selecting product:', error);
+      errorLogger.logError(error as Error, { context: 'product selection', selectedProduct });
       toast({
         title: "Error",
         description: "Failed to select product",
@@ -728,25 +730,29 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       form.setValue("tax_amount", Number(tax.toFixed(2)));
     }
     
+    let total;
     if (isTaxInclusive) {
       // For tax-inclusive pricing, total is subtotal - discount + shipping (tax already included)
-      return subtotal - discount + shipping;
+      total = subtotal - discount + shipping;
     } else {
       // For tax-exclusive pricing, add tax to the total
-      return subtotal - discount + tax + shipping;
+      total = subtotal - discount + tax + shipping;
     }
+    
+    // Round up to the nearest shilling (whole number)
+    return Math.ceil(total);
   };
 
   const generateReceiptNumber = () => {
     if (docSettings.invoiceAutoNumber) {
-      return `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      return uiHelpers.generateReference(UI_TEXT.REFERENCE_PREFIXES.RECEIPT);
     }
     return `MANUAL-${Date.now()}`;
   };
 
   const generateQuoteNumber = () => {
     if (docSettings.quoteAutoNumber) {
-      return `QUO-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      return uiHelpers.generateReference(UI_TEXT.REFERENCE_PREFIXES.QUOTE);
     }
     return `MANUAL-QUO-${Date.now()}`;
   };
@@ -804,7 +810,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
     // Update prices for existing items in cart based on new customer type
     if (saleItems.length > 0) {
       setIsUpdatingPrices(true);
-      console.log('🔄 UPDATING CART PRICES FOR CUSTOMER CHANGE:', {
+      loggers.sale.debug('Updating cart prices for customer change', {
         customerName: newCustomer.name,
         isReseller: newCustomer.is_reseller,
         itemsCount: saleItems.length
@@ -828,7 +834,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         if (newUnitPrice !== item.unit_price) {
           const newTotalPrice = newUnitPrice * item.quantity;
           
-          console.log('💰 PRICE UPDATE:', {
+          loggers.sale.debug('Price update for customer change', {
             productName: item.product_name,
             variantName: item.variant_name || 'N/A',
             oldPrice: item.unit_price,
@@ -1093,7 +1099,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
             );
           }
         } catch (error) {
-          console.error('Quote notification failed:', error);
+          errorLogger.logError(error as Error, { context: 'quote notification', quoteId: quote.id });
           // Don't fail the quote creation if notification fails
         }
 
@@ -1205,7 +1211,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
   };
 
   const completeSale = async () => {
-    console.log('completeSale function called');
+    loggers.sale.debug('completeSale function called');
     const values = form.getValues();
     const hasCreditPayment = enhancedPayments.some(p => p.method.toLowerCase().includes('credit'));
 
@@ -1254,7 +1260,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         // Debug: Check current user role and profile before payment insertion
         try {
           const { data: roleData, error: roleError } = await supabase.rpc('get_current_user_role');
-          console.log('🔍 PAYMENT DEBUG: Current user role before payment insertion:', { roleData, roleError });
+          loggers.sale.debug('Payment debug: Current user role before payment insertion', { roleData, roleError });
           
           // Also check the user's profile directly
           const { data: profileData, error: profileError } = await supabase
@@ -1262,9 +1268,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
             .select('user_id, role, tenant_id, full_name')
             .eq('user_id', user.id)
             .single();
-          console.log('🔍 PAYMENT DEBUG: User profile data:', { profileData, profileError });
+          loggers.sale.debug('Payment debug: User profile data', { profileData, profileError });
         } catch (error) {
-          console.log('🔍 PAYMENT DEBUG: Error checking user role/profile:', error);
+          loggers.sale.debug('Payment debug: Error checking user role/profile', { error });
         }
 
         const paymentData = enhancedPayments.map(payment => ({
@@ -1275,7 +1281,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
           tenant_id: tenantId,
         }));
 
-        console.log('🔍 PAYMENT DEBUG: Payment data to insert:', paymentData);
+        loggers.sale.debug('Payment debug: Payment data to insert', paymentData);
 
         const { error: paymentError } = await supabase
           .from("payments")
@@ -1321,11 +1327,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                 sale_id_param: sale.id,
                 customer_id_param: values.customer_id,
                 total_amount_param: totalAmount,
-                due_date_param: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                due_date_param: new Date(Date.now() + UI_TEXT.TIME.DAYS_30).toISOString().split('T')[0]
               });
-              console.log('AR entry created successfully');
+              loggers.sale.debug('AR entry created successfully');
             } catch (error) {
-              console.error('AR creation error:', error);
+              errorLogger.logError(error as Error, { context: 'AR creation', saleId: sale.id });
               // Don't call toast here to avoid React context issues
             }
           })()
@@ -1336,7 +1342,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       postSaleOperations.push(
         (async () => {
           try {
-            console.log('🔍 ACCOUNTING DEBUG: Enhanced payments array:', enhancedPayments);
+            loggers.sale.debug('Accounting debug: Enhanced payments array', enhancedPayments);
             await createEnhancedSalesJournalEntry(tenantId, {
               saleId: sale.id,
               cashierId: user.id,
@@ -1347,9 +1353,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
               shippingAmount: values.shipping_amount,
               payments: enhancedPayments, // Always pass actual payments to accounting system
             });
-            console.log('Accounting entry created successfully');
+            loggers.sale.debug('Accounting entry created successfully');
           } catch (error) {
-            console.error('Accounting entry error:', error);
+            errorLogger.logError(error as Error, { context: 'accounting entry creation', saleId: sale.id });
             // Don't call toast here to avoid React context issues
           }
         })()
@@ -1361,7 +1367,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         postSaleOperations.push(
           (async () => {
             try {
-              console.log('Sending receipt notification:', { 
+              loggers.sale.debug('Sending receipt notification', { 
                 saleId: sale.id, 
                 tenantId, 
                 customerPhone: customer?.phone,
@@ -1391,9 +1397,9 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                 customer?.phone || undefined,
                 customer?.email || undefined
               );
-              console.log('Receipt notification sent successfully');
+              loggers.sale.debug('Receipt notification sent successfully');
             } catch (error) {
-              console.error('Receipt notification failed:', error);
+              errorLogger.logError(error as Error, { context: 'receipt notification', saleId: sale.id });
               // Don't show toast here as it might be a settings issue
             }
           })()
@@ -1418,7 +1424,7 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       onSaleCompleted?.();
 
     } catch (error: any) {
-      console.error('Sale completion error:', error);
+      errorLogger.logError(error as Error, { context: 'sale completion', saleId: sale?.id });
       toast({
         title: "Error",
         description: error.message || ERROR_MESSAGES.SALE_COMPLETION_FAILED,
@@ -1968,6 +1974,34 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                     <span>Total</span>
                     <span>{formatCurrency(calculateTotal())}</span>
                   </div>
+                  
+                  {/* Rounding indicator */}
+                  {(() => {
+                    const subtotal = calculateSubtotal();
+                    const discount = form.getValues("discount_amount") || 0;
+                    const shipping = form.getValues("shipping_amount") || 0;
+                    const tax = form.getValues("tax_amount") || 0;
+                    const isTaxInclusive = businessSettings?.tax_inclusive || false;
+                    
+                    let originalTotal;
+                    if (isTaxInclusive) {
+                      originalTotal = subtotal - discount + shipping;
+                    } else {
+                      originalTotal = subtotal - discount + tax + shipping;
+                    }
+                    
+                    const roundedTotal = Math.ceil(originalTotal);
+                    const roundingDifference = roundedTotal - originalTotal;
+                    
+                    if (roundingDifference > 0) {
+                      return (
+                        <div className="text-xs text-muted-foreground text-right">
+                          Rounded up by {formatCurrency(roundingDifference)}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                                      {/* Payment Section - after total */}
                    {mode === "sale" && (
@@ -2012,11 +2046,11 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
                   <div className="flex gap-2 pt-4">
                     {mode === "sale" ? (
                       <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                        {isSubmitting ? "Processing..." : "Complete Sale"}
+                        {uiHelpers.getButtonText(UI_TEXT.BUTTONS.COMPLETE_SALE, isSubmitting)}
                       </Button>
                     ) : (
                       <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                        {isSubmitting ? "Saving..." : "Save Quote"}
+                        {uiHelpers.getButtonText(UI_TEXT.BUTTONS.SAVE_QUOTE, isSubmitting)}
                       </Button>
                     )}
                   </div>
@@ -2030,15 +2064,15 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
+            <AlertDialogTitle>{UI_TEXT.DIALOGS.CONFIRM_SALE}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to complete this sale? This action cannot be undone.
+              {UI_TEXT.DIALOG_DESCRIPTIONS.CONFIRM_SALE}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{UI_TEXT.BUTTONS.CANCEL}</AlertDialogCancel>
             <AlertDialogAction onClick={completeSale}>
-              {isSubmitting ? "Processing..." : "Confirm Sale"}
+              {uiHelpers.getButtonText(UI_TEXT.BUTTONS.CONFIRM_SALE, isSubmitting)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2056,8 +2090,8 @@ export function SaleForm({ onSaleCompleted, initialMode = "sale" }: SaleFormProp
         isOpen={showMpesaModal}
         onClose={() => setShowMpesaModal(false)}
         amount={calculateTotal()}
-        reference={`SALE-${Date.now()}`}
-        description="Sale Payment"
+        reference={uiHelpers.generateReference(UI_TEXT.REFERENCE_PREFIXES.SALE)}
+        description={UI_TEXT.SECTIONS.PAYMENT}
         onSuccess={handleMpesaSuccess}
         onError={handleMpesaError}
       />

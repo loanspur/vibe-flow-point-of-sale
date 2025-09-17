@@ -4,8 +4,9 @@ import type { Database } from './types';
 import { log } from '@/lib/logger';
 
 // Default Supabase configuration for development
-const DEFAULT_SUPABASE_URL = 'https://qwtybhvdbbkbcelisuek.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHliaHZkYmJrYmNlbGlzdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMjA1NDAsImV4cCI6MjA3MTg5NjU0MH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+// These should be replaced with actual values from environment variables
+const DEFAULT_SUPABASE_URL = import.meta.env.VITE_DEFAULT_SUPABASE_URL || 'https://your-project-id.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = import.meta.env.VITE_DEFAULT_SUPABASE_ANON_KEY || 'your-anon-key-here';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
